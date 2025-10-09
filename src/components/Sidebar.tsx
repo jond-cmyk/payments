@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom'; // Import useLocation
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -104,8 +104,20 @@ interface NavLinkProps {
 }
 
 const NavLink = ({ to, icon, label }: NavLinkProps) => {
+  const location = useLocation(); // Get current location
+  const isActive = location.pathname === to; // Check if the link is active
+
   return (
-    <Button asChild variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+    <Button
+      asChild
+      variant="ghost"
+      className={cn(
+        "w-full justify-start",
+        isActive
+          ? "bg-sidebar-primary text-sidebar-primary-foreground hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
+          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+      )}
+    >
       <Link to={to}>
         {icon}
         <span className="ml-2">{label}</span>
