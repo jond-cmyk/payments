@@ -17,6 +17,7 @@ import DatePicker from '@/components/DatePicker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PrefixedInput from '@/components/PrefixedInput'; // Import the new PrefixedInput component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -43,8 +44,8 @@ const formSchema = z.object({
   sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
-  currency: z.string().min(1, "Currency is required"), // New validation
-  payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"), // New validation
+  currency: z.string().min(1, "Currency is required"),
+  payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"),
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
@@ -53,6 +54,7 @@ const formSchema = z.object({
     .refine((file) => file?.length > 0, "Invoice PDF is required.")
     .refine((file) => file?.[0]?.size <= 5 * 1024 * 1024, "Max file size is 5MB.") // 5MB limit
     .refine((file) => file?.[0]?.type === "application/pdf", "Only .pdf files are accepted."),
+  receipt_required: z.boolean().default(false), // New field for checkbox
 });
 
 const NewPaymentRequest = () => {
@@ -66,11 +68,12 @@ const NewPaymentRequest = () => {
       sku_number: "CH",
       supplier_address: "",
       iban_number: "",
-      currency: "USD", // Default currency
-      payment_amount: 0.00, // Default amount
+      currency: "CHF", // Default currency changed to CHF
+      payment_amount: 0.00,
       reason_for_payment: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
+      receipt_required: false, // Default for new checkbox
     },
   });
 
@@ -124,12 +127,13 @@ const NewPaymentRequest = () => {
           sku_number: values.sku_number,
           supplier_address: values.supplier_address,
           iban_number: values.iban_number,
-          currency: values.currency, // New field
-          payment_amount: values.payment_amount, // New field
+          currency: values.currency,
+          payment_amount: values.payment_amount,
           reason_for_payment: values.reason_for_payment,
-          date_payment_required: values.date_payment_required.toISOString().split('T')[0], // Format date to YYYY-MM-DD
+          date_payment_required: values.date_payment_required.toISOString().split('T')[0],
           invoice_pdf_url: publicUrlData.publicUrl,
           status: 'pending',
+          receipt_required: values.receipt_required, // New field
         });
 
       if (insertError) {
@@ -138,7 +142,7 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({ sku_number: "CH", currency: "USD", payment_amount: 0.00 }); // Clear the form, reset SKU and new fields
+      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false }); // Clear the form, reset SKU, new fields, and checkbox
       navigate('/dashboard'); // Redirect to dashboard or requests list
     } catch (error: any) {
       dismissToast(toastId);
@@ -290,6 +294,28 @@ const NewPaymentRequest = () => {
                       />
                     </FormControl>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="receipt_required"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Payment Receipt Required?
+                      </FormLabel>
+                      <FormDescription>
+                        Check this box if a receipt is required after the payment is made.
+                      </FormDescription>
+                    </div>
                   </FormItem>
                 )}
               />

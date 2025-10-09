@@ -18,6 +18,7 @@ export type PaymentRequest = {
   updated_at: string;
   payment_setup_date: string | null; // New field
   payment_approved_date: string | null; // New field
+  receipt_required: boolean; // New field
 };
 
 export type Profile = {

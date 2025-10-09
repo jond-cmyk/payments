@@ -14,7 +14,7 @@ import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'; // Import FormDescription
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import DatePicker from '@/components/DatePicker';
@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import PrefixedInput from '@/components/PrefixedInput'; // Import PrefixedInput
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -59,8 +60,8 @@ const editFormSchema = z.object({
   sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
-  currency: z.string().min(1, "Currency is required"), // New validation
-  payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"), // New validation
+  currency: z.string().min(1, "Currency is required"),
+  payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"),
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
@@ -69,6 +70,7 @@ const editFormSchema = z.object({
     .optional() // Make optional for editing, only required if a new file is selected
     .refine((file) => !file || file.length === 0 || file?.[0]?.size <= 5 * 1024 * 1024, "Max file size is 5MB.") // 5MB limit
     .refine((file) => !file || file.length === 0 || file?.[0]?.type === "application/pdf", "Only .pdf files are accepted."),
+  receipt_required: z.boolean().default(false), // New field for checkbox
 });
 
 // Zod schema for admin decline reason
@@ -191,6 +193,7 @@ const PaymentRequestDetail = () => {
       reason_for_payment: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
+      receipt_required: false, // Default for new checkbox
     },
   });
 
@@ -202,11 +205,12 @@ const PaymentRequestDetail = () => {
         sku_number: request.sku_number,
         supplier_address: request.supplier_address,
         iban_number: request.iban_number,
-        currency: request.currency, // New field
-        payment_amount: request.payment_amount, // New field
+        currency: request.currency,
+        payment_amount: request.payment_amount,
         reason_for_payment: request.reason_for_payment,
         date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
         invoice_pdf: undefined, // Always reset file input
+        receipt_required: request.receipt_required, // New field
       });
     } 
   }, [request, isEditing, editForm]);
@@ -320,10 +324,11 @@ const PaymentRequestDetail = () => {
         sku_number: values.sku_number,
         supplier_address: values.supplier_address,
         iban_number: values.iban_number,
-        currency: values.currency, // New field
-        payment_amount: values.payment_amount, // New field
+        currency: values.currency,
+        payment_amount: values.payment_amount,
         reason_for_payment: values.reason_for_payment,
         date_payment_required: values.date_payment_required.toISOString().split('T')[0],
+        receipt_required: values.receipt_required, // New field
       };
 
       if (values.invoice_pdf && values.invoice_pdf.length > 0) {
@@ -654,6 +659,28 @@ const PaymentRequestDetail = () => {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={editForm.control}
+                  name="receipt_required"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>
+                          Payment Receipt Required?
+                        </FormLabel>
+                        <FormDescription>
+                          Check this box if a receipt is required after the payment is made.
+                        </FormDescription>
+                      </div>
+                    </FormItem>
+                  )}
+                />
               </form>
             </Form>
           ) : (
@@ -708,6 +735,10 @@ const PaymentRequestDetail = () => {
                   </Button>
                 </div>
               )}
+              <div>
+                <p className="font-medium">Payment Receipt Required:</p>
+                <p>{request.receipt_required ? 'Yes' : 'No'}</p>
+              </div>
               <div>
                 <p className="font-medium">Created At:</p>
                 <p>{format(new Date(request.created_at), 'PPP p')}</p>
