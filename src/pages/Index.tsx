@@ -9,10 +9,13 @@ const Index = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("Index: Current session state - isLoading:", isLoading, "session:", session);
     if (!isLoading) {
       if (session) {
+        console.log("Index: Session found, redirecting to /dashboard.");
         navigate('/dashboard'); // Redirect to dashboard if logged in
       } else {
+        console.log("Index: No session found, redirecting to /login.");
         navigate('/login'); // Redirect to login if not logged in
       }
     }

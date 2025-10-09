@@ -12,12 +12,15 @@ const Login = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("Login: Current session state - isLoading:", isLoading, "session:", session);
     if (!isLoading && session) {
+      console.log("Login: Session found, redirecting to /.");
       navigate('/'); // Redirect to home if already logged in
     }
   }, [session, isLoading, navigate]);
 
   if (isLoading) {
+    console.log("Login: Displaying loading state.");
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 

@@ -18,19 +18,25 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    console.log("SessionContext: Initializing auth state listener.");
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log("SessionContext: Auth state changed. Event:", _event, "Session:", session);
       setSession(session);
       setUser(session?.user || null);
       setIsLoading(false);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("SessionContext: Initial getSession result:", session);
       setSession(session);
       setUser(session?.user || null);
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log("SessionContext: Unsubscribing from auth state listener.");
+      subscription.unsubscribe();
+    };
   }, []);
 
   return (
