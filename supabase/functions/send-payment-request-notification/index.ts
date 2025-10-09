@@ -136,7 +136,7 @@ serve(async (req) => {
 
     // Send email
     const { data: emailData, error: resendError } = await resend.emails.send({
-      from: 'your-verified-email@your-domain.com', // IMPORTANT: Replace with your VERIFIED sender email
+      from: 'jon.d@kassoehousing.com', // Updated with the specified email
       to: recipientEmails,
       subject: subject,
       html: htmlContent,
