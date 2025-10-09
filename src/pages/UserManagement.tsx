@@ -22,28 +22,6 @@ import { Badge } from '@/components/ui/badge';
 import { Users } from 'lucide-react';
 
 const UserManagement = () => {
-  console.log("UserManagement: Component is rendering!"); // Added for debugging
-
-  // Temporarily return a simple message to confirm rendering
-  return (
-    <div className="container mx-auto py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center text-2xl font-bold">
-            <Users className="mr-2 h-6 w-6" /> User Management (Temporary View)
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-center text-lg text-muted-foreground mt-8">
-            If you see this, the UserManagement component is rendering!
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  // The rest of the original code is commented out for now
-  /*
   const { session, isLoading: isSessionLoading, user } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -236,7 +214,6 @@ const UserManagement = () => {
       </Card>
     </div>
   );
-  */
 };
 
 export default UserManagement;
