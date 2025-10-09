@@ -5,22 +5,24 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users } from 'lucide-react'; // Import Users icon
+import { Home, PlusCircle, List, LogOut, User, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Profile } from '@/types/supabase';
 
-const Sidebar = () => {
+interface SidebarProps {
+  className?: string;
+  isMobile?: boolean; // New prop to adjust styling for mobile sheet
+}
+
+const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const { session, user, isLoading } = useSession();
   const navigate = useNavigate();
 
-  console.log('Sidebar: useSession - isLoading:', isLoading, 'user:', user);
-
   // Fetch user role using react-query
-  const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
+  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
     queryKey: ['userProfile', user?.id],
     queryFn: async () => {
-      console.log('Sidebar: useQuery - fetching for user ID:', user?.id);
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
@@ -31,14 +33,12 @@ const Sidebar = () => {
         console.error('Sidebar: Error fetching user role:', error.message);
         throw error;
       }
-      console.log('Sidebar: useQuery - fetched profile data:', data);
       return data;
     },
     enabled: !!user?.id, // Only run query if user ID is available
   });
 
   const currentRole = profileData?.role;
-  console.log('Sidebar: isProfileLoading:', isProfileLoading, 'currentRole derived from profileData:', currentRole);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -50,19 +50,23 @@ const Sidebar = () => {
   }
 
   return (
-    <div className="flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border p-4 shadow-md">
+    <div className={cn(
+      "flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-md",
+      isMobile ? "p-4" : "p-4", // Apply padding based on isMobile, currently same but can be differentiated
+      className
+    )}>
       <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
         <h1 className="text-2xl font-bold text-dyad-blue">Payment App</h1>
       </div>
       <nav className="flex-1 space-y-2">
         <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
-        {(currentRole === 'requester' || currentRole === 'admin') && ( // Changed condition here
+        {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
         {currentRole === 'admin' && (
           <>
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
-            <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" /> {/* New admin link */}
+            <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
           </>
         )}
       </nav>
