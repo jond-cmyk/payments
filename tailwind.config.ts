@@ -62,6 +62,12 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        dyad: {
+          blue: {
+            DEFAULT: "hsl(var(--dyad-blue))",
+            foreground: "hsl(var(--dyad-blue-foreground))",
+          },
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
