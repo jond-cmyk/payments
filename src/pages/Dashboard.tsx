@@ -94,7 +94,7 @@ const Dashboard = () => {
           {userRole === 'admin' ? 'All Payment Requests' : 'My Payment Requests'}
         </h1>
         {/* Temporary display of user role for debugging */}
-        <p className="text-sm text-gray-500">Current Role: {userRole || 'Not loaded'}</p>
+        <p className="text-sm text-gray-500">Current Role: {userRole || 'Not available'}</p>
 
         {userRole === 'requester' && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
