@@ -51,6 +51,7 @@
 
     --dyad-blue: 199 100% 33%; /* #00a9ff */
     --dyad-blue-foreground: 0 0% 100%;
+    --dyad-blue-light: 199 100% 90%; /* A lighter shade for gradients */
   }
 
   .dark {
@@ -92,6 +93,7 @@
 
     --dyad-blue: 199 100% 33%; /* #00a9ff */
     --dyad-blue-foreground: 0 0% 100%;
+    --dyad-blue-light: 199 100% 90%; /* A lighter shade for gradients */
   }
 }
 

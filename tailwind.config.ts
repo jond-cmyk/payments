@@ -66,6 +66,7 @@ export default {
           blue: {
             DEFAULT: "hsl(var(--dyad-blue))",
             foreground: "hsl(var(--dyad-blue-foreground))",
+            light: "hsl(var(--dyad-blue-light))", // New lighter shade for gradients
           },
         },
       },
