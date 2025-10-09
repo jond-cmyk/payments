@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PaymentRequest, Profile, PaymentRequestAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { format } from 'date-fns';
+import { format } = from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -265,8 +265,8 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  const handleAdminAction = async (status: 'setup' | 'approved' | 'declined', reason?: string) => {
-    const toastId = showLoading(`Setting status to ${status}...`);
+  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined', reason?: string) => {
+    const toastId = showLoading(`Setting status to ${status.replace(/_/g, ' ')}...`);
     try {
       if (!user?.id) throw new Error("Admin user not authenticated.");
 
@@ -281,7 +281,7 @@ const PaymentRequestDetail = () => {
       dismissToast(toastId);
     } catch (error: any) {
       dismissToast(toastId);
-      showError(error.message || `Failed to set status to ${status}.`);
+      showError(error.message || `Failed to set status to ${status.replace(/_/g, ' ')}.`);
     }
   };
 
@@ -343,6 +343,21 @@ const PaymentRequestDetail = () => {
   const isAdmin = userRole === 'admin';
   const canEdit = isRequester && request.status === 'pending';
 
+  const getStatusDisplay = (status: PaymentRequest['status']) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'setup_awaiting_approval':
+        return 'Payment Setup - Awaiting Payment Approval';
+      case 'approved':
+        return 'Approved';
+      case 'declined':
+        return 'Declined';
+      default:
+        return status;
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
@@ -369,11 +384,12 @@ const PaymentRequestDetail = () => {
           <CardTitle>Request Details</CardTitle>
           <CardDescription>Status: <span className={`font-semibold ${
             request.status === 'pending' ? 'text-yellow-600' :
+            request.status === 'setup_awaiting_approval' ? 'text-blue-600' : // New color for new status
             request.status === 'approved' ? 'text-green-600' :
             request.status === 'declined' ? 'text-red-600' :
-            'text-blue-600'
+            'text-gray-600'
           }`}>
-            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+            {getStatusDisplay(request.status)}
           </span></CardDescription>
         </CardHeader>
         <CardContent>
@@ -547,71 +563,77 @@ const PaymentRequestDetail = () => {
         </CardContent>
       </Card>
 
-      {isAdmin && request.status === 'pending' && (
+      {isAdmin && request.status !== 'declined' && ( // Admin actions available if not declined
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Admin Actions</CardTitle>
             <CardDescription>Manage this payment request.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-4">
-            <Button
-              onClick={() => handleAdminAction('setup')}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-              disabled={updateRequestMutation.isPending}
-            >
-              <DollarSign className="mr-2 h-4 w-4" /> Setup Payment
-            </Button>
-            <Button
-              onClick={() => handleAdminAction('approved')}
-              className="bg-green-600 hover:bg-green-700 text-white"
-              disabled={updateRequestMutation.isPending}
-            >
-              <CheckCircle className="mr-2 h-4 w-4" /> Approve Payment
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  disabled={updateRequestMutation.isPending}
-                >
-                  <XCircle className="mr-2 h-4 w-4" /> Decline Payment
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Decline Payment Request</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Please provide a reason for declining this payment request. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <Form {...declineForm}>
-                  <form onSubmit={declineForm.handleSubmit((values) => handleAdminAction('declined', values.admin_action_reason))} className="space-y-4">
-                    <FormField
-                      control={declineForm.control}
-                      name="admin_action_reason"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Reason</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="e.g., Insufficient budget, missing information" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction type="submit" className="bg-destructive text-destructive-foreground">Decline</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </form>
-                </Form>
-              </AlertDialogContent>
-            </AlertDialog>
+            {request.status === 'pending' && (
+              <Button
+                onClick={() => handleAdminAction('setup_awaiting_approval')}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={updateRequestMutation.isPending}
+              >
+                <DollarSign className="mr-2 h-4 w-4" /> Setup Payment
+              </Button>
+            )}
+            {request.status === 'setup_awaiting_approval' && (
+              <Button
+                onClick={() => handleAdminAction('approved')}
+                className="bg-green-600 hover:bg-green-700 text-white"
+                disabled={updateRequestMutation.isPending}
+              >
+                <CheckCircle className="mr-2 h-4 w-4" /> Approve Payment
+              </Button>
+            )}
+            {(request.status === 'pending' || request.status === 'setup_awaiting_approval') && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    disabled={updateRequestMutation.isPending}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" /> Decline Payment
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Decline Payment Request</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Please provide a reason for declining this payment request. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <Form {...declineForm}>
+                    <form onSubmit={declineForm.handleSubmit((values) => handleAdminAction('declined', values.admin_action_reason))} className="space-y-4">
+                      <FormField
+                        control={declineForm.control}
+                        name="admin_action_reason"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Reason</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="e.g., Insufficient budget, missing information" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction type="submit" className="bg-destructive text-destructive-foreground">Decline</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </form>
+                  </Form>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {isAdmin && (request.status === 'setup' || request.status === 'approved') && !request.receipt_pdf_url && (
+      {isAdmin && request.status === 'approved' && !request.receipt_pdf_url && ( // Receipt upload only if approved and no receipt
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Upload Receipt</CardTitle>
