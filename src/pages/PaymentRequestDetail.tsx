@@ -167,20 +167,19 @@ const PaymentRequestDetail = () => {
   });
 
   // Effect to reset editForm when request data loads or isEditing changes
-  useEffect(() => {
-    if (request && isEditing) {
-      editForm.reset({
-        supplier_name: request.supplier_name,
-        sku_number: request.sku_number,
-        supplier_address: request.supplier_address,
-        iban_number: request.iban_number,
-        reason_for_payment: request.reason_for_payment,
-        date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
-        invoice_pdf: undefined, // Always reset file input
-      });
-    } 
-    // Removed the else if (!isEditing) block to simplify and debug parsing error
-  }, [request, isEditing, editForm]);
+  // useEffect(() => {
+  //   if (request && isEditing) {
+  //     editForm.reset({
+  //       supplier_name: request.supplier_name,
+  //       sku_number: request.sku_number,
+  //       supplier_address: request.supplier_address,
+  //       iban_number: request.iban_number,
+  //       reason_for_payment: request.reason_for_payment,
+  //       date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
+  //       invoice_pdf: undefined, // Always reset file input
+  //     });
+  //   } 
+  // }, [request, isEditing, editForm]);
 
 
   // Form for declining (admin)
@@ -688,7 +687,7 @@ const PaymentRequestDetail = () => {
                       <AlertDialogDescription>
                         Enter a note to query the requester about this payment request. This will be visible in the audit trail and change the request status to 'Queried'.
                       </AlertDialogDescription>
-                    </AlertDialogHeader>
+                    </AlertDialogDescription>
                     <Form {...queryForm}>
                       <form onSubmit={queryForm.handleSubmit(handleAdminQuery)} className="space-y-4">
                         <FormField
