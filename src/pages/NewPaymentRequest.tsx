@@ -16,13 +16,30 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import DatePicker from '@/components/DatePicker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PrefixedInput from '@/components/PrefixedInput'; // Import the new PrefixedInput component
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// List of major currencies
+const majorCurrencies = [
+  { value: 'USD', label: 'USD - United States Dollar' },
+  { value: 'EUR', label: 'EUR - Euro' },
+  { value: 'GBP', label: 'GBP - British Pound' },
+  { value: 'JPY', label: 'JPY - Japanese Yen' },
+  { value: 'CAD', label: 'CAD - Canadian Dollar' },
+  { value: 'AUD', label: 'AUD - Australian Dollar' },
+  { value: 'CHF', label: 'CHF - Swiss Franc' },
+  { value: 'CNY', label: 'CNY - Chinese Yuan' },
+  { value: 'SEK', label: 'SEK - Swedish Krona' },
+  { value: 'NZD', label: 'NZD - New Zealand Dollar' },
+];
 
 // Define the Zod schema for form validation
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
-  sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."), // Updated validation
+  sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
+  currency: z.string().min(1, "Currency is required"), // New validation
+  payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"), // New validation
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
@@ -41,9 +58,11 @@ const NewPaymentRequest = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       supplier_name: "",
-      sku_number: "CH", // Default value to ensure prefix is there
+      sku_number: "CH",
       supplier_address: "",
       iban_number: "",
+      currency: "USD", // Default currency
+      payment_amount: 0.00, // Default amount
       reason_for_payment: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
@@ -100,6 +119,8 @@ const NewPaymentRequest = () => {
           sku_number: values.sku_number,
           supplier_address: values.supplier_address,
           iban_number: values.iban_number,
+          currency: values.currency, // New field
+          payment_amount: values.payment_amount, // New field
           reason_for_payment: values.reason_for_payment,
           date_payment_required: values.date_payment_required.toISOString().split('T')[0], // Format date to YYYY-MM-DD
           invoice_pdf_url: publicUrlData.publicUrl,
@@ -112,7 +133,7 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({ sku_number: "CH" }); // Clear the form, reset SKU to "CH"
+      form.reset({ sku_number: "CH", currency: "USD", payment_amount: 0.00 }); // Clear the form, reset SKU and new fields
       navigate('/dashboard'); // Redirect to dashboard or requests list
     } catch (error: any) {
       dismissToast(toastId);
@@ -177,6 +198,43 @@ const NewPaymentRequest = () => {
                     <FormLabel>IBAN Number</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., GB33BUKB20201555555555" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Currency</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a currency" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {majorCurrencies.map((currency) => (
+                          <SelectItem key={currency.value} value={currency.value}>
+                            {currency.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="payment_amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Amount</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="e.g., 123.45" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

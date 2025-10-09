@@ -5,6 +5,8 @@ export type PaymentRequest = {
   sku_number: string;
   supplier_address: string;
   iban_number: string;
+  currency: string; // New field
+  payment_amount: number; // New field
   reason_for_payment: string;
   date_payment_required: string; // YYYY-MM-DD format
   invoice_pdf_url: string;
