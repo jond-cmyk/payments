@@ -8,7 +8,7 @@ export type PaymentRequest = {
   reason_for_payment: string;
   date_payment_required: string; // YYYY-MM-DD format
   invoice_pdf_url: string;
-  status: 'pending' | 'setup_awaiting_approval' | 'approved' | 'declined'; // Updated status type
+  status: 'pending' | 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried'; // Updated status type
   admin_action_by: string | null;
   admin_action_reason: string | null;
   receipt_pdf_url: string | null;

@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import DatePicker from '@/components/DatePicker';
 import { Separator } from '@/components/ui/separator';
-import { FileText, Download, CheckCircle, XCircle, DollarSign, History, MessageSquare } from 'lucide-react'; // Import MessageSquare icon
+import { FileText, Download, CheckCircle, XCircle, DollarSign, History, MessageSquare } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -299,11 +299,12 @@ const PaymentRequestDetail = () => {
   };
 
   const handleAdminQuery = async (values: z.infer<typeof queryFormSchema>) => {
-    const toastId = showLoading("Adding query note...");
+    const toastId = showLoading("Adding query note and updating status...");
     try {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
 
-      const { error } = await supabase
+      // First, log the query in the audit trail
+      const { error: auditError } = await supabase
         .from('payment_request_audits')
         .insert({
           payment_request_id: id,
@@ -311,16 +312,22 @@ const PaymentRequestDetail = () => {
           change_description: `Admin queried payment: ${values.query_note}`,
         });
 
-      if (error) throw error;
+      if (auditError) throw new Error(`Failed to log query in audit trail: ${auditError.message}`);
 
-      queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
-      showSuccess("Query note added successfully!");
-      queryForm.reset(); // Clear the form
+      // Then, update the payment request status to 'queried'
+      await updateRequestMutation.mutateAsync({
+        status: 'queried',
+        admin_action_by: user.id,
+        admin_action_reason: values.query_note, // Store the query note as admin_action_reason
+      });
+
       dismissToast(toastId);
+      showSuccess("Payment queried successfully!");
+      queryForm.reset(); // Clear the form
     } catch (error: any) {
       dismissToast(toastId);
-      showError(error.message || "Failed to add query note.");
-      console.error("Query note error:", error);
+      showError(error.message || "Failed to query payment.");
+      console.error("Query payment error:", error);
     }
   };
 
@@ -392,6 +399,8 @@ const PaymentRequestDetail = () => {
         return 'Approved';
       case 'declined':
         return 'Declined';
+      case 'queried':
+        return 'Queried';
       default:
         return status;
     }
@@ -423,9 +432,10 @@ const PaymentRequestDetail = () => {
           <CardTitle>Request Details</CardTitle>
           <CardDescription>Status: <span className={`font-semibold ${
             request.status === 'pending' ? 'text-yellow-600' :
-            request.status === 'setup_awaiting_approval' ? 'text-blue-600' : // New color for new status
+            request.status === 'setup_awaiting_approval' ? 'text-blue-600' :
             request.status === 'approved' ? 'text-green-600' :
             request.status === 'declined' ? 'text-red-600' :
+            request.status === 'queried' ? 'text-orange-600' : // New color for queried status
             'text-gray-600'
           }`}>
             {getStatusDisplay(request.status)}
@@ -609,7 +619,7 @@ const PaymentRequestDetail = () => {
             <CardDescription>Manage this payment request.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-4">
-            {request.status === 'pending' && (
+            {(request.status === 'pending' || request.status === 'queried') && (
               <>
                 <Button
                   onClick={() => handleAdminAction('setup_awaiting_approval')}
@@ -632,7 +642,7 @@ const PaymentRequestDetail = () => {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Query Payment Request</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Enter a note to query the requester about this payment request. This will be visible in the audit trail.
+                        Enter a note to query the requester about this payment request. This will be visible in the audit trail and change the request status to 'Queried'.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <Form {...queryForm}>
@@ -669,7 +679,7 @@ const PaymentRequestDetail = () => {
                 <CheckCircle className="mr-2 h-4 w-4" /> Approve Payment
               </Button>
             )}
-            {(request.status === 'pending' || request.status === 'setup_awaiting_approval') && (
+            {(request.status === 'pending' || request.status === 'setup_awaiting_approval' || request.status === 'queried') && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
