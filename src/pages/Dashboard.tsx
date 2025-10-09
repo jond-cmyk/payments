@@ -2,15 +2,72 @@
 
 import React from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { PaymentRequest, Profile } from '@/types/supabase';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { PlusCircle } from 'lucide-react';
 
 const Dashboard = () => {
   const { session, isLoading, user } = useSession();
   const navigate = useNavigate();
+  const [userRole, setUserRole] = React.useState<Profile['role'] | null>(null);
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-full">Loading dashboard...</div>;
+  // Fetch user role
+  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
+    queryKey: ['userProfile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  React.useEffect(() => {
+    if (profileData) {
+      setUserRole(profileData.role);
+    }
+  }, [profileData]);
+
+  // Fetch payment requests based on role
+  const { data: paymentRequests, isLoading: isRequestsLoading, error: requestsError } = useQuery<PaymentRequest[]>({
+    queryKey: ['paymentRequests', user?.id, userRole],
+    queryFn: async () => {
+      if (!user?.id || !userRole) return [];
+
+      let query = supabase.from('payment_requests').select('*');
+
+      if (userRole === 'requester') {
+        query = query.eq('requester_id', user.id);
+      }
+      // Admins see all requests, no additional filter needed
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id && !!userRole,
+  });
+
+  if (isLoading || isProfileLoading || isRequestsLoading) {
+    return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
   }
 
   if (!session) {
@@ -18,16 +75,74 @@ const Dashboard = () => {
     return null;
   }
 
+  if (requestsError) {
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading requests: {requestsError.message}</div>;
+  }
+
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
-      <p className="text-lg text-gray-700">Welcome, {user?.email}! This is your dashboard.</p>
-      <p className="text-md text-gray-500 mt-2">Your role: {user?.user_metadata?.role || 'requester'}</p>
-      <div className="mt-8">
-        <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
-          Create New Payment Request
-        </Button>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">
+          {userRole === 'admin' ? 'All Payment Requests' : 'My Payment Requests'}
+        </h1>
+        {userRole === 'requester' && (
+          <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create New Request
+          </Button>
+        )}
       </div>
+
+      {paymentRequests && paymentRequests.length > 0 ? (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Supplier Name</TableHead>
+                <TableHead>SKU Number</TableHead>
+                <TableHead>Payment Required</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created At</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paymentRequests.map((request) => (
+                <TableRow key={request.id}>
+                  <TableCell className="font-medium">{request.supplier_name}</TableCell>
+                  <TableCell>{request.sku_number}</TableCell>
+                  <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
+                  <TableCell>
+                    <Badge
+                      className={
+                        request.status === 'pending'
+                          ? 'bg-yellow-500 text-yellow-50'
+                          : request.status === 'approved'
+                          ? 'bg-green-500 text-green-50'
+                          : request.status === 'declined'
+                          ? 'bg-red-500 text-red-50'
+                          : 'bg-blue-500 text-blue-50'
+                      }
+                    >
+                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
+                  <TableCell className="text-right">
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/request/${request.id}`}>View Details</Link>
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <p className="text-center text-muted-foreground mt-8">
+          {userRole === 'requester' ? 'You have not created any payment requests yet.' : 'No payment requests found.'}
+        </p>
+      )}
     </div>
   );
 };
