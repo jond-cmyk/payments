@@ -231,6 +231,8 @@ const Dashboard = () => {
                 <TableHead>Payment Required</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created At</TableHead>
+                <TableHead>Payment Setup Date</TableHead> {/* New TableHead */}
+                <TableHead>Payment Approved Date</TableHead> {/* New TableHead */}
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -244,6 +246,12 @@ const Dashboard = () => {
                     {getStatusBadge(request.status)}
                   </TableCell>
                   <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
+                  <TableCell>
+                    {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
+                  </TableCell> {/* New TableCell */}
+                  <TableCell>
+                    {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
+                  </TableCell> {/* New TableCell */}
                   <TableCell className="text-right">
                     <Button asChild variant="outline" size="sm">
                       <Link to={`/request/${request.id}`}>View Details</Link>

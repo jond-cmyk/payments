@@ -14,6 +14,8 @@ export type PaymentRequest = {
   receipt_pdf_url: string | null;
   created_at: string;
   updated_at: string;
+  payment_setup_date: string | null; // New field
+  payment_approved_date: string | null; // New field
 };
 
 export type Profile = {

@@ -278,7 +278,7 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined', reason?: string) => {
+  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried', reason?: string) => {
     const toastId = showLoading(`Setting status to ${status.replace(/_/g, ' ')}...`);
     try {
       if (!user?.id) throw new Error("Admin user not authenticated.");
@@ -289,6 +289,12 @@ const PaymentRequestDetail = () => {
         admin_action_reason: reason || null,
         updated_at: new Date().toISOString(),
       };
+
+      if (status === 'setup_awaiting_approval') {
+        updatedFields.payment_setup_date = new Date().toISOString();
+      } else if (status === 'approved') {
+        updatedFields.payment_approved_date = new Date().toISOString();
+      }
 
       await updateRequestMutation.mutateAsync(updatedFields);
       dismissToast(toastId);
@@ -315,12 +321,7 @@ const PaymentRequestDetail = () => {
       if (auditError) throw new Error(`Failed to log query in audit trail: ${auditError.message}`);
 
       // Then, update the payment request status to 'queried'
-      await updateRequestMutation.mutateAsync({
-        status: 'queried',
-        admin_action_by: user.id,
-        admin_action_reason: values.query_note, // Store the query note as admin_action_reason
-      });
-
+      await handleAdminAction('queried', values.query_note); // Use the existing admin action handler
       dismissToast(toastId);
       showSuccess("Payment queried successfully!");
       queryForm.reset(); // Clear the form
@@ -595,6 +596,18 @@ const PaymentRequestDetail = () => {
                 <p className="font-medium">Last Updated:</p>
                 <p>{format(new Date(request.updated_at), 'PPP p')}</p>
               </div>
+              {request.payment_setup_date && (
+                <div>
+                  <p className="font-medium">Payment Setup Date:</p>
+                  <p>{format(new Date(request.payment_setup_date), 'PPP p')}</p>
+                </div>
+              )}
+              {request.payment_approved_date && (
+                <div>
+                  <p className="font-medium">Payment Approved Date:</p>
+                  <p>{format(new Date(request.payment_approved_date), 'PPP p')}</p>
+                </div>
+              )}
               {request.admin_action_by && (
                 <div>
                   <p className="font-medium">Admin Action By:</p>
