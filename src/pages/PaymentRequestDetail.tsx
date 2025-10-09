@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import DatePicker from '@/components/DatePicker';
 import { Separator } from '@/components/ui/separator';
-import { FileText, Download, CheckCircle, XCircle, DollarSign, History } from 'lucide-react';
+import { FileText, Download, CheckCircle, XCircle, DollarSign, History, MessageSquare } from 'lucide-react'; // Import MessageSquare icon
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +48,11 @@ const editFormSchema = z.object({
 // Zod schema for admin decline reason
 const declineFormSchema = z.object({
   admin_action_reason: z.string().min(1, "Decline reason is required"),
+});
+
+// Zod schema for admin query note
+const queryFormSchema = z.object({
+  query_note: z.string().min(1, "Query note is required"),
 });
 
 // Zod schema for admin receipt upload
@@ -178,6 +183,14 @@ const PaymentRequestDetail = () => {
     },
   });
 
+  // Form for querying (admin)
+  const queryForm = useForm<z.infer<typeof queryFormSchema>>({
+    resolver: zodResolver(queryFormSchema),
+    defaultValues: {
+      query_note: "",
+    },
+  });
+
   // Form for receipt upload (admin)
   const receiptUploadForm = useForm<z.infer<typeof receiptUploadSchema>>({
     resolver: zodResolver(receiptUploadSchema),
@@ -282,6 +295,32 @@ const PaymentRequestDetail = () => {
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || `Failed to set status to ${status.replace(/_/g, ' ')}.`);
+    }
+  };
+
+  const handleAdminQuery = async (values: z.infer<typeof queryFormSchema>) => {
+    const toastId = showLoading("Adding query note...");
+    try {
+      if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
+
+      const { error } = await supabase
+        .from('payment_request_audits')
+        .insert({
+          payment_request_id: id,
+          changed_by_user_id: user.id,
+          change_description: `Admin queried payment: ${values.query_note}`,
+        });
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
+      showSuccess("Query note added successfully!");
+      queryForm.reset(); // Clear the form
+      dismissToast(toastId);
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to add query note.");
+      console.error("Query note error:", error);
     }
   };
 
@@ -571,13 +610,55 @@ const PaymentRequestDetail = () => {
           </CardHeader>
           <CardContent className="flex flex-wrap gap-4">
             {request.status === 'pending' && (
-              <Button
-                onClick={() => handleAdminAction('setup_awaiting_approval')}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                disabled={updateRequestMutation.isPending}
-              >
-                <DollarSign className="mr-2 h-4 w-4" /> Setup Payment
-              </Button>
+              <>
+                <Button
+                  onClick={() => handleAdminAction('setup_awaiting_approval')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={updateRequestMutation.isPending}
+                >
+                  <DollarSign className="mr-2 h-4 w-4" /> Setup Payment
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="bg-gray-200 hover:bg-gray-300 text-gray-800"
+                      disabled={updateRequestMutation.isPending}
+                    >
+                      <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Query Payment Request</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Enter a note to query the requester about this payment request. This will be visible in the audit trail.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <Form {...queryForm}>
+                      <form onSubmit={queryForm.handleSubmit(handleAdminQuery)} className="space-y-4">
+                        <FormField
+                          control={queryForm.control}
+                          name="query_note"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Query Note</FormLabel>
+                              <FormControl>
+                                <Textarea placeholder="e.g., Please clarify the SKU number" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction type="submit" className="bg-dyad-blue text-dyad-blue-foreground">Submit Query</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </form>
+                    </Form>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
             )}
             {request.status === 'setup_awaiting_approval' && (
               <Button
