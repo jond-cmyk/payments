@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import DatePicker from '@/components/DatePicker';
 import { Separator } from '@/components/ui/separator';
-import { FileText, Download, CheckCircle, XCircle, DollarSign, History, MessageSquare } from 'lucide-react';
+import { FileText, Download, CheckCircle, XCircle, DollarSign, History, MessageSquare, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -251,6 +251,27 @@ const PaymentRequestDetail = () => {
     onError: (error: any) => {
       showError(error.message || "Failed to update payment request.");
       console.error("Update error:", error);
+    },
+  });
+
+  const deleteRequestMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error("Request ID missing.");
+      const { error } = await supabase
+        .from('payment_requests')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['paymentRequests'] }); // Invalidate all requests list
+      showSuccess("Payment request deleted successfully!");
+      navigate('/admin/requests'); // Redirect to admin requests list
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to delete payment request.");
+      console.error("Delete error:", error);
     },
   });
 
@@ -733,6 +754,34 @@ const PaymentRequestDetail = () => {
                 </AlertDialogContent>
               </AlertDialog>
             )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  disabled={deleteRequestMutation.isPending}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Request
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the payment request and remove its data from our servers.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteRequestMutation.mutate()}
+                    className="bg-destructive text-destructive-foreground"
+                    disabled={deleteRequestMutation.isPending}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       )}
