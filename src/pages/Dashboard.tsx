@@ -25,7 +25,7 @@ const Dashboard = () => {
   const [userRole, setUserRole] = React.useState<Profile['role'] | null>(null);
 
   // Fetch user role
-  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
+  const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
     queryKey: ['userProfile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -34,7 +34,10 @@ const Dashboard = () => {
         .select('role')
         .eq('id', user.id)
         .single();
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        throw error;
+      }
       return data;
     },
     enabled: !!user?.id,
@@ -43,6 +46,7 @@ const Dashboard = () => {
   React.useEffect(() => {
     if (profileData) {
       setUserRole(profileData.role);
+      console.log("Dashboard: User role fetched:", profileData.role);
     }
   }, [profileData]);
 
@@ -75,6 +79,10 @@ const Dashboard = () => {
     return null;
   }
 
+  if (profileError) {
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading user profile: {profileError.message}</div>;
+  }
+
   if (requestsError) {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading requests: {requestsError.message}</div>;
   }
@@ -85,6 +93,9 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold">
           {userRole === 'admin' ? 'All Payment Requests' : 'My Payment Requests'}
         </h1>
+        {/* Temporary display of user role for debugging */}
+        <p className="text-sm text-gray-500">Current Role: {userRole || 'Not loaded'}</p>
+
         {userRole === 'requester' && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
             <PlusCircle className="mr-2 h-4 w-4" />

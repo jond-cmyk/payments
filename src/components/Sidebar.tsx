@@ -23,9 +23,10 @@ const Sidebar = () => {
           .single();
 
         if (error) {
-          console.error('Error fetching user role:', error.message);
+          console.error('Sidebar: Error fetching user role:', error.message);
         } else if (data) {
           setUserRole(data.role);
+          console.log('Sidebar: User role fetched:', data.role);
         }
       }
     };
