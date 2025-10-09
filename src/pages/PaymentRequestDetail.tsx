@@ -156,23 +156,23 @@ const PaymentRequestDetail = () => {
   const editForm = useForm<z.infer<typeof editFormSchema>>({
     resolver: zodResolver(editFormSchema),
     defaultValues: {
-      supplier_name: request?.supplier_name || "",
-      sku_number: request?.sku_number || "",
-      supplier_address: request?.supplier_address || "",
-      iban_number: request?.iban_number || "",
-      reason_for_payment: request?.reason_for_payment || "",
-      date_payment_required: request?.date_payment_required ? new Date(request.date_payment_required) : undefined,
+      supplier_name: "",
+      sku_number: "",
+      supplier_address: "",
+      iban_number: "",
+      reason_for_payment: "",
+      date_payment_required: undefined,
       invoice_pdf: undefined,
     },
-    values: { // This ensures the form updates when `request` changes
-      supplier_name: request?.supplier_name || "",
-      sku_number: request?.sku_number || "",
-      supplier_address: request?.supplier_address || "",
-      iban_number: request?.iban_number || "",
-      reason_for_payment: request?.reason_for_payment || "",
-      date_payment_required: request?.date_payment_required ? new Date(request.date_payment_required) : undefined,
+    values: request ? { // This ensures the form updates when `request` changes
+      supplier_name: request.supplier_name,
+      sku_number: request.sku_number,
+      supplier_address: request.supplier_address,
+      iban_number: request.iban_number,
+      reason_for_payment: request.reason_for_payment,
+      date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
       invoice_pdf: undefined,
-    },
+    } : undefined, // Ensure values is undefined if request is null
   });
 
   // Form for declining (admin)
