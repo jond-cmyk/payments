@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import FileInput from '@/components/FileInput'; // Import the new FileInput component
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -305,11 +306,12 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <FormLabel>Invoice PDF</FormLabel>
                     <FormControl>
-                      <Input
+                      <FileInput
                         {...fieldProps}
-                        type="file"
+                        label="Choose Invoice PDF"
                         accept=".pdf"
-                        onChange={(event) => onChange(event.target.files)}
+                        value={value}
+                        onChange={onChange}
                       />
                     </FormControl>
                     <FormMessage />

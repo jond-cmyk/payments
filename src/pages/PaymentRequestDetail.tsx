@@ -34,6 +34,7 @@ import {
 import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import FileInput from '@/components/FileInput'; // Import the new FileInput component
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -658,11 +659,12 @@ const PaymentRequestDetail = () => {
                     <FormItem>
                       <FormLabel>Invoice PDF (Upload new if needed)</FormLabel>
                       <FormControl>
-                        <Input
+                        <FileInput
                           {...fieldProps}
-                          type="file"
+                          label="Choose New Invoice PDF"
                           accept=".pdf"
-                          onChange={(event) => onChange(event.target.files)}
+                          value={value}
+                          onChange={onChange}
                         />
                       </FormControl>
                       <FormMessage />
@@ -688,18 +690,18 @@ const PaymentRequestDetail = () => {
                           checked={field.value}
                           onCheckedChange={field.onChange}
                         />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>
-                          Payment Receipt Required?
-                        </FormLabel>
-                        <FormDescription>
-                          Check this box if a receipt is required after the payment is made.
-                        </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Payment Receipt Required?
+                      </FormLabel>
+                      <FormDescription>
+                        Check this box if a receipt is required after the payment is made.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
               </form>
             </Form>
           ) : (
@@ -960,11 +962,12 @@ const PaymentRequestDetail = () => {
                     <FormItem>
                       <FormLabel>Receipt PDF</FormLabel>
                       <FormControl>
-                        <Input
+                        <FileInput
                           {...fieldProps}
-                          type="file"
+                          label="Choose Receipt PDF"
                           accept=".pdf"
-                          onChange={(event) => onChange(event.target.files)}
+                          value={value}
+                          onChange={onChange}
                         />
                       </FormControl>
                       <FormMessage />
