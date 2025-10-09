@@ -1,3 +1,5 @@
+console.log("main.tsx: Script file loaded and starting execution."); // Added this line
+
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./globals.css";
