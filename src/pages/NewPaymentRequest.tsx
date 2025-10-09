@@ -18,19 +18,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PrefixedInput from '@/components/PrefixedInput'; // Import the new PrefixedInput component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-// List of major currencies
+// List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
-  { value: 'USD', label: 'USD - United States Dollar' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - British Pound' },
-  { value: 'JPY', label: 'JPY - Japanese Yen' },
-  { value: 'CAD', label: 'CAD - Canadian Dollar' },
   { value: 'AUD', label: 'AUD - Australian Dollar' },
+  { value: 'CAD', label: 'CAD - Canadian Dollar' },
   { value: 'CHF', label: 'CHF - Swiss Franc' },
   { value: 'CNY', label: 'CNY - Chinese Yuan' },
-  { value: 'SEK', label: 'SEK - Swedish Krona' },
+  { value: 'EUR', label: 'EUR - Euro' },
+  { value: 'GBP', label: 'GBP - British Pound' },
+  { value: 'HKD', label: 'HKD - Hong Kong Dollar' },
+  { value: 'INR', label: 'INR - Indian Rupee' },
+  { value: 'JPY', label: 'JPY - Japanese Yen' },
+  { value: 'MXN', label: 'MXN - Mexican Peso' },
   { value: 'NZD', label: 'NZD - New Zealand Dollar' },
-];
+  { value: 'SEK', label: 'SEK - Swedish Krona' },
+  { value: 'SGD', label: 'SGD - Singapore Dollar' },
+  { value: 'USD', label: 'USD - United States Dollar' },
+  { value: 'ZAR', label: 'ZAR - South African Rand' },
+].sort((a, b) => a.label.localeCompare(b.label)); // Ensure alphabetical order
 
 // Define the Zod schema for form validation
 const formSchema = z.object({
