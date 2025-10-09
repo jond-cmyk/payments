@@ -680,7 +680,7 @@ const PaymentRequestDetail = () => {
               </div>
               <div>
                 <p className="font-medium">Payment Amount:</p>
-                <p>{request.payment_amount.toFixed(2)}</p>
+                <p>{request.payment_amount?.toFixed(2) || '0.00'}</p>
               </div>
               <div>
                 <p className="font-medium">Reason for Payment:</p>
