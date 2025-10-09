@@ -14,7 +14,7 @@ import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'; // Import FormDescription
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import DatePicker from '@/components/DatePicker';
@@ -31,9 +31,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import PrefixedInput from '@/components/PrefixedInput'; // Import PrefixedInput
+import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
+import { Checkbox } from '@/components/ui/checkbox';
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -798,28 +798,184 @@ const PaymentRequestDetail = () => {
       {isAdmin && request.status !== 'declined' && (
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Admin Actions (Placeholder)</CardTitle>
+            <CardTitle>Admin Actions</CardTitle>
             <CardDescription>Manage this payment request.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-wrap gap-4">
-            <Button disabled>Setup Payment (Placeholder)</Button>
-            <Button disabled>Query Payment (Placeholder)</Button>
-            <Button disabled>Approve Payment (Placeholder)</Button>
-            <Button disabled>Decline Payment (Placeholder)</Button>
-            <Button disabled>Delete Request (Placeholder)</Button>
+            {(request.status === 'pending' || request.status === 'queried') && (
+              <Button
+                onClick={() => handleAdminAction('setup_awaiting_approval')}
+                disabled={updateRequestMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <DollarSign className="mr-2 h-4 w-4" /> Setup Payment
+              </Button>
+            )}
+
+            {(request.status === 'pending' || request.status === 'setup_awaiting_approval') && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={updateRequestMutation.isPending}
+                    className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Query Payment Request</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Enter a note for the requester regarding this payment request. The status will be set to 'Queried'.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <Form {...queryForm}>
+                    <form id="query-form" onSubmit={queryForm.handleSubmit(handleAdminQuery)} className="space-y-4">
+                      <FormField
+                        control={queryForm.control}
+                        name="query_note"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Query Note</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="e.g., Please provide a more detailed reason for payment." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </form>
+                  </Form>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction asChild>
+                      <Button form="query-form" type="submit">
+                        Submit Query
+                      </Button>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            {request.status === 'setup_awaiting_approval' && (
+              <Button
+                onClick={() => handleAdminAction('approved')}
+                disabled={updateRequestMutation.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <CheckCircle className="mr-2 h-4 w-4" /> Approve Payment
+              </Button>
+            )}
+
+            {(request.status === 'pending' || request.status === 'setup_awaiting_approval' || request.status === 'queried') && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    disabled={updateRequestMutation.isPending}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" /> Decline Payment
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Decline Payment Request</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to decline this payment request? Please provide a reason.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <Form {...declineForm}>
+                    <form id="decline-form" onSubmit={declineForm.handleSubmit((data) => handleAdminAction('declined', data.admin_action_reason))} className="space-y-4">
+                      <FormField
+                        control={declineForm.control}
+                        name="admin_action_reason"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Reason for Decline</FormLabel>
+                            <FormControl>
+                              <Textarea placeholder="e.g., Insufficient budget, incorrect details" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </form>
+                  </Form>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction asChild>
+                      <Button form="decline-form" type="submit" variant="destructive">
+                        Decline
+                      </Button>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="text-red-500 border-red-500 hover:bg-red-50"
+                  disabled={deleteRequestMutation.isPending}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Request
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the payment request and remove its data from our servers.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} variant="destructive">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       )}
 
-      {isAdmin && request.status === 'approved' && !request.receipt_pdf_url && (
+      {isAdmin && request.status === 'approved' && request.receipt_required && !request.receipt_pdf_url && (
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle>Upload Receipt (Placeholder)</CardTitle>
+            <CardTitle>Upload Receipt</CardTitle>
             <CardDescription>Upload the payment receipt once the payment is complete.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p>Receipt upload form placeholder...</p>
-            <Button disabled>Upload Receipt (Placeholder)</Button>
+            <Form {...receiptUploadForm}>
+              <form id="receipt-upload-form" onSubmit={receiptUploadForm.handleSubmit(handleReceiptUpload)} className="space-y-4">
+                <FormField
+                  control={receiptUploadForm.control}
+                  name="receipt_pdf"
+                  render={({ field: { value, onChange, ...fieldProps } }) => (
+                    <FormItem>
+                      <FormLabel>Receipt PDF</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...fieldProps}
+                          type="file"
+                          accept=".pdf"
+                          onChange={(event) => onChange(event.target.files)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button type="submit" disabled={updateRequestMutation.isPending}>
+                  Upload Receipt
+                </Button>
+              </form>
+            </Form>
           </CardContent>
         </Card>
       )}
