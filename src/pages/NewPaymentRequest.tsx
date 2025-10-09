@@ -12,7 +12,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'; // Import FormDescription
 import DatePicker from '@/components/DatePicker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PrefixedInput from '@/components/PrefixedInput'; // Import the new PrefixedInput component
