@@ -56,7 +56,7 @@ const Sidebar = () => {
       </div>
       <nav className="flex-1 space-y-2">
         <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
-        {currentRole === 'requester' && (
+        {(currentRole === 'requester' || currentRole === 'admin') && ( // Changed condition here
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
         {currentRole === 'admin' && (
