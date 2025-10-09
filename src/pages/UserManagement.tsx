@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,10 +25,9 @@ const UserManagement = () => {
   const { session, isLoading, user } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [userRole, setUserRole] = React.useState<Profile['role'] | null>(null);
 
   // Fetch current user's role
-  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
+  const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
     queryKey: ['userProfile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
@@ -41,25 +40,8 @@ const UserManagement = () => {
       return data;
     },
     enabled: !!user?.id,
+    staleTime: 0, // Always refetch on mount for this critical check
   });
-
-  // Force refetch of user profile on mount to ensure latest role is fetched
-  useEffect(() => {
-    if (user?.id) {
-      queryClient.invalidateQueries({ queryKey: ['userProfile', user.id] });
-      queryClient.refetchQueries({ queryKey: ['userProfile', user.id] });
-    }
-  }, [user?.id, queryClient]);
-
-  React.useEffect(() => {
-    if (profileData) {
-      setUserRole(profileData.role);
-      if (profileData.role !== 'admin') {
-        showError("You do not have permission to view this page.");
-        navigate('/dashboard'); // Redirect non-admins
-      }
-    }
-  }, [profileData, navigate]);
 
   // Fetch all user profiles
   const { data: profiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
@@ -72,7 +54,7 @@ const UserManagement = () => {
       if (error) throw error;
       return data;
     },
-    enabled: userRole === 'admin', // Only fetch if current user is admin
+    enabled: !!profileData && profileData.role === 'admin', // Only fetch if current user is confirmed admin
   });
 
   // Mutation for updating user role
@@ -105,7 +87,8 @@ const UserManagement = () => {
     }
   };
 
-  if (isLoading || isProfileLoading || isProfilesLoading) {
+  // --- Centralized Loading and Access Control ---
+  if (isLoading || isProfileLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading user management...</div>;
   }
 
@@ -114,8 +97,19 @@ const UserManagement = () => {
     return null;
   }
 
-  if (userRole !== 'admin') {
-    return <div className="flex items-center justify-center h-full text-red-500">Access Denied: You must be an administrator to view this page.</div>;
+  // After session and profile loading, check role
+  if (profileError || !profileData || profileData.role !== 'admin') {
+    // If there's an error fetching profile, or no profile data, or not an admin
+    showError("You do not have permission to view this page.");
+    navigate('/dashboard');
+    return null; // Prevent rendering anything else
+  }
+
+  // Now we are sure the user is an admin and profileData is available
+  const userRole = profileData.role; // Use profileData.role directly
+
+  if (isProfilesLoading) {
+    return <div className="flex items-center justify-center h-full text-lg">Loading user profiles...</div>;
   }
 
   if (profilesError) {
@@ -137,7 +131,7 @@ const UserManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>User ID</TableHead> {/* Changed from Email to User ID */}
                     <TableHead>Role</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -148,7 +142,7 @@ const UserManagement = () => {
                       <TableCell className="font-medium">
                         {profile.first_name || ''} {profile.last_name || ''}
                       </TableCell>
-                      <TableCell>{profile.id}</TableCell> {/* Displaying ID for now, email is not directly in profiles table */}
+                      <TableCell>{profile.id}</TableCell> {/* Displaying ID as it's the unique identifier */}
                       <TableCell>
                         <Badge
                           className={
