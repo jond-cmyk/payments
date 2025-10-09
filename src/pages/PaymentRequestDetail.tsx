@@ -120,17 +120,27 @@ const PaymentRequestDetail = () => {
     enabled: !!id,
   });
 
-  // Fetch admin user names for audit trail
-  const { data: adminUsers, isLoading: isAdminUsersLoading } = useQuery<Record<string, string>>({
-    queryKey: ['adminUsers'],
+  // Fetch user names and emails for audit trail
+  const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
+    queryKey: ['auditUsers'],
     queryFn: async () => {
+      // Use the profile_with_email view to get user details including email
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name');
+        .from('profile_with_email')
+        .select('id, first_name, last_name, user_email');
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
-        usersMap[profile.id] = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.id;
+        let displayString = profile.user_email || profile.id; // Default to email or ID
+        if (profile.first_name || profile.last_name) {
+          const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+          if (profile.user_email) {
+            displayString = `${name} (${profile.user_email})`;
+          } else {
+            displayString = name;
+          }
+        }
+        usersMap[profile.id] = displayString;
       });
       return usersMap;
     },
@@ -312,7 +322,7 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  if (isLoading || isProfileLoading || isRequestLoading || isAuditsLoading || isAdminUsersLoading) {
+  if (isLoading || isProfileLoading || isRequestLoading || isAuditsLoading || isAuditUsersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading payment request...</div>;
   }
 
@@ -523,7 +533,7 @@ const PaymentRequestDetail = () => {
               {request.admin_action_by && (
                 <div>
                   <p className="font-medium">Admin Action By:</p>
-                  <p>{adminUsers?.[request.admin_action_by] || request.admin_action_by}</p>
+                  <p>{auditUsers?.[request.admin_action_by] || request.admin_action_by}</p>
                 </div>
               )}
               {request.admin_action_reason && (
@@ -650,7 +660,7 @@ const PaymentRequestDetail = () => {
               {audits.map((audit) => (
                 <div key={audit.id} className="border-l-2 border-gray-200 pl-4">
                   <p className="text-sm text-muted-foreground">
-                    {format(new Date(audit.changed_at), 'PPP p')} by {adminUsers?.[audit.changed_by_user_id || ''] || audit.changed_by_user_id || 'System'}
+                    {format(new Date(audit.changed_at), 'PPP p')} by {auditUsers?.[audit.changed_by_user_id || ''] || audit.changed_by_user_id || 'System'}
                   </p>
                   <p className="text-base">{audit.change_description}</p>
                 </div>
