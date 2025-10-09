@@ -7,18 +7,20 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Home, PlusCircle, List, LogOut, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query'; // Import useQuery
-import { Profile } from '@/types/supabase'; // Import Profile type
+import { useQuery } from '@tanstack/react-query';
+import { Profile } from '@/types/supabase';
 
 const Sidebar = () => {
   const { session, user, isLoading } = useSession();
   const navigate = useNavigate();
-  const [userRole, setUserRole] = React.useState<Profile['role'] | null>(null);
+
+  console.log('Sidebar: useSession - isLoading:', isLoading, 'user:', user);
 
   // Fetch user role using react-query
-  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
+  const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
     queryKey: ['userProfile', user?.id],
     queryFn: async () => {
+      console.log('Sidebar: useQuery - fetching for user ID:', user?.id);
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
@@ -29,17 +31,14 @@ const Sidebar = () => {
         console.error('Sidebar: Error fetching user role:', error.message);
         throw error;
       }
+      console.log('Sidebar: useQuery - fetched profile data:', data);
       return data;
     },
     enabled: !!user?.id, // Only run query if user ID is available
   });
 
-  React.useEffect(() => {
-    if (profileData) {
-      setUserRole(profileData.role);
-      console.log('Sidebar: User role fetched:', profileData.role);
-    }
-  }, [profileData]);
+  const currentRole = profileData?.role;
+  console.log('Sidebar: isProfileLoading:', isProfileLoading, 'currentRole derived from profileData:', currentRole);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -57,10 +56,10 @@ const Sidebar = () => {
       </div>
       <nav className="flex-1 space-y-2">
         <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
-        {userRole === 'requester' && (
+        {currentRole === 'requester' && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
-        {userRole === 'admin' && (
+        {currentRole === 'admin' && (
           <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
         )}
       </nav>
@@ -71,7 +70,7 @@ const Sidebar = () => {
               <User className="h-4 w-4" />
               <span>{user.email}</span>
             </div>
-            <div className="text-xs text-muted-foreground">Role: {userRole || 'Not available'}</div>
+            <div className="text-xs text-muted-foreground">Role: {currentRole || 'Not available'}</div>
             <Button
               variant="ghost"
               onClick={handleLogout}
