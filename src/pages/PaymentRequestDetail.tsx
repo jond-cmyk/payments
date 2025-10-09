@@ -409,7 +409,9 @@ const PaymentRequestDetail = () => {
 
   const isRequester = userRole === 'requester' && user?.id === request.requester_id;
   const isAdmin = userRole === 'admin';
-  const canEdit = isRequester && request.status === 'pending';
+  
+  // Allow requester to amend if pending or queried, allow admin to amend any time
+  const canAmend = (isRequester && (request.status === 'pending' || request.status === 'queried')) || isAdmin;
 
   const getStatusDisplay = (status: PaymentRequest['status']) => {
     switch (status) {
@@ -432,9 +434,9 @@ const PaymentRequestDetail = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Payment Request #{request.id.substring(0, 8)}</h1>
-        {canEdit && !isEditing && (
+        {canAmend && !isEditing && (
           <Button onClick={() => setIsEditing(true)} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
-            Edit Request
+            Amend Request
           </Button>
         )}
         {isEditing && (
@@ -464,7 +466,7 @@ const PaymentRequestDetail = () => {
           </span></CardDescription>
         </CardHeader>
         <CardContent>
-          {isEditing && canEdit ? (
+          {isEditing && canAmend ? ( {/* Use canAmend here to control form editability */}
             <Form {...editForm}>
               <form id="edit-request-form" onSubmit={editForm.handleSubmit(handleRequesterEditSubmit)} className="space-y-4">
                 <FormField
