@@ -1,11 +1,11 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate, Link, useLocation } from 'react-router-dom'; // Import useLocation
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PaymentRequest, Profile } from '@/types/supabase';
 import {
   Table,
@@ -17,15 +17,36 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Filter, XCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DatePicker from '@/components/DatePicker';
 
 const Dashboard = () => {
   const { session, isLoading, user } = useSession();
   const navigate = useNavigate();
-  const location = useLocation(); // Get current location
-  const [userRole, setUserRole] = React.useState<Profile['role'] | null>(null);
+  const location = useLocation();
+  const queryClient = useQueryClient();
 
-  console.log("Dashboard: Component is rendering! Current path:", location.pathname); // Log when Dashboard renders
+  const [userRole, setUserRole] = useState<Profile['role'] | null>(null);
+
+  // Filter states
+  const [filterSupplierName, setFilterSupplierName] = useState('');
+  const [filterSkuNumber, setFilterSkuNumber] = useState('');
+  const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
+  const [filterDatePaymentRequired, setFilterDatePaymentRequired] = useState<Date | undefined>(undefined);
+
+  // Debounce for text inputs
+  const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      setter(value);
+    }, 300); // 300ms debounce
+  }, []);
 
   // Fetch user role
   const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
@@ -46,16 +67,17 @@ const Dashboard = () => {
     enabled: !!user?.id,
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (profileData) {
       setUserRole(profileData.role);
-      console.log("Dashboard: User role fetched:", profileData.role);
     }
   }, [profileData]);
 
-  // Fetch payment requests based on role
+  const isAdminView = userRole === 'admin' && location.pathname === '/admin/requests';
+
+  // Fetch payment requests based on role and filters
   const { data: paymentRequests, isLoading: isRequestsLoading, error: requestsError } = useQuery<PaymentRequest[]>({
-    queryKey: ['paymentRequests', user?.id, userRole],
+    queryKey: ['paymentRequests', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired],
     queryFn: async () => {
       if (!user?.id || !userRole) return [];
 
@@ -63,8 +85,21 @@ const Dashboard = () => {
 
       if (userRole === 'requester') {
         query = query.eq('requester_id', user.id);
+      } else if (isAdminView) {
+        // Apply admin filters
+        if (filterSupplierName) {
+          query = query.ilike('supplier_name', `%${filterSupplierName}%`);
+        }
+        if (filterSkuNumber) {
+          query = query.ilike('sku_number', `%${filterSkuNumber}%`);
+        }
+        if (filterStatus !== 'all') {
+          query = query.eq('status', filterStatus);
+        }
+        if (filterDatePaymentRequired) {
+          query = query.gte('date_payment_required', format(filterDatePaymentRequired, 'yyyy-MM-dd'));
+        }
       }
-      // Admins see all requests, no additional filter needed
 
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
@@ -72,6 +107,14 @@ const Dashboard = () => {
     },
     enabled: !!user?.id && !!userRole,
   });
+
+  const clearFilters = () => {
+    setFilterSupplierName('');
+    setFilterSkuNumber('');
+    setFilterStatus('all');
+    setFilterDatePaymentRequired(undefined);
+    queryClient.invalidateQueries({ queryKey: ['paymentRequests'] }); // Force refetch
+  };
 
   if (isLoading || isProfileLoading || isRequestsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
@@ -118,15 +161,14 @@ const Dashboard = () => {
     return <Badge className={className}>{displayText}</Badge>;
   };
 
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterStatus !== 'all' || filterDatePaymentRequired !== undefined;
+
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">
-          {userRole === 'admin' ? 'All Payment Requests' : 'My Payment Requests'}
+          {isAdminView ? 'All Payment Requests' : 'My Payment Requests'}
         </h1>
-        {/* Temporary display of user role for debugging */}
-        <p className="text-sm text-gray-500">Current Role: {userRole || 'Not available'}</p>
-
         {userRole === 'requester' && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -134,6 +176,50 @@ const Dashboard = () => {
           </Button>
         )}
       </div>
+
+      {isAdminView && (
+        <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
+          <span className="font-medium text-gray-700">Filters:</span>
+          <Input
+            placeholder="Filter by Supplier Name"
+            value={filterSupplierName}
+            onChange={(e) => setFilterSupplierName(e.target.value)}
+            onKeyUp={(e) => handleTextFilterChange(setFilterSupplierName, e.currentTarget.value)}
+            className="max-w-xs"
+          />
+          <Input
+            placeholder="Filter by SKU Number"
+            value={filterSkuNumber}
+            onChange={(e) => setFilterSkuNumber(e.target.value)}
+            onKeyUp={(e) => handleTextFilterChange(setFilterSkuNumber, e.currentTarget.value)}
+            className="max-w-xs"
+          />
+          <Select value={filterStatus} onValueChange={(value: PaymentRequest['status'] | 'all') => setFilterStatus(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter by Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="setup_awaiting_approval">Payment Setup</SelectItem>
+              <SelectItem value="approved">Payment Complete</SelectItem>
+              <SelectItem value="declined">Declined</SelectItem>
+              <SelectItem value="queried">Queried</SelectItem>
+            </SelectContent>
+          </Select>
+          <DatePicker
+            date={filterDatePaymentRequired}
+            setDate={setFilterDatePaymentRequired}
+            placeholder="Filter by Payment Date"
+            className="w-[200px]"
+          />
+          {hasActiveFilters && (
+            <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
+              <XCircle className="h-4 w-4" /> Clear Filters
+            </Button>
+          )}
+        </div>
+      )}
 
       {paymentRequests && paymentRequests.length > 0 ? (
         <div className="overflow-x-auto">
@@ -170,7 +256,7 @@ const Dashboard = () => {
         </div>
       ) : (
         <p className="text-center text-muted-foreground mt-8">
-          {userRole === 'requester' ? 'You have not created any payment requests yet.' : 'No payment requests found.'}
+          {userRole === 'requester' ? 'You have not created any payment requests yet.' : 'No payment requests found matching your criteria.'}
         </p>
       )}
     </div>
