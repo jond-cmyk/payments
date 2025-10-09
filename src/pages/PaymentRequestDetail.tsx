@@ -473,8 +473,8 @@ const PaymentRequestDetail = () => {
   const isRequester = userRole === 'requester' && user?.id === request.requester_id;
   const isAdmin = userRole === 'admin';
   
-  // Allow requester to amend if pending or queried, allow admin to amend any time
-  const canAmend = (isRequester && (request.status === 'pending' || request.status === 'queried')) || isAdmin;
+  // Allow requester to amend if pending or queried, allow admin to amend any time, BUT NOT IF APPROVED
+  const canAmend = (request.status === 'pending' || request.status === 'queried') && (isRequester || isAdmin);
 
   const getStatusDisplay = (status: PaymentRequest['status']) => {
     switch (status) {
