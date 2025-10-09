@@ -13,13 +13,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import DatePicker from '@/components/DatePicker'; // Import the new DatePicker component
+import DatePicker from '@/components/DatePicker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import PrefixedInput from '@/components/PrefixedInput'; // Import the new PrefixedInput component
 
 // Define the Zod schema for form validation
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
-  sku_number: z.string().min(1, "SKU Number is required"),
+  sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."), // Updated validation
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
@@ -40,7 +41,7 @@ const NewPaymentRequest = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       supplier_name: "",
-      sku_number: "",
+      sku_number: "CH", // Default value to ensure prefix is there
       supplier_address: "",
       iban_number: "",
       reason_for_payment: "",
@@ -111,7 +112,7 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset(); // Clear the form
+      form.reset({ sku_number: "CH" }); // Clear the form, reset SKU to "CH"
       navigate('/dashboard'); // Redirect to dashboard or requests list
     } catch (error: any) {
       dismissToast(toastId);
@@ -149,7 +150,7 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <FormLabel>SKU Number</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., SKU12345" {...field} />
+                      <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
