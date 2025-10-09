@@ -26,7 +26,13 @@ const Index = () => {
     );
   }
 
-  return null; // This page will primarily handle redirects
+  // This will be rendered if isLoading is false and before any redirects happen, or if redirects fail.
+  // It should quickly disappear if redirects work.
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <p className="text-xl text-gray-600">Checking authentication status...</p>
+    </div>
+  );
 };
 
 export default Index;
