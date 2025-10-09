@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User } from 'lucide-react';
+import { Home, PlusCircle, List, LogOut, User, Users } from 'lucide-react'; // Import Users icon
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Profile } from '@/types/supabase';
@@ -60,7 +60,10 @@ const Sidebar = () => {
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
         {currentRole === 'admin' && (
-          <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
+          <>
+            <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
+            <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" /> {/* New admin link */}
+          </>
         )}
       </nav>
       <div className="mt-auto pt-4 border-t border-sidebar-border">

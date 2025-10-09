@@ -6,11 +6,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard"; // Import Dashboard
-import NewPaymentRequest from "./pages/NewPaymentRequest"; // Import NewPaymentRequest
-import PaymentRequestDetail from "./pages/PaymentRequestDetail"; // Import PaymentRequestDetail
+import Dashboard from "./pages/Dashboard";
+import NewPaymentRequest from "./pages/NewPaymentRequest";
+import PaymentRequestDetail from "./pages/PaymentRequestDetail";
+import UserManagement from "./pages/UserManagement"; // Import UserManagement
 import { SessionContextProvider } from "./integrations/supabase/SessionContext";
-import Layout from "./components/Layout"; // Import the new Layout component
+import Layout from "./components/Layout";
 
 const queryClient = new QueryClient();
 
@@ -23,12 +24,13 @@ const App = () => (
         <SessionContextProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
-            <Route element={<Layout />}> {/* Wrap routes that need the layout */}
+            <Route element={<Layout />}>
               <Route path="/" element={<Index />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/new-request" element={<NewPaymentRequest />} />
               <Route path="/request/:id" element={<PaymentRequestDetail />} />
-              <Route path="/admin/requests" element={<Dashboard />} /> {/* Admin view of all requests, for now points to dashboard */}
+              <Route path="/admin/requests" element={<Dashboard />} />
+              <Route path="/admin/users" element={<UserManagement />} /> {/* New route for User Management */}
             </Route>
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
