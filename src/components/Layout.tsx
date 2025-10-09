@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Sidebar from './Sidebar';
-import { useLocation } from 'react-router-dom'; // Import useLocation
+import { useLocation, Outlet } from 'react-router-dom'; // Import Outlet
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,7 +16,7 @@ const Layout = ({ children }: LayoutProps) => {
     <div className="flex min-h-screen bg-background">
       <Sidebar />
       <main className="flex-1 p-6 overflow-auto">
-        {children}
+        <Outlet /> {/* This is where nested routes will render */}
       </main>
     </div>
   );
