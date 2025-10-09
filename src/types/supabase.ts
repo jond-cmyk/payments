@@ -23,9 +23,7 @@ export type Profile = {
   avatar_url: string | null;
   role: 'requester' | 'admin';
   updated_at: string | null;
-  auth_users?: { // Nested object for joined auth.users data
-    email: string;
-  };
+  user_email?: string; // Added for the profile_with_email view
 };
 
 export type PaymentRequestAudit = {

@@ -55,14 +55,14 @@ const UserManagement = () => {
   const isAdmin = profileData?.role === 'admin';
   console.log("UserManagement: Is Admin:", isAdmin);
 
-  // Fetch all user profiles, including their email from auth.users
+  // Fetch all user profiles, including their email from the new view
   const { data: profiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
     queryKey: ['allProfiles'],
     queryFn: async () => {
       console.log("UserManagement: Attempting to fetch all profiles (admin view)");
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*, auth_users:auth.users(email)') // Select all profile fields and alias auth.users(email) as auth_users
+        .from('profile_with_email') // Query the new view
+        .select('*') // Select all columns from the view
         .order('first_name', { ascending: true });
       if (error) {
         console.error("UserManagement: Error fetching all profiles:", error);
@@ -78,7 +78,7 @@ const UserManagement = () => {
   const updateRoleMutation = useMutation({
     mutationFn: async ({ id, role }: { id: string; role: Profile['role'] }) => {
       const { error } = await supabase
-        .from('profiles')
+        .from('profiles') // Update the base profiles table
         .update({ role, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
@@ -164,7 +164,7 @@ const UserManagement = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
-                    <TableHead>Email Address</TableHead> {/* Changed from User ID */}
+                    <TableHead>Email Address</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -175,7 +175,7 @@ const UserManagement = () => {
                       <TableCell className="font-medium">
                         {profile.first_name || ''} {profile.last_name || ''}
                       </TableCell>
-                      <TableCell>{profile.auth_users?.email || 'N/A'}</TableCell> {/* Display email */}
+                      <TableCell>{profile.user_email || 'N/A'}</TableCell> {/* Display email from the view */}
                       <TableCell>
                         <Badge
                           className={
