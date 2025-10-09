@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom'; // Import useLocation
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -22,7 +22,10 @@ import { PlusCircle } from 'lucide-react';
 const Dashboard = () => {
   const { session, isLoading, user } = useSession();
   const navigate = useNavigate();
+  const location = useLocation(); // Get current location
   const [userRole, setUserRole] = React.useState<Profile['role'] | null>(null);
+
+  console.log("Dashboard: Component is rendering! Current path:", location.pathname); // Log when Dashboard renders
 
   // Fetch user role
   const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
