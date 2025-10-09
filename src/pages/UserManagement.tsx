@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +42,14 @@ const UserManagement = () => {
     },
     enabled: !!user?.id,
   });
+
+  // Force refetch of user profile on mount to ensure latest role is fetched
+  useEffect(() => {
+    if (user?.id) {
+      queryClient.invalidateQueries({ queryKey: ['userProfile', user.id] });
+      queryClient.refetchQueries({ queryKey: ['userProfile', user.id] });
+    }
+  }, [user?.id, queryClient]);
 
   React.useEffect(() => {
     if (profileData) {
