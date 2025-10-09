@@ -7,38 +7,46 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Home, PlusCircle, List, LogOut, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useQuery } from '@tanstack/react-query'; // Import useQuery
+import { Profile } from '@/types/supabase'; // Import Profile type
 
 const Sidebar = () => {
   const { session, user, isLoading } = useSession();
   const navigate = useNavigate();
-  const [userRole, setUserRole] = React.useState<string | null>(null);
+  const [userRole, setUserRole] = React.useState<Profile['role'] | null>(null);
+
+  // Fetch user role using react-query
+  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
+    queryKey: ['userProfile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      if (error) {
+        console.error('Sidebar: Error fetching user role:', error.message);
+        throw error;
+      }
+      return data;
+    },
+    enabled: !!user?.id, // Only run query if user ID is available
+  });
 
   React.useEffect(() => {
-    const fetchUserRole = async () => {
-      if (user) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Sidebar: Error fetching user role:', error.message);
-        } else if (data) {
-          setUserRole(data.role);
-          console.log('Sidebar: User role fetched:', data.role);
-        }
-      }
-    };
-    fetchUserRole();
-  }, [user]);
+    if (profileData) {
+      setUserRole(profileData.role);
+      console.log('Sidebar: User role fetched:', profileData.role);
+    }
+  }, [profileData]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
 
-  if (isLoading) {
+  if (isLoading || isProfileLoading) {
     return null; // Or a loading spinner for the sidebar
   }
 
@@ -63,7 +71,7 @@ const Sidebar = () => {
               <User className="h-4 w-4" />
               <span>{user.email}</span>
             </div>
-            <div className="text-xs text-muted-foreground">Role: {userRole}</div>
+            <div className="text-xs text-muted-foreground">Role: {userRole || 'Not available'}</div>
             <Button
               variant="ghost"
               onClick={handleLogout}
