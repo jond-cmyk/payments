@@ -394,9 +394,9 @@ const PaymentRequestDetail = () => {
       case 'pending':
         return 'Pending';
       case 'setup_awaiting_approval':
-        return 'Payment Setup - Awaiting Payment Approval';
+        return 'Payment Setup';
       case 'approved':
-        return 'Approved';
+        return 'Payment Complete';
       case 'declined':
         return 'Declined';
       case 'queried':

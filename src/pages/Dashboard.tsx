@@ -90,6 +90,34 @@ const Dashboard = () => {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading requests: {requestsError.message}</div>;
   }
 
+  const getStatusBadge = (status: PaymentRequest['status']) => {
+    let displayText = status.charAt(0).toUpperCase() + status.slice(1);
+    let className = '';
+
+    switch (status) {
+      case 'pending':
+        className = 'bg-yellow-500 text-yellow-50';
+        break;
+      case 'setup_awaiting_approval':
+        displayText = 'Payment Setup';
+        className = 'bg-blue-500 text-blue-50';
+        break;
+      case 'approved':
+        displayText = 'Payment Complete';
+        className = 'bg-green-500 text-green-50';
+        break;
+      case 'declined':
+        className = 'bg-red-500 text-red-50';
+        break;
+      case 'queried':
+        className = 'bg-orange-500 text-orange-50';
+        break;
+      default:
+        className = 'bg-gray-500 text-gray-50';
+    }
+    return <Badge className={className}>{displayText}</Badge>;
+  };
+
   return (
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
@@ -127,19 +155,7 @@ const Dashboard = () => {
                   <TableCell>{request.sku_number}</TableCell>
                   <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
                   <TableCell>
-                    <Badge
-                      className={
-                        request.status === 'pending'
-                          ? 'bg-yellow-500 text-yellow-50'
-                          : request.status === 'approved'
-                          ? 'bg-green-500 text-green-50'
-                          : request.status === 'declined'
-                          ? 'bg-red-500 text-red-50'
-                          : 'bg-blue-500 text-blue-50'
-                      }
-                    >
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                    </Badge>
+                    {getStatusBadge(request.status)}
                   </TableCell>
                   <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
                   <TableCell className="text-right">
