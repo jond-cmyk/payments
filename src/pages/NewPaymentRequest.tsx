@@ -12,28 +12,47 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form'; // Import FormDescription
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import DatePicker from '@/components/DatePicker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import PrefixedInput from '@/components/PrefixedInput'; // Import the new PrefixedInput component
+import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
+import { Checkbox } from '@/components/ui/checkbox';
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
+  { value: 'ALL', label: 'ALL - Albanian Lek' },
+  { value: 'AMD', label: 'AMD - Armenian Dram' },
   { value: 'AUD', label: 'AUD - Australian Dollar' },
+  { value: 'AZN', label: 'AZN - Azerbaijani Manat' },
+  { value: 'BAM', label: 'BAM - Bosnia and Herzegovina Convertible Mark' },
+  { value: 'BGN', label: 'BGN - Bulgarian Lev' },
+  { value: 'BYN', label: 'BYN - Belarusian Ruble' },
   { value: 'CAD', label: 'CAD - Canadian Dollar' },
   { value: 'CHF', label: 'CHF - Swiss Franc' },
   { value: 'CNY', label: 'CNY - Chinese Yuan' },
+  { value: 'CZK', label: 'CZK - Czech Koruna' },
+  { value: 'DKK', label: 'DKK - Danish Krone' },
   { value: 'EUR', label: 'EUR - Euro' },
   { value: 'GBP', label: 'GBP - British Pound' },
+  { value: 'GEL', label: 'GEL - Georgian Lari' },
   { value: 'HKD', label: 'HKD - Hong Kong Dollar' },
+  { value: 'HUF', label: 'HUF - Hungarian Forint' },
   { value: 'INR', label: 'INR - Indian Rupee' },
+  { value: 'ISK', label: 'ISK - Icelandic Króna' },
   { value: 'JPY', label: 'JPY - Japanese Yen' },
+  { value: 'MKD', label: 'MKD - Macedonian Denar' },
+  { value: 'MDL', label: 'MDL - Moldovan Leu' },
   { value: 'MXN', label: 'MXN - Mexican Peso' },
+  { value: 'NOK', label: 'NOK - Norwegian Krone' },
   { value: 'NZD', label: 'NZD - New Zealand Dollar' },
+  { value: 'PLN', label: 'PLN - Polish Zloty' },
+  { value: 'RON', label: 'RON - Romanian Leu' },
+  { value: 'RSD', label: 'RSD - Serbian Dinar' },
   { value: 'SEK', label: 'SEK - Swedish Krona' },
   { value: 'SGD', label: 'SGD - Singapore Dollar' },
+  { value: 'TRY', label: 'TRY - Turkish Lira' },
+  { value: 'UAH', label: 'UAH - Ukrainian Hryvnia' },
   { value: 'USD', label: 'USD - United States Dollar' },
   { value: 'ZAR', label: 'ZAR - South African Rand' },
 ].sort((a, b) => a.label.localeCompare(b.label)); // Ensure alphabetical order
