@@ -178,18 +178,8 @@ const PaymentRequestDetail = () => {
         date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
         invoice_pdf: undefined, // Always reset file input
       });
-    } else if (!isEditing) {
-      // Optionally reset to default empty values when exiting edit mode
-      editForm.reset({
-        supplier_name: "",
-        sku_number: "",
-        supplier_address: "",
-        iban_number: "",
-        reason_for_payment: "",
-        date_payment_required: undefined,
-        invoice_pdf: undefined,
-      });
-    }
+    } 
+    // Removed the else if (!isEditing) block to simplify and debug parsing error
   }, [request, isEditing, editForm]);
 
 
