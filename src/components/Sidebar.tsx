@@ -62,12 +62,12 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
-        <NavLink to="/my-transactions" icon={<ReceiptText className="h-5 w-5" />} label="My Transactions" /> {/* New link */}
+        <NavLink to="/my-transactions" icon={<ReceiptText className="h-5 w-5" />} label="Card Payment Receipts" /> {/* Updated link label */}
         {currentRole === 'admin' && (
           <>
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
-            <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" /> {/* New admin link */}
+            <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
           </>
         )}
       </nav>

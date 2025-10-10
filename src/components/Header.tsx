@@ -22,6 +22,10 @@ const Header = () => {
         return 'All Payment Requests - KH Payments';
       case '/admin/users':
         return 'User Management - KH Payments';
+      case '/admin/upload-transactions':
+        return 'Upload Transactions - KH Payments';
+      case '/my-transactions':
+        return 'Card Payment Receipts - KH Payments'; // Updated title
       case '/login':
         return 'Login - KH Payments';
       case '/':
@@ -29,6 +33,9 @@ const Header = () => {
       default:
         if (pathname.startsWith('/request/')) {
           return 'Payment Request Details - KH Payments';
+        }
+        if (pathname.startsWith('/transaction/')) {
+          return 'Card Payment Receipt Details - KH Payments'; // Updated title
         }
         return 'KH Payments'; // Default title for unknown routes
     }

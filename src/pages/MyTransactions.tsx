@@ -89,7 +89,7 @@ const MyTransactions = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
-            <FileText className="mr-2 h-6 w-6" /> My Transactions
+            <FileText className="mr-2 h-6 w-6" /> My Card Payment Receipts
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -127,7 +127,7 @@ const MyTransactions = () => {
               </Table>
             </div>
           ) : (
-            <p className="text-center text-muted-foreground mt-8">No transactions assigned to you yet.</p>
+            <p className="text-center text-muted-foreground mt-8">No card payment receipts assigned to you yet.</p>
           )}
         </CardContent>
       </Card>

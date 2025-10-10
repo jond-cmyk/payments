@@ -200,7 +200,7 @@ const TransactionDetail = () => {
     <div className="container mx-auto py-8">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Transaction Details</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Card Payment Receipt Details</CardTitle>
           <CardDescription className="text-center">
             Transaction ID: {transaction.id.substring(0, 8)}
           </CardDescription>
@@ -328,9 +328,9 @@ const TransactionDetail = () => {
                 </Button>
               )}
             </form>
-          </Form>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
