@@ -10,6 +10,8 @@ console.log('Vercel Debug: VITE_SUPABASE_ANON_KEY (first 5 chars):', supabaseAno
 
 let supabase: SupabaseClient; // Declare supabase variable with type
 
+console.log('Supabase Client: Attempting to create client...'); // New debug log
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase URL or Anon Key is missing. Please check your .env.local file or Vercel environment variables.');
   // Dummy client definition
