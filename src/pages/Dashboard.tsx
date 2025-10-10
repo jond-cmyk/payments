@@ -58,7 +58,7 @@ const Dashboard = () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('role')
+        .select('*') // Changed to select all fields
         .eq('id', user.id)
         .single();
       if (error) {

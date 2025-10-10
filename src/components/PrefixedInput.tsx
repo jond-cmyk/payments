@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { Input, InputProps } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-interface PrefixedInputProps extends InputProps {
+interface PrefixedInputProps extends React.ComponentPropsWithoutRef<typeof Input> {
   prefix: string;
 }
 

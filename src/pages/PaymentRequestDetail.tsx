@@ -57,7 +57,6 @@ const PaymentRequestDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [userRole, setUserRole] = useState<Profile['role'] | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
 
   // Fetch user role
   const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
@@ -66,7 +65,7 @@ const PaymentRequestDetail = () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
         .from('profiles')
-        .select('role')
+        .select('*') // Changed to select all fields
         .eq('id', user.id)
         .single();
       if (error) throw error;

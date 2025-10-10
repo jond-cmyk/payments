@@ -183,7 +183,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction asChild>
-                  <Button form="decline-form" type="submit" variant="destructive">
+                  <Button form="decline-form" type="submit" variant="destructive"> {/* Moved variant to Button */}
                     Decline
                   </Button>
                 </AlertDialogAction>
@@ -211,8 +211,10 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} variant="destructive">
-                Delete
+              <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} asChild> {/* Added asChild */}
+                <Button variant="destructive"> {/* Added Button with variant */}
+                  Delete
+                </Button>
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

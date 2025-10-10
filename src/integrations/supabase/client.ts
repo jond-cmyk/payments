@@ -23,6 +23,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
         order: () => Promise.resolve({ data: [], error: new Error("Supabase not configured") }),
         insert: () => Promise.resolve({ data: null, error: new Error("Supabase not configured") }),
         update: () => Promise.resolve({ data: null, error: new Error("Supabase not configured") }),
+        delete: () => Promise.resolve({ data: null, error: new Error("Supabase not configured") }), // Added delete for completeness
       }),
     }),
     storage: {
@@ -31,8 +32,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
         getPublicUrl: () => ({ publicUrl: '' }),
       }),
     },
+    functions: { // Added functions for completeness
+      invoke: () => Promise.resolve({ data: null, error: new Error("Supabase functions not configured") }),
+    },
   };
-  supabase = dummyClient as SupabaseClient; // Assign dummy client here
+  supabase = dummyClient as any as SupabaseClient; // Assign dummy client here, cast to any first
 } else {
   supabase = createClient(supabaseUrl, supabaseAnonKey); // Assign real client
 }

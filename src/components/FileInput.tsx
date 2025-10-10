@@ -2,11 +2,11 @@
 
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { Input, InputProps } from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { UploadCloud, FileText, X } from "lucide-react";
 
-interface FileInputProps extends Omit<InputProps, 'value' | 'onChange'> {
+interface FileInputProps extends Omit<React.ComponentPropsWithoutRef<typeof Input>, 'value' | 'onChange'> {
   label: string;
   value?: FileList | null;
   onChange: (files: FileList | null) => void;
@@ -22,7 +22,7 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
 
     React.useEffect(() => {
       if (value && value.length > 0) {
-        const names = Array.from(value).map(file => file.name);
+        const names = Array.from(value as FileList).map(file => file.name);
         setFileNames(names);
       } else {
         setFileNames([]);
@@ -41,7 +41,7 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
     const handleRemoveFile = (indexToRemove: number) => {
       if (value) {
         const newFileList = new DataTransfer();
-        Array.from(value).forEach((file, index) => {
+        Array.from(value as FileList).forEach((file: File, index) => {
           if (index !== indexToRemove) {
             newFileList.items.add(file);
           }
