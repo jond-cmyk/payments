@@ -42,6 +42,7 @@ serve(async (req) => {
       });
     }
     const resend = new Resend(resendApiKey);
+    const _project_ref = 'vcpvwcfuvpngmxenhixj'; // Updated Supabase Project ID
 
     // Fetch the invoice PDF content
     const invoiceResponse = await fetch(newRecord.invoice_pdf_url);

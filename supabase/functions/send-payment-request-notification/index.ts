@@ -43,6 +43,7 @@ serve(async (req) => {
     }
     const resend = new Resend(resendApiKey);
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
+    const _project_ref = 'vcpvwcfuvpngmxenhixj'; // Updated Supabase Project ID
 
     // --- Fetch Requester Details ---
     const { data: requesterProfile, error: requesterProfileError } = await supabaseClient
