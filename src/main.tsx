@@ -1,3 +1,5 @@
+console.log("main.tsx: Script started executing!"); // Added for debugging
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App'; // Import the main App component
