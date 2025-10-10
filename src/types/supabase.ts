@@ -21,6 +21,23 @@ export type PaymentRequest = {
   receipt_required: boolean; // New field
 };
 
+export type Transaction = {
+  id: string;
+  user_id: string;
+  original_transaction_id: string | null;
+  transaction_date: string; // YYYY-MM-DD format
+  description: string;
+  amount: number;
+  currency: string;
+  status: 'pending_input' | 'completed' | 'approved' | 'declined';
+  category: string | null;
+  merchant_name: string | null;
+  notes: string | null;
+  receipt_url: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Profile = {
   id: string;
   first_name: string | null;

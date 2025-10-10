@@ -1,25 +1,24 @@
 "use client";
 
 import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom'; // Import useLocation
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users } from 'lucide-react';
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptText } from 'lucide-react'; // Added Upload and ReceiptText icons
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Profile } from '@/types/supabase';
 
 interface SidebarProps {
   className?: string;
-  isMobile?: boolean; // New prop to adjust styling for mobile sheet
+  isMobile?: boolean;
 }
 
 const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const { session, user, isLoading } = useSession();
   const navigate = useNavigate();
 
-  // Fetch user role using react-query
   const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
     queryKey: ['userProfile', user?.id],
     queryFn: async () => {
@@ -35,7 +34,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
       }
       return data;
     },
-    enabled: !!user?.id, // Only run query if user ID is available
+    enabled: !!user?.id,
   });
 
   const currentRole = profileData?.role;
@@ -46,13 +45,13 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   };
 
   if (isLoading || isProfileLoading) {
-    return null; // Or a loading spinner for the sidebar
+    return null;
   }
 
   return (
     <div className={cn(
       "flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-md",
-      isMobile ? "p-4" : "p-4", // Apply padding based on isMobile, currently same but can be differentiated
+      isMobile ? "p-4" : "p-4",
       className
     )}>
       <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
@@ -63,10 +62,12 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
+        <NavLink to="/my-transactions" icon={<ReceiptText className="h-5 w-5" />} label="My Transactions" /> {/* New link */}
         {currentRole === 'admin' && (
           <>
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
+            <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" /> {/* New admin link */}
           </>
         )}
       </nav>
@@ -104,8 +105,8 @@ interface NavLinkProps {
 }
 
 const NavLink = ({ to, icon, label }: NavLinkProps) => {
-  const location = useLocation(); // Get current location
-  const isActive = location.pathname === to; // Check if the link is active
+  const location = useLocation();
+  const isActive = location.pathname === to;
 
   return (
     <Button
