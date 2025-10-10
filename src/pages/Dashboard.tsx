@@ -17,12 +17,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban } from 'lucide-react'; // Changed DollarSign to Euro
+import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
-import { cn } from '@/lib/utils'; // Import cn utility for conditional class names
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 const Dashboard = () => {
   const { session, isLoading, user } = useSession();
@@ -212,7 +212,7 @@ const Dashboard = () => {
         return {
           borderClass: 'border-blue-500',
           textClass: 'text-blue-600',
-          icon: <Euro className="h-4 w-4" />, // Changed to Euro icon
+          icon: <Euro className="h-4 w-4" />,
           title: 'Payment Setup',
           description: 'Payments being processed',
         };
@@ -331,7 +331,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {paymentRequests && paymentRequests.length > 0 ? (
+      {/* Only show the table if it's the admin view, otherwise show a message */}
+      {isAdminView && paymentRequests && paymentRequests.length > 0 ? (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -376,9 +377,11 @@ const Dashboard = () => {
           </Table>
         </div>
       ) : (
-        <p className="text-center text-muted-foreground mt-8">
-          {userRole === 'requester' ? 'You have not created any payment requests yet.' : 'No payment requests found matching your criteria.'}
-        </p>
+        !isAdminView && ( // Only show this message if it's NOT the admin view
+          <p className="text-center text-muted-foreground mt-8">
+            You can view your payment requests on the "All Requests" page.
+          </p>
+        )
       )}
     </div>
   );
