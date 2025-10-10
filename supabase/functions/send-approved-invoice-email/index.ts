@@ -32,17 +32,17 @@ serve(async (req) => {
       });
     }
 
-    const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
 
-    if (!sendgridApiKey) {
-      console.error('SENDGRID_API_KEY is not set in environment variables.');
+    if (!brevoApiKey) {
+      console.error('BREVO_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const senderEmail = `jon.d@khpayments.com`; // Use your verified SendGrid sender email/domain
+    const senderEmail = `jon.d@khpayments.com`; // Use your verified Brevo sender email/domain
     const recipientEmail = '868bilag1677646@e-conomic.dk'; // Target email
 
     // Fetch the invoice PDF content
@@ -68,45 +68,38 @@ serve(async (req) => {
       <p>Your Payment Team</p>
     `;
 
-    const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${sendgridApiKey}`,
+        'api-key': brevoApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: recipientEmail }],
-        }],
-        from: { email: senderEmail },
+        sender: { email: senderEmail },
+        to: [{ email: recipientEmail }],
         subject: subject,
-        content: [{
-          type: 'text/html',
-          value: htmlContent,
-        }],
+        htmlContent: htmlContent,
         attachments: [
           {
             content: base64Content,
-            filename: fileName,
-            type: 'application/pdf',
-            disposition: 'attachment',
+            name: fileName,
           },
         ],
       }),
     });
 
-    if (!sendgridResponse.ok) {
-      const errorText = await sendgridResponse.text();
-      console.error('Error sending approved invoice email via SendGrid:', sendgridResponse.status, errorText);
-      return new Response(JSON.stringify({ error: `Failed to send approved invoice email via SendGrid: ${errorText}` }), {
+    if (!brevoResponse.ok) {
+      const errorText = await brevoResponse.text();
+      console.error('Error sending approved invoice email via Brevo:', brevoResponse.status, errorText);
+      return new Response(JSON.stringify({ error: `Failed to send approved invoice email via Brevo: ${errorText}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Approved invoice email sent successfully via SendGrid.');
+    console.log('Approved invoice email sent successfully via Brevo.');
 
-    return new Response(JSON.stringify({ message: 'Approved invoice email sent successfully via SendGrid' }), {
+    return new Response(JSON.stringify({ message: 'Approved invoice email sent successfully via Brevo' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

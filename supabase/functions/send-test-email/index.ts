@@ -11,10 +11,10 @@ serve(async (req) => {
   }
 
   try {
-    const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
 
-    if (!sendgridApiKey) {
-      console.error('SENDGRID_API_KEY is not set in environment variables.');
+    if (!brevoApiKey) {
+      console.error('BREVO_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -23,49 +23,44 @@ serve(async (req) => {
 
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
     const testEmailRecipient = 'jon.d@khpayments.com'; // Sending to the same 'from' address for testing
-    const senderEmail = `jon.d@khpayments.com`; // Use your verified SendGrid sender email/domain
+    const senderEmail = `jon.d@khpayments.com`; // Use your verified Brevo sender email/domain
 
-    const subject = `Test Email from Supabase Edge Function (SendGrid) - ${new Date().toLocaleString()}`;
+    const subject = `Test Email from Supabase Edge Function (Brevo) - ${new Date().toLocaleString()}`;
     const htmlContent = `
       <p>Hello,</p>
-      <p>This is a test email sent from your Supabase Edge Function using SendGrid.</p>
+      <p>This is a test email sent from your Supabase Edge Function using Brevo.</p>
       <p>Your configured APP_URL is: <a href="${appUrl}">${appUrl}</a></p>
-      <p>If you received this, your SendGrid API key and domain are likely configured correctly!</p>
+      <p>If you received this, your Brevo API key and domain are likely configured correctly!</p>
       <p>Best regards,</p>
       <p>Your Dyad App</p>
     `;
 
-    const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${sendgridApiKey}`,
+        'api-key': brevoApiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        personalizations: [{
-          to: [{ email: testEmailRecipient }],
-        }],
-        from: { email: senderEmail },
+        sender: { email: senderEmail },
+        to: [{ email: testEmailRecipient }],
         subject: subject,
-        content: [{
-          type: 'text/html',
-          value: htmlContent,
-        }],
+        htmlContent: htmlContent,
       }),
     });
 
-    if (!sendgridResponse.ok) {
-      const errorText = await sendgridResponse.text();
-      console.error('Error sending test email via SendGrid:', sendgridResponse.status, errorText);
-      return new Response(JSON.stringify({ error: `Failed to send test email via SendGrid: ${errorText}` }), {
+    if (!brevoResponse.ok) {
+      const errorText = await brevoResponse.text();
+      console.error('Error sending test email via Brevo:', brevoResponse.status, errorText);
+      return new Response(JSON.stringify({ error: `Failed to send test email via Brevo: ${errorText}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Test email sent successfully via SendGrid.');
+    console.log('Test email sent successfully via Brevo.');
 
-    return new Response(JSON.stringify({ message: 'Test email sent successfully via SendGrid' }), {
+    return new Response(JSON.stringify({ message: 'Test email sent successfully via Brevo' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
