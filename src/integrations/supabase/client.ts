@@ -39,7 +39,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
       }),
     },
   };
-  supabase = dummyClient as SupabaseClient; // Assign dummy client
+  supabase = dummyClient as SupabaseClient; // Assign dummy client here
 } else {
   console.log('Supabase Client Init: URL:', supabaseUrl);
   console.log('Supabase Client Init: Anon Key (first 5 chars):', supabaseAnonKey.substring(0, 5) + '...');
