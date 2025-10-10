@@ -12,7 +12,7 @@ serve(async (req) => {
 
   try {
     const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
-    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN'); // e.g., 'kassoehousing.com'
+    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN'); // e.g., 'khpayments.com'
     const mailgunRegion = Deno.env.get('MAILGUN_REGION') || 'us'; // 'us' or 'eu'
 
     if (!mailgunApiKey || !mailgunDomain) {
@@ -24,7 +24,7 @@ serve(async (req) => {
     }
 
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
-    const testEmailRecipient = 'jon.d@kassoehousing.com'; // Sending to the same 'from' address for testing
+    const testEmailRecipient = 'jon.d@khpayments.com'; // Updated recipient for testing
     const senderEmail = `jon.d@${mailgunDomain}`; // Use the configured Mailgun domain
 
     const subject = `Test Email from Supabase Edge Function (Mailgun) - ${new Date().toLocaleString()}`;
