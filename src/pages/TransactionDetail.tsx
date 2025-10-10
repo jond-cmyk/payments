@@ -197,7 +197,7 @@ const TransactionDetail = () => {
   const canEdit = (transaction.status === 'pending_input' || transaction.status === 'completed') && (isAssignedUser || isAdmin);
 
   return (
-    <React.Fragment>
+    <>
       <div className="container mx-auto py-8">
         <Card className="max-w-2xl mx-auto">
           <CardHeader>
@@ -332,7 +332,7 @@ const TransactionDetail = () => {
             </CardContent>
           </Card>
         </div>
-    </React.Fragment>
+    </>
   );
 };
 
