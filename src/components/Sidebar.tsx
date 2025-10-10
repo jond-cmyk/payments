@@ -5,10 +5,8 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptText } from 'lucide-react'; // Added Upload and ReceiptText icons
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptText } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useQuery } from '@tanstack/react-query';
-import { Profile } from '@/types/supabase';
 
 interface SidebarProps {
   className?: string;
@@ -16,38 +14,52 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
-  const { session, user, isLoading } = useSession();
+  const { session, user, isLoading, isApproved, userProfile } = useSession(); // Get isApproved and userProfile from context
   const navigate = useNavigate();
 
-  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
-    queryKey: ['userProfile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*') // Changed to select all fields
-        .eq('id', user.id)
-        .single();
-      if (error) {
-        console.error('Sidebar: Error fetching user role:', error.message);
-        throw error;
-      }
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const currentRole = profileData?.role;
+  const currentRole = userProfile?.role;
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
 
-  if (isLoading || isProfileLoading) {
-    return null;
+  if (isLoading) {
+    return null; // Don't render sidebar while session is loading
   }
 
+  // If not logged in or not approved, only show login/logout button
+  if (!session || !isApproved) {
+    return (
+      <div className={cn(
+        "flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-md",
+        isMobile ? "p-4" : "p-4",
+        className
+      )}>
+        <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
+          <h1 className="text-2xl font-bold text-dyad-blue">KH Payments</h1>
+        </div>
+        <div className="mt-auto pt-4 border-t border-sidebar-border">
+          {session ? (
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              className="w-full justify-start text-red-500 hover:bg-red-100 hover:text-red-600"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Log Out
+            </Button>
+          ) : (
+            <Button onClick={() => navigate('/login')} className="w-full">
+              Log In
+            </Button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Render full sidebar for approved users
   return (
     <div className={cn(
       "flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-md",
@@ -62,7 +74,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
-        <NavLink to="/my-transactions" icon={<ReceiptText className="h-5 w-5" />} label="Card Payment Receipts" /> {/* Updated link label */}
+        <NavLink to="/my-transactions" icon={<ReceiptText className="h-5 w-5" />} label="Card Payment Receipts" />
         {currentRole === 'admin' && (
           <>
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />

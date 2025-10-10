@@ -19,47 +19,21 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Users } from 'lucide-react';
+import { Users, CheckCircle, XCircle } from 'lucide-react'; // Added CheckCircle and XCircle icons
+import { Button } from '@/components/ui/button'; // Import Button
 
 const UserManagement = () => {
-  const { session, isLoading: isSessionLoading, user } = useSession();
+  const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession(); // Use userProfile from context
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  console.log("UserManagement: Session Loading:", isSessionLoading);
-  console.log("UserManagement: Current User:", user);
-
-  // Fetch current user's role
-  const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
-    queryKey: ['userProfile', user?.id],
-    queryFn: async () => {
-      console.log("UserManagement: Attempting to fetch user profile for ID:", user?.id);
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*') // Changed to select all fields
-        .eq('id', user.id)
-        .single();
-      if (error) {
-        console.error("UserManagement: Error fetching user profile:", error);
-        throw error;
-      }
-      console.log("UserManagement: Fetched profile data:", data);
-      return data;
-    },
-    enabled: !!user?.id, // Only run query if user ID is available
-    staleTime: 0, // Always refetch on mount for this critical check
-  });
-
   // Determine if the current user is an admin
-  const isAdmin = profileData?.role === 'admin';
-  console.log("UserManagement: Is Admin:", isAdmin);
+  const isAdmin = currentUserProfile?.role === 'admin';
 
   // Fetch all user profiles, including their email from the new view
   const { data: profiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
     queryKey: ['allProfiles'],
     queryFn: async () => {
-      console.log("UserManagement: Attempting to fetch all profiles (admin view)");
       const { data, error } = await supabase
         .from('profile_with_email') // Query the new view
         .select('*') // Select all columns from the view
@@ -68,7 +42,6 @@ const UserManagement = () => {
         console.error("UserManagement: Error fetching all profiles:", error);
         throw error;
       }
-      console.log("UserManagement: Fetched all profiles:", data);
       return data;
     },
     enabled: isAdmin, // Only fetch if current user is confirmed admin
@@ -94,6 +67,26 @@ const UserManagement = () => {
     },
   });
 
+  // Mutation for updating user approval status
+  const updateApprovalMutation = useMutation({
+    mutationFn: async ({ id, is_approved }: { id: string; is_approved: boolean }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_approved, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
+      showSuccess("User approval status updated successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to update user approval status.");
+      console.error("Update approval error:", error);
+    },
+  });
+
   const handleRoleChange = async (profileId: string, newRole: Profile['role']) => {
     const toastId = showLoading("Updating user role...");
     try {
@@ -104,34 +97,33 @@ const UserManagement = () => {
     }
   };
 
+  const handleApprovalToggle = async (profileId: string, currentApprovalStatus: boolean) => {
+    const toastId = showLoading(currentApprovalStatus ? "Disapproving user..." : "Approving user...");
+    try {
+      await updateApprovalMutation.mutateAsync({ id: profileId, is_approved: !currentApprovalStatus });
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
+  };
+
   // --- Centralized Loading and Access Control ---
-  if (isSessionLoading || isProfileLoading) {
-    console.log("UserManagement: Displaying initial loading state.");
+  if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading user management...</div>;
   }
 
   if (!session) {
-    console.log("UserManagement: No session found, redirecting to login.");
     navigate('/login');
     return null;
   }
 
-  if (profileError) {
-    console.error("UserManagement: Profile error detected, redirecting to dashboard.", profileError);
-    showError("Error loading your profile. Please try again.");
-    navigate('/dashboard');
-    return null;
-  }
-
-  if (!profileData) {
-    console.warn("UserManagement: No profile data found for user, redirecting to dashboard.");
+  if (!currentUserProfile) {
     showError("Your user profile could not be loaded. Please contact support.");
     navigate('/dashboard');
     return null;
   }
 
   if (!isAdmin) {
-    console.warn("UserManagement: User is not an admin, redirecting to dashboard. Role:", profileData.role);
     showError("You do not have permission to view this page.");
     navigate('/dashboard');
     return null;
@@ -139,16 +131,13 @@ const UserManagement = () => {
 
   // If we reach here, the user is authenticated and confirmed as an admin.
   if (isProfilesLoading) {
-    console.log("UserManagement: Displaying profiles loading state.");
     return <div className="flex items-center justify-center h-full text-lg">Loading user profiles...</div>;
   }
 
   if (profilesError) {
-    console.error("UserManagement: Error loading all profiles:", profilesError);
     return <div className="flex items-center justify-center h-full text-red-500">Error loading profiles: {profilesError.message}</div>;
   }
 
-  console.log("UserManagement: Rendering content for admin.");
   return (
     <div className="container mx-auto py-8">
       <Card>
@@ -166,6 +155,7 @@ const UserManagement = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Email Address</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Approved</TableHead> {/* New column */}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -175,7 +165,7 @@ const UserManagement = () => {
                       <TableCell className="font-medium">
                         {profile.first_name || ''} {profile.last_name || ''}
                       </TableCell>
-                      <TableCell>{profile.user_email || 'N/A'}</TableCell> {/* Display email from the view */}
+                      <TableCell>{profile.user_email || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge
                           className={
@@ -187,13 +177,24 @@ const UserManagement = () => {
                           {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell>
+                        {profile.is_approved ? (
+                          <Badge className="bg-green-500 text-green-50">
+                            <CheckCircle className="mr-1 h-3 w-3" /> Approved
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-red-500 text-red-50">
+                            <XCircle className="mr-1 h-3 w-3" /> Pending
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right flex items-center justify-end space-x-2">
                         <Select
                           value={profile.role}
                           onValueChange={(newRole: Profile['role']) => handleRoleChange(profile.id, newRole)}
                           disabled={updateRoleMutation.isPending || profile.id === user?.id} // Prevent changing own role via this interface
                         >
-                          <SelectTrigger className="w-[180px]">
+                          <SelectTrigger className="w-[140px]">
                             <SelectValue placeholder="Change Role" />
                           </SelectTrigger>
                           <SelectContent>
@@ -201,6 +202,14 @@ const UserManagement = () => {
                             <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>
+                        <Button
+                          variant={profile.is_approved ? "destructive" : "default"}
+                          size="sm"
+                          onClick={() => handleApprovalToggle(profile.id, profile.is_approved)}
+                          disabled={updateApprovalMutation.isPending || profile.id === user?.id} // Prevent changing own approval status
+                        >
+                          {profile.is_approved ? "Disapprove" : "Approve"}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

@@ -5,21 +5,26 @@ import { useNavigate } from "react-router-dom";
 import { useSession } from "@/integrations/supabase/SessionContext";
 
 const Index = () => {
-  const { session, isLoading } = useSession();
+  const { session, isLoading, isApproved } = useSession();
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log("Index: Current session state - isLoading:", isLoading, "session:", session);
+    console.log("Index: Current session state - isLoading:", isLoading, "session:", session, "isApproved:", isApproved);
     if (!isLoading) {
       if (session) {
-        console.log("Index: Session found, redirecting to /dashboard.");
-        navigate('/dashboard'); // Redirect to dashboard if logged in
+        if (isApproved) {
+          console.log("Index: Session found and approved, redirecting to /dashboard.");
+          navigate('/dashboard'); // Redirect to dashboard if logged in and approved
+        } else {
+          console.log("Index: Session found but not approved, redirecting to /pending-approval.");
+          navigate('/pending-approval'); // Redirect to pending approval if logged in but not approved
+        }
       } else {
         console.log("Index: No session found, redirecting to /login.");
         navigate('/login'); // Redirect to login if not logged in
       }
     }
-  }, [session, isLoading, navigate]);
+  }, [session, isLoading, isApproved, navigate]);
 
   if (isLoading) {
     return (
@@ -29,8 +34,6 @@ const Index = () => {
     );
   }
 
-  // This will be rendered if isLoading is false and before any redirects happen, or if redirects fail.
-  // It should quickly disappear if redirects work.
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <p className="text-xl text-gray-600">Checking authentication status...</p>

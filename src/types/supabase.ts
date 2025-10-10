@@ -46,6 +46,7 @@ export type Profile = {
   role: 'requester' | 'admin';
   updated_at: string | null;
   user_email?: string; // Added for the profile_with_email view
+  is_approved: boolean; // New field for manual approval
 };
 
 export type PaymentRequestAudit = {

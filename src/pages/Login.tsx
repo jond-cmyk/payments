@@ -8,16 +8,21 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
-  const { session, isLoading } = useSession();
+  const { session, isLoading, isApproved } = useSession();
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log("Login: Current session state - isLoading:", isLoading, "session:", session);
+    console.log("Login: Current session state - isLoading:", isLoading, "session:", session, "isApproved:", isApproved);
     if (!isLoading && session) {
-      console.log("Login: Session found, redirecting to /.");
-      navigate('/'); // Redirect to home if already logged in
+      if (isApproved) {
+        console.log("Login: Session found and approved, redirecting to /dashboard.");
+        navigate('/dashboard');
+      } else {
+        console.log("Login: Session found but not approved, redirecting to /pending-approval.");
+        navigate('/pending-approval');
+      }
     }
-  }, [session, isLoading, navigate]);
+  }, [session, isLoading, isApproved, navigate]);
 
   if (isLoading) {
     console.log("Login: Displaying loading state.");
