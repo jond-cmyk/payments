@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -9,72 +9,15 @@ import { PaymentRequest, Profile, PaymentRequestAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import DatePicker from '@/components/DatePicker';
-import { Separator } from '@/components/ui/separator';
-import { FileText, Download, CheckCircle, XCircle, DollarSign, History, MessageSquare, Trash2 } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import PrefixedInput from '@/components/PrefixedInput';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import FileInput from '@/components/FileInput';
+import PaymentRequestDetailsCard from '@/components/payment-requests/PaymentRequestDetailsCard';
+import AdminActionsCard from '@/components/payment-requests/AdminActionsCard';
+import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUploadCard';
+import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentRequestAuditTrailCard';
 
-// List of major currencies, expanded and sorted alphabetically
-const majorCurrencies = [
-  { value: 'ALL', label: 'ALL - Albanian Lek' },
-  { value: 'AMD', label: 'AMD - Armenian Dram' },
-  { value: 'AUD', label: 'AUD - Australian Dollar' },
-  { value: 'AZN', label: 'AZN - Azerbaijani Manat' },
-  { value: 'BAM', label: 'BAM - Bosnia and Herzegovina Convertible Mark' },
-  { value: 'BGN', label: 'BGN - Bulgarian Lev' },
-  { value: 'BYN', label: 'BYN - Belarusian Ruble' },
-  { value: 'CAD', label: 'CAD - Canadian Dollar' },
-  { value: 'CHF', label: 'CHF - Swiss Franc' },
-  { value: 'CNY', label: 'CNY - Chinese Yuan' },
-  { value: 'CZK', label: 'CZK - Czech Koruna' },
-  { value: 'DKK', label: 'DKK - Danish Krone' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - British Pound' },
-  { value: 'GEL', label: 'GEL - Georgian Lari' },
-  { value: 'HKD', label: 'HKD - Hong Kong Dollar' },
-  { value: 'HUF', label: 'HUF - Hungarian Forint' },
-  { value: 'INR', label: 'INR - Indian Rupee' },
-  { value: 'ISK', label: 'ISK - Icelandic Króna' },
-  { value: 'JPY', label: 'JPY - Japanese Yen' },
-  { value: 'MKD', label: 'MKD - Macedonian Denar' },
-  { value: 'MDL', label: 'MDL - Moldovan Leu' },
-  { value: 'MXN', label: 'MXN - Mexican Peso' },
-  { value: 'NOK', label: 'NOK - Norwegian Krone' },
-  { value: 'NZD', label: 'NZD - New Zealand Dollar' },
-  { value: 'PLN', label: 'PLN - Polish Zloty' },
-  { value: 'RON', label: 'RON - Romanian Leu' },
-  { value: 'RSD', label: 'RSD - Serbian Dinar' },
-  { value: 'SEK', label: 'SEK - Swedish Krona' },
-  { value: 'SGD', label: 'SGD - Singapore Dollar' },
-  { value: 'TRY', label: 'TRY - Turkish Lira' },
-  { value: 'UAH', label: 'UAH - Ukrainian Hryvnia' },
-  { value: 'USD', label: 'USD - United States Dollar' },
-  { value: 'ZAR', label: 'ZAR - South African Rand' },
-].sort((a, b) => a.label.localeCompare(b.label)); // Ensure alphabetical order
-
-// Zod schema for editing payment requests (requester)
+// Zod schema for editing payment requests (requester) - kept here for editForm initialization
 const editFormSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
   sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."),
@@ -87,29 +30,25 @@ const editFormSchema = z.object({
     required_error: "Date Payment Required is required",
   }),
   invoice_pdf: z.any()
-    .optional() // Make optional for editing, only required if a new file is selected
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.") // 5MB limit per file
+    .optional()
+    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
 });
 
-// Zod schema for admin decline reason
-const declineFormSchema = z.object({
-  admin_action_reason: z.string().min(1, "Decline reason is required"),
-});
-
-// Zod schema for admin query note
+// Zod schema for admin query note - kept here for handleAdminQuery
 const queryFormSchema = z.object({
   query_note: z.string().min(1, "Query note is required"),
 });
 
-// Zod schema for admin receipt upload
+// Zod schema for admin receipt upload - kept here for handleReceiptUpload
 const receiptUploadSchema = z.object({
   receipt_pdf: z.any()
     .refine((file) => file?.length > 0, "Receipt PDF is required.")
-    .refine((file) => file?.[0]?.size <= 5 * 1024 * 1024, "Max file size is 5MB.") // 5MB limit
+    .refine((file) => file?.[0]?.size <= 5 * 1024 * 1024, "Max file size is 5MB.")
     .refine((file) => file?.[0]?.type === "application/pdf", "Only .pdf files are accepted."),
 });
+
 
 const PaymentRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -177,14 +116,13 @@ const PaymentRequestDetail = () => {
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
     queryKey: ['auditUsers'],
     queryFn: async () => {
-      // Use the profile_with_email view to get user details including email
       const { data, error } = await supabase
         .from('profile_with_email')
         .select('id, first_name, last_name, user_email');
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
-        let displayString = profile.user_email || profile.id; // Default to email or ID
+        let displayString = profile.user_email || profile.id;
         if (profile.first_name || profile.last_name) {
           const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
           if (profile.user_email) {
@@ -208,8 +146,8 @@ const PaymentRequestDetail = () => {
       sku_number: "CH",
       supplier_address: "",
       iban_number: "",
-      currency: "USD", // Default currency
-      payment_amount: 0.00, // Default amount
+      currency: "USD",
+      payment_amount: 0.00,
       reason_for_payment: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
@@ -229,28 +167,11 @@ const PaymentRequestDetail = () => {
         payment_amount: request.payment_amount,
         reason_for_payment: request.reason_for_payment,
         date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
-        invoice_pdf: undefined, // Always reset file input
+        invoice_pdf: undefined,
         receipt_required: request.receipt_required,
       });
     }
   }, [request, isEditing, editForm]);
-
-
-  // Form for declining (admin)
-  const declineForm = useForm<z.infer<typeof declineFormSchema>>({
-    resolver: zodResolver(declineFormSchema),
-    defaultValues: {
-      admin_action_reason: "",
-    },
-  });
-
-  // Form for querying (admin)
-  const queryForm = useForm<z.infer<typeof queryFormSchema>>({
-    resolver: zodResolver(queryFormSchema),
-    defaultValues: {
-      query_note: "",
-    },
-  });
 
   // Form for receipt upload (admin)
   const receiptUploadForm = useForm<z.infer<typeof receiptUploadSchema>>({
@@ -293,14 +214,14 @@ const PaymentRequestDetail = () => {
           }
           newUploadedUrls.push(publicUrlData.publicUrl);
         }
-        updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls]; // Append new invoices
+        updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls];
       }
 
       const { error } = await supabase
         .from('payment_requests')
         .update({
           ...updatedFields,
-          invoice_pdf_urls: updatedInvoicePdfUrls, // Update with the new array of URLs
+          invoice_pdf_urls: updatedInvoicePdfUrls,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id);
@@ -331,9 +252,9 @@ const PaymentRequestDetail = () => {
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['paymentRequests'] }); // Invalidate all requests list
+      queryClient.invalidateQueries({ queryKey: ['paymentRequests'] });
       showSuccess("Payment request deleted successfully!");
-      navigate('/admin/requests'); // Redirect to admin requests list
+      navigate('/admin/requests');
     },
     onError: (error: any) => {
       showError(error.message || "Failed to delete payment request.");
@@ -399,7 +320,6 @@ const PaymentRequestDetail = () => {
     try {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
 
-      // First, log the query in the audit trail
       const { error: auditError } = await supabase
         .from('payment_request_audits')
         .insert({
@@ -410,11 +330,10 @@ const PaymentRequestDetail = () => {
 
       if (auditError) throw new Error(`Failed to log query in audit trail: ${auditError.message}`);
 
-      // Then, update the payment request status to 'queried'
-      await handleAdminAction('queried', values.query_note); // Use the existing admin action handler
+      await handleAdminAction('queried', values.query_note);
       dismissToast(toastId);
       showSuccess("Payment queried successfully!");
-      queryForm.reset(); // Clear the form
+      // queryForm.reset() is handled within AdminActionsCard
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "Failed to query payment.");
@@ -429,7 +348,7 @@ const PaymentRequestDetail = () => {
 
       const receiptFile = values.receipt_pdf[0];
       const fileExtension = receiptFile.name.split('.').pop();
-      const fileName = `${id}/${crypto.randomUUID()}.${fileExtension}`; // Store receipts by request ID
+      const fileName = `${id}/${crypto.randomUUID()}.${fileExtension}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('receipts')
@@ -452,7 +371,7 @@ const PaymentRequestDetail = () => {
 
       await updateRequestMutation.mutateAsync({ receipt_pdf_url: publicUrlData.publicUrl });
       dismissToast(toastId);
-      receiptUploadForm.reset();
+      // receiptUploadForm.reset() is handled within AdminReceiptUploadCard
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "Failed to upload receipt.");
@@ -479,25 +398,7 @@ const PaymentRequestDetail = () => {
   const isRequester = userRole === 'requester' && user?.id === request.requester_id;
   const isAdmin = userRole === 'admin';
 
-  // Allow requester to amend if pending or queried, allow admin to amend any time, BUT NOT IF APPROVED
   const canAmend = (request.status === 'pending' || request.status === 'queried') && (isRequester || isAdmin);
-
-  const getStatusDisplay = (status: PaymentRequest['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'Pending';
-      case 'setup_awaiting_approval':
-        return 'Payment Setup';
-      case 'approved':
-        return 'Payment Complete';
-      case 'declined':
-        return 'Declined';
-      case 'queried':
-        return 'Queried';
-      default:
-        return status;
-    }
-  };
 
   return (
     <div className="container mx-auto py-8">
@@ -520,513 +421,37 @@ const PaymentRequestDetail = () => {
         )}
       </div>
 
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Request Details</CardTitle>
-          <CardDescription>Status: <span className={`font-semibold ${
-            request.status === 'pending' ? 'text-yellow-600' :
-            request.status === 'setup_awaiting_approval' ? 'text-blue-600' :
-            request.status === 'approved' ? 'text-green-600' :
-            request.status === 'declined' ? 'text-red-600' :
-            request.status === 'queried' ? 'text-orange-600' :
-            'text-gray-600'
-          }`}>
-            {getStatusDisplay(request.status)}
-          </span></CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isEditing && canAmend ? (
-            <Form {...editForm}>
-              <form id="edit-request-form" onSubmit={editForm.handleSubmit(handleRequesterEditSubmit)} className="space-y-6">
-                <FormField
-                  control={editForm.control}
-                  name="supplier_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Supplier Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="sku_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SKU Number</FormLabel>
-                      <FormControl>
-                        <PrefixedInput prefix="CH" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="supplier_address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Supplier Address</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="iban_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>IBAN Number</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Currency</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a currency" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {majorCurrencies.map((currency) => (
-                            <SelectItem key={currency.value} value={currency.value}>
-                              {currency.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="payment_amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Payment Amount</FormLabel>
-                      <FormControl>
-                        <Input type="number" step="0.01" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="reason_for_payment"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Reason for Payment</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="date_payment_required"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Date Payment Required</FormLabel>
-                      <FormControl>
-                        <DatePicker
-                          date={field.value}
-                          setDate={field.onChange}
-                          placeholder="Select payment date"
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="invoice_pdf"
-                  render={({ field: { value, onChange, ...fieldProps } }) => (
-                    <FormItem>
-                      <FormLabel>Invoice PDF(s) (Upload new if needed)</FormLabel>
-                      <FormControl>
-                        <FileInput
-                          {...fieldProps}
-                          label="Choose New Invoice PDF(s)"
-                          accept=".pdf"
-                          value={value}
-                          onChange={onChange}
-                          multiple // Enable multiple file selection
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Existing invoices will be kept. New files will be added.
-                      </FormDescription>
-                      <FormMessage />
-                      {request.invoice_pdf_urls && request.invoice_pdf_urls.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-sm font-medium text-muted-foreground">Current Invoices:</p>
-                          {request.invoice_pdf_urls.map((url, index) => (
-                            <Button asChild variant="link" className="p-0 h-auto text-sm block" key={index}>
-                              <a href={url} target="_blank" rel="noopener noreferrer">
-                                <Download className="mr-1 h-4 w-4" /> Invoice {index + 1}
-                              </a>
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={editForm.control}
-                  name="receipt_required"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        Payment Receipt Required?
-                      </FormLabel>
-                      <FormDescription>
-                        Check this box if a receipt is required after the payment is made.
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-              </form>
-            </Form>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="font-medium">Supplier Name:</p>
-                <p>{request.supplier_name}</p>
-              </div>
-              <div>
-                <p className="font-medium">SKU Number:</p>
-                <p>{request.sku_number}</p>
-              </div>
-              <div>
-                <p className="font-medium">Supplier Address:</p>
-                <p>{request.supplier_address}</p>
-              </div>
-              <div>
-                <p className="font-medium">IBAN Number:</p>
-                <p>{request.iban_number}</p>
-              </div>
-              <div>
-                <p className="font-medium">Currency:</p>
-                <p>{request.currency}</p>
-              </div>
-              <div>
-                <p className="font-medium">Payment Amount:</p>
-                <p>{request.payment_amount?.toFixed(2) || '0.00'}</p>
-              </div>
-              <div>
-                <p className="font-medium">Reason for Payment:</p>
-                <p>{request.reason_for_payment}</p>
-              </div>
-              <div>
-                <p className="font-medium">Date Payment Required:</p>
-                <p>{format(new Date(request.date_payment_required), 'PPP')}</p>
-              </div>
-              <div>
-                <p className="font-medium">Invoice PDF(s):</p>
-                {request.invoice_pdf_urls && request.invoice_pdf_urls.length > 0 ? (
-                  <div className="space-y-1">
-                    {request.invoice_pdf_urls.map((url, index) => (
-                      <Button asChild variant="link" className="p-0 h-auto block" key={index}>
-                        <a href={url} target="_blank" rel="noopener noreferrer">
-                          <Download className="mr-1 h-4 w-4" /> Invoice {index + 1}
-                        </a>
-                      </Button>
-                    ))}
-                  </div>
-                ) : (
-                  <p>No invoices uploaded.</p>
-                )}
-              </div>
-              {request.receipt_pdf_url && (
-                <div>
-                  <p className="font-medium">Receipt PDF:</p>
-                  <Button asChild variant="link" className="p-0 h-auto">
-                    <a href={request.receipt_pdf_url} target="_blank" rel="noopener noreferrer">
-                      <Download className="mr-1 h-4 w-4" /> Download Receipt
-                    </a>
-                  </Button>
-                </div>
-              )}
-              <div>
-                <p className="font-medium">Payment Receipt Required:</p>
-                <p>{request.receipt_required ? 'Yes' : 'No'}</p>
-              </div>
-              <div>
-                <p className="font-medium">Created At:</p>
-                <p>{format(new Date(request.created_at), 'PPP p')}</p>
-              </div>
-              <div>
-                <p className="font-medium">Last Updated:</p>
-                <p>{format(new Date(request.updated_at), 'PPP p')}</p>
-              </div>
-              {request.payment_setup_date && (
-                <div>
-                  <p className="font-medium">Payment Setup Date:</p>
-                  <p>{format(new Date(request.payment_setup_date), 'PPP p')}</p>
-                </div>
-              )}
-              {request.payment_approved_date && (
-                <div>
-                  <p className="font-medium">Payment Approved Date:</p>
-                  <p>{format(new Date(request.payment_approved_date), 'PPP p')}</p>
-                </div>
-              )}
-              {request.admin_action_by && (
-                <div>
-                  <p className="font-medium">Admin Action By:</p>
-                  <p>{auditUsers?.[request.admin_action_by] || request.admin_action_by}</p>
-                </div>
-              )}
-              {request.admin_action_reason && (
-                <div>
-                  <p className="font-medium">Admin Reason:</p>
-                  <p>{request.admin_action_reason}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <PaymentRequestDetailsCard
+        request={request}
+        isEditing={isEditing}
+        canAmend={canAmend}
+        setIsEditing={setIsEditing}
+        editForm={editForm}
+        handleRequesterEditSubmit={handleRequesterEditSubmit}
+        auditUsers={auditUsers}
+      />
 
-      {isAdmin && request.status !== 'declined' && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Admin Actions</CardTitle>
-            <CardDescription>Manage this payment request.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-4">
-            {(request.status === 'pending' || request.status === 'queried') && (
-              <Button
-                onClick={() => handleAdminAction('setup_awaiting_approval')}
-                disabled={updateRequestMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                <DollarSign className="mr-2 h-4 w-4" /> Setup Payment
-              </Button>
-            )}
+      <AdminActionsCard
+        request={request}
+        isAdmin={isAdmin}
+        updateRequestMutation={updateRequestMutation}
+        deleteRequestMutation={deleteRequestMutation}
+        handleAdminAction={handleAdminAction}
+        handleAdminQuery={handleAdminQuery}
+        user={user}
+      />
 
-            {(request.status === 'pending' || request.status === 'setup_awaiting_approval') && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    disabled={updateRequestMutation.isPending}
-                    className="text-orange-600 border-orange-600 hover:bg-orange-50"
-                  >
-                    <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Query Payment Request</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Enter a note for the requester regarding this payment request. The status will be set to 'Queried'.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <Form {...queryForm}>
-                    <form id="query-form" onSubmit={queryForm.handleSubmit(handleAdminQuery)} className="space-y-4">
-                      <FormField
-                        control={queryForm.control}
-                        name="query_note"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Query Note</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="e.g., Please provide a more detailed reason for payment." {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </form>
-                  </Form>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction asChild>
-                      <Button form="query-form" type="submit">
-                        Submit Query
-                      </Button>
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+      <AdminReceiptUploadCard
+        request={request}
+        isAdmin={isAdmin}
+        updateRequestMutation={updateRequestMutation}
+        handleReceiptUpload={handleReceiptUpload}
+      />
 
-            {request.status === 'setup_awaiting_approval' && (
-              <Button
-                onClick={() => handleAdminAction('approved')}
-                disabled={updateRequestMutation.isPending}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                <CheckCircle className="mr-2 h-4 w-4" /> Approve Payment
-              </Button>
-            )}
-
-            {(request.status === 'pending' || request.status === 'setup_awaiting_approval' || request.status === 'queried') && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    disabled={updateRequestMutation.isPending}
-                  >
-                    <XCircle className="mr-2 h-4 w-4" /> Decline Payment
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Decline Payment Request</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Are you sure you want to decline this payment request? Please provide a reason.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <Form {...declineForm}>
-                    <form id="decline-form" onSubmit={declineForm.handleSubmit((data) => handleAdminAction('declined', data.admin_action_reason))} className="space-y-4">
-                      <FormField
-                        control={declineForm.control}
-                        name="admin_action_reason"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Reason for Decline</FormLabel>
-                            <FormControl>
-                              <Textarea placeholder="e.g., Insufficient budget, incorrect details" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </form>
-                  </Form>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction asChild>
-                      <Button form="decline-form" type="submit" variant="destructive">
-                        Decline
-                      </Button>
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="text-red-500 border-red-500 hover:bg-red-50"
-                  disabled={deleteRequestMutation.isPending}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Request
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the payment request and remove its data from our servers.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} variant="destructive">
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </CardContent>
-        </Card>
-      )}
-
-      {isAdmin && request.status === 'approved' && request.receipt_required && !request.receipt_pdf_url && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Upload Receipt</CardTitle>
-            <CardDescription>Upload the payment receipt once the payment is complete.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...receiptUploadForm}>
-              <form id="receipt-upload-form" onSubmit={receiptUploadForm.handleSubmit(handleReceiptUpload)} className="space-y-4">
-                <FormField
-                  control={receiptUploadForm.control}
-                  name="receipt_pdf"
-                  render={({ field: { value, onChange, ...fieldProps } }) => (
-                    <FormItem>
-                      <FormLabel>Receipt PDF</FormLabel>
-                      <FormControl>
-                        <FileInput
-                          {...fieldProps}
-                          label="Choose Receipt PDF"
-                          accept=".pdf"
-                          value={value}
-                          onChange={onChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={updateRequestMutation.isPending}>
-                  Upload Receipt
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <History className="mr-2 h-5 w-5" /> Audit Trail
-          </CardTitle>
-          <CardDescription>History of changes for this payment request.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {audits && audits.length > 0 ? (
-            <div className="space-y-4">
-              {audits.map((audit) => (
-                <div key={audit.id} className="border-l-2 border-gray-200 pl-4">
-                  <p className="text-sm text-muted-foreground">
-                    {format(new Date(audit.changed_at), 'PPP p')} by {auditUsers?.[audit.changed_by_user_id || ''] || audit.changed_by_user_id || 'System'}
-                  </p>
-                  <p className="text-base">{audit.change_description}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground">No audit history available.</p>
-          )}
-        </CardContent>
-      </Card>
+      <PaymentRequestAuditTrailCard
+        audits={audits}
+        auditUsers={auditUsers}
+      />
     </div>
   );
 };
