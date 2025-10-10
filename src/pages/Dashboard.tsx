@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom'; // Added useSearchParams
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -29,6 +29,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams(); // Initialize useSearchParams
 
   const [userRole, setUserRole] = useState<Profile['role'] | null>(null);
 
@@ -75,6 +76,22 @@ const Dashboard = () => {
     }
   }, [profileData]);
 
+  // Effect to read URL parameters for initial filter state
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam && (statusParam === 'pending' || statusParam === 'setup_awaiting_approval' || statusParam === 'approved' || statusParam === 'declined' || statusParam === 'queried' || statusParam === 'all')) {
+      setFilterStatus(statusParam);
+    } else if (location.pathname === '/admin/requests') {
+      // If on admin requests page but no status param, default to 'all'
+      setFilterStatus('all');
+    } else {
+      // For other pages (like requester dashboard), ensure filter is 'all'
+      setFilterStatus('all');
+    }
+    // Note: We don't clear searchParams here so direct links with filters work.
+  }, [searchParams, location.pathname]);
+
+
   const isAdminView = userRole === 'admin' && location.pathname === '/admin/requests';
 
   // Fetch payment requests based on role and filters
@@ -115,6 +132,7 @@ const Dashboard = () => {
     setFilterSkuNumber('');
     setFilterStatus('all');
     setFilterDatePaymentRequired(undefined);
+    setSearchParams({}); // Clear URL search params
     queryClient.invalidateQueries({ queryKey: ['paymentRequests'] }); // Force refetch
   };
 
@@ -207,6 +225,7 @@ const Dashboard = () => {
           icon: <Clock className="h-4 w-4" />,
           title: 'Pending',
           description: 'Requests awaiting review',
+          statusValue: 'pending',
         };
       case 'setup_awaiting_approval':
         return {
@@ -215,6 +234,7 @@ const Dashboard = () => {
           icon: <Euro className="h-4 w-4" />,
           title: 'Payment Setup',
           description: 'Payments being processed',
+          statusValue: 'setup_awaiting_approval',
         };
       case 'queried':
         return {
@@ -223,6 +243,7 @@ const Dashboard = () => {
           icon: <MessageSquare className="h-4 w-4" />,
           title: 'Queried',
           description: 'Requests needing more info',
+          statusValue: 'queried',
         };
       case 'declined':
         return {
@@ -231,6 +252,7 @@ const Dashboard = () => {
           icon: <Ban className="h-4 w-4" />,
           title: 'Declined',
           description: 'Requests that were rejected',
+          statusValue: 'declined',
         };
       case 'approved':
         return {
@@ -239,6 +261,7 @@ const Dashboard = () => {
           icon: <CheckCircle className="h-4 w-4" />,
           title: 'Approved',
           description: 'Payments completed',
+          statusValue: 'approved',
         };
       default:
         return {
@@ -247,6 +270,7 @@ const Dashboard = () => {
           icon: null,
           title: 'Unknown',
           description: '',
+          statusValue: 'all',
         };
     }
   };
@@ -271,18 +295,20 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
         {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
           const status = statusKey as PaymentRequest['status'];
-          const { borderClass, textClass, icon, title, description } = getCardStyling(status);
+          const { borderClass, textClass, icon, title, description, statusValue } = getCardStyling(status);
           return (
-            <Card key={status} className={cn("border-l-4", borderClass)}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
-                <span className={textClass}>{icon}</span>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{counts[status]}</div>
-                <p className="text-xs text-muted-foreground">{description}</p>
-              </CardContent>
-            </Card>
+            <Link key={status} to={`/admin/requests?status=${statusValue}`} className="block">
+              <Card className={cn("border-l-4 cursor-pointer hover:shadow-lg transition-shadow", borderClass)}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
+                  <span className={textClass}>{icon}</span>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{counts[status]}</div>
+                  <p className="text-xs text-muted-foreground">{description}</p>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>
@@ -331,8 +357,7 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Only show the table if it's the admin view, otherwise show a message */}
-      {isAdminView && paymentRequests && paymentRequests.length > 0 ? (
+      {paymentRequests && paymentRequests.length > 0 ? (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -349,8 +374,8 @@ const Dashboard = () => {
             </TableHeader>
             <TableBody>
               {paymentRequests.map((request) => (
-                <TableRow 
-                  key={request.id} 
+                <TableRow
+                  key={request.id}
                   className="transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
                 >
                   <TableCell className="font-medium">{request.supplier_name}</TableCell>
@@ -377,11 +402,9 @@ const Dashboard = () => {
           </Table>
         </div>
       ) : (
-        !isAdminView && ( // Only show this message if it's NOT the admin view
-          <p className="text-center text-muted-foreground mt-8">
-            You can view your payment requests on the "All Requests" page.
-          </p>
-        )
+        <p className="text-center text-muted-foreground mt-8">
+          {userRole === 'requester' ? 'You have not created any payment requests yet.' : 'No payment requests found matching your criteria.'}
+        </p>
       )}
     </div>
   );
