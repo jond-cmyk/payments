@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { Resend } from 'https://esm.sh/resend@1.1.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,17 +32,20 @@ serve(async (req) => {
       });
     }
 
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendApiKey) {
-      console.error('RESEND_API_KEY is not set in environment variables.');
+    const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
+    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
+    const mailgunRegion = Deno.env.get('MAILGUN_REGION') || 'us';
+
+    if (!mailgunApiKey || !mailgunDomain) {
+      console.error('MAILGUN_API_KEY or MAILGUN_DOMAIN is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const resend = new Resend(resendApiKey);
+
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
-    const _project_ref = 'vcpvwcfuvpngmxenhixj'; // Updated Supabase Project ID
+    const senderEmail = `jon.d@${mailgunDomain}`; // Use the configured Mailgun domain
 
     // --- Fetch Requester Details ---
     const { data: requesterProfile, error: requesterProfileError } = await supabaseClient
@@ -135,25 +137,38 @@ serve(async (req) => {
       });
     }
 
-    // Send email
-    const { data: emailData, error: resendError } = await resend.emails.send({
-      from: 'jon.d@kassoehousing.com', // Updated with the specified email
-      to: recipientEmails,
-      subject: subject,
-      html: htmlContent,
+    const formData = new URLSearchParams();
+    formData.append('from', `Dyad App <${senderEmail}>`);
+    formData.append('to', recipientEmails.join(',')); // Join multiple recipients with comma
+    formData.append('subject', subject);
+    formData.append('html', htmlContent);
+
+    const mailgunApiBaseUrl = mailgunRegion === 'eu'
+      ? `https://api.eu.mailgun.net/v3/${mailgunDomain}/messages`
+      : `https://api.mailgun.net/v3/${mailgunDomain}/messages`;
+
+    const mailgunResponse = await fetch(mailgunApiBaseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(`api:${mailgunApiKey}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
     });
 
-    if (resendError) {
-      console.error('Error sending email:', resendError);
-      return new Response(JSON.stringify({ error: 'Failed to send email' }), {
+    if (!mailgunResponse.ok) {
+      const errorText = await mailgunResponse.text();
+      console.error('Error sending email via Mailgun:', mailgunResponse.status, errorText);
+      return new Response(JSON.stringify({ error: `Failed to send email via Mailgun: ${errorText}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Email sent successfully:', emailData);
+    const mailgunData = await mailgunResponse.json();
+    console.log('Email sent successfully via Mailgun:', mailgunData);
 
-    return new Response(JSON.stringify({ message: 'Email sent successfully' }), {
+    return new Response(JSON.stringify({ message: 'Email sent successfully via Mailgun', mailgunResponse: mailgunData }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

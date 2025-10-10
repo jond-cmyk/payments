@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { Resend } from 'https://esm.sh/resend@1.1.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,47 +11,64 @@ serve(async (req) => {
   }
 
   try {
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendApiKey) {
-      console.error('RESEND_API_KEY is not set in environment variables.');
+    const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
+    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN'); // e.g., 'kassoehousing.com'
+    const mailgunRegion = Deno.env.get('MAILGUN_REGION') || 'us'; // 'us' or 'eu'
+
+    if (!mailgunApiKey || !mailgunDomain) {
+      console.error('MAILGUN_API_KEY or MAILGUN_DOMAIN is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const resend = new Resend(resendApiKey);
-    const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080'; // Fallback for APP_URL
 
+    const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
     const testEmailRecipient = 'jon.d@kassoehousing.com'; // Sending to the same 'from' address for testing
+    const senderEmail = `jon.d@${mailgunDomain}`; // Use the configured Mailgun domain
 
-    const subject = `Test Email from Supabase Edge Function - ${new Date().toLocaleString()}`;
+    const subject = `Test Email from Supabase Edge Function (Mailgun) - ${new Date().toLocaleString()}`;
     const htmlContent = `
       <p>Hello,</p>
-      <p>This is a test email sent from your Supabase Edge Function.</p>
+      <p>This is a test email sent from your Supabase Edge Function using Mailgun.</p>
       <p>Your configured APP_URL is: <a href="${appUrl}">${appUrl}</a></p>
-      <p>If you received this, your Resend API key and APP_URL are likely configured correctly!</p>
+      <p>If you received this, your Mailgun API key, domain, and APP_URL are likely configured correctly!</p>
       <p>Best regards,</p>
       <p>Your Dyad App</p>
     `;
 
-    const { data: emailData, error: resendError } = await resend.emails.send({
-      from: 'jon.d@kassoehousing.com', // Use your specified sender email
-      to: testEmailRecipient,
-      subject: subject,
-      html: htmlContent,
+    const formData = new URLSearchParams();
+    formData.append('from', `Dyad App <${senderEmail}>`);
+    formData.append('to', testEmailRecipient);
+    formData.append('subject', subject);
+    formData.append('html', htmlContent);
+
+    const mailgunApiBaseUrl = mailgunRegion === 'eu'
+      ? `https://api.eu.mailgun.net/v3/${mailgunDomain}/messages`
+      : `https://api.mailgun.net/v3/${mailgunDomain}/messages`;
+
+    const mailgunResponse = await fetch(mailgunApiBaseUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(`api:${mailgunApiKey}`)}`, // Base64 encode "api:YOUR_API_KEY"
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
     });
 
-    if (resendError) {
-      console.error('Error sending test email:', resendError);
-      return new Response(JSON.stringify({ error: 'Failed to send test email' }), {
+    if (!mailgunResponse.ok) {
+      const errorText = await mailgunResponse.text();
+      console.error('Error sending test email via Mailgun:', mailgunResponse.status, errorText);
+      return new Response(JSON.stringify({ error: `Failed to send test email via Mailgun: ${errorText}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Test email sent successfully:', emailData);
+    const mailgunData = await mailgunResponse.json();
+    console.log('Test email sent successfully via Mailgun:', mailgunData);
 
-    return new Response(JSON.stringify({ message: 'Test email sent successfully' }), {
+    return new Response(JSON.stringify({ message: 'Test email sent successfully via Mailgun', mailgunResponse: mailgunData }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
