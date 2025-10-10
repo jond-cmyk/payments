@@ -15,22 +15,22 @@ const Header = () => {
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
       case '/dashboard':
-        return 'Dashboard - Payment App';
+        return 'Dashboard - KH Payments';
       case '/new-request':
-        return 'New Payment Request - Payment App';
+        return 'New Payment Request - KH Payments';
       case '/admin/requests':
-        return 'All Payment Requests - Payment App';
+        return 'All Payment Requests - KH Payments';
       case '/admin/users':
-        return 'User Management - Payment App';
+        return 'User Management - KH Payments';
       case '/login':
-        return 'Login - Payment App';
+        return 'Login - KH Payments';
       case '/':
-        return 'Welcome - Payment App';
+        return 'Welcome - KH Payments';
       default:
         if (pathname.startsWith('/request/')) {
-          return 'Payment Request Details - Payment App';
+          return 'Payment Request Details - KH Payments';
         }
-        return 'Payment App'; // Default title for unknown routes
+        return 'KH Payments'; // Default title for unknown routes
     }
   };
 
@@ -53,7 +53,7 @@ const Header = () => {
         </SheetContent>
       </Sheet>
 
-      <h2 className="text-xl font-semibold">{title.replace(' - Payment App', '')}</h2> {/* Display title without app name in header */}
+      <h2 className="text-xl font-semibold">{title.replace(' - KH Payments', '')}</h2> {/* Display title without app name in header */}
       {/* Add any other header elements here, e.g., user menu, notifications */}
       <div className="ml-auto">
         {/* Future: User menu, notifications, etc. */}

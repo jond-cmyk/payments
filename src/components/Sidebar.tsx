@@ -56,7 +56,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
       className
     )}>
       <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
-        <h1 className="text-2xl font-bold text-dyad-blue">Payment App</h1>
+        <h1 className="text-2xl font-bold text-dyad-blue">KH Payments</h1>
       </div>
       <nav className="flex-1 space-y-2">
         <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
