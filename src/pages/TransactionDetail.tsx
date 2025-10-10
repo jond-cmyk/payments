@@ -197,141 +197,143 @@ const TransactionDetail = () => {
   const canEdit = (transaction.status === 'pending_input' || transaction.status === 'completed') && (isAssignedUser || isAdmin);
 
   return (
-    <div className="container mx-auto py-8">
-      <Card className="max-w-2xl mx-auto">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Card Payment Receipt Details</CardTitle>
-          <CardDescription className="text-center">
-            Transaction ID: {transaction.id.substring(0, 8)}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
-            <div>
-              <p className="font-medium">Transaction Date:</p>
-              <p>{format(new Date(transaction.transaction_date), 'PPP')}</p>
-            </div>
-            <div>
-              <p className="font-medium">Description:</p>
-              <p>{transaction.description}</p>
-            </div>
-            <div>
-              <p className="font-medium">Amount:</p>
-              <p>{transaction.currency} {transaction.amount.toFixed(2)}</p>
-            </div>
-            <div>
-              <p className="font-medium">Status:</p>
-              <p className={`font-semibold ${
-                transaction.status === 'pending_input' ? 'text-yellow-600' :
-                transaction.status === 'completed' ? 'text-blue-600' :
-                transaction.status === 'approved' ? 'text-green-600' :
-                transaction.status === 'declined' ? 'text-red-600' :
-                'text-gray-600'
-              }`}>
-                {transaction.status.replace(/_/g, ' ').charAt(0).toUpperCase() + transaction.status.replace(/_/g, ' ').slice(1)}
-              </p>
-            </div>
-            {transaction.original_transaction_id && (
+    <React.Fragment>
+      <div className="container mx-auto py-8">
+        <Card className="max-w-2xl mx-auto">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-center">Card Payment Receipt Details</CardTitle>
+            <CardDescription className="text-center">
+              Transaction ID: {transaction.id.substring(0, 8)}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
               <div>
-                <p className="font-medium">Original Transaction ID:</p>
-                <p>{transaction.original_transaction_id}</p>
+                <p className="font-medium">Transaction Date:</p>
+                <p>{format(new Date(transaction.transaction_date), 'PPP')}</p>
               </div>
-            )}
-          </div>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="travel">Travel</SelectItem>
-                        <SelectItem value="software">Software</SelectItem>
-                        <SelectItem value="office_supplies">Office Supplies</SelectItem>
-                        <SelectItem value="marketing">Marketing</SelectItem>
-                        <SelectItem value="utilities">Utilities</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="merchant_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Merchant Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Amazon" {...field} disabled={!canEdit} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Notes</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Add any relevant notes" {...field} disabled={!canEdit} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="receipt_pdf"
-                render={({ field: { value, onChange, ...fieldProps } }) => (
-                  <FormItem>
-                    <FormLabel>Receipt PDF</FormLabel>
-                    <FormControl>
-                      <FileInput
-                        {...fieldProps}
-                        label={transaction.receipt_url ? "Change Receipt PDF" : "Upload Receipt PDF"}
-                        accept=".pdf"
-                        value={value}
-                        onChange={onChange}
-                        disabled={!canEdit}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                    {transaction.receipt_url && (
-                      <div className="mt-2">
-                        <p className="text-sm font-medium text-muted-foreground">Current Receipt:</p>
-                        <Button asChild variant="link" className="p-0 h-auto text-sm block">
-                          <a href={transaction.receipt_url} target="_blank" rel="noopener noreferrer">
-                            <Download className="mr-1 h-4 w-4" /> View Current Receipt
-                          </a>
-                        </Button>
-                      </div>
-                    )}
-                  </FormItem>
-                )}
-              />
-              {canEdit && (
-                <Button type="submit" className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" disabled={updateTransactionMutation.isPending}>
-                  {updateTransactionMutation.isPending ? "Saving..." : "Save Changes"}
-                </Button>
+              <div>
+                <p className="font-medium">Description:</p>
+                <p>{transaction.description}</p>
+              </div>
+              <div>
+                <p className="font-medium">Amount:</p>
+                <p>{transaction.currency} {transaction.amount.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="font-medium">Status:</p>
+                <p className={`font-semibold ${
+                  transaction.status === 'pending_input' ? 'text-yellow-600' :
+                  transaction.status === 'completed' ? 'text-blue-600' :
+                  transaction.status === 'approved' ? 'text-green-600' :
+                  transaction.status === 'declined' ? 'text-red-600' :
+                  'text-gray-600'
+                }`}>
+                  {transaction.status.replace(/_/g, ' ').charAt(0).toUpperCase() + transaction.status.replace(/_/g, ' ').slice(1)}
+                </p>
+              </div>
+              {transaction.original_transaction_id && (
+                <div>
+                  <p className="font-medium">Original Transaction ID:</p>
+                  <p>{transaction.original_transaction_id}</p>
+                </div>
               )}
-            </form>
+            </div>
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="travel">Travel</SelectItem>
+                          <SelectItem value="software">Software</SelectItem>
+                          <SelectItem value="office_supplies">Office Supplies</SelectItem>
+                          <SelectItem value="marketing">Marketing</SelectItem>
+                          <SelectItem value="utilities">Utilities</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="merchant_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Merchant Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Amazon" {...field} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Add any relevant notes" {...field} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="receipt_pdf"
+                  render={({ field: { value, onChange, ...fieldProps } }) => (
+                    <FormItem>
+                      <FormLabel>Receipt PDF</FormLabel>
+                      <FormControl>
+                        <FileInput
+                          {...fieldProps}
+                          label={transaction.receipt_url ? "Change Receipt PDF" : "Upload Receipt PDF"}
+                          accept=".pdf"
+                          value={value}
+                          onChange={onChange}
+                          disabled={!canEdit}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                      {transaction.receipt_url && (
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-muted-foreground">Current Receipt:</p>
+                          <Button asChild variant="link" className="p-0 h-auto text-sm block">
+                            <a href={transaction.receipt_url} target="_blank" rel="noopener noreferrer">
+                              <Download className="mr-1 h-4 w-4" /> View Current Receipt
+                            </a>
+                          </Button>
+                        </div>
+                      )}
+                    </FormItem>
+                  )}
+                />
+                {canEdit && (
+                  <Button type="submit" className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" disabled={updateTransactionMutation.isPending}>
+                    {updateTransactionMutation.isPending ? "Saving..." : "Save Changes"}
+                  </Button>
+                )}
+              </form>
+            </Form>
           </CardContent>
         </Card>
       </div>
-    </div>
+    </React.Fragment>
   );
 };
 
