@@ -9,7 +9,7 @@ import { PaymentRequest, Profile, PaymentRequestAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod'; // Added missing import
+import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,7 @@ import PaymentRequestDetailsCard from '@/components/payment-requests/PaymentRequ
 import AdminActionsCard from '@/components/payment-requests/AdminActionsCard';
 import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUploadCard';
 import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentRequestAuditTrailCard';
+import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard'; // New import
 
 // Zod schema for editing payment requests (requester) - kept here for editForm initialization
 const editFormSchema = z.object({
@@ -57,6 +58,7 @@ const PaymentRequestDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [userRole, setUserRole] = useState<Profile['role'] | null>(null);
+  const [isEditing, setIsEditing] = useState(false); // State for editing mode
 
   // Fetch user role
   const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
@@ -112,7 +114,12 @@ const PaymentRequestDetail = () => {
     enabled: !!id,
   });
 
-  // Fetch user names and emails for audit trail
+  // Filter audits into general audit trail and comments
+  const generalAudits = audits?.filter(audit => !audit.change_description.startsWith('Comment: ')) || [];
+  const comments = audits?.filter(audit => audit.change_description.startsWith('Comment: ')) || [];
+
+
+  // Fetch user names and emails for audit trail and comments
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
     queryKey: ['auditUsers'],
     queryFn: async () => {
@@ -178,6 +185,29 @@ const PaymentRequestDetail = () => {
     resolver: zodResolver(receiptUploadSchema),
     defaultValues: {
       receipt_pdf: undefined,
+    },
+  });
+
+  const addCommentMutation = useMutation({
+    mutationFn: async (commentText: string) => {
+      if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
+      const { error } = await supabase
+        .from('payment_request_audits')
+        .insert({
+          payment_request_id: id,
+          changed_by_user_id: user.id,
+          change_description: `Comment: ${commentText}`, // Prefix to identify comments
+        });
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
+      showSuccess("Comment added successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to add comment.");
+      console.error("Add comment error:", error);
     },
   });
 
@@ -320,17 +350,12 @@ const PaymentRequestDetail = () => {
     try {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
 
-      const { error: auditError } = await supabase
-        .from('payment_request_audits')
-        .insert({
-          payment_request_id: id,
-          changed_by_user_id: user.id,
-          change_description: `Admin queried payment: ${values.query_note}`,
-        });
+      // First, add the query note as a comment
+      await addCommentMutation.mutateAsync(values.query_note);
 
-      if (auditError) throw new Error(`Failed to log query in audit trail: ${auditError.message}`);
-
+      // Then, update the request status to 'queried'
       await handleAdminAction('queried', values.query_note);
+      
       dismissToast(toastId);
       showSuccess("Payment queried successfully!");
       // queryForm.reset() is handled within AdminActionsCard
@@ -339,6 +364,10 @@ const PaymentRequestDetail = () => {
       showError(error.message || "Failed to query payment.");
       console.error("Query payment error:", error);
     }
+  };
+
+  const handleAddComment = async (commentText: string) => {
+    await addCommentMutation.mutateAsync(commentText);
   };
 
   const handleReceiptUpload = async (values: z.infer<typeof receiptUploadSchema>) => {
@@ -437,7 +466,7 @@ const PaymentRequestDetail = () => {
         updateRequestMutation={updateRequestMutation}
         deleteRequestMutation={deleteRequestMutation}
         handleAdminAction={handleAdminAction}
-        handleAdminQuery={handleAdminQuery}
+        handleAdminQuery={handleAdminQuery} // Pass the updated handleAdminQuery
         user={user}
       />
 
@@ -448,8 +477,18 @@ const PaymentRequestDetail = () => {
         handleReceiptUpload={handleReceiptUpload}
       />
 
+      <PaymentRequestCommentsCard
+        paymentRequestId={request.id}
+        comments={comments}
+        auditUsers={auditUsers}
+        isAdmin={isAdmin}
+        currentUser={user}
+        onAddComment={handleAddComment}
+        isAddingComment={addCommentMutation.isPending}
+      />
+
       <PaymentRequestAuditTrailCard
-        audits={audits}
+        audits={generalAudits} // Pass only general audits here
         auditUsers={auditUsers}
       />
     </div>

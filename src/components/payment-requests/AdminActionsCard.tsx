@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod'; // Added missing import
+import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2 } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
@@ -41,7 +41,7 @@ interface AdminActionsCardProps {
   updateRequestMutation: UseMutationResult<boolean, Error, Partial<PaymentRequest> & { new_invoice_files?: FileList }, unknown>;
   deleteRequestMutation: UseMutationResult<boolean, Error, void, unknown>;
   handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried', reason?: string) => Promise<void>;
-  handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<void>;
+  handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<void>; // Updated prop type
   user: User | null;
 }
 
@@ -183,7 +183,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction asChild>
-                  <Button form="decline-form" type="submit" variant="destructive"> {/* Moved variant to Button */}
+                  <Button form="decline-form" type="submit" variant="destructive">
                     Decline
                   </Button>
                 </AlertDialogAction>
@@ -211,8 +211,8 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} asChild> {/* Added asChild */}
-                <Button variant="destructive"> {/* Added Button with variant */}
+              <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} asChild>
+                <Button variant="destructive">
                   Delete
                 </Button>
               </AlertDialogAction>
