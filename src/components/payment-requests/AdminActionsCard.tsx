@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from '@hookform/resolvers/zod'; // Added missing import
 import * as z from 'zod';
 import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2 } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
