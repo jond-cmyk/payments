@@ -32,12 +32,10 @@ serve(async (req) => {
       });
     }
 
-    const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
-    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
-    const mailgunRegion = Deno.env.get('MAILGUN_REGION') || 'us';
+    const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
 
-    if (!mailgunApiKey || !mailgunDomain) {
-      console.error('MAILGUN_API_KEY or MAILGUN_DOMAIN is not set in environment variables.');
+    if (!sendgridApiKey) {
+      console.error('SENDGRID_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -45,7 +43,7 @@ serve(async (req) => {
     }
 
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
-    const senderEmail = `jon.d@${mailgunDomain}`; // Use the configured Mailgun domain
+    const senderEmail = `jon.d@khpayments.com`; // Use your verified SendGrid sender email/domain
 
     // --- Fetch Requester Details ---
     const { data: requesterProfile, error: requesterProfileError } = await supabaseClient
@@ -137,38 +135,37 @@ serve(async (req) => {
       });
     }
 
-    const formData = new URLSearchParams();
-    formData.append('from', `Dyad App <${senderEmail}>`);
-    formData.append('to', recipientEmails.join(',')); // Join multiple recipients with comma
-    formData.append('subject', subject);
-    formData.append('html', htmlContent);
+    const personalizations = recipientEmails.map(email => ({ to: [{ email }] }));
 
-    const mailgunApiBaseUrl = mailgunRegion === 'eu'
-      ? `https://api.eu.mailgun.net/v3/${mailgunDomain}/messages`
-      : `https://api.mailgun.net/v3/${mailgunDomain}/messages`;
-
-    const mailgunResponse = await fetch(mailgunApiBaseUrl, {
+    const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${btoa(`api:${mailgunApiKey}`)}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Bearer ${sendgridApiKey}`,
+        'Content-Type': 'application/json',
       },
-      body: formData.toString(),
+      body: JSON.stringify({
+        personalizations: personalizations,
+        from: { email: senderEmail },
+        subject: subject,
+        content: [{
+          type: 'text/html',
+          value: htmlContent,
+        }],
+      }),
     });
 
-    if (!mailgunResponse.ok) {
-      const errorText = await mailgunResponse.text();
-      console.error('Error sending email via Mailgun:', mailgunResponse.status, errorText);
-      return new Response(JSON.stringify({ error: `Failed to send email via Mailgun: ${errorText}` }), {
+    if (!sendgridResponse.ok) {
+      const errorText = await sendgridResponse.text();
+      console.error('Error sending email via SendGrid:', sendgridResponse.status, errorText);
+      return new Response(JSON.stringify({ error: `Failed to send email via SendGrid: ${errorText}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const mailgunData = await mailgunResponse.json();
-    console.log('Email sent successfully via Mailgun:', mailgunData);
+    console.log('Email sent successfully via SendGrid.');
 
-    return new Response(JSON.stringify({ message: 'Email sent successfully via Mailgun', mailgunResponse: mailgunData }), {
+    return new Response(JSON.stringify({ message: 'Email sent successfully via SendGrid' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

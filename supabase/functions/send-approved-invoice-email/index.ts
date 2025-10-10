@@ -32,19 +32,17 @@ serve(async (req) => {
       });
     }
 
-    const mailgunApiKey = Deno.env.get('MAILGUN_API_KEY');
-    const mailgunDomain = Deno.env.get('MAILGUN_DOMAIN');
-    const mailgunRegion = Deno.env.get('MAILGUN_REGION') || 'us';
+    const sendgridApiKey = Deno.env.get('SENDGRID_API_KEY');
 
-    if (!mailgunApiKey || !mailgunDomain) {
-      console.error('MAILGUN_API_KEY or MAILGUN_DOMAIN is not set in environment variables.');
+    if (!sendgridApiKey) {
+      console.error('SENDGRID_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const senderEmail = `jon.d@${mailgunDomain}`; // Use the configured Mailgun domain
+    const senderEmail = `jon.d@khpayments.com`; // Use your verified SendGrid sender email/domain
     const recipientEmail = '868bilag1677646@e-conomic.dk'; // Target email
 
     // Fetch the invoice PDF content
@@ -52,7 +50,9 @@ serve(async (req) => {
     if (!invoiceResponse.ok) {
       throw new Error(`Failed to fetch invoice PDF from ${newRecord.invoice_pdf_url}: ${invoiceResponse.statusText}`);
     }
-    const invoiceBlob = await invoiceResponse.blob(); // Get Blob for FormData
+    const invoiceBlob = await invoiceResponse.blob();
+    const arrayBuffer = await invoiceBlob.arrayBuffer();
+    const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))); // Base64 encode
 
     // Determine filename from URL or default
     const urlParts = newRecord.invoice_pdf_url.split('/');
@@ -68,39 +68,45 @@ serve(async (req) => {
       <p>Your Payment Team</p>
     `;
 
-    const formData = new FormData();
-    formData.append('from', `Dyad App <${senderEmail}>`);
-    formData.append('to', recipientEmail);
-    formData.append('subject', subject);
-    formData.append('html', htmlContent);
-    formData.append('attachment', invoiceBlob, fileName); // Append the blob with filename
-
-    const mailgunApiBaseUrl = mailgunRegion === 'eu'
-      ? `https://api.eu.mailgun.net/v3/${mailgunDomain}/messages`
-      : `https://api.mailgun.net/v3/${mailgunDomain}/messages`;
-
-    const mailgunResponse = await fetch(mailgunApiBaseUrl, {
+    const sendgridResponse = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${btoa(`api:${mailgunApiKey}`)}`,
-        // 'Content-Type': 'multipart/form-data' is automatically set by FormData
+        'Authorization': `Bearer ${sendgridApiKey}`,
+        'Content-Type': 'application/json',
       },
-      body: formData,
+      body: JSON.stringify({
+        personalizations: [{
+          to: [{ email: recipientEmail }],
+        }],
+        from: { email: senderEmail },
+        subject: subject,
+        content: [{
+          type: 'text/html',
+          value: htmlContent,
+        }],
+        attachments: [
+          {
+            content: base64Content,
+            filename: fileName,
+            type: 'application/pdf',
+            disposition: 'attachment',
+          },
+        ],
+      }),
     });
 
-    if (!mailgunResponse.ok) {
-      const errorText = await mailgunResponse.text();
-      console.error('Error sending approved invoice email via Mailgun:', mailgunResponse.status, errorText);
-      return new Response(JSON.stringify({ error: `Failed to send approved invoice email via Mailgun: ${errorText}` }), {
+    if (!sendgridResponse.ok) {
+      const errorText = await sendgridResponse.text();
+      console.error('Error sending approved invoice email via SendGrid:', sendgridResponse.status, errorText);
+      return new Response(JSON.stringify({ error: `Failed to send approved invoice email via SendGrid: ${errorText}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const mailgunData = await mailgunResponse.json();
-    console.log('Approved invoice email sent successfully via Mailgun:', mailgunData);
+    console.log('Approved invoice email sent successfully via SendGrid.');
 
-    return new Response(JSON.stringify({ message: 'Approved invoice email sent successfully via Mailgun', mailgunResponse: mailgunData }), {
+    return new Response(JSON.stringify({ message: 'Approved invoice email sent successfully via SendGrid' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
