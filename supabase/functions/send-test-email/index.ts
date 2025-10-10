@@ -22,7 +22,7 @@ serve(async (req) => {
     }
 
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
-    const testEmailRecipient = 'jon.d@khpayments.com'; // Sending to the same 'from' address for testing
+    const testEmailRecipient = 'notifications@khpayments.com'; // Changed recipient
     const senderEmail = `jon.d@khpayments.com`; // Use your verified Brevo sender email/domain
 
     const subject = `Test Email from Supabase Edge Function (Brevo) - ${new Date().toLocaleString()}`;
