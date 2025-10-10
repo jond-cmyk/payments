@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { parse } from 'https://deno.land/std@0.190.0/csv/mod.ts'; // For CSV parsing
+import { parse } from 'https://deno.land/std@0.190.0/csv/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,13 +34,17 @@ serve(async (req) => {
     }
 
     console.log(`Received file: ${fileName} from uploader: ${uploaderId}`);
+    console.log(`File content (first 200 chars): ${fileContent.substring(0, 200)}`); // Log part of content
+    console.log(`File content length: ${fileContent.length}`); // Log content length
 
-    let records;
+    let records: Record<string, string>[];
     try {
+      // Use header: true to automatically parse the first row as headers
+      // and return an array of objects. Explicitly set separator.
       records = await parse(fileContent, {
-        skipFirstRow: true, // Assuming header row
-        columns: ['transaction_date', 'description', 'amount', 'currency', 'user_email', 'original_transaction_id'], // Expected columns
-      });
+        header: true,
+        separator: ',', // Explicitly set separator
+      }) as Record<string, string>[]; // Cast to array of objects
     } catch (csvParseError) {
       console.error('CSV parsing error:', csvParseError);
       return new Response(JSON.stringify({ error: `Failed to parse CSV file: ${csvParseError.message}` }), {
@@ -51,6 +55,19 @@ serve(async (req) => {
 
     const transactionsToInsert = [];
     const errors: string[] = [];
+
+    const expectedHeaders = ['transaction_date', 'description', 'amount', 'currency', 'user_email', 'original_transaction_id'];
+
+    // Validate headers after parsing
+    if (records.length > 0) {
+        const actualHeaders = Object.keys(records[0]); // Get headers from the first parsed record
+        const missingHeaders = expectedHeaders.filter(h => !actualHeaders.includes(h));
+        if (missingHeaders.length > 0) {
+            errors.push(`Missing expected CSV headers: ${missingHeaders.join(', ')}`);
+        }
+        // Also check for unexpected headers if strictness is desired, but for now, just missing.
+    }
+
 
     for (const record of records) {
       const { transaction_date, description, amount, currency, user_email, original_transaction_id } = record;
@@ -106,7 +123,7 @@ serve(async (req) => {
       message += ` ${errors.length} records skipped due to errors. Please check logs for details.`;
       console.error('Transaction processing errors:', errors);
       return new Response(JSON.stringify({ message: message, errors: errors }), {
-        status: 200, // Still return 200 if some processed, but include errors
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
