@@ -33,20 +33,20 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Received file: ${fileName} from uploader: ${uploaderId}`);
-    console.log(`File content (first 200 chars): ${fileContent.substring(0, 200)}`); // Log part of content
-    console.log(`File content length: ${fileContent.length}`); // Log content length
+    console.log(`[upload-transactions] Received file: ${fileName} from uploader: ${uploaderId}`);
+    console.log(`[upload-transactions] File content (first 200 chars): ${fileContent.substring(0, 200)}`);
+    console.log(`[upload-transactions] File content length: ${fileContent.length}`);
 
     let records: Record<string, string>[];
     try {
-      // Use header: true to automatically parse the first row as headers
-      // and return an array of objects. Explicitly set separator.
       records = await parse(fileContent, {
         header: true,
-        separator: ',', // Explicitly set separator
-      }) as Record<string, string>[]; // Cast to array of objects
+        separator: ',',
+      }) as Record<string, string>[];
+      console.log(`[upload-transactions] CSV parsed successfully. Number of records: ${records.length}`);
+      console.log(`[upload-transactions] First parsed record: ${JSON.stringify(records[0])}`);
     } catch (csvParseError) {
-      console.error('CSV parsing error:', csvParseError);
+      console.error('[upload-transactions] CSV parsing error:', csvParseError);
       return new Response(JSON.stringify({ error: `Failed to parse CSV file: ${csvParseError.message}` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -58,34 +58,32 @@ serve(async (req) => {
 
     const expectedHeaders = ['transaction_date', 'description', 'amount', 'currency', 'user_email', 'original_transaction_id'];
 
-    // Validate headers after parsing
     if (records.length > 0) {
-        const actualHeaders = Object.keys(records[0]); // Get headers from the first parsed record
+        const actualHeaders = Object.keys(records[0]);
         const missingHeaders = expectedHeaders.filter(h => !actualHeaders.includes(h));
         if (missingHeaders.length > 0) {
             errors.push(`Missing expected CSV headers: ${missingHeaders.join(', ')}`);
+            console.error(`[upload-transactions] Missing headers: ${missingHeaders.join(', ')}`);
         }
-        // Also check for unexpected headers if strictness is desired, but for now, just missing.
     }
 
-
     for (const record of records) {
+      console.log(`[upload-transactions] Processing record: ${JSON.stringify(record)}`);
       const { transaction_date, description, amount, currency, user_email, original_transaction_id } = record;
 
-      // Basic validation for required fields
       if (!transaction_date || !description || !amount || !currency || !user_email) {
         errors.push(`Missing required fields (date, description, amount, currency, or user_email) for a transaction. Skipping record: ${JSON.stringify(record)}`);
+        console.warn(`[upload-transactions] Skipping record due to missing fields: ${JSON.stringify(record)}`);
         continue;
       }
 
-      // Validate and parse amount
       const parsedAmount = parseFloat(amount);
       if (isNaN(parsedAmount)) {
         errors.push(`Invalid amount '${amount}' for transaction '${description}'. Skipping record.`);
+        console.warn(`[upload-transactions] Skipping record due to invalid amount: ${record.description}`);
         continue;
       }
 
-      // Find user_id based on user_email
       const { data: profile, error: profileError } = await supabaseClient
         .from('profile_with_email')
         .select('id')
@@ -94,8 +92,10 @@ serve(async (req) => {
 
       if (profileError || !profile) {
         errors.push(`Could not find user for email '${user_email}' for transaction '${description}'. Error: ${profileError?.message || 'Profile not found'}.`);
+        console.warn(`[upload-transactions] Skipping record due to user not found: ${user_email} for ${record.description}. Error: ${profileError?.message || 'Profile not found'}`);
         continue;
       }
+      console.log(`[upload-transactions] Found user ID: ${profile.id} for email: ${user_email}`);
 
       transactionsToInsert.push({
         user_id: profile.id,
@@ -104,24 +104,33 @@ serve(async (req) => {
         description: description,
         amount: parsedAmount,
         currency: currency,
-        status: 'pending_input', // Default status
+        status: 'pending_input',
       });
     }
 
+    console.log(`[upload-transactions] Transactions prepared for insertion: ${transactionsToInsert.length}`);
+    console.log(`[upload-transactions] First transaction to insert: ${JSON.stringify(transactionsToInsert[0])}`);
+
+
     if (transactionsToInsert.length > 0) {
-      const { error: insertError } = await supabaseClient
+      const { data: insertData, error: insertError } = await supabaseClient
         .from('transactions')
-        .insert(transactionsToInsert);
+        .insert(transactionsToInsert)
+        .select(); // Add .select() to get the inserted data back for logging
 
       if (insertError) {
+        console.error('[upload-transactions] Failed to insert transactions into database:', insertError);
         throw new Error(`Failed to insert transactions into database: ${insertError.message}`);
       }
+      console.log(`[upload-transactions] Successfully inserted ${insertData?.length || 0} transactions.`);
+    } else {
+      console.warn('[upload-transactions] No transactions to insert after processing.');
     }
 
     let message = `${transactionsToInsert.length} transactions processed successfully.`;
     if (errors.length > 0) {
       message += ` ${errors.length} records skipped due to errors. Please check logs for details.`;
-      console.error('Transaction processing errors:', errors);
+      console.error('[upload-transactions] Transaction processing errors summary:', errors);
       return new Response(JSON.stringify({ message: message, errors: errors }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -134,7 +143,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('Edge Function unhandled error:', error);
+    console.error('[upload-transactions] Edge Function unhandled error:', error);
     return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred in the Edge Function.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
