@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, Filter, XCircle, Clock, DollarSign, CheckCircle, MessageSquare, Ban } from 'lucide-react'; // Added new icons for status cards
+import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban } from 'lucide-react'; // Changed DollarSign to Euro
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
@@ -212,7 +212,7 @@ const Dashboard = () => {
         return {
           borderClass: 'border-blue-500',
           textClass: 'text-blue-600',
-          icon: <DollarSign className="h-4 w-4" />,
+          icon: <Euro className="h-4 w-4" />, // Changed to Euro icon
           title: 'Payment Setup',
           description: 'Payments being processed',
         };
