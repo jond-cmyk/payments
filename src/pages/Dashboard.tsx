@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
+import { cn } from '@/lib/utils'; // Import cn utility for conditional class names
 
 const Dashboard = () => {
   const { session, isLoading, user } = useSession();
@@ -196,6 +197,60 @@ const Dashboard = () => {
     return <Badge className={className}>{displayText}</Badge>;
   };
 
+  // Helper to get card specific styling based on status
+  const getCardStyling = (status: PaymentRequest['status']) => {
+    switch (status) {
+      case 'pending':
+        return {
+          borderClass: 'border-yellow-500',
+          textClass: 'text-yellow-600',
+          icon: <Clock className="h-4 w-4" />,
+          title: 'Pending',
+          description: 'Requests awaiting review',
+        };
+      case 'setup_awaiting_approval':
+        return {
+          borderClass: 'border-blue-500',
+          textClass: 'text-blue-600',
+          icon: <DollarSign className="h-4 w-4" />,
+          title: 'Payment Setup',
+          description: 'Payments being processed',
+        };
+      case 'queried':
+        return {
+          borderClass: 'border-orange-500',
+          textClass: 'text-orange-600',
+          icon: <MessageSquare className="h-4 w-4" />,
+          title: 'Queried',
+          description: 'Requests needing more info',
+        };
+      case 'declined':
+        return {
+          borderClass: 'border-red-500',
+          textClass: 'text-red-600',
+          icon: <Ban className="h-4 w-4" />,
+          title: 'Declined',
+          description: 'Requests that were rejected',
+        };
+      case 'approved':
+        return {
+          borderClass: 'border-green-500',
+          textClass: 'text-green-600',
+          icon: <CheckCircle className="h-4 w-4" />,
+          title: 'Approved',
+          description: 'Payments completed',
+        };
+      default:
+        return {
+          borderClass: 'border-gray-300',
+          textClass: 'text-gray-600',
+          icon: null,
+          title: 'Unknown',
+          description: '',
+        };
+    }
+  };
+
   const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterStatus !== 'all' || filterDatePaymentRequired !== undefined;
 
   return (
@@ -214,56 +269,22 @@ const Dashboard = () => {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{counts.pending}</div>
-            <p className="text-xs text-muted-foreground">Requests awaiting review</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Payment Setup</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{counts.setup_awaiting_approval}</div>
-            <p className="text-xs text-muted-foreground">Payments being processed</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Queried</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{counts.queried}</div>
-            <p className="text-xs text-muted-foreground">Requests needing more info</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Declined</CardTitle>
-            <Ban className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{counts.declined}</div>
-            <p className="text-xs text-muted-foreground">Requests that were rejected</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Approved</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{counts.approved}</div>
-            <p className="text-xs text-muted-foreground">Payments completed</p>
-          </CardContent>
-        </Card>
+        {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
+          const status = statusKey as PaymentRequest['status'];
+          const { borderClass, textClass, icon, title, description } = getCardStyling(status);
+          return (
+            <Card key={status} className={cn("border-l-4", borderClass)}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
+                <span className={textClass}>{icon}</span>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{counts[status]}</div>
+                <p className="text-xs text-muted-foreground">{description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {isAdminView && (
