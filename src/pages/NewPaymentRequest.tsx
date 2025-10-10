@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import FileInput from '@/components/FileInput'; // Import the new FileInput component
+import FileInput from '@/components/FileInput';
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -71,10 +71,10 @@ const formSchema = z.object({
     required_error: "Date Payment Required is required",
   }),
   invoice_pdf: z.any()
-    .refine((file) => file?.length > 0, "Invoice PDF is required.")
-    .refine((file) => file?.[0]?.size <= 5 * 1024 * 1024, "Max file size is 5MB.") // 5MB limit
-    .refine((file) => file?.[0]?.type === "application/pdf", "Only .pdf files are accepted."),
-  receipt_required: z.boolean().default(false), // New field for checkbox
+    .refine((files) => files?.length > 0, "At least one Invoice PDF is required.")
+    .refine((files) => Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.") // 5MB limit per file
+    .refine((files) => Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
+  receipt_required: z.boolean().default(false),
 });
 
 const NewPaymentRequest = () => {
@@ -88,12 +88,12 @@ const NewPaymentRequest = () => {
       sku_number: "CH",
       supplier_address: "",
       iban_number: "",
-      currency: "CHF", // Default currency changed to CHF
+      currency: "CHF",
       payment_amount: 0.00,
       reason_for_payment: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
-      receipt_required: false, // Default for new checkbox
+      receipt_required: false,
     },
   });
 
@@ -114,28 +114,33 @@ const NewPaymentRequest = () => {
         throw new Error("User not authenticated.");
       }
 
-      const invoiceFile = values.invoice_pdf[0];
-      const fileExtension = invoiceFile.name.split('.').pop();
-      const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
+      const invoiceFiles: FileList = values.invoice_pdf;
+      const uploadedInvoiceUrls: string[] = [];
 
-      // Upload invoice PDF to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('invoices')
-        .upload(fileName, invoiceFile, {
-          cacheControl: '3600',
-          upsert: false,
-        });
+      for (let i = 0; i < invoiceFiles.length; i++) {
+        const file = invoiceFiles[i];
+        const fileExtension = file.name.split('.').pop();
+        const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
 
-      if (uploadError) {
-        throw new Error(`Failed to upload invoice: ${uploadError.message}`);
-      }
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('invoices')
+          .upload(fileName, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
 
-      const { data: publicUrlData } = supabase.storage
-        .from('invoices')
-        .getPublicUrl(fileName);
+        if (uploadError) {
+          throw new Error(`Failed to upload invoice ${file.name}: ${uploadError.message}`);
+        }
 
-      if (!publicUrlData?.publicUrl) {
-        throw new Error("Failed to get public URL for invoice.");
+        const { data: publicUrlData } = supabase.storage
+          .from('invoices')
+          .getPublicUrl(fileName);
+
+        if (!publicUrlData?.publicUrl) {
+          throw new Error(`Failed to get public URL for invoice ${file.name}.`);
+        }
+        uploadedInvoiceUrls.push(publicUrlData.publicUrl);
       }
 
       // Insert payment request data into Supabase
@@ -151,9 +156,9 @@ const NewPaymentRequest = () => {
           payment_amount: values.payment_amount,
           reason_for_payment: values.reason_for_payment,
           date_payment_required: values.date_payment_required.toISOString().split('T')[0],
-          invoice_pdf_url: publicUrlData.publicUrl,
+          invoice_pdf_urls: uploadedInvoiceUrls, // Store array of URLs
           status: 'pending',
-          receipt_required: values.receipt_required, // New field
+          receipt_required: values.receipt_required,
         });
 
       if (insertError) {
@@ -162,8 +167,8 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false }); // Clear the form, reset SKU, new fields, and checkbox
-      navigate('/dashboard'); // Redirect to dashboard or requests list
+      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false, invoice_pdf: undefined });
+      navigate('/dashboard');
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "An unexpected error occurred.");
@@ -304,16 +309,20 @@ const NewPaymentRequest = () => {
                 name="invoice_pdf"
                 render={({ field: { value, onChange, ...fieldProps } }) => (
                   <FormItem>
-                    <FormLabel>Invoice PDF</FormLabel>
+                    <FormLabel>Invoice PDF(s)</FormLabel>
                     <FormControl>
                       <FileInput
                         {...fieldProps}
-                        label="Choose Invoice PDF"
+                        label="Choose Invoice PDF(s)"
                         accept=".pdf"
                         value={value}
                         onChange={onChange}
+                        multiple // Enable multiple file selection
                       />
                     </FormControl>
+                    <FormDescription>
+                      You can upload multiple PDF invoices (max 5MB each).
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

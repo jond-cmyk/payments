@@ -34,7 +34,7 @@ import {
 import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import FileInput from '@/components/FileInput'; // Import the new FileInput component
+import FileInput from '@/components/FileInput';
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -88,9 +88,9 @@ const editFormSchema = z.object({
   }),
   invoice_pdf: z.any()
     .optional() // Make optional for editing, only required if a new file is selected
-    .refine((file) => !file || file.length === 0 || file?.[0]?.size <= 5 * 1024 * 1024, "Max file size is 5MB.") // 5MB limit
-    .refine((file) => !file || file.length === 0 || file?.[0]?.type === "application/pdf", "Only .pdf files are accepted."),
-  receipt_required: z.boolean().default(false), // New field for checkbox
+    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.") // 5MB limit per file
+    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
+  receipt_required: z.boolean().default(false),
 });
 
 // Zod schema for admin decline reason
@@ -213,7 +213,7 @@ const PaymentRequestDetail = () => {
       reason_for_payment: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
-      receipt_required: false, // Default for new checkbox
+      receipt_required: false,
     },
   });
 
@@ -230,9 +230,9 @@ const PaymentRequestDetail = () => {
         reason_for_payment: request.reason_for_payment,
         date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
         invoice_pdf: undefined, // Always reset file input
-        receipt_required: request.receipt_required, // New field
+        receipt_required: request.receipt_required,
       });
-    } 
+    }
   }, [request, isEditing, editForm]);
 
 
@@ -261,41 +261,46 @@ const PaymentRequestDetail = () => {
   });
 
   const updateRequestMutation = useMutation({
-    mutationFn: async (updatedFields: Partial<PaymentRequest> & { invoice_file?: File }) => {
+    mutationFn: async (updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList }) => {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
 
-      let invoicePdfUrl = updatedFields.invoice_pdf_url;
-      if (updatedFields.invoice_file) {
-        const invoiceFile = updatedFields.invoice_file;
-        const fileExtension = invoiceFile.name.split('.').pop();
-        const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
+      let updatedInvoicePdfUrls = request?.invoice_pdf_urls || [];
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('invoices')
-          .upload(fileName, invoiceFile, {
-            cacheControl: '3600',
-            upsert: false,
-          });
+      if (updatedFields.new_invoice_files && updatedFields.new_invoice_files.length > 0) {
+        const newUploadedUrls: string[] = [];
+        for (let i = 0; i < updatedFields.new_invoice_files.length; i++) {
+          const file = updatedFields.new_invoice_files[i];
+          const fileExtension = file.name.split('.').pop();
+          const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
 
-        if (uploadError) {
-          throw new Error(`Failed to upload new invoice: ${uploadError.message}`);
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('invoices')
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false,
+            });
+
+          if (uploadError) {
+            throw new Error(`Failed to upload new invoice ${file.name}: ${uploadError.message}`);
+          }
+
+          const { data: publicUrlData } = supabase.storage
+            .from('invoices')
+            .getPublicUrl(fileName);
+
+          if (!publicUrlData?.publicUrl) {
+            throw new Error(`Failed to get public URL for new invoice ${file.name}.`);
+          }
+          newUploadedUrls.push(publicUrlData.publicUrl);
         }
-
-        const { data: publicUrlData } = supabase.storage
-          .from('invoices')
-          .getPublicUrl(fileName);
-
-        if (!publicUrlData?.publicUrl) {
-          throw new Error("Failed to get public URL for new invoice.");
-        }
-        invoicePdfUrl = publicUrlData.publicUrl;
+        updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls]; // Append new invoices
       }
 
       const { error } = await supabase
         .from('payment_requests')
         .update({
           ...updatedFields,
-          invoice_pdf_url: invoicePdfUrl,
+          invoice_pdf_urls: updatedInvoicePdfUrls, // Update with the new array of URLs
           updated_at: new Date().toISOString(),
         })
         .eq('id', id);
@@ -339,7 +344,7 @@ const PaymentRequestDetail = () => {
   const handleRequesterEditSubmit = async (values: z.infer<typeof editFormSchema>) => {
     const toastId = showLoading("Updating payment request...");
     try {
-      const updatedFields: Partial<PaymentRequest> & { invoice_file?: File } = {
+      const updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList } = {
         supplier_name: values.supplier_name,
         sku_number: values.sku_number,
         supplier_address: values.supplier_address,
@@ -348,11 +353,11 @@ const PaymentRequestDetail = () => {
         payment_amount: values.payment_amount,
         reason_for_payment: values.reason_for_payment,
         date_payment_required: values.date_payment_required.toISOString().split('T')[0],
-        receipt_required: values.receipt_required, // New field
+        receipt_required: values.receipt_required,
       };
 
       if (values.invoice_pdf && values.invoice_pdf.length > 0) {
-        updatedFields.invoice_file = values.invoice_pdf[0];
+        updatedFields.new_invoice_files = values.invoice_pdf;
       }
 
       await updateRequestMutation.mutateAsync(updatedFields);
@@ -473,7 +478,7 @@ const PaymentRequestDetail = () => {
 
   const isRequester = userRole === 'requester' && user?.id === request.requester_id;
   const isAdmin = userRole === 'admin';
-  
+
   // Allow requester to amend if pending or queried, allow admin to amend any time, BUT NOT IF APPROVED
   const canAmend = (request.status === 'pending' || request.status === 'queried') && (isRequester || isAdmin);
 
@@ -657,25 +662,32 @@ const PaymentRequestDetail = () => {
                   name="invoice_pdf"
                   render={({ field: { value, onChange, ...fieldProps } }) => (
                     <FormItem>
-                      <FormLabel>Invoice PDF (Upload new if needed)</FormLabel>
+                      <FormLabel>Invoice PDF(s) (Upload new if needed)</FormLabel>
                       <FormControl>
                         <FileInput
                           {...fieldProps}
-                          label="Choose New Invoice PDF"
+                          label="Choose New Invoice PDF(s)"
                           accept=".pdf"
                           value={value}
                           onChange={onChange}
+                          multiple // Enable multiple file selection
                         />
                       </FormControl>
+                      <FormDescription>
+                        Existing invoices will be kept. New files will be added.
+                      </FormDescription>
                       <FormMessage />
-                      {request.invoice_pdf_url && (
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Current: <Button asChild variant="link" className="p-0 h-auto text-sm">
-                            <a href={request.invoice_pdf_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="mr-1 h-4 w-4" /> Download Current Invoice
-                            </a>
-                          </Button>
-                        </p>
+                      {request.invoice_pdf_urls && request.invoice_pdf_urls.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          <p className="text-sm font-medium text-muted-foreground">Current Invoices:</p>
+                          {request.invoice_pdf_urls.map((url, index) => (
+                            <Button asChild variant="link" className="p-0 h-auto text-sm block" key={index}>
+                              <a href={url} target="_blank" rel="noopener noreferrer">
+                                <Download className="mr-1 h-4 w-4" /> Invoice {index + 1}
+                              </a>
+                            </Button>
+                          ))}
+                        </div>
                       )}
                     </FormItem>
                   )}
@@ -739,12 +751,20 @@ const PaymentRequestDetail = () => {
                 <p>{format(new Date(request.date_payment_required), 'PPP')}</p>
               </div>
               <div>
-                <p className="font-medium">Invoice PDF:</p>
-                <Button asChild variant="link" className="p-0 h-auto">
-                  <a href={request.invoice_pdf_url} target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-1 h-4 w-4" /> Download Invoice
-                  </a>
-                </Button>
+                <p className="font-medium">Invoice PDF(s):</p>
+                {request.invoice_pdf_urls && request.invoice_pdf_urls.length > 0 ? (
+                  <div className="space-y-1">
+                    {request.invoice_pdf_urls.map((url, index) => (
+                      <Button asChild variant="link" className="p-0 h-auto block" key={index}>
+                        <a href={url} target="_blank" rel="noopener noreferrer">
+                          <Download className="mr-1 h-4 w-4" /> Invoice {index + 1}
+                        </a>
+                      </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <p>No invoices uploaded.</p>
+                )}
               </div>
               {request.receipt_pdf_url && (
                 <div>

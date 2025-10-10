@@ -4,7 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input, InputProps } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, FileText, X } from "lucide-react";
 
 interface FileInputProps extends Omit<InputProps, 'value' | 'onChange'> {
   label: string;
@@ -12,18 +12,20 @@ interface FileInputProps extends Omit<InputProps, 'value' | 'onChange'> {
   onChange: (files: FileList | null) => void;
   accept?: string;
   disabled?: boolean;
+  multiple?: boolean; // New prop for multiple files
 }
 
 const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
-  ({ label, value, onChange, accept, disabled, className, ...props }, ref) => {
+  ({ label, value, onChange, accept, disabled, multiple = false, className, ...props }, ref) => {
     const inputRef = React.useRef<HTMLInputElement>(null);
-    const [fileName, setFileName] = React.useState<string | null>(null);
+    const [fileNames, setFileNames] = React.useState<string[]>([]);
 
     React.useEffect(() => {
       if (value && value.length > 0) {
-        setFileName(value[0].name);
+        const names = Array.from(value).map(file => file.name);
+        setFileNames(names);
       } else {
-        setFileName(null);
+        setFileNames([]);
       }
     }, [value]);
 
@@ -36,8 +38,20 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
       onChange(files);
     };
 
+    const handleRemoveFile = (indexToRemove: number) => {
+      if (value) {
+        const newFileList = new DataTransfer();
+        Array.from(value).forEach((file, index) => {
+          if (index !== indexToRemove) {
+            newFileList.items.add(file);
+          }
+        });
+        onChange(newFileList.files);
+      }
+    };
+
     return (
-      <div className={cn("flex items-center space-x-2", className)}>
+      <div className={cn("flex flex-col space-y-2", className)}>
         <Input
           type="file"
           ref={(e) => {
@@ -49,6 +63,7 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
           accept={accept}
           className="hidden" // Hide the native file input
           disabled={disabled}
+          multiple={multiple} // Pass the multiple prop to the native input
           {...props}
         />
         <Button
@@ -60,14 +75,29 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
           <UploadCloud className="mr-2 h-4 w-4" />
           {label}
         </Button>
-        {fileName && (
-          <span className="text-sm text-muted-foreground truncate flex-grow">
-            {fileName}
-          </span>
-        )}
-        {!fileName && (
-          <span className="text-sm text-muted-foreground truncate flex-grow">
-            No file chosen
+        {fileNames.length > 0 ? (
+          <div className="space-y-1">
+            {fileNames.map((name, index) => (
+              <div key={index} className="flex items-center justify-between text-sm text-muted-foreground">
+                <span className="flex items-center truncate">
+                  <FileText className="mr-1 h-4 w-4" /> {name}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleRemoveFile(index)}
+                  disabled={disabled}
+                  className="h-auto p-1 text-red-500 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-muted-foreground">
+            No file(s) chosen
           </span>
         )}
       </div>
