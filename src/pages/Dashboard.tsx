@@ -17,10 +17,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, Filter, XCircle } from 'lucide-react';
+import { PlusCircle, Filter, XCircle, Clock, DollarSign, CheckCircle, MessageSquare, Ban } from 'lucide-react'; // Added new icons for status cards
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
 
 const Dashboard = () => {
   const { session, isLoading, user } = useSession();
@@ -116,6 +117,40 @@ const Dashboard = () => {
     queryClient.invalidateQueries({ queryKey: ['paymentRequests'] }); // Force refetch
   };
 
+  // Calculate counts for summary cards
+  const counts = React.useMemo(() => {
+    if (!paymentRequests) {
+      return {
+        pending: 0,
+        setup_awaiting_approval: 0,
+        queried: 0,
+        declined: 0,
+        approved: 0,
+        total: 0,
+      };
+    }
+
+    const initialCounts = {
+      pending: 0,
+      setup_awaiting_approval: 0,
+      queried: 0,
+      declined: 0,
+      approved: 0,
+    };
+
+    paymentRequests.forEach(request => {
+      if (request.status in initialCounts) {
+        initialCounts[request.status as keyof typeof initialCounts]++;
+      }
+    });
+
+    return {
+      ...initialCounts,
+      total: paymentRequests.length,
+    };
+  }, [paymentRequests]);
+
+
   if (isLoading || isProfileLoading || isRequestsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
   }
@@ -175,6 +210,60 @@ const Dashboard = () => {
             Create New Request
           </Button>
         )}
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{counts.pending}</div>
+            <p className="text-xs text-muted-foreground">Requests awaiting review</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Payment Setup</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{counts.setup_awaiting_approval}</div>
+            <p className="text-xs text-muted-foreground">Payments being processed</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Queried</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{counts.queried}</div>
+            <p className="text-xs text-muted-foreground">Requests needing more info</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Declined</CardTitle>
+            <Ban className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{counts.declined}</div>
+            <p className="text-xs text-muted-foreground">Requests that were rejected</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Approved</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{counts.approved}</div>
+            <p className="text-xs text-muted-foreground">Payments completed</p>
+          </CardContent>
+        </Card>
       </div>
 
       {isAdminView && (
