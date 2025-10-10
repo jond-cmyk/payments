@@ -357,7 +357,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {paymentRequests && paymentRequests.length > 0 ? (
+      {/* Only show the table if it's the admin view AND there are requests */}
+      {isAdminView && paymentRequests && paymentRequests.length > 0 ? (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -402,9 +403,14 @@ const Dashboard = () => {
           </Table>
         </div>
       ) : (
-        <p className="text-center text-muted-foreground mt-8">
-          {userRole === 'requester' ? 'You have not created any payment requests yet.' : 'No payment requests found matching your criteria.'}
-        </p>
+        // Conditional message based on whether it's the admin view or requester view
+        isAdminView ? (
+          <p className="text-center text-muted-foreground mt-8">No payment requests found matching your criteria.</p>
+        ) : (
+          <p className="text-center text-muted-foreground mt-8">
+            You can view your payment requests on the "All Requests" page.
+          </p>
+        )
       )}
     </div>
   );
