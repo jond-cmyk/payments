@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, Profile } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { format } = from 'date-fns';
+import { format } from 'date-fns'; // Corrected import statement
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -329,7 +329,7 @@ const TransactionDetail = () => {
                   </Button>
                 )}
               </form>
-            </Form> {/* Added the missing closing tag here */}
+            </Form>
           </CardContent>
         </Card>
       </div>
