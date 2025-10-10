@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar'; // To render sidebar in sheet for mobile
+import PageTitle from './PageTitle'; // Import the new PageTitle component
 
 const Header = () => {
   const location = useLocation();
@@ -14,22 +15,22 @@ const Header = () => {
   const getPageTitle = (pathname: string) => {
     switch (pathname) {
       case '/dashboard':
-        return 'Dashboard';
+        return 'Dashboard - Payment App';
       case '/new-request':
-        return 'New Payment Request';
+        return 'New Payment Request - Payment App';
       case '/admin/requests':
-        return 'All Payment Requests';
+        return 'All Payment Requests - Payment App';
       case '/admin/users':
-        return 'User Management';
+        return 'User Management - Payment App';
       case '/login':
-        return 'Login';
+        return 'Login - Payment App';
       case '/':
-        return 'Welcome';
+        return 'Welcome - Payment App';
       default:
         if (pathname.startsWith('/request/')) {
-          return 'Payment Request Details';
+          return 'Payment Request Details - Payment App';
         }
-        return 'App';
+        return 'Payment App'; // Default title for unknown routes
     }
   };
 
@@ -37,6 +38,8 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+      <PageTitle title={title} /> {/* Set the browser tab title */}
+
       {/* Mobile Sidebar Toggle */}
       <Sheet>
         <SheetTrigger asChild>
@@ -50,7 +53,7 @@ const Header = () => {
         </SheetContent>
       </Sheet>
 
-      <h2 className="text-xl font-semibold">{title}</h2>
+      <h2 className="text-xl font-semibold">{title.replace(' - Payment App', '')}</h2> {/* Display title without app name in header */}
       {/* Add any other header elements here, e.g., user menu, notifications */}
       <div className="ml-auto">
         {/* Future: User menu, notifications, etc. */}
