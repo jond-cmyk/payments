@@ -107,7 +107,7 @@ serve(async (req) => {
       });
 
       console.log(`[upload-general-transactions] Processing record (mapped): ${JSON.stringify(record)}`);
-      const {
+      let { // Use 'let' here as transaction_date will be reassigned
         'Date': transaction_date,
         'Text': description,
         'Amount': amount,
@@ -128,14 +128,24 @@ serve(async (req) => {
         continue;
       }
 
-      const parsedAmount = parseFloat(amount);
+      // Reformat transaction_date from DD.MM.YYYY to YYYY-MM-DD
+      const dateParts = transaction_date.split('.');
+      if (dateParts.length === 3) {
+        transaction_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+      } else {
+        errors.push(`Invalid date format '${transaction_date}' for transaction '${description}'. Expected DD.MM.YYYY. Skipping record.`);
+        console.warn(`[upload-general-transactions] Skipping record due to invalid date format: ${transaction_date}`);
+        continue;
+      }
+
+      const parsedAmount = parseFloat(amount.replace(',', '')); // Handle comma as decimal separator
       if (isNaN(parsedAmount)) {
         errors.push(`Invalid amount '${amount}' for transaction '${description}'. Skipping record.`);
         console.warn(`[upload-general-transactions] Skipping record due to invalid amount: ${description}`);
         continue;
       }
 
-      const parsedExchangeRate = exchange_rate ? parseFloat(exchange_rate) : null;
+      const parsedExchangeRate = exchange_rate ? parseFloat(exchange_rate.replace(',', '.')) : null; // Handle comma as decimal separator
       if (exchange_rate && isNaN(parsedExchangeRate)) {
         errors.push(`Invalid exchange rate '${exchange_rate}' for transaction '${description}'. Skipping record.`);
         console.warn(`[upload-general-transactions] Skipping record due to invalid exchange rate: ${description}`);
