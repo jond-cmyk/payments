@@ -25,7 +25,7 @@ serve(async (req) => {
     const resend = new Resend(resendApiKey); // Initialize Resend client
 
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
-    const testEmailRecipient = 'jon.d@kassoehousing.com'; // Updated recipient
+    const testEmailRecipients = ['jon@theaccountshub.co.uk', 'notifications@khpayments.com']; // Updated recipients
     const senderEmail = `jon.d@khpayments.com`; // Use your verified Resend sender email/domain
 
     const subject = `Test Email from Supabase Edge Function (Resend) - ${new Date().toLocaleString()}`;
@@ -40,7 +40,7 @@ serve(async (req) => {
 
     const { data, error: resendError } = await resend.emails.send({
       from: senderEmail,
-      to: [testEmailRecipient],
+      to: testEmailRecipients, // Use the updated recipients array
       subject: subject,
       html: htmlContent,
     });
