@@ -11,10 +11,11 @@ import NewPaymentRequest from "./pages/NewPaymentRequest";
 import PaymentRequestDetail from "./pages/PaymentRequestDetail";
 import UserManagement from "./pages/UserManagement";
 import AdminUploadTransactions from "./pages/AdminUploadTransactions";
-import MissingReceipts from "./pages/MissingReceipts"; // Renamed import
+import MissingReceipts from "./pages/MissingReceipts";
 import TransactionDetail from "./pages/TransactionDetail";
 import PendingApproval from "./pages/PendingApproval";
 import AdminTestEmail from "./pages/AdminTestEmail";
+import CompletedReceipts from "./pages/CompletedReceipts"; // Import the new page
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import Layout from "./components/Layout";
 import useAutoRefresh from "./hooks/use-auto-refresh";
@@ -64,7 +65,8 @@ const App = () => {
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
                 <Route path="/admin/test-email" element={<AdminTestEmail />} />
-                <Route path="/missing-receipts" element={<MissingReceipts />} /> {/* Updated route */}
+                <Route path="/missing-receipts" element={<MissingReceipts />} />
+                <Route path="/completed-receipts" element={<CompletedReceipts />} /> {/* New route */}
                 <Route path="/transaction/:id" element={<TransactionDetail />} />
               </Route>
 

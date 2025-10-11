@@ -25,7 +25,9 @@ const Header = () => {
       case '/admin/upload-transactions':
         return 'Upload Transactions - KH Payments';
       case '/missing-receipts':
-        return 'Missing Receipts - KH Payments'; // Updated title
+        return 'Missing Receipts - KH Payments';
+      case '/completed-receipts': // New title for completed receipts
+        return 'Completed Receipts - KH Payments';
       case '/login':
         return 'Login - KH Payments';
       case '/':

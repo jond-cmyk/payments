@@ -5,7 +5,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail } from 'lucide-react'; // Changed ReceiptOff to FileX
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive } from 'lucide-react'; // Import Archive icon
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -74,7 +74,8 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
-        <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" /> {/* Updated link */}
+        <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
+        <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" /> {/* New NavLink */}
         {currentRole === 'admin' && (
           <>
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
