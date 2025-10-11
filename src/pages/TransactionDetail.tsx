@@ -5,13 +5,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Transaction, Profile } from '@/types/supabase';
+import { Transaction, Profile, TransactionAudit } from '@/types/supabase'; // Import TransactionAudit
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, Trash2 } from 'lucide-react'; // Import Trash2
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,6 +20,18 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import FileInput from '@/components/FileInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import TransactionAuditTrailCard from '@/components/transactions/TransactionAuditTrailCard'; // Import new component
 
 // List of common reasons for payment (from NewPaymentRequest)
 const reasonForPaymentOptions = [
@@ -46,12 +58,12 @@ const categoryOptions = [
 
 // Zod schema for unified transaction details form
 const transactionDetailSchema = z.object({
-  category: z.string().optional(), // Now optional for general transactions
-  merchant_name: z.string().optional(), // Now optional for general transactions
+  category: z.string().optional(),
+  merchant_name: z.string().optional(),
   notes: z.string().optional(),
-  sku: z.string().optional(), // Now optional for card transactions
-  reason_for_payment: z.string().optional(), // Now optional for card transactions
-  comment: z.string().optional(), // Unified comment/notes field
+  sku: z.string().optional(),
+  reason_for_payment: z.string().optional(),
+  comment: z.string().optional(),
   new_receipt_files: z.any()
     .optional()
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
@@ -63,13 +75,8 @@ const TransactionDetail = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [userRole, setUserRole] = useState<Profile['role'] | null>(null);
 
-  useEffect(() => {
-    if (userProfile) {
-      setUserRole(userProfile.role);
-    }
-  }, [userProfile]);
+  const isAdmin = userProfile?.role === 'admin';
 
   // Fetch transaction details
   const { data: transaction, isLoading: isTransactionLoading, error: transactionError } = useQuery<Transaction | null>({
@@ -86,6 +93,49 @@ const TransactionDetail = () => {
     },
     enabled: !!id,
   });
+
+  // Fetch audit trail
+  const { data: audits, isLoading: isAuditsLoading, error: auditsError } = useQuery<TransactionAudit[]>({
+    queryKey: ['transactionAudits', id],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data, error } = await supabase
+        .from('transaction_audits')
+        .select('*')
+        .eq('transaction_id', id)
+        .order('changed_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  // Fetch user names and emails for audit trail
+  const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
+    queryKey: ['auditUsers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profile_with_email')
+        .select('id, first_name, last_name, user_email');
+      if (error) throw error;
+      const usersMap: Record<string, string> = {};
+      data.forEach(profile => {
+        let displayString = profile.user_email || profile.id;
+        if (profile.first_name || profile.last_name) {
+          const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+          if (profile.user_email) {
+            displayString = `${name} (${profile.user_email})`;
+          } else {
+            displayString = name;
+          }
+        }
+        usersMap[profile.id] = displayString;
+      });
+      return usersMap;
+    },
+    enabled: !!audits && audits.length > 0,
+  });
+
 
   const form = useForm<z.infer<typeof transactionDetailSchema>>({
     resolver: zodResolver(transactionDetailSchema),
@@ -166,11 +216,35 @@ const TransactionDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transaction', id] });
       queryClient.invalidateQueries({ queryKey: ['myTransactions'] });
+      queryClient.invalidateQueries({ queryKey: ['missingReceipts'] }); // Invalidate missing receipts list
+      queryClient.invalidateQueries({ queryKey: ['transactionAudits', id] }); // Invalidate audits
       showSuccess("Transaction updated successfully!");
     },
     onError: (error: any) => {
       showError(error.message || "Failed to update transaction.");
       console.error("Update transaction error:", error);
+    },
+  });
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error("Transaction ID missing.");
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['myTransactions'] });
+      queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
+      showSuccess("Transaction deleted successfully!");
+      navigate('/missing-receipts'); // Redirect after deletion
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to delete transaction.");
+      console.error("Delete transaction error:", error);
     },
   });
 
@@ -198,7 +272,7 @@ const TransactionDetail = () => {
     }
   };
 
-  if (isSessionLoading || isTransactionLoading) {
+  if (isSessionLoading || isTransactionLoading || isAuditsLoading || isAuditUsersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading transaction details...</div>;
   }
 
@@ -216,15 +290,45 @@ const TransactionDetail = () => {
   }
 
   const isAssignedUser = user?.id === transaction.requester_id;
-  const isAdmin = userRole === 'admin';
   const canEdit = transaction.status === 'pending_input' && (isAssignedUser || isAdmin);
 
   return (
     <>
       <div className="container mx-auto py-8">
-        <Card className="max-w-2xl mx-auto">
+        <div className="flex justify-between items-center mb-6">
+          <CardTitle className="text-2xl font-bold">Transaction Details</CardTitle>
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  disabled={deleteTransactionMutation.isPending}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Transaction
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the transaction and all associated data.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteTransactionMutation.mutate()} asChild>
+                    <Button variant="destructive">
+                      Delete
+                    </Button>
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+
+        <Card className="max-w-2xl mx-auto mb-8">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center">Transaction Details</CardTitle>
             <CardDescription className="text-center">
               Transaction ID: {transaction.id.substring(0, 8)}
             </CardDescription>
@@ -295,117 +399,106 @@ const TransactionDetail = () => {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* Fields for card transactions */}
-                {transaction.original_transaction_id && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="category"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Category</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a category" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {categoryOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="merchant_name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Merchant Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Amazon" {...field} disabled={!canEdit} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="notes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Notes</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Add any relevant notes" {...field} disabled={!canEdit} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
-
-                {/* Fields for general transactions */}
-                {!transaction.original_transaction_id && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="sku"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>SKU</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., CH12345" {...field} disabled={!canEdit} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="reason_for_payment"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Reason for Payment</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a reason" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {reasonForPaymentOptions.map((reason) => (
-                                <SelectItem key={reason.value} value={reason.value}>
-                                  {reason.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="comment"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Comment</FormLabel>
-                          <FormControl>
-                            <Textarea placeholder="Add any relevant comments" {...field} disabled={!canEdit} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
-                )}
+                <FormField
+                  control={form.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {categoryOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="merchant_name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Merchant Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Amazon" {...field} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Notes</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Add any relevant notes" {...field} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="sku"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>SKU</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., CH12345" {...field} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="reason_for_payment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Reason for Payment</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a reason" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {reasonForPaymentOptions.map((reason) => (
+                            <SelectItem key={reason.value} value={reason.value}>
+                              {reason.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="comment"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Comment</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Add any relevant comments" {...field} disabled={!canEdit} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}
@@ -449,6 +542,11 @@ const TransactionDetail = () => {
             </Form>
           </CardContent>
         </Card>
+
+        <TransactionAuditTrailCard
+          audits={audits}
+          auditUsers={auditUsers}
+        />
       </div>
     </>
   );

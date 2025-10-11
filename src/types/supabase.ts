@@ -65,3 +65,11 @@ export type PaymentRequestAudit = {
   change_description: string;
   changed_at: string;
 };
+
+export type TransactionAudit = {
+  id: string;
+  transaction_id: string;
+  changed_by_user_id: string | null;
+  change_description: string;
+  changed_at: string;
+};
