@@ -25,8 +25,9 @@ serve(async (req) => {
     const payload = await req.json();
     const { record: newRecord } = payload;
 
-    if (!newRecord || !newRecord.id || !newRecord.sku_number || !newRecord.invoice_pdf_url) {
-      return new Response(JSON.stringify({ error: 'Missing required payment request data in payload' }), {
+    // Check for invoice_pdf_urls (array) and ensure it's not empty
+    if (!newRecord || !newRecord.id || !newRecord.sku_number || !newRecord.invoice_pdf_urls || newRecord.invoice_pdf_urls.length === 0) {
+      return new Response(JSON.stringify({ error: 'Missing required payment request data (id, sku_number, or invoice_pdf_urls) in payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -45,17 +46,19 @@ serve(async (req) => {
     const senderEmail = `jon.d@khpayments.com`; // Use your verified Brevo sender email/domain
     const recipientEmail = '868bilag1677646@e-conomic.dk'; // Target email
 
+    const invoicePdfUrl = newRecord.invoice_pdf_urls[0]; // Get the first URL from the array
+
     // Fetch the invoice PDF content
-    const invoiceResponse = await fetch(newRecord.invoice_pdf_url);
+    const invoiceResponse = await fetch(invoicePdfUrl);
     if (!invoiceResponse.ok) {
-      throw new Error(`Failed to fetch invoice PDF from ${newRecord.invoice_pdf_url}: ${invoiceResponse.statusText}`);
+      throw new Error(`Failed to fetch invoice PDF from ${invoicePdfUrl}: ${invoiceResponse.statusText}`);
     }
     const invoiceBlob = await invoiceResponse.blob();
     const arrayBuffer = await invoiceBlob.arrayBuffer();
     const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))); // Base64 encode
 
     // Determine filename from URL or default
-    const urlParts = newRecord.invoice_pdf_url.split('/');
+    const urlParts = invoicePdfUrl.split('/');
     const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
     const fileName = originalFileName.endsWith('.pdf') ? originalFileName : `invoice_${newRecord.sku_number}.pdf`;
 
