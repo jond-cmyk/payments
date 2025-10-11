@@ -22,7 +22,7 @@ const transactionDetailSchema = z.object({
   merchant_name: z.string().optional(),
   notes: z.string().optional(),
   sku: z.string().optional(),
-  reason_for_payment: z.string().optional(),
+  // reason_for_payment is removed from the form schema as it will be derived from category
   comment: z.string().optional(),
   new_receipt_files: z.any()
     .optional()
@@ -36,7 +36,7 @@ interface TransactionEditFormCardProps {
   form: ReturnType<typeof useForm<z.infer<typeof transactionDetailSchema>>>;
   onSubmit: (values: z.infer<typeof transactionDetailSchema>) => Promise<void>;
   updateTransactionMutation: UseMutationResult<boolean, Error, Partial<Transaction> & { new_receipt_files?: FileList }, unknown>;
-  reasonForPaymentOptions: { value: string; label: string }[];
+  // reasonForPaymentOptions is removed as it's no longer a separate field
   categoryOptions: { value: string; label: string }[];
 }
 
@@ -46,7 +46,6 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
   form,
   onSubmit,
   updateTransactionMutation,
-  reasonForPaymentOptions,
   categoryOptions,
 }) => {
   return (
@@ -121,30 +120,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="reason_for_payment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reason for Payment</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a reason" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {reasonForPaymentOptions.map((reason) => (
-                        <SelectItem key={reason.value} value={reason.value}>
-                          {reason.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Removed Reason for Payment field */}
             <FormField
               control={form.control}
               name="comment"

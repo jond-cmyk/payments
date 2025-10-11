@@ -73,7 +73,7 @@ const transactionDetailSchema = z.object({
   merchant_name: z.string().optional(),
   notes: z.string().optional(),
   sku: z.string().optional(),
-  reason_for_payment: z.string().optional(),
+  // reason_for_payment is removed from the form schema as it will be derived from category
   comment: z.string().optional(),
   new_receipt_files: z.any()
     .optional()
@@ -154,7 +154,7 @@ const TransactionDetail = () => {
       merchant_name: "",
       notes: "",
       sku: "",
-      reason_for_payment: "",
+      // reason_for_payment is removed from defaultValues
       comment: "",
       new_receipt_files: undefined,
     },
@@ -167,7 +167,8 @@ const TransactionDetail = () => {
         merchant_name: transaction.merchant_name || "",
         notes: transaction.notes || "",
         sku: transaction.sku || "",
-        reason_for_payment: transaction.reason_for_payment || "",
+        // Initialize reason_for_payment from category if it exists, otherwise from its own value
+        // This ensures the UI reflects the category, and the DB field is populated if category is set
         comment: transaction.comment || "",
         new_receipt_files: undefined, // Always reset file input
       });
@@ -268,7 +269,7 @@ const TransactionDetail = () => {
         merchant_name: values.merchant_name,
         notes: values.notes,
         sku: values.sku,
-        reason_for_payment: values.reason_for_payment,
+        reason_for_payment: values.category, // Set reason_for_payment to be the same as category
         comment: values.comment,
       };
 
@@ -320,7 +321,6 @@ const TransactionDetail = () => {
         form={form}
         onSubmit={onSubmit}
         updateTransactionMutation={updateTransactionMutation}
-        reasonForPaymentOptions={categoryOptions} // Use categoryOptions here
         categoryOptions={categoryOptions}
       />
 
