@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@/types/supabase';
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, ReceiptOff } from 'lucide-react'; // Added ReceiptOff icon
+import { FileText, CheckCircle, Clock, XCircle, FileX } from 'lucide-react'; // Changed ReceiptOff to FileX
 
 import {
   Table,
@@ -91,7 +91,7 @@ const MissingReceipts = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
-            <ReceiptOff className="mr-2 h-6 w-6" /> Missing Receipts
+            <FileX className="mr-2 h-6 w-6" /> Missing Receipts
           </CardTitle>
         </CardHeader>
         <CardContent>
