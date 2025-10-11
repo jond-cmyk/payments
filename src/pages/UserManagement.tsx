@@ -19,9 +19,20 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Users, CheckCircle, XCircle, UserPlus } from 'lucide-react';
+import { Users, CheckCircle, XCircle, UserPlus, Trash2 } from 'lucide-react'; // Import Trash2 icon
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 import AddUserForm from '@/components/user-management/AddUserForm';
 
 const UserManagement = () => {
@@ -100,6 +111,29 @@ const UserManagement = () => {
     },
   });
 
+  const deleteUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      console.log(`UserManagement: Attempting to delete user ${userId}`);
+      // Supabase admin.deleteUser will also delete the profile due to CASCADE
+      const { error } = await supabase.auth.admin.deleteUser(userId);
+      if (error) {
+        console.error(`UserManagement: Error deleting user ${userId}:`, error);
+        throw error;
+      }
+      console.log(`UserManagement: User ${userId} deleted successfully.`);
+      return true;
+    },
+    onSuccess: async () => {
+      showSuccess("User deleted successfully!");
+      console.log("UserManagement: User deleted. Invalidating 'allProfiles' query.");
+      await queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to delete user.");
+      console.error("UserManagement: Delete user error:", error);
+    },
+  });
+
   const handleRoleChange = async (profileId: string, newRole: Profile['role']) => {
     console.log(`UserManagement: handleRoleChange called for profile ${profileId}, new role: ${newRole}`); // New log
     const toastId = showLoading("Updating user role...");
@@ -116,6 +150,16 @@ const UserManagement = () => {
     const toastId = showLoading(currentApprovalStatus ? "Disapproving user..." : "Approving user...");
     try {
       await updateApprovalMutation.mutateAsync({ id: profileId, is_approved: !currentApprovalStatus });
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    const toastId = showLoading("Deleting user...");
+    try {
+      await deleteUserMutation.mutateAsync(userId);
       dismissToast(toastId);
     } catch (error) {
       dismissToast(toastId);
@@ -242,6 +286,34 @@ const UserManagement = () => {
                         >
                           {profile.is_approved ? "Disapprove" : "Approve"}
                         </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-500 border-red-500 hover:bg-red-50"
+                              disabled={deleteUserMutation.isPending || profile.id === user?.id} // Disable if deleting or if it's the current user
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the user account for <strong>{profile.user_email}</strong> and remove their data.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteUser(profile.id)} asChild>
+                                <Button variant="destructive">
+                                  Delete User
+                                </Button>
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   ))}
