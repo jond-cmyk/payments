@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react'; // Import useState
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,7 @@ import TransactionDetailsDisplayCard from '@/components/transactions/Transaction
 import TransactionEditFormCard from '@/components/transactions/TransactionEditFormCard';
 import TransactionAdminActionsCard from '@/components/transactions/TransactionAdminActionsCard';
 import TransactionAuditTrailCard from '@/components/transactions/TransactionAuditTrailCard';
+import { Button } from '@/components/ui/button'; // Import Button
 
 // List of common categories - UPDATED with custom sort
 const categoryOptions = [
@@ -73,7 +74,6 @@ const transactionDetailSchema = z.object({
   merchant_name: z.string().optional(),
   notes: z.string().optional(),
   sku: z.string().optional(),
-  // reason_for_payment is removed from the form schema as it will be derived from category
   comment: z.string().optional(),
   new_receipt_files: z.any()
     .optional()
@@ -86,6 +86,7 @@ const TransactionDetail = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false); // New state for editing mode
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -154,41 +155,40 @@ const TransactionDetail = () => {
       merchant_name: "",
       notes: "",
       sku: "",
-      // reason_for_payment is removed from defaultValues
       comment: "",
       new_receipt_files: undefined,
     },
   });
 
+  // Effect to reset form when transaction data loads or editing mode changes
   useEffect(() => {
-    if (transaction) {
+    if (transaction && isEditing) { // Only reset if in editing mode
       form.reset({
         category: transaction.category || "",
         merchant_name: transaction.merchant_name || "",
         notes: transaction.notes || "",
         sku: transaction.sku || "",
-        // Initialize reason_for_payment from category if it exists, otherwise from its own value
-        // This ensures the UI reflects the category, and the DB field is populated if category is set
         comment: transaction.comment || "",
         new_receipt_files: undefined, // Always reset file input
       });
     }
-  }, [transaction, form]);
+  }, [transaction, isEditing, form]);
 
   const updateTransactionMutation = useMutation({
     mutationFn: async (payload: Partial<Transaction> & { new_receipt_files?: FileList }) => {
       if (!id || !user?.id) throw new Error("Transaction ID or user ID missing.");
 
-      const { new_receipt_files, ...dbUpdateFields } = payload; // Separate new_receipt_files
+      const { new_receipt_files, ...dbUpdateFields } = payload;
 
       let updatedReceiptUrls = transaction?.receipt_urls || [];
+      let newStatus: Transaction['status'] = transaction?.status || 'pending_input'; // Default to current status
 
       if (new_receipt_files && new_receipt_files.length > 0) {
         const newUploadedUrls: string[] = [];
         for (let i = 0; i < new_receipt_files.length; i++) {
           const file = new_receipt_files[i];
           const fileExtension = file.name.split('.').pop();
-          const fileName = `${user.id}/transactions/${crypto.randomUUID()}.${fileExtension}`; // Store under user ID and transactions folder
+          const fileName = `${user.id}/transactions/${crypto.randomUUID()}.${fileExtension}`;
 
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('transaction_receipts')
@@ -211,15 +211,16 @@ const TransactionDetail = () => {
           newUploadedUrls.push(publicUrlData.publicUrl);
         }
         updatedReceiptUrls = [...updatedReceiptUrls, ...newUploadedUrls];
+        newStatus = 'completed'; // Set status to completed only if new receipts are uploaded
       }
 
       const { error } = await supabase
         .from('transactions')
         .update({
-          ...dbUpdateFields, // Use dbUpdateFields here
+          ...dbUpdateFields,
           receipt_urls: updatedReceiptUrls,
           updated_at: new Date().toISOString(),
-          status: 'completed', // Automatically set to completed after user input
+          status: newStatus, // Use the determined newStatus
         })
         .eq('id', id);
 
@@ -229,9 +230,11 @@ const TransactionDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['transaction', id] });
       queryClient.invalidateQueries({ queryKey: ['myTransactions'] });
-      queryClient.invalidateQueries({ queryKey: ['missingReceipts'] }); // Invalidate missing receipts list
-      queryClient.invalidateQueries({ queryKey: ['transactionAudits', id] }); // Invalidate audits
+      queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
+      queryClient.invalidateQueries({ queryKey: ['completedReceipts'] }); // Invalidate completed receipts list
+      queryClient.invalidateQueries({ queryKey: ['transactionAudits', id] });
       showSuccess("Transaction updated successfully!");
+      setIsEditing(false); // Exit editing mode on success
     },
     onError: (error: any) => {
       showError(error.message || "Failed to update transaction.");
@@ -252,8 +255,9 @@ const TransactionDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myTransactions'] });
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
+      queryClient.invalidateQueries({ queryKey: ['completedReceipts'] }); // Invalidate completed receipts list
       showSuccess("Transaction deleted successfully!");
-      navigate('/missing-receipts'); // Redirect after deletion
+      navigate('/missing-receipts');
     },
     onError: (error: any) => {
       showError(error.message || "Failed to delete transaction.");
@@ -269,7 +273,7 @@ const TransactionDetail = () => {
         merchant_name: values.merchant_name,
         notes: values.notes,
         sku: values.sku,
-        reason_for_payment: values.category, // Set reason_for_payment to be the same as category
+        reason_for_payment: values.category,
         comment: values.comment,
       };
 
@@ -303,10 +307,30 @@ const TransactionDetail = () => {
   }
 
   const isAssignedUser = user?.id === transaction.requester_id;
-  const canEdit = transaction.status === 'pending_input' && (isAssignedUser || isAdmin);
+  // A transaction can be edited if it's pending_input AND has no receipts AND the user is assigned or an admin
+  const canAmend = (transaction.status === 'pending_input' && transaction.receipt_urls.length === 0) && (isAssignedUser || isAdmin);
 
   return (
     <div className="container mx-auto py-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Transaction Details #{transaction.id.substring(0, 8)}</h1>
+        {canAmend && !isEditing && (
+          <Button onClick={() => setIsEditing(true)} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
+            Amend Transaction
+          </Button>
+        )}
+        {isEditing && (
+          <div className="space-x-2">
+            <Button variant="outline" onClick={() => { setIsEditing(false); form.reset(); }}>
+              Cancel
+            </Button>
+            <Button type="submit" form="transaction-edit-form" className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
+              Save Changes
+            </Button>
+          </div>
+        )}
+      </div>
+
       <TransactionAdminActionsCard
         transaction={transaction}
         isAdmin={isAdmin}
@@ -317,7 +341,7 @@ const TransactionDetail = () => {
 
       <TransactionEditFormCard
         transaction={transaction}
-        canEdit={canEdit}
+        isEditingMode={isEditing} // Pass the new state
         form={form}
         onSubmit={onSubmit}
         updateTransactionMutation={updateTransactionMutation}

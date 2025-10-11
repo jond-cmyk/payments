@@ -3,7 +3,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import *s z from 'zod';
 import { Download } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
 
@@ -22,7 +22,6 @@ const transactionDetailSchema = z.object({
   merchant_name: z.string().optional(),
   notes: z.string().optional(),
   sku: z.string().optional(),
-  // reason_for_payment is removed from the form schema as it will be derived from category
   comment: z.string().optional(),
   new_receipt_files: z.any()
     .optional()
@@ -32,17 +31,16 @@ const transactionDetailSchema = z.object({
 
 interface TransactionEditFormCardProps {
   transaction: Transaction;
-  canEdit: boolean;
+  isEditingMode: boolean; // Changed from canEdit to isEditingMode
   form: ReturnType<typeof useForm<z.infer<typeof transactionDetailSchema>>>;
   onSubmit: (values: z.infer<typeof transactionDetailSchema>) => Promise<void>;
   updateTransactionMutation: UseMutationResult<boolean, Error, Partial<Transaction> & { new_receipt_files?: FileList }, unknown>;
-  // reasonForPaymentOptions is removed as it's no longer a separate field
   categoryOptions: { value: string; label: string }[];
 }
 
 const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
   transaction,
-  canEdit,
+  isEditingMode, // Use the new prop
   form,
   onSubmit,
   updateTransactionMutation,
@@ -56,14 +54,14 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form id="transaction-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6"> {/* Added form ID */}
             <FormField
               control={form.control}
               name="category"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isEditingMode}> {/* Use isEditingMode */}
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
@@ -88,7 +86,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Merchant Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Amazon" {...field} disabled={!canEdit} />
+                    <Input placeholder="e.g., Amazon" {...field} disabled={!isEditingMode} /> {/* Use isEditingMode */}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -101,7 +99,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Add any relevant notes" {...field} disabled={!canEdit} />
+                    <Textarea placeholder="Add any relevant notes" {...field} disabled={!isEditingMode} /> {/* Use isEditingMode */}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -114,13 +112,12 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., CH12345" {...field} disabled={!canEdit} />
+                    <Input placeholder="e.g., CH12345" {...field} disabled={!isEditingMode} /> {/* Use isEditingMode */}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            {/* Removed Reason for Payment field */}
             <FormField
               control={form.control}
               name="comment"
@@ -128,7 +125,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Comment</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Add any relevant comments" {...field} disabled={!canEdit} />
+                    <Textarea placeholder="Add any relevant comments" {...field} disabled={!isEditingMode} /> {/* Use isEditingMode */}
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -149,7 +146,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                       value={value}
                       onChange={onChange}
                       multiple // Enable multiple file selection
-                      disabled={!canEdit}
+                      disabled={!isEditingMode} // Use isEditingMode
                     />
                   </FormControl>
                   <FormMessage />
@@ -168,11 +165,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 </FormItem>
               )}
             />
-            {canEdit && (
-              <Button type="submit" className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" disabled={updateTransactionMutation.isPending}>
-                {updateTransactionMutation.isPending ? "Saving..." : "Save Changes"}
-              </Button>
-            )}
+            {/* The submit button is now controlled by the parent component */}
           </form>
         </Form>
       </CardContent>
