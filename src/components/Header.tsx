@@ -22,14 +22,10 @@ const Header = () => {
         return 'All Payment Requests - KH Payments';
       case '/admin/users':
         return 'User Management - KH Payments';
-      case '/admin/upload-card-transactions':
-        return 'Upload Card Transactions - KH Payments'; // Updated title
-      case '/admin/upload-general-transactions':
-        return 'Upload General Transactions - KH Payments'; // New title
+      case '/admin/upload-transactions':
+        return 'Upload Transactions - KH Payments'; // Updated title
       case '/my-transactions':
-        return 'Card Payment Receipts - KH Payments';
-      case '/my-general-transactions':
-        return 'My General Transactions - KH Payments'; // New title
+        return 'My Transactions - KH Payments'; // Updated title
       case '/login':
         return 'Login - KH Payments';
       case '/':
@@ -41,10 +37,7 @@ const Header = () => {
           return 'Payment Request Details - KH Payments';
         }
         if (pathname.startsWith('/transaction/')) {
-          return 'Card Payment Receipt Details - KH Payments';
-        }
-        if (pathname.startsWith('/general-transaction/')) {
-          return 'General Transaction Details - KH Payments'; // New title
+          return 'Transaction Details - KH Payments'; // Updated title
         }
         return 'KH Payments'; // Default title for unknown routes
     }

@@ -33,7 +33,7 @@ const MyTransactions = () => {
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('requester_id', user.id) // Changed to requester_id
         .order('transaction_date', { ascending: false });
       if (error) throw error;
       return data;
@@ -89,7 +89,7 @@ const MyTransactions = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
-            <FileText className="mr-2 h-6 w-6" /> My Card Payment Receipts
+            <FileText className="mr-2 h-6 w-6" /> My Transactions
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -102,8 +102,8 @@ const MyTransactions = () => {
                     <TableHead>Description</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Merchant</TableHead>
+                    <TableHead>SKU</TableHead>
+                    <TableHead>Reason for Payment</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -114,8 +114,8 @@ const MyTransactions = () => {
                       <TableCell className="font-medium">{transaction.description}</TableCell>
                       <TableCell>{transaction.currency} {transaction.amount.toFixed(2)}</TableCell>
                       <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                      <TableCell>{transaction.category || 'N/A'}</TableCell>
-                      <TableCell>{transaction.merchant_name || 'N/A'}</TableCell>
+                      <TableCell>{transaction.sku || 'N/A'}</TableCell>
+                      <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <Button asChild variant="outline" size="sm">
                           <Link to={`/transaction/${transaction.id}`}>View/Edit</Link>
@@ -127,7 +127,7 @@ const MyTransactions = () => {
               </Table>
             </div>
           ) : (
-            <p className="text-center text-muted-foreground mt-8">No card payment receipts assigned to you yet.</p>
+            <p className="text-center text-muted-foreground mt-8">No transactions assigned to you yet.</p>
           )}
         </CardContent>
       </Card>

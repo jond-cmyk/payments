@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
 
-const AdminUploadGeneralTransactions = () => {
+const AdminUploadTransactions = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
@@ -53,7 +53,7 @@ const AdminUploadGeneralTransactions = () => {
     try {
       const fileContent = await file.text();
 
-      const { data, error } = await supabase.functions.invoke('upload-general-transactions', { // Calling the new Edge Function
+      const { data, error } = await supabase.functions.invoke('upload-transactions', { // Calling the unified Edge Function
         body: {
           fileName: file.name,
           fileContent: fileContent,
@@ -84,9 +84,9 @@ const AdminUploadGeneralTransactions = () => {
     <div className="container mx-auto py-8">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Upload General Transactions Spreadsheet</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Upload Transactions Spreadsheet</CardTitle>
           <CardDescription className="text-center">
-            Upload a CSV file containing general transaction data. The system will process it and assign transactions to the uploader.
+            Upload a CSV file containing transaction data. The system will process it and assign transactions to users.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -108,7 +108,9 @@ const AdminUploadGeneralTransactions = () => {
           <p className="text-sm text-muted-foreground text-center">
             Accepted format: CSV. Max file size: 5MB.
             <br />
-            Expected columns: `Date`, `Text`, `Amount`, `Currency`.
+            Expected columns for card transactions: `transaction_date`, `description`, `amount`, `currency`, `user_email`, `original_transaction_id`.
+            <br />
+            Expected columns for general transactions: `Date`, `Text`, `Amount`, `Currency`.
             Optional columns: `Approval`, `Type`, `Entry`, `Bank`, `Contra account`, `Exchange rate`, `Comment`, `SKU`, `Reason For Payment`.
           </p>
         </CardContent>
@@ -117,4 +119,4 @@ const AdminUploadGeneralTransactions = () => {
   );
 };
 
-export default AdminUploadGeneralTransactions;
+export default AdminUploadTransactions;

@@ -10,12 +10,9 @@ import Dashboard from "./pages/Dashboard";
 import NewPaymentRequest from "./pages/NewPaymentRequest";
 import PaymentRequestDetail from "./pages/PaymentRequestDetail";
 import UserManagement from "./pages/UserManagement";
-import AdminUploadCardTransactions from "./pages/AdminUploadCardTransactions"; // Renamed import
-import AdminUploadGeneralTransactions from "./pages/AdminUploadGeneralTransactions"; // New import
+import AdminUploadTransactions from "./pages/AdminUploadTransactions"; // Renamed import
 import MyTransactions from "./pages/MyTransactions";
 import TransactionDetail from "./pages/TransactionDetail";
-import MyGeneralTransactions from "./pages/MyGeneralTransactions"; // New import
-import GeneralTransactionDetail from "./pages/GeneralTransactionDetail"; // New import
 import PendingApproval from "./pages/PendingApproval";
 import AdminTestEmail from "./pages/AdminTestEmail";
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
@@ -65,13 +62,10 @@ const App = () => {
                 <Route path="/request/:id" element={<PaymentRequestDetail />} />
                 <Route path="/admin/requests" element={<Dashboard />} />
                 <Route path="/admin/users" element={<UserManagement />} />
-                <Route path="/admin/upload-card-transactions" element={<AdminUploadCardTransactions />} /> {/* Renamed route */}
-                <Route path="/admin/upload-general-transactions" element={<AdminUploadGeneralTransactions />} /> {/* New route */}
+                <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} /> {/* Unified upload route */}
                 <Route path="/admin/test-email" element={<AdminTestEmail />} />
-                <Route path="/my-transactions" element={<MyTransactions />} />
-                <Route path="/transaction/:id" element={<TransactionDetail />} />
-                <Route path="/my-general-transactions" element={<MyGeneralTransactions />} /> {/* New route */}
-                <Route path="/general-transaction/:id" element={<GeneralTransactionDetail />} /> {/* New route */}
+                <Route path="/my-transactions" element={<MyTransactions />} /> {/* Unified transactions list */}
+                <Route path="/transaction/:id" element={<TransactionDetail />} /> {/* Unified transaction detail */}
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

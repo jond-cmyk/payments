@@ -23,26 +23,26 @@ export type PaymentRequest = {
 
 export type Transaction = {
   id: string;
-  requester_id: string; // Renamed from user_id to requester_id for consistency
-  uploaded_by_user_id: string | null; // From general_transactions
-  original_transaction_id: string | null; // From old transactions
+  requester_id: string;
+  uploaded_by_user_id: string | null;
+  original_transaction_id: string | null;
   status: 'pending_input' | 'completed' | 'approved' | 'declined';
-  type: string | null; // From general_transactions
+  type: string | null;
   transaction_date: string; // YYYY-MM-DD format
-  entry: string | null; // From general_transactions
+  entry: string | null;
   description: string;
   amount: number;
-  bank: string | null; // From general_transactions
-  contra_account: string | null; // From general_transactions
+  bank: string | null;
+  contra_account: string | null;
   currency: string;
-  exchange_rate: number | null; // From general_transactions
-  comment: string | null; // From general_transactions (notes from old transactions can map here)
-  sku: string | null; // From general_transactions
-  reason_for_payment: string | null; // From general_transactions
-  receipt_urls: string[]; // Changed to array of strings, combining receipt_url and receipt_urls
-  category: string | null; // From old transactions
-  merchant_name: string | null; // From old transactions
-  notes: string | null; // From old transactions, can be separate or merged with comment
+  exchange_rate: number | null;
+  comment: string | null;
+  sku: string | null;
+  reason_for_payment: string | null;
+  receipt_urls: string[]; // Array for multiple document URLs
+  category: string | null;
+  merchant_name: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 };
