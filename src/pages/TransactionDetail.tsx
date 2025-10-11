@@ -268,7 +268,7 @@ const TransactionDetail = () => {
         merchant_name: values.merchant_name,
         notes: values.notes,
         sku: values.sku,
-        reason_for_payment: values.reason_for_payment, // This will now use category options
+        reason_for_payment: values.reason_for_payment,
         comment: values.comment,
       };
 
@@ -320,7 +320,7 @@ const TransactionDetail = () => {
         form={form}
         onSubmit={onSubmit}
         updateTransactionMutation={updateTransactionMutation}
-        reasonForPaymentOptions={categoryOptions} {/* Use categoryOptions here */}
+        reasonForPaymentOptions={categoryOptions} // Use categoryOptions here
         categoryOptions={categoryOptions}
       />
 
