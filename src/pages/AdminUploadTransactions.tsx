@@ -62,6 +62,7 @@ const AdminUploadTransactions = () => {
       });
 
       if (invokeError) {
+        console.error("Supabase Function Invoke Error:", invokeError); // Log the full error object
         // Prioritize the specific error message from the Edge Function's response body if available
         if (data?.error) {
           throw new Error(data.error);
