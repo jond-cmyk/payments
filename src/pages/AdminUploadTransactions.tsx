@@ -53,7 +53,7 @@ const AdminUploadTransactions = () => {
     try {
       const fileContent = await file.text();
 
-      const { data, error } = await supabase.functions.invoke('upload-transactions', { // Calling the unified Edge Function
+      const { data, error: invokeError } = await supabase.functions.invoke('upload-transactions', {
         body: {
           fileName: file.name,
           fileContent: fileContent,
@@ -61,10 +61,16 @@ const AdminUploadTransactions = () => {
         },
       });
 
-      if (error) {
-        throw new Error(error.message);
+      if (invokeError) {
+        // Prioritize the specific error message from the Edge Function's response body if available
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+        // Otherwise, throw the generic invoke error message
+        throw new Error(invokeError.message);
       }
 
+      // If no invokeError and data.error is present, it means the function returned 200 but with an error in body
       if (data?.error) {
         throw new Error(data.error);
       }
