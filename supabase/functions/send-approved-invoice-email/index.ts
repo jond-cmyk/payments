@@ -26,9 +26,9 @@ serve(async (req) => {
     const payload = await req.json();
     const { record: newRecord } = payload;
 
-    // Check for receipt_pdf_url
-    if (!newRecord || !newRecord.id || !newRecord.sku_number || !newRecord.receipt_pdf_url) {
-      const errorMessage = 'Missing required payment request data (id, sku_number, or receipt_pdf_url) in payload. This function expects a receipt_pdf_url to be present.';
+    // Check for invoice_pdf_urls
+    if (!newRecord || !newRecord.id || !newRecord.sku_number || !newRecord.invoice_pdf_urls || newRecord.invoice_pdf_urls.length === 0) {
+      const errorMessage = 'Missing required payment request data (id, sku_number, or invoice_pdf_urls) in payload. This function expects invoice_pdf_urls to be present.';
       console.error('Edge Function Error (400):', errorMessage, 'Payload:', JSON.stringify(payload)); // Log the error
       return new Response(JSON.stringify({ error: errorMessage }), {
         status: 400,
@@ -52,30 +52,39 @@ serve(async (req) => {
     const recipientEmail = '868bilag1677646@e-conomic.dk'; // Target email
 
     const attachments = [];
-    if (newRecord.receipt_pdf_url) {
-      const receiptResponse = await fetch(newRecord.receipt_pdf_url);
-      if (!receiptResponse.ok) {
-        throw new Error(`Failed to fetch receipt PDF from ${newRecord.receipt_pdf_url}: ${receiptResponse.statusText}`);
+    for (const invoiceUrl of newRecord.invoice_pdf_urls) {
+      try {
+        const invoiceResponse = await fetch(invoiceUrl);
+        if (!invoiceResponse.ok) {
+          console.warn(`Failed to fetch invoice PDF from ${invoiceUrl}: ${invoiceResponse.statusText}. Skipping this attachment.`);
+          continue; // Skip this invoice but try others
+        }
+        const invoiceBlob = await invoiceResponse.blob();
+        const arrayBuffer = await invoiceBlob.arrayBuffer();
+        const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))); // Base64 encode
+
+        const urlParts = invoiceUrl.split('/');
+        const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
+        const fileName = originalFileName.endsWith('.pdf') ? originalFileName : `invoice_${newRecord.sku_number}_${attachments.length + 1}.pdf`;
+
+        attachments.push({
+          filename: fileName,
+          content: base64Content,
+        });
+      } catch (fetchError) {
+        console.error(`Error processing invoice URL ${invoiceUrl}: ${fetchError.message}`);
       }
-      const receiptBlob = await receiptResponse.blob();
-      const arrayBuffer = await receiptBlob.arrayBuffer();
-      const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))); // Base64 encode
+    }
 
-      const urlParts = newRecord.receipt_pdf_url.split('/');
-      const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
-      const fileName = originalFileName.endsWith('.pdf') ? originalFileName : `receipt_${newRecord.sku_number}.pdf`;
-
-      attachments.push({
-        filename: fileName,
-        content: base64Content,
-      });
+    if (attachments.length === 0) {
+      console.warn('No valid invoice PDFs could be attached. Sending email without attachments.');
     }
 
     const subject = `Paid ${newRecord.sku_number}`;
     const htmlContent = `
       <p>Dear Recipient,</p>
-      <p>This email confirms that payment for request <strong>#${newRecord.id.substring(0, 8)}</strong> (SKU: ${newRecord.sku_number}) has been completed.</p>
-      <p>The payment receipt is attached for your records.</p>
+      <p>This email confirms that payment for request <strong>#${newRecord.id.substring(0, 8)}</strong> (SKU: ${newRecord.sku_number}) has been approved.</p>
+      <p>The invoice(s) are attached for your records.</p>
       <p>Thank you,</p>
       <p>Your Payment Team</p>
     `;
@@ -89,16 +98,16 @@ serve(async (req) => {
     });
 
     if (resendError) {
-      console.error('Error sending approved payment receipt email via Resend:', resendError);
-      return new Response(JSON.stringify({ error: `Failed to send approved payment receipt email via Resend: ${resendError.message}` }), {
+      console.error('Error sending approved payment invoice email via Resend:', resendError);
+      return new Response(JSON.stringify({ error: `Failed to send approved payment invoice email via Resend: ${resendError.message}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Approved payment receipt email sent successfully via Resend:', data);
+    console.log('Approved payment invoice email sent successfully via Resend:', data);
 
-    return new Response(JSON.stringify({ message: 'Approved payment receipt email sent successfully via Resend' }), {
+    return new Response(JSON.stringify({ message: 'Approved payment invoice email sent successfully via Resend' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
