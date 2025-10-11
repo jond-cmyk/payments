@@ -6,7 +6,7 @@ import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-do
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { PaymentRequest, Profile } from '@/types/supabase';
+import { PaymentRequest, Profile, Transaction } from '@/types/supabase'; // Import Transaction type
 import {
   Table,
   TableBody,
@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban } from 'lucide-react';
+import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban, FileX } from 'lucide-react'; // Import FileX icon
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
@@ -102,6 +102,33 @@ const Dashboard = () => {
     enabled: !!user?.id && !!userRole,
   });
 
+  // Fetch count of missing receipts
+  const { data: missingReceiptsCount, isLoading: isMissingReceiptsCountLoading } = useQuery<number>({
+    queryKey: ['missingReceiptsCount', user?.id, userRole],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+
+      let query = supabase
+        .from('transactions')
+        .select('id', { count: 'exact' })
+        .eq('status', 'pending_input')
+        .eq('receipt_urls', '{}'); // Filter for empty receipt_urls array
+
+      if (userRole === 'requester') {
+        query = query.eq('requester_id', user.id);
+      }
+
+      const { count, error } = await query;
+      if (error) {
+        console.error("Error fetching missing receipts count:", error);
+        throw error;
+      }
+      return count || 0;
+    },
+    enabled: !!user?.id && !!userRole,
+  });
+
+
   const clearFilters = () => {
     setFilterSupplierName('');
     setFilterSkuNumber('');
@@ -121,6 +148,7 @@ const Dashboard = () => {
         declined: 0,
         approved: 0,
         total: 0,
+        missing_receipts: missingReceiptsCount || 0, // Include missing receipts count
       };
     }
 
@@ -141,11 +169,12 @@ const Dashboard = () => {
     return {
       ...initialCounts,
       total: paymentRequests.length,
+      missing_receipts: missingReceiptsCount || 0, // Include missing receipts count
     };
-  }, [paymentRequests]);
+  }, [paymentRequests, missingReceiptsCount]);
 
 
-  if (isLoading || isRequestsLoading) { // Removed isProfileLoading
+  if (isLoading || isRequestsLoading || isMissingReceiptsCountLoading) { // Added isMissingReceiptsCountLoading
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
   }
 
@@ -156,7 +185,7 @@ const Dashboard = () => {
 
   // Removed profileError check as profile is now from context and handled by ApprovedRoute
   if (!userProfile) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading user profile.</div>;
+    return <div className="flex items-center justify-center h-red-500">Error loading user profile.</div>;
   }
 
   if (requestsError) {
@@ -192,7 +221,7 @@ const Dashboard = () => {
   };
 
   // Helper to get card specific styling based on status
-  const getCardStyling = (status: PaymentRequest['status']) => {
+  const getCardStyling = (status: PaymentRequest['status'] | 'missing_receipts') => {
     switch (status) {
       case 'pending':
         return {
@@ -202,6 +231,7 @@ const Dashboard = () => {
           title: 'Pending',
           description: 'Requests awaiting review',
           statusValue: 'pending',
+          link: `/admin/requests?status=pending`,
         };
       case 'setup_awaiting_approval':
         return {
@@ -211,6 +241,7 @@ const Dashboard = () => {
           title: 'Payment Setup',
           description: 'Payments being processed',
           statusValue: 'setup_awaiting_approval',
+          link: `/admin/requests?status=setup_awaiting_approval`,
         };
       case 'queried':
         return {
@@ -220,6 +251,7 @@ const Dashboard = () => {
           title: 'Queried',
           description: 'Requests needing more info',
           statusValue: 'queried',
+          link: `/admin/requests?status=queried`,
         };
       case 'declined':
         return {
@@ -229,6 +261,7 @@ const Dashboard = () => {
           title: 'Declined',
           description: 'Requests that were rejected',
           statusValue: 'declined',
+          link: `/admin/requests?status=declined`,
         };
       case 'approved':
         return {
@@ -238,6 +271,17 @@ const Dashboard = () => {
           title: 'Approved',
           description: 'Payments completed',
           statusValue: 'approved',
+          link: `/admin/requests?status=approved`,
+        };
+      case 'missing_receipts':
+        return {
+          borderClass: 'border-orange-500',
+          textClass: 'text-orange-600',
+          icon: <FileX className="h-4 w-4" />,
+          title: 'Missing Receipts',
+          description: 'Transactions awaiting receipts',
+          statusValue: 'missing_receipts',
+          link: `/missing-receipts`, // Link to the missing receipts page
         };
       default:
         return {
@@ -247,6 +291,7 @@ const Dashboard = () => {
           title: 'Unknown',
           description: '',
           statusValue: 'all',
+          link: '#',
         };
     }
   };
@@ -271,10 +316,10 @@ const Dashboard = () => {
       {!isAdminView && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
           {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
-            const status = statusKey as PaymentRequest['status'];
-            const { borderClass, textClass, icon, title, description, statusValue } = getCardStyling(status);
+            const status = statusKey as PaymentRequest['status'] | 'missing_receipts';
+            const { borderClass, textClass, icon, title, description, link } = getCardStyling(status);
             return (
-              <Link key={status} to={`/admin/requests?status=${statusValue}`} className="block">
+              <Link key={status} to={link} className="block">
                 <Card className={cn("border-l-4 cursor-pointer hover:shadow-lg transition-shadow", borderClass)}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
