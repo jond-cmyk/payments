@@ -92,12 +92,12 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
         {(request.status === 'pending' || request.status === 'setup_awaiting_approval') && (
           <AlertDialog>
             <AlertDialogTrigger
-              asChild // Keep asChild for custom button styling
+              asChild
             >
               <Button
-                variant="outline" // Pass variant directly
+                variant="outline"
                 disabled={updateRequestMutation.isPending}
-                className="text-gray-600 border-gray-600 hover:bg-gray-50" {/* Changed to grey styling */}
+                className="text-gray-600 border-gray-600 hover:bg-gray-50"
               >
                 <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
               </Button>
