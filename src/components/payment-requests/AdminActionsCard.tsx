@@ -91,14 +91,12 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
 
         {(request.status === 'pending' || request.status === 'setup_awaiting_approval') && (
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="outline"
-                disabled={updateRequestMutation.isPending}
-                className="text-orange-600 border-orange-600 hover:bg-orange-50"
-              >
-                <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
-              </Button>
+            <AlertDialogTrigger
+              variant="outline" // Pass variant directly
+              disabled={updateRequestMutation.isPending}
+              className="text-orange-600 border-orange-600 hover:bg-orange-50"
+            >
+              <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -126,10 +124,8 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
               </Form>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction asChild> {/* Use asChild here */}
-                  <Button form="query-form" type="submit">
-                    Submit Query
-                  </Button>
+                <AlertDialogAction form="query-form" type="submit"> {/* Pass props directly */}
+                  Submit Query
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -182,10 +178,8 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
               </Form>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction asChild> {/* Use asChild here */}
-                  <Button form="decline-form" type="submit" variant="destructive">
-                    Decline
-                  </Button>
+                <AlertDialogAction form="decline-form" type="submit" variant="destructive"> {/* Pass props directly */}
+                  Decline
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -211,10 +205,8 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} asChild> {/* Use asChild here */}
-                <Button variant="destructive">
-                  Delete
-                </Button>
+              <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} variant="destructive"> {/* Pass props directly */}
+                Delete
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
