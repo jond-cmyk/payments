@@ -41,7 +41,7 @@ const ApprovedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  useAutoRefresh({ intervalMinutes: 2, enabled: true });
+  useAutoRefresh({ intervalMinutes: 2, enabled: true }); // This line controls the refresh interval
 
   return (
     <QueryClientProvider client={queryClient}>
