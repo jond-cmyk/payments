@@ -27,6 +27,7 @@ serve(async (req) => {
     const { fileName, fileContent, uploaderId } = payload;
 
     if (!fileName || !fileContent || !uploaderId) {
+      console.error('[upload-transactions] Missing file data or uploader ID in payload.');
       return new Response(JSON.stringify({ error: 'Missing file data or uploader ID in payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -34,7 +35,6 @@ serve(async (req) => {
     }
 
     console.log(`[upload-transactions] Received file: ${fileName} from uploader: ${uploaderId}`);
-    console.log(`[upload-transactions] File content (first 200 chars): ${fileContent.substring(0, 200)}`);
     console.log(`[upload-transactions] File content length: ${fileContent.length}`);
 
     let records: Record<string, string>[];
@@ -65,9 +65,10 @@ serve(async (req) => {
     const isGeneralTransactionFile = headers.includes('Date') && headers.includes('Text') && headers.includes('Amount') && headers.includes('Currency');
 
     if (!isCardTransactionFile && !isGeneralTransactionFile) {
-      errors.push('CSV file does not match expected format for either card or general transactions. Missing critical headers.');
+      const msg = 'CSV file does not match expected format for either card or general transactions. Missing critical headers.';
+      errors.push(msg);
       console.error('[upload-transactions] Invalid CSV format. Headers:', headers);
-      return new Response(JSON.stringify({ message: 'Failed to process file due to invalid format.', errors: errors }), {
+      return new Response(JSON.stringify({ message: msg, errors: errors }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -80,23 +81,26 @@ serve(async (req) => {
         const expectedCardHeaders = ['transaction_date', 'description', 'amount', 'currency', 'user_email', 'original_transaction_id'];
         const missingCardHeaders = expectedCardHeaders.filter(h => !headers.includes(h));
         if (missingCardHeaders.length > 0) {
-            errors.push(`Missing expected CSV headers for card transaction: ${missingCardHeaders.join(', ')}. Skipping record: ${JSON.stringify(record)}`);
-            console.warn(`[upload-transactions] Skipping card record due to missing headers: ${JSON.stringify(record)}`);
+            const msg = `Missing expected CSV headers for card transaction: ${missingCardHeaders.join(', ')}. Skipping record: ${JSON.stringify(record)}`;
+            errors.push(msg);
+            console.warn(`[upload-transactions] ${msg}`);
             continue;
         }
 
         const { transaction_date, description, amount, currency, user_email, original_transaction_id } = record;
 
         if (!transaction_date || !description || !amount || !currency || !user_email) {
-          errors.push(`Missing required fields (date, description, amount, currency, or user_email) for a card transaction. Skipping record: ${JSON.stringify(record)}`);
-          console.warn(`[upload-transactions] Skipping card record due to missing fields: ${JSON.stringify(record)}`);
+          const msg = `Missing required fields (date, description, amount, currency, or user_email) for a card transaction. Skipping record: ${JSON.stringify(record)}`;
+          errors.push(msg);
+          console.warn(`[upload-transactions] ${msg}`);
           continue;
         }
 
         const parsedAmount = parseFloat(amount);
         if (isNaN(parsedAmount)) {
-          errors.push(`Invalid amount '${amount}' for card transaction '${description}'. Skipping record.`);
-          console.warn(`[upload-transactions] Skipping card record due to invalid amount: ${record.description}`);
+          const msg = `Invalid amount '${amount}' for card transaction '${description}'. Skipping record.`;
+          errors.push(msg);
+          console.warn(`[upload-transactions] ${msg}`);
           continue;
         }
 
@@ -107,8 +111,9 @@ serve(async (req) => {
           .single();
 
         if (profileError || !profile) {
-          errors.push(`Could not find user for email '${user_email}' for card transaction '${description}'. Error: ${profileError?.message || 'Profile not found'}.`);
-          console.warn(`[upload-transactions] Skipping card record due to user not found: ${user_email} for ${record.description}. Error: ${profileError?.message || 'Profile not found'}`);
+          const msg = `Could not find user for email '${user_email}' for card transaction '${description}'. Error: ${profileError?.message || 'Profile not found'}.`;
+          errors.push(msg);
+          console.warn(`[upload-transactions] ${msg}`);
           continue;
         }
         console.log(`[upload-transactions] Found user ID: ${profile.id} for email: ${user_email}`);
@@ -128,8 +133,9 @@ serve(async (req) => {
         const criticalGeneralHeaders = ['Date', 'Text', 'Amount', 'Currency'];
         const missingCriticalGeneralHeaders = criticalGeneralHeaders.filter(h => !headers.includes(h));
         if (missingCriticalGeneralHeaders.length > 0) {
-            errors.push(`Missing critical CSV headers for general transaction: ${missingCriticalGeneralHeaders.join(', ')}. Skipping record: ${JSON.stringify(record)}`);
-            console.warn(`[upload-transactions] Skipping general record due to missing critical headers: ${JSON.stringify(record)}`);
+            const msg = `Missing critical CSV headers for general transaction: ${missingCriticalGeneralHeaders.join(', ')}. Skipping record: ${JSON.stringify(record)}`;
+            errors.push(msg);
+            console.warn(`[upload-transactions] ${msg}`);
             continue;
         }
 
@@ -149,8 +155,9 @@ serve(async (req) => {
         } = record;
 
         if (!transaction_date || !description || !amount || !currency) {
-          errors.push(`Missing required fields (Date, Text, Amount, or Currency) for a general transaction. Skipping record: ${JSON.stringify(record)}`);
-          console.warn(`[upload-transactions] Skipping general record due to missing critical fields: ${JSON.stringify(record)}`);
+          const msg = `Missing required fields (Date, Text, Amount, or Currency) for a general transaction. Skipping record: ${JSON.stringify(record)}`;
+          errors.push(msg);
+          console.warn(`[upload-transactions] ${msg}`);
           continue;
         }
 
@@ -159,22 +166,25 @@ serve(async (req) => {
         if (dateParts.length === 3) {
           transaction_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
         } else {
-          errors.push(`Invalid date format '${transaction_date}' for general transaction '${description}'. Expected DD.MM.YYYY. Skipping record.`);
-          console.warn(`[upload-transactions] Skipping general record due to invalid date format: ${transaction_date}`);
+          const msg = `Invalid date format '${transaction_date}' for general transaction '${description}'. Expected DD.MM.YYYY. Skipping record.`;
+          errors.push(msg);
+          console.warn(`[upload-transactions] ${msg}`);
           continue;
         }
 
         const parsedAmount = parseFloat(amount.replace(',', '')); // Handle comma as decimal separator
         if (isNaN(parsedAmount)) {
-          errors.push(`Invalid amount '${amount}' for general transaction '${description}'. Skipping record.`);
-          console.warn(`[upload-transactions] Skipping general record due to invalid amount: ${description}`);
+          const msg = `Invalid amount '${amount}' for general transaction '${description}'. Skipping record.`;
+          errors.push(msg);
+          console.warn(`[upload-transactions] ${msg}`);
           continue;
         }
 
         const parsedExchangeRate = exchange_rate ? parseFloat(exchange_rate.replace(',', '.')) : null; // Handle comma as decimal separator
         if (exchange_rate && isNaN(parsedExchangeRate)) {
-          errors.push(`Invalid exchange rate '${exchange_rate}' for general transaction '${description}'. Skipping record.`);
-          console.warn(`[upload-transactions] Skipping general record due to invalid exchange rate: ${description}`);
+          const msg = `Invalid exchange rate '${exchange_rate}' for general transaction '${description}'. Skipping record.`;
+          errors.push(msg);
+          console.warn(`[upload-transactions] ${msg}`);
           continue;
         }
 
@@ -212,7 +222,11 @@ serve(async (req) => {
 
       if (insertError) {
         console.error('[upload-transactions] Failed to insert transactions into database:', insertError);
-        throw new Error(`Failed to insert transactions into database: ${insertError.message}`);
+        // If database insertion fails, this is a critical error, return 500
+        return new Response(JSON.stringify({ error: `Failed to insert transactions into database: ${insertError.message}` }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
       console.log(`[upload-transactions] Successfully inserted ${insertData?.length || 0} transactions.`);
     } else {
@@ -223,8 +237,9 @@ serve(async (req) => {
     if (errors.length > 0) {
       message += ` ${errors.length} records skipped due to errors. Please check logs for details.`;
       console.error('[upload-transactions] Transaction processing errors summary:', errors);
+      // If there were errors during record processing, even if some were inserted, return 400
       return new Response(JSON.stringify({ message: message, errors: errors }), {
-        status: 200,
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
