@@ -305,8 +305,8 @@ const Dashboard = () => {
           {isAdminView ? 'All Payment Requests' : 'My Payment Requests'}
         </h1>
         {userRole === 'requester' && (
-          <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
-            <PlusCircle className="mr-2 h-4 w-4" />
+          <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg"> {/* Added size="lg" */}
+            <PlusCircle className="mr-2 h-5 w-5" /> {/* Increased icon size slightly for larger button */}
             Create New Request
           </Button>
         )}
