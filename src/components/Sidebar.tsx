@@ -5,7 +5,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptText, Mail } from 'lucide-react'; // Removed FileStack icon
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptOff, Mail } from 'lucide-react'; // Changed ReceiptText to ReceiptOff
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -74,12 +74,12 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
-        <NavLink to="/my-transactions" icon={<ReceiptText className="h-5 w-5" />} label="My Transactions" /> {/* Unified transactions list */}
+        <NavLink to="/missing-receipts" icon={<ReceiptOff className="h-5 w-5" />} label="Missing Receipts" /> {/* Updated link */}
         {currentRole === 'admin' && (
           <>
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
-            <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" /> {/* Unified upload page */}
+            <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
             <NavLink to="/admin/test-email" icon={<Mail className="h-5 w-5" />} label="Test Email" />
           </>
         )}

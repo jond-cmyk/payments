@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@/types/supabase';
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { FileText, CheckCircle, Clock, XCircle, ReceiptOff } from 'lucide-react'; // Added ReceiptOff icon
 
 import {
   Table,
@@ -21,19 +21,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 
-const MyTransactions = () => {
+const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user } = useSession();
   const navigate = useNavigate();
 
-  // Fetch transactions assigned to the current user
+  // Fetch transactions assigned to the current user that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['myTransactions', user?.id],
+    queryKey: ['missingReceipts', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('requester_id', user.id) // Changed to requester_id
+        .eq('requester_id', user.id)
+        .eq('status', 'pending_input') // Filter for pending input
+        .eq('receipt_urls', '{}') // Filter for empty receipt_urls array
         .order('transaction_date', { ascending: false });
       if (error) throw error;
       return data;
@@ -42,7 +44,7 @@ const MyTransactions = () => {
   });
 
   if (isSessionLoading || isTransactionsLoading) {
-    return <div className="flex items-center justify-center h-full text-lg">Loading transactions...</div>;
+    return <div className="flex items-center justify-center h-full text-lg">Loading missing receipts...</div>;
   }
 
   if (!session) {
@@ -51,7 +53,7 @@ const MyTransactions = () => {
   }
 
   if (transactionsError) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading transactions: {transactionsError.message}</div>;
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading missing receipts: {transactionsError.message}</div>;
   }
 
   const getStatusBadge = (status: Transaction['status']) => {
@@ -89,7 +91,7 @@ const MyTransactions = () => {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
-            <FileText className="mr-2 h-6 w-6" /> My Transactions
+            <ReceiptOff className="mr-2 h-6 w-6" /> Missing Receipts
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -118,7 +120,7 @@ const MyTransactions = () => {
                       <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
                       <TableCell className="text-right">
                         <Button asChild variant="outline" size="sm">
-                          <Link to={`/transaction/${transaction.id}`}>View/Edit</Link>
+                          <Link to={`/transaction/${transaction.id}`}>View/Add Receipt</Link>
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -127,7 +129,7 @@ const MyTransactions = () => {
               </Table>
             </div>
           ) : (
-            <p className="text-center text-muted-foreground mt-8">No transactions assigned to you yet.</p>
+            <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found.</p>
           )}
         </CardContent>
       </Card>
@@ -135,4 +137,4 @@ const MyTransactions = () => {
   );
 };
 
-export default MyTransactions;
+export default MissingReceipts;

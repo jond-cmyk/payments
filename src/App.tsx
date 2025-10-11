@@ -10,8 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import NewPaymentRequest from "./pages/NewPaymentRequest";
 import PaymentRequestDetail from "./pages/PaymentRequestDetail";
 import UserManagement from "./pages/UserManagement";
-import AdminUploadTransactions from "./pages/AdminUploadTransactions"; // Renamed import
-import MyTransactions from "./pages/MyTransactions";
+import AdminUploadTransactions from "./pages/AdminUploadTransactions";
+import MissingReceipts from "./pages/MissingReceipts"; // Renamed import
 import TransactionDetail from "./pages/TransactionDetail";
 import PendingApproval from "./pages/PendingApproval";
 import AdminTestEmail from "./pages/AdminTestEmail";
@@ -62,10 +62,10 @@ const App = () => {
                 <Route path="/request/:id" element={<PaymentRequestDetail />} />
                 <Route path="/admin/requests" element={<Dashboard />} />
                 <Route path="/admin/users" element={<UserManagement />} />
-                <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} /> {/* Unified upload route */}
+                <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
                 <Route path="/admin/test-email" element={<AdminTestEmail />} />
-                <Route path="/my-transactions" element={<MyTransactions />} /> {/* Unified transactions list */}
-                <Route path="/transaction/:id" element={<TransactionDetail />} /> {/* Unified transaction detail */}
+                <Route path="/missing-receipts" element={<MissingReceipts />} /> {/* Updated route */}
+                <Route path="/transaction/:id" element={<TransactionDetail />} />
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
