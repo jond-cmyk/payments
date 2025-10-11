@@ -101,27 +101,62 @@ serve(async (req) => {
 
     } else if (eventType === 'UPDATE' && oldRecord && newRecord.status !== oldRecord.status) {
       // Status Changed
-      subject = `Payment Request #${newRecord.id.substring(0, 8)} Status Updated to ${newRecord.status.replace(/_/g, ' ').toUpperCase()}`;
-      htmlContent = `
-        <p>Dear ${requesterName},</p>
-        <p>The status of your payment request (ID: <strong>#${newRecord.id.substring(0, 8)}</strong>) has been updated.</p>
-        <p><strong>Previous Status:</strong> ${oldRecord.status.replace(/_/g, ' ').toUpperCase()}</p>
-        <p><strong>New Status:</strong> ${newRecord.status.replace(/_/g, ' ').toUpperCase()}</p>
-        <p><strong>Details:</strong></p>
-        <ul>
-          <li>Supplier: ${newRecord.supplier_name}</li>
-          <li>SKU: ${newRecord.sku_number}</li>
-          <li>Reason: ${newRecord.reason_for_payment}</li>
-          <li>Date Required: ${newRecord.date_payment_required}</li>
-        </ul>
-        ${newRecord.admin_action_reason ? `<p><strong>Admin Note:</strong> ${newRecord.admin_action_reason}</p>` : ''}
-        <p>You can view the details here: <a href="${appUrl}/request/${newRecord.id}">View Request</a></p>
-        <p>Thank you,</p>
-        <p>Your Payment Team</p>
-      `;
-      recipientEmails = [...adminEmails]; // Admins get status change alerts
-      if (requesterEmail) recipientEmails.push(requesterEmail); // Requester also gets status change alerts
+      const oldStatus = oldRecord.status.replace(/_/g, ' ').toUpperCase();
+      const newStatus = newRecord.status.replace(/_/g, ' ').toUpperCase();
 
+      if (newRecord.status === 'queried') {
+        subject = `Payment Request #${newRecord.id.substring(0, 8)} Queried`;
+        htmlContent = `
+          <p>Dear ${requesterName},</p>
+          <p>Your payment request (ID: <strong>#${newRecord.id.substring(0, 8)}</strong>) has been queried by an administrator.</p>
+          ${newRecord.admin_action_reason ? `<p><strong>Admin Note:</strong> ${newRecord.admin_action_reason}</p>` : ''}
+          <p>Please review the request and provide the necessary information.</p>
+          <p>You can view the details here: <a href="${appUrl}/request/${newRecord.id}">View Request</a></p>
+          <p>Thank you,</p>
+          <p>Your Payment Team</p>
+        `;
+        recipientEmails = [...adminEmails]; // Admins get query alerts
+        if (requesterEmail) recipientEmails.push(requesterEmail); // Requester gets query notification
+      } else if (newRecord.status === 'approved') {
+        subject = `Payment Request #${newRecord.id.substring(0, 8)} Approved!`;
+        htmlContent = `
+          <p>Dear ${requesterName},</p>
+          <p>Good news! Your payment request (ID: <strong>#${newRecord.id.substring(0, 8)}</strong>) has been approved.</p>
+          <p><strong>Details:</strong></p>
+          <ul>
+            <li>Supplier: ${newRecord.supplier_name}</li>
+            <li>SKU: ${newRecord.sku_number}</li>
+            <li>Amount: ${newRecord.currency} ${newRecord.payment_amount?.toFixed(2) || '0.00'}</li>
+            <li>Reason: ${newRecord.reason_for_payment}</li>
+          </ul>
+          <p>You can view the details here: <a href="${appUrl}/request/${newRecord.id}">View Request</a></p>
+          <p>Thank you,</p>
+          <p>Your Payment Team</p>
+        `;
+        if (requesterEmail) recipientEmails.push(requesterEmail); // Only requester gets approval notification
+      } else {
+        // Other status changes (e.g., setup_awaiting_approval, declined)
+        subject = `Payment Request #${newRecord.id.substring(0, 8)} Status Updated to ${newStatus}`;
+        htmlContent = `
+          <p>Dear ${requesterName},</p>
+          <p>The status of your payment request (ID: <strong>#${newRecord.id.substring(0, 8)}</strong>) has been updated.</p>
+          <p><strong>Previous Status:</strong> ${oldStatus}</p>
+          <p><strong>New Status:</strong> ${newStatus}</p>
+          <p><strong>Details:</strong></p>
+          <ul>
+            <li>Supplier: ${newRecord.supplier_name}</li>
+            <li>SKU: ${newRecord.sku_number}</li>
+            <li>Reason: ${newRecord.reason_for_payment}</li>
+            <li>Date Required: ${newRecord.date_payment_required}</li>
+          </ul>
+          ${newRecord.admin_action_reason ? `<p><strong>Admin Note:</strong> ${newRecord.admin_action_reason}</p>` : ''}
+          <p>You can view the details here: <a href="${appUrl}/request/${newRecord.id}">View Request</a></p>
+          <p>Thank you,</p>
+          <p>Your Payment Team</p>
+        `;
+        recipientEmails = [...adminEmails]; // Admins get status change alerts
+        if (requesterEmail) recipientEmails.push(requesterEmail); // Requester also gets status change alerts
+      }
     } else {
       // No relevant event or status change, do nothing
       return new Response(JSON.stringify({ message: 'No relevant event or status change to notify' }), {
