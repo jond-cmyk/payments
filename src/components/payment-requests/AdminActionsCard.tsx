@@ -4,7 +4,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2 } from 'lucide-react';
+import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2, RotateCcw } from 'lucide-react'; // Import RotateCcw icon
 import { UseMutationResult } from '@tanstack/react-query';
 import { User } from '@supabase/supabase-js';
 
@@ -35,13 +35,19 @@ const queryFormSchema = z.object({
   query_note: z.string().min(1, "Query note is required"),
 });
 
+// Zod schema for admin revert reason - NEW
+const revertFormSchema = z.object({
+  revert_reason: z.string().min(1, "Revert reason is required"),
+});
+
 interface AdminActionsCardProps {
   request: PaymentRequest;
   isAdmin: boolean;
   updateRequestMutation: UseMutationResult<boolean, Error, Partial<PaymentRequest> & { new_invoice_files?: FileList }, unknown>;
   deleteRequestMutation: UseMutationResult<boolean, Error, void, unknown>;
-  handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried', reason?: string) => Promise<boolean>; // Updated return type
-  handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<boolean>; // Updated return type
+  handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending', reason?: string) => Promise<boolean>; // Updated return type
+  handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<boolean>;
+  handleAdminRevert: (values: z.infer<typeof revertFormSchema>) => Promise<boolean>; // New prop for revert handler
   user: User | null;
 }
 
@@ -52,6 +58,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
   deleteRequestMutation,
   handleAdminAction,
   handleAdminQuery,
+  handleAdminRevert, // Destructure new prop
   user,
 }) => {
   const declineForm = useForm<z.infer<typeof declineFormSchema>>({
@@ -68,6 +75,13 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
     },
   });
 
+  const revertForm = useForm<z.infer<typeof revertFormSchema>>({ // NEW: Form for revert reason
+    resolver: zodResolver(revertFormSchema),
+    defaultValues: {
+      revert_reason: "",
+    },
+  });
+
   const onQueryFormSubmit = async (values: z.infer<typeof queryFormSchema>) => {
     try {
       const success = await handleAdminQuery(values);
@@ -77,6 +91,17 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
     } catch (error) {
       // Error handling is done in handleAdminQuery, just catch here to prevent app crash
       console.error("Error during query form submission:", error);
+    }
+  };
+
+  const onRevertFormSubmit = async (values: z.infer<typeof revertFormSchema>) => { // NEW: Submit handler for revert
+    try {
+      const success = await handleAdminRevert(values);
+      if (success) {
+        revertForm.reset(); // Reset the form on successful submission
+      }
+    } catch (error) {
+      console.error("Error during revert form submission:", error);
     }
   };
 
@@ -107,9 +132,9 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
               asChild
             >
               <Button
-                variant="default" // Changed to default variant
+                variant="default"
                 disabled={updateRequestMutation.isPending}
-                className="bg-gray-500 hover:bg-gray-600 text-white" // Solid grey button
+                className="bg-gray-500 hover:bg-gray-600 text-white"
               >
                 <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
               </Button>
@@ -199,6 +224,54 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
                 <AlertDialogAction asChild>
                   <Button form="decline-form" type="submit" variant="destructive">
                     Decline
+                  </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {/* NEW: Revert to Pending Button */}
+        {request.status !== 'pending' && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="text-orange-500 border-orange-500 hover:bg-orange-50"
+                disabled={updateRequestMutation.isPending}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" /> Revert to Pending
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Revert Payment Request to Pending</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to revert this payment request to 'Pending' status? Please provide a reason.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Form {...revertForm}>
+                <form id="revert-form" onSubmit={revertForm.handleSubmit(onRevertFormSubmit)} className="space-y-4">
+                  <FormField
+                    control={revertForm.control}
+                    name="revert_reason"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Reason for Revert</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="e.g., More information needed from requester, incorrect setup" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction asChild>
+                  <Button form="revert-form" type="submit" variant="default">
+                    Revert
                   </Button>
                 </AlertDialogAction>
               </AlertDialogFooter>

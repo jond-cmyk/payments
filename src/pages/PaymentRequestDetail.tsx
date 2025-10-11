@@ -17,7 +17,7 @@ import PaymentRequestDetailsCard from '@/components/payment-requests/PaymentRequ
 import AdminActionsCard from '@/components/payment-requests/AdminActionsCard';
 import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUploadCard';
 import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentRequestAuditTrailCard';
-import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard'; // New import
+import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard';
 
 // Zod schema for editing payment requests (requester) - kept here for editForm initialization
 const editFormSchema = z.object({
@@ -49,6 +49,11 @@ const receiptUploadSchema = z.object({
     .refine((file) => file?.length > 0, "Receipt PDF is required.")
     .refine((file) => file?.[0]?.size <= 5 * 1024 * 1024, "Max file size is 5MB.")
     .refine((file) => file?.[0]?.type === "application/pdf", "Only .pdf files are accepted."),
+});
+
+// Zod schema for admin revert reason - NEW
+const revertFormSchema = z.object({
+  revert_reason: z.string().min(1, "Revert reason is required"),
 });
 
 
@@ -298,13 +303,13 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried', reason?: string) => {
+  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending', reason?: string) => {
     const toastId = showLoading(`Setting status to ${status.replace(/_/g, ' ')}...`);
     try {
       if (!user?.id) throw new Error("Admin user not authenticated.");
 
       const updatedFields: Partial<PaymentRequest> = {
-        status: status,
+        status: status === 'reverted_to_pending' ? 'pending' : status, // Revert to 'pending'
         admin_action_by: user.id,
         admin_action_reason: reason || null,
         updated_at: new Date().toISOString(),
@@ -314,6 +319,10 @@ const PaymentRequestDetail = () => {
         updatedFields.payment_setup_date = new Date().toISOString();
       } else if (status === 'approved') {
         updatedFields.payment_approved_date = new Date().toISOString();
+      } else if (status === 'reverted_to_pending') {
+        // Clear approval/setup dates if reverting to pending
+        updatedFields.payment_setup_date = null;
+        updatedFields.payment_approved_date = null;
       }
 
       await updateRequestMutation.mutateAsync(updatedFields);
@@ -345,6 +354,28 @@ const PaymentRequestDetail = () => {
       dismissToast(toastId);
       showError(error.message || "An unexpected error occurred during query.");
       console.error("Query payment error:", error);
+      throw error; // Re-throw to indicate failure
+    }
+  };
+
+  const handleAdminRevert = async (values: z.infer<typeof revertFormSchema>) => {
+    const toastId = showLoading("Reverting payment request to pending...");
+    try {
+      if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
+
+      // First, add the revert reason as a comment
+      await addCommentMutation.mutateAsync(`Reverted to Pending: ${values.revert_reason}`);
+
+      // Then, update the request status to 'pending'
+      await handleAdminAction('reverted_to_pending', values.revert_reason);
+      
+      dismissToast(toastId);
+      showSuccess("Payment request reverted to pending successfully!");
+      return true; // Indicate success
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "An unexpected error occurred during revert.");
+      console.error("Revert payment error:", error);
       throw error; // Re-throw to indicate failure
     }
   };
@@ -449,7 +480,8 @@ const PaymentRequestDetail = () => {
         updateRequestMutation={updateRequestMutation}
         deleteRequestMutation={deleteRequestMutation}
         handleAdminAction={handleAdminAction}
-        handleAdminQuery={handleAdminQuery} // Pass the updated handleAdminQuery
+        handleAdminQuery={handleAdminQuery}
+        handleAdminRevert={handleAdminRevert} {/* Pass the new handler */}
         user={user}
       />
 
@@ -465,15 +497,15 @@ const PaymentRequestDetail = () => {
         comments={comments}
         auditUsers={auditUsers}
         isAdmin={isAdmin}
-        isRequester={isRequester} // Pass isRequester
-        request={request} // Pass the request object
+        isRequester={isRequester}
+        request={request}
         currentUser={user}
         onAddComment={handleAddComment}
         isAddingComment={addCommentMutation.isPending}
       />
 
       <PaymentRequestAuditTrailCard
-        audits={generalAudits} // Pass only general audits here
+        audits={generalAudits}
         auditUsers={auditUsers}
       />
     </div>
