@@ -267,27 +267,29 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
-        {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
-          const status = statusKey as PaymentRequest['status'];
-          const { borderClass, textClass, icon, title, description, statusValue } = getCardStyling(status);
-          return (
-            <Link key={status} to={`/admin/requests?status=${statusValue}`} className="block">
-              <Card className={cn("border-l-4 cursor-pointer hover:shadow-lg transition-shadow", borderClass)}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
-                  <span className={textClass}>{icon}</span>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{counts[status]}</div>
-                  <p className="text-xs text-muted-foreground">{description}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
+      {/* Summary Cards - Only show if not in admin view */}
+      {!isAdminView && (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
+          {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
+            const status = statusKey as PaymentRequest['status'];
+            const { borderClass, textClass, icon, title, description, statusValue } = getCardStyling(status);
+            return (
+              <Link key={status} to={`/admin/requests?status=${statusValue}`} className="block">
+                <Card className={cn("border-l-4 cursor-pointer hover:shadow-lg transition-shadow", borderClass)}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
+                    <span className={textClass}>{icon}</span>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{counts[status]}</div>
+                    <p className="text-xs text-muted-foreground">{description}</p>
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {isAdminView && (
         <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
