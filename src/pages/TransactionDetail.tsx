@@ -16,19 +16,6 @@ import TransactionEditFormCard from '@/components/transactions/TransactionEditFo
 import TransactionAdminActionsCard from '@/components/transactions/TransactionAdminActionsCard';
 import TransactionAuditTrailCard from '@/components/transactions/TransactionAuditTrailCard';
 
-// List of common reasons for payment
-const reasonForPaymentOptions = [
-  { value: 'office_supplies', label: 'Office Supplies' },
-  { value: 'travel_expenses', label: 'Travel Expenses' },
-  { value: 'software_subscription', label: 'Software Subscription' },
-  { value: 'marketing_campaign', label: 'Marketing Campaign' },
-  { value: 'utilities', label: 'Utilities' },
-  { value: 'consulting_fees', label: 'Consulting Fees' },
-  { value: 'rent', label: 'Rent' },
-  { value: 'salaries', label: 'Salaries' },
-  { value: 'other', label: 'Other' },
-].sort((a, b) => a.label.localeCompare(b.label));
-
 // List of common categories - UPDATED with custom sort
 const categoryOptions = [
   { value: '950_rent', label: '950 - Rent' },
@@ -188,15 +175,17 @@ const TransactionDetail = () => {
   }, [transaction, form]);
 
   const updateTransactionMutation = useMutation({
-    mutationFn: async (updatedFields: Partial<Transaction> & { new_receipt_files?: FileList }) => {
+    mutationFn: async (payload: Partial<Transaction> & { new_receipt_files?: FileList }) => {
       if (!id || !user?.id) throw new Error("Transaction ID or user ID missing.");
+
+      const { new_receipt_files, ...dbUpdateFields } = payload; // Separate new_receipt_files
 
       let updatedReceiptUrls = transaction?.receipt_urls || [];
 
-      if (updatedFields.new_receipt_files && updatedFields.new_receipt_files.length > 0) {
+      if (new_receipt_files && new_receipt_files.length > 0) {
         const newUploadedUrls: string[] = [];
-        for (let i = 0; i < updatedFields.new_receipt_files.length; i++) {
-          const file = updatedFields.new_receipt_files[i];
+        for (let i = 0; i < new_receipt_files.length; i++) {
+          const file = new_receipt_files[i];
           const fileExtension = file.name.split('.').pop();
           const fileName = `${user.id}/transactions/${crypto.randomUUID()}.${fileExtension}`; // Store under user ID and transactions folder
 
@@ -226,7 +215,7 @@ const TransactionDetail = () => {
       const { error } = await supabase
         .from('transactions')
         .update({
-          ...updatedFields,
+          ...dbUpdateFields, // Use dbUpdateFields here
           receipt_urls: updatedReceiptUrls,
           updated_at: new Date().toISOString(),
           status: 'completed', // Automatically set to completed after user input
@@ -279,7 +268,7 @@ const TransactionDetail = () => {
         merchant_name: values.merchant_name,
         notes: values.notes,
         sku: values.sku,
-        reason_for_payment: values.reason_for_payment,
+        reason_for_payment: values.reason_for_payment, // This will now use category options
         comment: values.comment,
       };
 
@@ -331,7 +320,7 @@ const TransactionDetail = () => {
         form={form}
         onSubmit={onSubmit}
         updateTransactionMutation={updateTransactionMutation}
-        reasonForPaymentOptions={reasonForPaymentOptions}
+        reasonForPaymentOptions={categoryOptions} {/* Use categoryOptions here */}
         categoryOptions={categoryOptions}
       />
 
