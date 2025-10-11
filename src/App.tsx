@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"; // Added Navigate
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -10,11 +10,14 @@ import Dashboard from "./pages/Dashboard";
 import NewPaymentRequest from "./pages/NewPaymentRequest";
 import PaymentRequestDetail from "./pages/PaymentRequestDetail";
 import UserManagement from "./pages/UserManagement";
-import AdminUploadTransactions from "./pages/AdminUploadTransactions";
+import AdminUploadCardTransactions from "./pages/AdminUploadCardTransactions"; // Renamed import
+import AdminUploadGeneralTransactions from "./pages/AdminUploadGeneralTransactions"; // New import
 import MyTransactions from "./pages/MyTransactions";
 import TransactionDetail from "./pages/TransactionDetail";
+import MyGeneralTransactions from "./pages/MyGeneralTransactions"; // New import
+import GeneralTransactionDetail from "./pages/GeneralTransactionDetail"; // New import
 import PendingApproval from "./pages/PendingApproval";
-import AdminTestEmail from "./pages/AdminTestEmail"; // Import the new AdminTestEmail component
+import AdminTestEmail from "./pages/AdminTestEmail";
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import Layout from "./components/Layout";
 import useAutoRefresh from "./hooks/use-auto-refresh";
@@ -41,7 +44,7 @@ const ApprovedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  useAutoRefresh({ intervalMinutes: 2, enabled: true }); // This line controls the refresh interval
+  useAutoRefresh({ intervalMinutes: 2, enabled: true });
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -62,10 +65,13 @@ const App = () => {
                 <Route path="/request/:id" element={<PaymentRequestDetail />} />
                 <Route path="/admin/requests" element={<Dashboard />} />
                 <Route path="/admin/users" element={<UserManagement />} />
-                <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
-                <Route path="/admin/test-email" element={<AdminTestEmail />} /> {/* New admin test email route */}
+                <Route path="/admin/upload-card-transactions" element={<AdminUploadCardTransactions />} /> {/* Renamed route */}
+                <Route path="/admin/upload-general-transactions" element={<AdminUploadGeneralTransactions />} /> {/* New route */}
+                <Route path="/admin/test-email" element={<AdminTestEmail />} />
                 <Route path="/my-transactions" element={<MyTransactions />} />
                 <Route path="/transaction/:id" element={<TransactionDetail />} />
+                <Route path="/my-general-transactions" element={<MyGeneralTransactions />} /> {/* New route */}
+                <Route path="/general-transaction/:id" element={<GeneralTransactionDetail />} /> {/* New route */}
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -5,7 +5,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptText, Mail } from 'lucide-react'; // Import Mail icon
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptText, Mail, FileStack } from 'lucide-react'; // Import FileStack icon
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -75,12 +75,16 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
         <NavLink to="/my-transactions" icon={<ReceiptText className="h-5 w-5" />} label="Card Payment Receipts" />
+        {(currentRole === 'requester' || currentRole === 'admin') && (
+          <NavLink to="/my-general-transactions" icon={<FileStack className="h-5 w-5" />} label="My General Transactions" />
+        )}
         {currentRole === 'admin' && (
           <>
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
-            <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
-            <NavLink to="/admin/test-email" icon={<Mail className="h-5 w-5" />} label="Test Email" /> {/* New link */}
+            <NavLink to="/admin/upload-card-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Card Transactions" />
+            <NavLink to="/admin/upload-general-transactions" icon={<Upload className="h-5 w-5" />} label="Upload General Transactions" />
+            <NavLink to="/admin/test-email" icon={<Mail className="h-5 w-5" />} label="Test Email" />
           </>
         )}
       </nav>

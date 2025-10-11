@@ -3,9 +3,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Profile } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,15 +11,15 @@ import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
 
-const AdminUploadTransactions = () => {
-  const { session, isLoading: isSessionLoading, user, userProfile } = useSession(); // Use userProfile from context
+const AdminUploadGeneralTransactions = () => {
+  const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  const isAdmin = userProfile?.role === 'admin'; // Get role directly from userProfile
+  const isAdmin = userProfile?.role === 'admin';
 
-  if (isSessionLoading) { // Removed isProfileLoading
+  if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
   }
 
@@ -30,7 +28,7 @@ const AdminUploadTransactions = () => {
     return null;
   }
 
-  if (!userProfile) { // Check userProfile directly
+  if (!userProfile) {
     showError("Your user profile could not be loaded. Please try again.");
     navigate('/dashboard');
     return null;
@@ -53,13 +51,9 @@ const AdminUploadTransactions = () => {
     setIsUploading(true);
 
     try {
-      // Upload the file to a temporary storage bucket or directly process if small
-      // For larger files, it's better to upload to storage and then trigger an Edge Function
-      // For this example, we'll directly invoke the Edge Function with the file content
-      // In a real-world scenario, you might upload to storage and pass the path to the Edge Function
       const fileContent = await file.text();
 
-      const { data, error } = await supabase.functions.invoke('upload-transactions', {
+      const { data, error } = await supabase.functions.invoke('upload-general-transactions', { // Calling the new Edge Function
         body: {
           fileName: file.name,
           fileContent: fileContent,
@@ -76,7 +70,7 @@ const AdminUploadTransactions = () => {
       }
 
       showSuccess(data?.message || "Spreadsheet uploaded and processed successfully!");
-      setSelectedFile(null); // Clear selected file
+      setSelectedFile(null);
     } catch (error: any) {
       showError(error.message || "Failed to upload and process spreadsheet.");
       console.error("Spreadsheet upload error:", error);
@@ -90,9 +84,9 @@ const AdminUploadTransactions = () => {
     <div className="container mx-auto py-8">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Upload Transactions Spreadsheet</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center">Upload General Transactions Spreadsheet</CardTitle>
           <CardDescription className="text-center">
-            Upload a CSV file containing transaction data. The system will process it and assign transactions to users.
+            Upload a CSV file containing general transaction data. The system will process it and assign transactions to requesters.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -114,7 +108,8 @@ const AdminUploadTransactions = () => {
           <p className="text-sm text-muted-foreground text-center">
             Accepted format: CSV. Max file size: 5MB.
             <br />
-            Expected columns: `transaction_date`, `description`, `amount`, `currency`, `user_email` (for assignment).
+            Expected columns: `Date`, `Text`, `Amount`, `Currency`, `Requester Email` (for assignment).
+            Optional columns: `Type`, `Entry`, `Bank`, `Contra account`, `Exchange rate`, `Comment`, `SKU`, `Reason For Payment`.
           </p>
         </CardContent>
       </Card>
@@ -122,4 +117,4 @@ const AdminUploadTransactions = () => {
   );
 };
 
-export default AdminUploadTransactions;
+export default AdminUploadGeneralTransactions;
