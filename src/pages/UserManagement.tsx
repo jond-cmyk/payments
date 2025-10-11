@@ -52,17 +52,22 @@ const UserManagement = () => {
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ id, role }: { id: string; role: Profile['role'] }) => {
+      console.log(`UserManagement: Attempting to update role for user ${id} to ${role}`); // New log
       const { error } = await supabase
         .from('profiles')
         .update({ role, updated_at: new Date().toISOString() })
         .eq('id', id);
-      if (error) throw error;
+      if (error) {
+        console.error(`UserManagement: Error updating role for user ${id}:`, error); // New log
+        throw error;
+      }
+      console.log(`UserManagement: Role updated successfully for user ${id}.`); // New log
       return true;
     },
     onSuccess: async () => {
       showSuccess("User role updated successfully!");
-      console.log("UserManagement: Role updated. Forcing refetch of 'allProfiles' query."); // Debug log
-      await queryClient.refetchQueries({ queryKey: ['allProfiles'] }); // Force refetch
+      console.log("UserManagement: Role updated. Invalidating 'allProfiles' query."); // Debug log
+      await queryClient.invalidateQueries({ queryKey: ['allProfiles'] }); // Changed to invalidate
     },
     onError: (error: any) => {
       showError(error.message || "Failed to update user role.");
@@ -72,17 +77,22 @@ const UserManagement = () => {
 
   const updateApprovalMutation = useMutation({
     mutationFn: async ({ id, is_approved }: { id: string; is_approved: boolean }) => {
+      console.log(`UserManagement: Attempting to update approval status for user ${id} to ${is_approved}`); // New log
       const { error } = await supabase
         .from('profiles')
         .update({ is_approved, updated_at: new Date().toISOString() })
         .eq('id', id);
-      if (error) throw error;
+      if (error) {
+        console.error(`UserManagement: Error updating approval status for user ${id}:`, error); // New log
+        throw error;
+      }
+      console.log(`UserManagement: Approval status updated successfully for user ${id}.`); // New log
       return true;
     },
     onSuccess: async () => {
       showSuccess("User approval status updated successfully!");
-      console.log("UserManagement: Approval status updated. Forcing refetch of 'allProfiles' query."); // Debug log
-      await queryClient.refetchQueries({ queryKey: ['allProfiles'] }); // Force refetch
+      console.log("UserManagement: Approval status updated. Invalidating 'allProfiles' query."); // Debug log
+      await queryClient.invalidateQueries({ queryKey: ['allProfiles'] }); // Changed to invalidate
     },
     onError: (error: any) => {
       showError(error.message || "Failed to update user approval status.");
@@ -91,6 +101,7 @@ const UserManagement = () => {
   });
 
   const handleRoleChange = async (profileId: string, newRole: Profile['role']) => {
+    console.log(`UserManagement: handleRoleChange called for profile ${profileId}, new role: ${newRole}`); // New log
     const toastId = showLoading("Updating user role...");
     try {
       await updateRoleMutation.mutateAsync({ id: profileId, role: newRole });
@@ -101,6 +112,7 @@ const UserManagement = () => {
   };
 
   const handleApprovalToggle = async (profileId: string, currentApprovalStatus: boolean) => {
+    console.log(`UserManagement: handleApprovalToggle called for profile ${profileId}, current status: ${currentApprovalStatus}`); // New log
     const toastId = showLoading(currentApprovalStatus ? "Disapproving user..." : "Approving user...");
     try {
       await updateApprovalMutation.mutateAsync({ id: profileId, is_approved: !currentApprovalStatus });
@@ -112,6 +124,7 @@ const UserManagement = () => {
 
   const handleUserAdded = () => {
     setIsAddUserDialogOpen(false);
+    console.log("UserManagement: User added, invalidating 'allProfiles' query."); // New log
     queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
   };
 
