@@ -28,7 +28,9 @@ serve(async (req) => {
 
     // Check for receipt_pdf_url
     if (!newRecord || !newRecord.id || !newRecord.sku_number || !newRecord.receipt_pdf_url) {
-      return new Response(JSON.stringify({ error: 'Missing required payment request data (id, sku_number, or receipt_pdf_url) in payload' }), {
+      const errorMessage = 'Missing required payment request data (id, sku_number, or receipt_pdf_url) in payload. This function expects a receipt_pdf_url to be present.';
+      console.error('Edge Function Error (400):', errorMessage, 'Payload:', JSON.stringify(payload)); // Log the error
+      return new Response(JSON.stringify({ error: errorMessage }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
