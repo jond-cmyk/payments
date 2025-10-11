@@ -107,7 +107,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
       case 'declined':
         return 'Declined';
       case 'queried':
-        return 'Queried';
+        return 'Queried'; // Changed to grey
       default:
         return status;
     }
@@ -122,7 +122,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
           request.status === 'setup_awaiting_approval' ? 'text-blue-600' :
           request.status === 'approved' ? 'text-green-600' :
           request.status === 'declined' ? 'text-red-600' :
-          request.status === 'queried' ? 'text-orange-600' :
+          request.status === 'queried' ? 'text-gray-600' : // Changed to text-gray-600
           'text-gray-600'
         }`}>
           {getStatusDisplay(request.status)}

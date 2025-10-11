@@ -107,9 +107,9 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
               asChild
             >
               <Button
-                variant="outline"
+                variant="default" // Changed to default variant
                 disabled={updateRequestMutation.isPending}
-                className="text-gray-600 border-gray-600 hover:bg-gray-50"
+                className="bg-gray-500 hover:bg-gray-600 text-white" // Solid grey button
               >
                 <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
               </Button>

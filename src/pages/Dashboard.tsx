@@ -183,7 +183,7 @@ const Dashboard = () => {
         className = 'bg-red-500 text-red-50';
         break;
       case 'queried':
-        className = 'bg-orange-500 text-orange-50';
+        className = 'bg-gray-500 text-gray-50'; // Changed to grey badge
         break;
       default:
         className = 'bg-gray-500 text-gray-50';
@@ -214,8 +214,8 @@ const Dashboard = () => {
         };
       case 'queried':
         return {
-          borderClass: 'border-orange-500',
-          textClass: 'text-orange-600',
+          borderClass: 'border-gray-400', // Changed to grey border
+          textClass: 'text-gray-700', // Changed to grey text
           icon: <MessageSquare className="h-4 w-4" />,
           title: 'Queried',
           description: 'Requests needing more info',
