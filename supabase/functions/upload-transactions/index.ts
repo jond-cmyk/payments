@@ -13,15 +13,42 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          persistSession: false,
-        },
-      }
-    );
+    // Log environment variables for debugging
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    console.log(`[upload-transactions] SUPABASE_URL: ${supabaseUrl ? 'Loaded' : 'NOT LOADED'}`);
+    console.log(`[upload-transactions] SUPABASE_SERVICE_ROLE_KEY: ${supabaseServiceRoleKey ? 'Loaded' : 'NOT LOADED'}`);
+
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
+      const msg = 'Supabase URL or Service Role Key is missing in environment variables.';
+      console.error(`[upload-transactions] Error: ${msg}`);
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let supabaseClient;
+    try {
+      supabaseClient = createClient(
+        supabaseUrl,
+        supabaseServiceRoleKey,
+        {
+          auth: {
+            persistSession: false,
+          },
+        }
+      );
+      console.log('[upload-transactions] Supabase client created successfully.');
+    } catch (clientError) {
+      const msg = `Failed to create Supabase client: ${clientError.message}`;
+      console.error(`[upload-transactions] Error: ${msg}`);
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const payload = await req.json();
     const { fileName, fileContent, uploaderId } = payload;
