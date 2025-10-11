@@ -38,6 +38,28 @@ export type Transaction = {
   updated_at: string;
 };
 
+export type GeneralTransaction = {
+  id: string;
+  requester_id: string;
+  uploaded_by_user_id: string | null;
+  status: 'pending_input' | 'completed' | 'approved' | 'declined';
+  type: string | null;
+  transaction_date: string; // YYYY-MM-DD format
+  entry: string | null;
+  description: string;
+  amount: number;
+  bank: string | null;
+  contra_account: string | null;
+  currency: string;
+  exchange_rate: number | null;
+  comment: string | null;
+  sku: string | null; // Nullable for requester to fill
+  reason_for_payment: string | null; // Nullable for requester to fill, dropdown in UI
+  receipt_urls: string[]; // Array for multiple document URLs
+  created_at: string;
+  updated_at: string;
+};
+
 export type Profile = {
   id: string;
   first_name: string | null;
