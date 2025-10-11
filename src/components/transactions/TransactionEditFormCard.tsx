@@ -3,7 +3,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import *s z from 'zod';
+import * as z from 'zod'; // Corrected: Changed '*s z' to '* as z'
 import { Download } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
 
