@@ -318,9 +318,11 @@ const PaymentRequestDetail = () => {
 
       await updateRequestMutation.mutateAsync(updatedFields);
       dismissToast(toastId);
+      return true; // Indicate success
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || `Failed to set status to ${status.replace(/_/g, ' ')}.`);
+      throw error; // Re-throw to indicate failure
     }
   };
 
@@ -337,11 +339,12 @@ const PaymentRequestDetail = () => {
       
       dismissToast(toastId);
       showSuccess("Payment queried successfully!");
-      // queryForm.reset() is handled within AdminActionsCard
+      return true; // Indicate success
     } catch (error: any) {
       dismissToast(toastId);
-      showError(error.message || "Failed to query payment.");
+      showError(error.message || "An unexpected error occurred during query.");
       console.error("Query payment error:", error);
+      throw error; // Re-throw to indicate failure
     }
   };
 

@@ -40,8 +40,8 @@ interface AdminActionsCardProps {
   isAdmin: boolean;
   updateRequestMutation: UseMutationResult<boolean, Error, Partial<PaymentRequest> & { new_invoice_files?: FileList }, unknown>;
   deleteRequestMutation: UseMutationResult<boolean, Error, void, unknown>;
-  handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried', reason?: string) => Promise<void>;
-  handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<void>; // Updated prop type
+  handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried', reason?: string) => Promise<boolean>; // Updated return type
+  handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<boolean>; // Updated return type
   user: User | null;
 }
 
@@ -67,6 +67,18 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
       query_note: "",
     },
   });
+
+  const onQueryFormSubmit = async (values: z.infer<typeof queryFormSchema>) => {
+    try {
+      const success = await handleAdminQuery(values);
+      if (success) {
+        queryForm.reset(); // Reset the form on successful submission
+      }
+    } catch (error) {
+      // Error handling is done in handleAdminQuery, just catch here to prevent app crash
+      console.error("Error during query form submission:", error);
+    }
+  };
 
   if (!isAdmin || request.status === 'declined') {
     return null;
@@ -110,7 +122,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <Form {...queryForm}>
-                <form id="query-form" onSubmit={queryForm.handleSubmit(handleAdminQuery)} className="space-y-4">
+                <form id="query-form" onSubmit={queryForm.handleSubmit(onQueryFormSubmit)} className="space-y-4">
                   <FormField
                     control={queryForm.control}
                     name="query_note"
