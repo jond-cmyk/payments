@@ -15,9 +15,9 @@ interface FileInputProps extends Omit<React.ComponentPropsWithoutRef<typeof Inpu
   multiple?: boolean; // New prop for multiple files
 }
 
-const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
+const FileInput = React.forwardRef<HTMLDivElement, FileInputProps>( // Changed ref type to HTMLDivElement
   ({ label, value, onChange, accept, disabled, multiple = false, className, ...props }, ref) => {
-    const inputRef = React.useRef<HTMLInputElement>(null);
+    const inputRef = React.useRef<HTMLInputElement>(null); // Internal ref for the actual file input
     const [fileNames, setFileNames] = React.useState<string[]>([]);
 
     React.useEffect(() => {
@@ -51,14 +51,10 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
     };
 
     return (
-      <div className={cn("flex flex-col space-y-2", className)}>
+      <div ref={ref} className={cn("flex flex-col space-y-2", className)}> {/* Attach ref to the root div */}
         <Input
           type="file"
-          ref={(e) => {
-            if (inputRef) (inputRef as React.MutableRefObject<HTMLInputElement | null>).current = e;
-            if (typeof ref === 'function') ref(e);
-            else if (ref) (ref as React.MutableRefObject<HTMLInputElement | null>).current = e;
-          }}
+          ref={inputRef} // Use internal ref for the native input
           onChange={handleFileChange}
           accept={accept}
           className="hidden" // Hide the native file input
