@@ -29,7 +29,7 @@ const reasonForPaymentOptions = [
   { value: 'other', label: 'Other' },
 ].sort((a, b) => a.label.localeCompare(b.label));
 
-// List of common categories - UPDATED
+// List of common categories - UPDATED with custom sort
 const categoryOptions = [
   { value: '950_rent', label: '950 - Rent' },
   { value: '952_utilities_el', label: '952 - Utilities - El' },
@@ -64,7 +64,21 @@ const categoryOptions = [
   { value: '3476_travel_hotels', label: '3476 - Travel and hotels' },
   { value: '3480_marketing', label: '3480 – Marketing' },
   { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
-].sort((a, b) => a.label.localeCompare(b.label));
+].sort((a, b) => {
+  // Extract numerical prefix from label
+  const getPrefix = (label: string) => {
+    const match = label.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : Infinity; // Use Infinity for items without a numerical prefix to push them to the end
+  };
+
+  const prefixA = getPrefix(a.label);
+  const prefixB = getPrefix(b.label);
+
+  if (prefixA !== prefixB) {
+    return prefixA - prefixB; // Sort by numerical prefix
+  }
+  return a.label.localeCompare(b.label); // Fallback to alphabetical sort
+});
 
 // Zod schema for unified transaction details form
 const transactionDetailSchema = z.object({
