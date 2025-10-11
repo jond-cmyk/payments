@@ -3,7 +3,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod'; // Corrected: Changed '*s z' to '* as z'
+import * as z from 'zod';
 import { Download } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
 
@@ -31,7 +31,7 @@ const transactionDetailSchema = z.object({
 
 interface TransactionEditFormCardProps {
   transaction: Transaction;
-  isEditingMode: boolean; // Changed from canEdit to isEditingMode
+  isEditingMode: boolean;
   form: ReturnType<typeof useForm<z.infer<typeof transactionDetailSchema>>>;
   onSubmit: (values: z.infer<typeof transactionDetailSchema>) => Promise<void>;
   updateTransactionMutation: UseMutationResult<boolean, Error, Partial<Transaction> & { new_receipt_files?: FileList }, unknown>;
@@ -40,7 +40,7 @@ interface TransactionEditFormCardProps {
 
 const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
   transaction,
-  isEditingMode, // Use the new prop
+  isEditingMode,
   form,
   onSubmit,
   updateTransactionMutation,
@@ -54,14 +54,14 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form id="transaction-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6"> {/* Added form ID */}
+          <form id="transaction-edit-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="category"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isEditingMode}> {/* Use isEditingMode */}
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isEditingMode}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
@@ -86,7 +86,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Merchant Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Amazon" {...field} disabled={!isEditingMode} /> {/* Use isEditingMode */}
+                    <Input placeholder="e.g., Amazon" {...field} disabled={!isEditingMode} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -99,7 +99,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Add any relevant notes" {...field} disabled={!isEditingMode} /> {/* Use isEditingMode */}
+                    <Textarea placeholder="Add any relevant notes" {...field} disabled={!isEditingMode} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -112,7 +112,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., CH12345" {...field} disabled={!isEditingMode} /> {/* Use isEditingMode */}
+                    <Input placeholder="e.g., CH12345" {...field} disabled={!isEditingMode} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -125,7 +125,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Comment</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Add any relevant comments" {...field} disabled={!isEditingMode} /> {/* Use isEditingMode */}
+                    <Textarea placeholder="Add any relevant comments" {...field} disabled={!isEditingMode} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -138,17 +138,16 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               render={({ field: { value, onChange, ...fieldProps } }) => (
                 <FormItem>
                   <FormLabel>Receipt PDF(s)</FormLabel>
-                  <FormControl>
-                    <FileInput
-                      {...fieldProps}
-                      label={transaction.receipt_urls && transaction.receipt_urls.length > 0 ? "Add More Receipt PDF(s)" : "Upload Receipt PDF(s)"}
-                      accept=".pdf"
-                      value={value}
-                      onChange={onChange}
-                      multiple // Enable multiple file selection
-                      disabled={!isEditingMode} // Use isEditingMode
-                    />
-                  </FormControl>
+                  {/* Removed FormControl wrapper around FileInput */}
+                  <FileInput
+                    {...fieldProps}
+                    label={transaction.receipt_urls && transaction.receipt_urls.length > 0 ? "Add More Receipt PDF(s)" : "Upload Receipt PDF(s)"}
+                    accept=".pdf"
+                    value={value}
+                    onChange={onChange}
+                    multiple
+                    disabled={!isEditingMode}
+                  />
                   <FormMessage />
                   {transaction.receipt_urls && transaction.receipt_urls.length > 0 && (
                     <div className="mt-2 space-y-1">
