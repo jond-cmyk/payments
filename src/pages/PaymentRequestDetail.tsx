@@ -19,7 +19,7 @@ import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUp
 import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentRequestAuditTrailCard';
 import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard';
 
-// Zod schema for editing payment requests (requester) - kept here for editForm initialization
+// Zod schema for editing payment requests (requester)
 const editFormSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
   sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."),
@@ -38,12 +38,12 @@ const editFormSchema = z.object({
   receipt_required: z.boolean().default(false),
 });
 
-// Zod schema for admin query note - kept here for handleAdminQuery
+// Zod schema for admin query note
 const queryFormSchema = z.object({
   query_note: z.string().min(1, "Query note is required"),
 });
 
-// Zod schema for admin receipt upload - kept here for handleReceiptUpload
+// Zod schema for admin receipt upload
 const receiptUploadSchema = z.object({
   receipt_pdf: z.any()
     .refine((file) => file?.length > 0, "Receipt PDF is required.")
@@ -51,7 +51,7 @@ const receiptUploadSchema = z.object({
     .refine((file) => file?.[0]?.type === "application/pdf", "Only .pdf files are accepted."),
 });
 
-// Zod schema for admin revert reason - NEW
+// Zod schema for admin revert reason
 const revertFormSchema = z.object({
   revert_reason: z.string().min(1, "Revert reason is required"),
 });
@@ -59,12 +59,12 @@ const revertFormSchema = z.object({
 
 const PaymentRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { session, isLoading, user, userProfile } = useSession(); // Use userProfile from context
+  const { session, isLoading, user, userProfile } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isEditing, setIsEditing] = useState(false); // State for editing mode
+  const [isEditing, setIsEditing] = useState(false);
 
-  const userRole = userProfile?.role || null; // Get role directly from userProfile
+  const userRole = userProfile?.role || null;
 
   // Fetch payment request details
   const { data: request, isLoading: isRequestLoading, error: requestError } = useQuery<PaymentRequest | null>({
@@ -137,7 +137,7 @@ const PaymentRequestDetail = () => {
       sku_number: "CH",
       supplier_address: "",
       iban_number: "",
-      currency: "USD",
+      currency: "CHF", // Default to CHF
       payment_amount: 0.00,
       reason_for_payment: "",
       date_payment_required: undefined,
@@ -180,7 +180,7 @@ const PaymentRequestDetail = () => {
         .insert({
           payment_request_id: id,
           changed_by_user_id: user.id,
-          change_description: `Comment: ${commentText}`, // Prefix to identify comments
+          change_description: `Comment: ${commentText}`,
         });
       if (error) throw error;
       return true;
@@ -309,7 +309,7 @@ const PaymentRequestDetail = () => {
       if (!user?.id) throw new Error("Admin user not authenticated.");
 
       const updatedFields: Partial<PaymentRequest> = {
-        status: status === 'reverted_to_pending' ? 'pending' : status, // Revert to 'pending'
+        status: status === 'reverted_to_pending' ? 'pending' : status,
         admin_action_by: user.id,
         admin_action_reason: reason || null,
         updated_at: new Date().toISOString(),
@@ -320,19 +320,18 @@ const PaymentRequestDetail = () => {
       } else if (status === 'approved') {
         updatedFields.payment_approved_date = new Date().toISOString();
       } else if (status === 'reverted_to_pending') {
-        // Clear approval/setup dates if reverting to pending
         updatedFields.payment_setup_date = null;
         updatedFields.payment_approved_date = null;
       }
 
       await updateRequestMutation.mutateAsync(updatedFields);
       dismissToast(toastId);
-      return true; // Indicate success
+      return true;
     } catch (error: any) {
       dismissToast(toastId);
-      console.error("Error in handleAdminAction:", error); // Added detailed logging
+      console.error("Error in handleAdminAction:", error);
       showError(error.message || `Failed to set status to ${status.replace(/_/g, ' ')}.`);
-      throw error; // Re-throw to indicate failure
+      throw error;
     }
   };
 
@@ -341,20 +340,17 @@ const PaymentRequestDetail = () => {
     try {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
 
-      // First, add the query note as a comment
       await addCommentMutation.mutateAsync(values.query_note);
-
-      // Then, update the request status to 'queried'
       await handleAdminAction('queried', values.query_note);
       
       dismissToast(toastId);
       showSuccess("Payment queried successfully!");
-      return true; // Indicate success
+      return true;
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "An unexpected error occurred during query.");
       console.error("Query payment error:", error);
-      throw error; // Re-throw to indicate failure
+      throw error;
     }
   };
 
@@ -363,20 +359,17 @@ const PaymentRequestDetail = () => {
     try {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
 
-      // First, add the revert reason as a comment
       await addCommentMutation.mutateAsync(`Reverted to Pending: ${values.revert_reason}`);
-
-      // Then, update the request status to 'pending'
       await handleAdminAction('reverted_to_pending', values.revert_reason);
       
       dismissToast(toastId);
       showSuccess("Payment request reverted to pending successfully!");
-      return true; // Indicate success
+      return true;
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "An unexpected error occurred during revert.");
       console.error("Revert payment error:", error);
-      throw error; // Re-throw to indicate failure
+      throw error;
     }
   };
 
@@ -414,14 +407,13 @@ const PaymentRequestDetail = () => {
 
       await updateRequestMutation.mutateAsync({ receipt_pdf_url: publicUrlData.publicUrl });
       dismissToast(toastId);
-      // receiptUploadForm.reset() is handled within AdminReceiptUploadCard
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "Failed to upload receipt.");
     }
   };
 
-  if (isLoading || isRequestLoading || isAuditsLoading || isAuditUsersLoading) { // Removed isProfileLoading
+  if (isLoading || isRequestLoading || isAuditsLoading || isAuditUsersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading payment request...</div>;
   }
 
@@ -481,7 +473,7 @@ const PaymentRequestDetail = () => {
         deleteRequestMutation={deleteRequestMutation}
         handleAdminAction={handleAdminAction}
         handleAdminQuery={handleAdminQuery}
-        handleAdminRevert={handleAdminRevert} {/* Pass the new handler */}
+        handleAdminRevert={handleAdminRevert}
         user={user}
       />
 
