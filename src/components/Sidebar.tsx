@@ -74,11 +74,17 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
-        <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
-        <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" /> {/* New NavLink */}
         {currentRole === 'admin' && (
           <>
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
+            <div className="h-px bg-dyad-blue my-4" /> {/* First dividing line */}
+          </>
+        )}
+        <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
+        <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
+        {currentRole === 'admin' && (
+          <>
+            <div className="h-px bg-dyad-blue my-4" /> {/* Second dividing line */}
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
             <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
             <NavLink to="/admin/test-email" icon={<Mail className="h-5 w-5" />} label="Test Email" />
