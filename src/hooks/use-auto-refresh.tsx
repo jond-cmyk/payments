@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react'; // Import useRef
 
 interface UseAutoRefreshOptions {
   intervalMinutes?: number; // Interval in minutes
@@ -8,29 +8,39 @@ interface UseAutoRefreshOptions {
 }
 
 const useAutoRefresh = ({ intervalMinutes = 2, enabled = true }: UseAutoRefreshOptions = {}) => {
+  // Use refs to hold the latest values of props, so they don't trigger effect re-runs
+  const intervalMinutesRef = useRef(intervalMinutes);
+  const enabledRef = useRef(enabled);
+
+  // Update refs whenever props change
   useEffect(() => {
-    if (!enabled) {
+    intervalMinutesRef.current = intervalMinutes;
+    enabledRef.current = enabled;
+  }, [intervalMinutes, enabled]);
+
+  useEffect(() => {
+    // Access current values from refs
+    if (!enabledRef.current) {
       console.log('[AutoRefresh] Auto-refresh is disabled.');
       return;
     }
 
-    // Temporarily set a very short interval for debugging
-    const debugIntervalSeconds = 5; // 5 seconds
-    const intervalMs = debugIntervalSeconds * 1000; // Convert seconds to milliseconds
+    const currentIntervalMinutes = intervalMinutesRef.current;
+    const intervalMs = currentIntervalMinutes * 60 * 1000; // Convert minutes to milliseconds
 
-    console.log(`[AutoRefresh] Setting up auto-refresh timer for ${debugIntervalSeconds} seconds.`);
+    console.log(`[AutoRefresh] Setting up auto-refresh timer for ${currentIntervalMinutes} minutes.`);
 
     const timer = setInterval(() => {
-      console.warn(`[AutoRefresh] Triggering page reload after ${debugIntervalSeconds} seconds.`);
+      console.warn(`[AutoRefresh] Triggering page reload after ${currentIntervalMinutes} minutes.`);
       window.location.reload();
     }, intervalMs);
 
-    // Clear the interval when the component unmounts or dependencies change
+    // Clear the interval when the component unmounts
     return () => {
       clearInterval(timer);
       console.log('[AutoRefresh] Auto-refresh timer cleared.');
     };
-  }, [intervalMinutes, enabled]); // Re-run effect if interval or enabled state changes
+  }, []); // Empty dependency array ensures this effect runs only once on mount
 };
 
 export default useAutoRefresh;
