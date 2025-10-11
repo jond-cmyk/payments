@@ -45,22 +45,34 @@ serve(async (req) => {
     }
     console.log(`[upload-general-transactions] Cleaned file content (first 200 chars): ${cleanedFileContent.substring(0, 200)}`);
 
+    const lines = cleanedFileContent.split(/\r?\n/); // Split by newline, handling both \n and \r\n
+    if (lines.length < 2) { // Need at least a header and one data row
+      return new Response(JSON.stringify({ error: 'CSV file must contain at least a header and one data row.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    let records: Record<string, string>[];
+    const headerLine = lines[0];
+    const rawHeaders = headerLine.split(',');
+    const headers = rawHeaders.map(h => h.trim()); // Trim whitespace from each header
+
+    const dataContent = lines.slice(1).join('\n'); // Reconstruct data content without header
+
+    let parsedDataRows: Array<Array<string>>;
     try {
-      records = await parse(cleanedFileContent, { // Use the cleaned content here
-        header: true,
+      parsedDataRows = await parse(dataContent, {
+        header: false, // Now we explicitly say no header, as we handled it
         separator: ',',
         trimLeadingWhitespace: true,
-      }) as Record<string, string>[];
-      console.log(`[upload-general-transactions] CSV parsed successfully. Number of records: ${records.length}`);
-      if (records.length > 0) {
-        console.log(`[upload-general-transactions] First parsed record (raw): ${JSON.stringify(records[0])}`);
-        console.log(`[upload-general-transactions] Keys of first parsed record: ${JSON.stringify(Object.keys(records[0]))}`);
+      }) as Array<Array<string>>;
+      console.log(`[upload-general-transactions] CSV data parsed successfully (without header). Number of data rows: ${parsedDataRows.length}`);
+      if (parsedDataRows.length > 0) {
+        console.log(`[upload-general-transactions] First parsed data row (array): ${JSON.stringify(parsedDataRows[0])}`);
       }
     } catch (csvParseError) {
-      console.error('[upload-general-transactions] CSV parsing error:', csvParseError);
-      return new Response(JSON.stringify({ error: `Failed to parse CSV file: ${csvParseError.message}` }), {
+      console.error('[upload-general-transactions] CSV data parsing error:', csvParseError);
+      return new Response(JSON.stringify({ error: `Failed to parse CSV data: ${csvParseError.message}` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -70,20 +82,31 @@ serve(async (req) => {
     const errors: string[] = [];
 
     const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
-
-    if (records.length > 0) {
-        const actualHeaders = Object.keys(records[0]);
-        console.log(`[upload-general-transactions] Actual headers detected by parser (from Object.keys): ${JSON.stringify(actualHeaders)}`);
-        const missingCriticalHeaders = criticalHeaders.filter(h => !actualHeaders.includes(h));
-        if (missingCriticalHeaders.length > 0) {
-            errors.push(`Missing critical CSV headers: ${missingCriticalHeaders.join(', ')}. Please ensure these are present.`);
-            console.error(`[upload-general-transactions] Missing critical headers: ${missingCriticalHeaders.join(', ')}`);
-            console.error(`[upload-general-transactions] All actual headers found: ${JSON.stringify(actualHeaders)}`);
-        }
+    const missingCriticalHeaders = criticalHeaders.filter(h => !headers.includes(h));
+    if (missingCriticalHeaders.length > 0) {
+        errors.push(`Missing critical CSV headers: ${missingCriticalHeaders.join(', ')}. Please ensure these are present.`);
+        console.error(`[upload-general-transactions] Missing critical headers: ${missingCriticalHeaders.join(', ')}`);
+        console.error(`[upload-general-transactions] All actual headers found: ${JSON.stringify(headers)}`);
+        // If critical headers are missing, we should stop processing this file
+        return new Response(JSON.stringify({ message: 'Failed to process file due to missing critical headers.', errors: errors }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
     }
 
-    for (const record of records) {
-      console.log(`[upload-general-transactions] Processing record: ${JSON.stringify(record)}`);
+    for (const dataRow of parsedDataRows) {
+      if (dataRow.length !== headers.length) {
+        errors.push(`Skipping row due to column count mismatch with headers. Expected ${headers.length}, got ${dataRow.length}. Row: ${JSON.stringify(dataRow)}`);
+        console.warn(`[upload-general-transactions] Skipping row due to column count mismatch: ${JSON.stringify(dataRow)}`);
+        continue;
+      }
+
+      const record: Record<string, string> = {};
+      headers.forEach((header, index) => {
+        record[header] = dataRow[index];
+      });
+
+      console.log(`[upload-general-transactions] Processing record (mapped): ${JSON.stringify(record)}`);
       const {
         'Date': transaction_date,
         'Text': description,
