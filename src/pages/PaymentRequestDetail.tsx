@@ -461,6 +461,8 @@ const PaymentRequestDetail = () => {
         comments={comments}
         auditUsers={auditUsers}
         isAdmin={isAdmin}
+        isRequester={isRequester} // Pass isRequester
+        request={request} // Pass the request object
         currentUser={user}
         onAddComment={handleAddComment}
         isAddingComment={addCommentMutation.isPending}

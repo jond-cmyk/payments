@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { PaymentRequestAudit } from '@/types/supabase';
+import { PaymentRequestAudit, PaymentRequest } from '@/types/supabase'; // Import PaymentRequest
 
 // Zod schema for adding a new comment
 const commentFormSchema = z.object({
@@ -24,6 +24,8 @@ interface PaymentRequestCommentsCardProps {
   comments: PaymentRequestAudit[] | undefined;
   auditUsers: Record<string, string> | undefined;
   isAdmin: boolean;
+  isRequester: boolean; // New prop
+  request: PaymentRequest; // New prop
   currentUser: User | null;
   onAddComment: (commentText: string) => Promise<void>;
   isAddingComment: boolean;
@@ -34,6 +36,8 @@ const PaymentRequestCommentsCard: React.FC<PaymentRequestCommentsCardProps> = ({
   comments,
   auditUsers,
   isAdmin,
+  isRequester, // Destructure new prop
+  request, // Destructure new prop
   currentUser,
   onAddComment,
   isAddingComment,
@@ -49,6 +53,9 @@ const PaymentRequestCommentsCard: React.FC<PaymentRequestCommentsCardProps> = ({
     await onAddComment(values.new_comment);
     form.reset(); // Clear the input after submission
   };
+
+  // Determine if the comment box should be visible
+  const showCommentBox = isAdmin || (isRequester && request.status === 'queried');
 
   return (
     <Card className="mb-8">
@@ -74,7 +81,7 @@ const PaymentRequestCommentsCard: React.FC<PaymentRequestCommentsCardProps> = ({
           )}
         </div>
 
-        {isAdmin && ( // Only show comment box for admins
+        {showCommentBox && ( // Only show comment box based on new condition
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleCommentSubmit)} className="space-y-4">
               <FormField
