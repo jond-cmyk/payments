@@ -113,14 +113,22 @@ const UserManagement = () => {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      console.log(`UserManagement: Attempting to delete user ${userId}`);
-      // Supabase admin.deleteUser will also delete the profile due to CASCADE
-      const { error } = await supabase.auth.admin.deleteUser(userId);
+      console.log(`UserManagement: Attempting to delete user ${userId} via Edge Function.`);
+      const { data, error } = await supabase.functions.invoke('delete-user', {
+        body: { userId },
+      });
+
       if (error) {
-        console.error(`UserManagement: Error deleting user ${userId}:`, error);
+        console.error(`UserManagement: Error invoking delete-user Edge Function for user ${userId}:`, error);
         throw error;
       }
-      console.log(`UserManagement: User ${userId} deleted successfully.`);
+
+      if (data?.error) {
+        console.error(`UserManagement: Edge Function reported error for user ${userId}:`, data.error);
+        throw new Error(data.error);
+      }
+
+      console.log(`UserManagement: User ${userId} deleted successfully via Edge Function.`);
       return true;
     },
     onSuccess: async () => {
