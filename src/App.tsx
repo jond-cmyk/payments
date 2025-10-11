@@ -13,7 +13,8 @@ import UserManagement from "./pages/UserManagement";
 import AdminUploadTransactions from "./pages/AdminUploadTransactions";
 import MyTransactions from "./pages/MyTransactions";
 import TransactionDetail from "./pages/TransactionDetail";
-import PendingApproval from "./pages/PendingApproval"; // Import PendingApproval
+import PendingApproval from "./pages/PendingApproval";
+import AdminTestEmail from "./pages/AdminTestEmail"; // Import the new AdminTestEmail component
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import Layout from "./components/Layout";
 import useAutoRefresh from "./hooks/use-auto-refresh";
@@ -51,8 +52,8 @@ const App = () => {
           <SessionContextProvider>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/pending-approval" element={<PendingApproval />} /> {/* New route */}
-              <Route path="/" element={<Index />} /> {/* Index will handle initial redirection */}
+              <Route path="/pending-approval" element={<PendingApproval />} />
+              <Route path="/" element={<Index />} />
 
               {/* Protected routes requiring approval */}
               <Route element={<ApprovedRoute><Layout /></ApprovedRoute>}>
@@ -62,6 +63,7 @@ const App = () => {
                 <Route path="/admin/requests" element={<Dashboard />} />
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
+                <Route path="/admin/test-email" element={<AdminTestEmail />} /> {/* New admin test email route */}
                 <Route path="/my-transactions" element={<MyTransactions />} />
                 <Route path="/transaction/:id" element={<TransactionDetail />} />
               </Route>

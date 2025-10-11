@@ -5,7 +5,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptText } from 'lucide-react';
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, ReceiptText, Mail } from 'lucide-react'; // Import Mail icon
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -14,7 +14,7 @@ interface SidebarProps {
 }
 
 const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
-  const { session, user, isLoading, isApproved, userProfile } = useSession(); // Get isApproved and userProfile from context
+  const { session, user, isLoading, isApproved, userProfile } = useSession();
   const navigate = useNavigate();
 
   const currentRole = userProfile?.role;
@@ -80,6 +80,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
             <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
             <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
+            <NavLink to="/admin/test-email" icon={<Mail className="h-5 w-5" />} label="Test Email" /> {/* New link */}
           </>
         )}
       </nav>
