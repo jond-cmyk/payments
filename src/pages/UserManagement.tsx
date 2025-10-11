@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,24 +19,25 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Users, CheckCircle, XCircle } from 'lucide-react'; // Added CheckCircle and XCircle icons
-import { Button } from '@/components/ui/button'; // Import Button
+import { Users, CheckCircle, XCircle, UserPlus } from 'lucide-react'; // Added UserPlus icon
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
+import AddUserForm from '@/components/user-management/AddUserForm'; // Import the new AddUserForm
 
 const UserManagement = () => {
-  const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession(); // Use userProfile from context
+  const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false); // State for dialog visibility
 
-  // Determine if the current user is an admin
   const isAdmin = currentUserProfile?.role === 'admin';
 
-  // Fetch all user profiles, including their email from the new view
   const { data: profiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
     queryKey: ['allProfiles'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profile_with_email') // Query the new view
-        .select('*') // Select all columns from the view
+        .from('profile_with_email')
+        .select('*')
         .order('first_name', { ascending: true });
       if (error) {
         console.error("UserManagement: Error fetching all profiles:", error);
@@ -44,14 +45,13 @@ const UserManagement = () => {
       }
       return data;
     },
-    enabled: isAdmin, // Only fetch if current user is confirmed admin
+    enabled: isAdmin,
   });
 
-  // Mutation for updating user role
   const updateRoleMutation = useMutation({
     mutationFn: async ({ id, role }: { id: string; role: Profile['role'] }) => {
       const { error } = await supabase
-        .from('profiles') // Update the base profiles table
+        .from('profiles')
         .update({ role, updated_at: new Date().toISOString() })
         .eq('id', id);
       if (error) throw error;
@@ -67,7 +67,6 @@ const UserManagement = () => {
     },
   });
 
-  // Mutation for updating user approval status
   const updateApprovalMutation = useMutation({
     mutationFn: async ({ id, is_approved }: { id: string; is_approved: boolean }) => {
       const { error } = await supabase
@@ -107,7 +106,11 @@ const UserManagement = () => {
     }
   };
 
-  // --- Centralized Loading and Access Control ---
+  const handleUserAdded = () => {
+    setIsAddUserDialogOpen(false); // Close the dialog
+    queryClient.invalidateQueries({ queryKey: ['allProfiles'] }); // Refresh the user list
+  };
+
   if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading user management...</div>;
   }
@@ -129,7 +132,6 @@ const UserManagement = () => {
     return null;
   }
 
-  // If we reach here, the user is authenticated and confirmed as an admin.
   if (isProfilesLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading user profiles...</div>;
   }
@@ -140,13 +142,26 @@ const UserManagement = () => {
 
   return (
     <div className="container mx-auto py-8">
+      <div className="flex justify-between items-center mb-6">
+        <CardTitle className="flex items-center text-2xl font-bold">
+          <Users className="mr-2 h-6 w-6" /> User Management
+        </CardTitle>
+        <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <UserPlus className="mr-2 h-4 w-4" /> Add New User
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New User</DialogTitle>
+            </DialogHeader>
+            <AddUserForm onUserAdded={handleUserAdded} />
+          </DialogContent>
+        </Dialog>
+      </div>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center text-2xl font-bold">
-            <Users className="mr-2 h-6 w-6" /> User Management
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {profiles && profiles.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
@@ -155,7 +170,7 @@ const UserManagement = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Email Address</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Approved</TableHead> {/* New column */}
+                    <TableHead>Approved</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -192,7 +207,7 @@ const UserManagement = () => {
                         <Select
                           value={profile.role}
                           onValueChange={(newRole: Profile['role']) => handleRoleChange(profile.id, newRole)}
-                          disabled={updateRoleMutation.isPending || profile.id === user?.id} // Prevent changing own role via this interface
+                          disabled={updateRoleMutation.isPending || profile.id === user?.id}
                         >
                           <SelectTrigger className="w-[140px]">
                             <SelectValue placeholder="Change Role" />
@@ -206,7 +221,7 @@ const UserManagement = () => {
                           variant={profile.is_approved ? "destructive" : "default"}
                           size="sm"
                           onClick={() => handleApprovalToggle(profile.id, profile.is_approved)}
-                          disabled={updateApprovalMutation.isPending || profile.id === user?.id} // Prevent changing own approval status
+                          disabled={updateApprovalMutation.isPending || profile.id === user?.id}
                         >
                           {profile.is_approved ? "Disapprove" : "Approve"}
                         </Button>
