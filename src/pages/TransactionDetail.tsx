@@ -1,39 +1,22 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Transaction, Profile, TransactionAudit } from '@/types/supabase'; // Import TransactionAudit
+import { Transaction, TransactionAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Download, FileText, Trash2 } from 'lucide-react'; // Import Trash2
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import FileInput from '@/components/FileInput';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import TransactionAuditTrailCard from '@/components/transactions/TransactionAuditTrailCard'; // Import new component
+import TransactionDetailsDisplayCard from '@/components/transactions/TransactionDetailsDisplayCard';
+import TransactionEditFormCard from '@/components/transactions/TransactionEditFormCard';
+import TransactionAdminActionsCard from '@/components/transactions/TransactionAdminActionsCard';
+import TransactionAuditTrailCard from '@/components/transactions/TransactionAuditTrailCard';
 
-// List of common reasons for payment (from NewPaymentRequest)
+// List of common reasons for payment
 const reasonForPaymentOptions = [
   { value: 'office_supplies', label: 'Office Supplies' },
   { value: 'travel_expenses', label: 'Travel Expenses' },
@@ -46,14 +29,41 @@ const reasonForPaymentOptions = [
   { value: 'other', label: 'Other' },
 ].sort((a, b) => a.label.localeCompare(b.label));
 
-// List of common categories (from old TransactionDetail)
+// List of common categories - UPDATED
 const categoryOptions = [
-  { value: 'travel', label: 'Travel' },
-  { value: 'software', label: 'Software' },
-  { value: 'office_supplies', label: 'Office Supplies' },
-  { value: 'marketing', label: 'Marketing' },
-  { value: 'utilities', label: 'Utilities' },
-  { value: 'other', label: 'Other' },
+  { value: '950_rent', label: '950 - Rent' },
+  { value: '952_utilities_el', label: '952 - Utilities - El' },
+  { value: '953_water', label: '953 - Water' },
+  { value: '954_heating', label: '954 - Heating' },
+  { value: '956_fiber_wifi', label: '956 - Fiber/Wifi' },
+  { value: '958_internet', label: '958 - Internet' },
+  { value: '960_cleaning_services', label: '960 - Cleaning services' },
+  { value: '962_cleaning_move_out', label: '962 - Cleaning, at move-out' },
+  { value: '964_parking', label: '964 - Parking' },
+  { value: '970_maintenance', label: '970 - Maintenance' },
+  { value: '972_maintenance_move_out', label: '972 - Maintenance, at move-out' },
+  { value: '974_other', label: '974 - Other' },
+  { value: '975_small_furniture', label: '975 - Small Furniture' },
+  { value: '3055_subcontractors', label: '3055 - Subcontractors' },
+  { value: '3056_otg_service_team_costs', label: '3056 - OTG - Service Team Costs' },
+  { value: '3057_storage_units_facilities', label: '3057 - Storage Units & Facilities' },
+  { value: '3075_software', label: '3075 - Software' },
+  { value: '3079_fines', label: '3079 - Fines' },
+  { value: '3089_car_fuel', label: '3089 - Car fuel' },
+  { value: '3090_car_taxes', label: '3090 - Car taxes' },
+  { value: '3091_car_insurance', label: '3091 - Car Insurance' },
+  { value: '3092_bridge_ferry_tolls', label: '3092 - Bridge, ferry and tolls' },
+  { value: '3102_office_rent', label: '3102 - Office rent' },
+  { value: '3115_office_phone_internet', label: '3115 - Office Phone and internet' },
+  { value: '3122_accountant', label: '3122 - Accountant' },
+  { value: '3125_lawyer', label: '3125 - Lawyer' },
+  { value: '3147_company_insurance', label: '3147 - Company insurance' },
+  { value: '3157_postage', label: '3157 - Postage' },
+  { value: '3444_restaurant_visits', label: '3444 - Restaurant visits' },
+  { value: '3469_gifts_flowers', label: '3469 - Gifts and flowers' },
+  { value: '3476_travel_hotels', label: '3476 - Travel and hotels' },
+  { value: '3480_marketing', label: '3480 – Marketing' },
+  { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
 ].sort((a, b) => a.label.localeCompare(b.label));
 
 // Zod schema for unified transaction details form
@@ -135,7 +145,6 @@ const TransactionDetail = () => {
     },
     enabled: !!audits && audits.length > 0,
   });
-
 
   const form = useForm<z.infer<typeof transactionDetailSchema>>({
     resolver: zodResolver(transactionDetailSchema),
@@ -293,262 +302,30 @@ const TransactionDetail = () => {
   const canEdit = transaction.status === 'pending_input' && (isAssignedUser || isAdmin);
 
   return (
-    <>
-      <div className="container mx-auto py-8">
-        <div className="flex justify-between items-center mb-6">
-          <CardTitle className="text-2xl font-bold">Transaction Details</CardTitle>
-          {isAdmin && (
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  disabled={deleteTransactionMutation.isPending}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Transaction
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the transaction and all associated data.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deleteTransactionMutation.mutate()} asChild>
-                    <Button variant="destructive">
-                      Delete
-                    </Button>
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          )}
-        </div>
+    <div className="container mx-auto py-8">
+      <TransactionAdminActionsCard
+        transaction={transaction}
+        isAdmin={isAdmin}
+        deleteTransactionMutation={deleteTransactionMutation}
+      />
 
-        <Card className="max-w-2xl mx-auto mb-8">
-          <CardHeader>
-            <CardDescription className="text-center">
-              Transaction ID: {transaction.id.substring(0, 8)}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
-              <div>
-                <p className="font-medium">Transaction Date:</p>
-                <p>{format(new Date(transaction.transaction_date), 'PPP')}</p>
-              </div>
-              <div>
-                <p className="font-medium">Description:</p>
-                <p>{transaction.description}</p>
-              </div>
-              <div>
-                <p className="font-medium">Amount:</p>
-                <p>{transaction.currency} {transaction.amount.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="font-medium">Status:</p>
-                <p className={`font-semibold ${
-                  transaction.status === 'pending_input' ? 'text-yellow-600' :
-                  transaction.status === 'completed' ? 'text-blue-600' :
-                  transaction.status === 'approved' ? 'text-green-600' :
-                  transaction.status === 'declined' ? 'text-red-600' :
-                  'text-gray-600'
-                }`}>
-                  {transaction.status.replace(/_/g, ' ').charAt(0).toUpperCase() + transaction.status.replace(/_/g, ' ').slice(1)}
-                </p>
-              </div>
-              {transaction.original_transaction_id && (
-                <div>
-                  <p className="font-medium">Original Transaction ID:</p>
-                  <p>{transaction.original_transaction_id}</p>
-                </div>
-              )}
-              {transaction.type && (
-                <div>
-                  <p className="font-medium">Type:</p>
-                  <p>{transaction.type}</p>
-                </div>
-              )}
-              {transaction.entry && (
-                <div>
-                  <p className="font-medium">Entry:</p>
-                  <p>{transaction.entry}</p>
-                </div>
-              )}
-              {transaction.bank && (
-                <div>
-                  <p className="font-medium">Bank:</p>
-                  <p>{transaction.bank}</p>
-                </div>
-              )}
-              {transaction.contra_account && (
-                <div>
-                  <p className="font-medium">Contra Account:</p>
-                  <p>{transaction.contra_account}</p>
-                </div>
-              )}
-              {transaction.exchange_rate && (
-                <div>
-                  <p className="font-medium">Exchange Rate:</p>
-                  <p>{transaction.exchange_rate}</p>
-                </div>
-              )}
-            </div>
+      <TransactionDetailsDisplayCard transaction={transaction} />
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {categoryOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="merchant_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Merchant Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Amazon" {...field} disabled={!canEdit} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Notes</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Add any relevant notes" {...field} disabled={!canEdit} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="sku"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SKU</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., CH12345" {...field} disabled={!canEdit} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="reason_for_payment"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Reason for Payment</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!canEdit}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a reason" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {reasonForPaymentOptions.map((reason) => (
-                            <SelectItem key={reason.value} value={reason.value}>
-                              {reason.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="comment"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Comment</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Add any relevant comments" {...field} disabled={!canEdit} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+      <TransactionEditFormCard
+        transaction={transaction}
+        canEdit={canEdit}
+        form={form}
+        onSubmit={onSubmit}
+        updateTransactionMutation={updateTransactionMutation}
+        reasonForPaymentOptions={reasonForPaymentOptions}
+        categoryOptions={categoryOptions}
+      />
 
-                <FormField
-                  control={form.control}
-                  name="new_receipt_files"
-                  render={({ field: { value, onChange, ...fieldProps } }) => (
-                    <FormItem>
-                      <FormLabel>Receipt PDF(s)</FormLabel>
-                      <FormControl>
-                        <FileInput
-                          {...fieldProps}
-                          label={transaction.receipt_urls && transaction.receipt_urls.length > 0 ? "Add More Receipt PDF(s)" : "Upload Receipt PDF(s)"}
-                          accept=".pdf"
-                          value={value}
-                          onChange={onChange}
-                          multiple // Enable multiple file selection
-                          disabled={!canEdit}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                      {transaction.receipt_urls && transaction.receipt_urls.length > 0 && (
-                        <div className="mt-2 space-y-1">
-                          <p className="text-sm font-medium text-muted-foreground">Current Receipt(s):</p>
-                          {transaction.receipt_urls.map((url, index) => (
-                            <Button asChild variant="link" className="p-0 h-auto text-sm block" key={index}>
-                              <a href={url} target="_blank" rel="noopener noreferrer">
-                                <Download className="mr-1 h-4 w-4" /> Receipt {index + 1}
-                              </a>
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </FormItem>
-                  )}
-                />
-                {canEdit && (
-                  <Button type="submit" className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" disabled={updateTransactionMutation.isPending}>
-                    {updateTransactionMutation.isPending ? "Saving..." : "Save Changes"}
-                  </Button>
-                )}
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-
-        <TransactionAuditTrailCard
-          audits={audits}
-          auditUsers={auditUsers}
-        />
-      </div>
-    </>
+      <TransactionAuditTrailCard
+        audits={audits}
+        auditUsers={auditUsers}
+      />
+    </div>
   );
 };
 
