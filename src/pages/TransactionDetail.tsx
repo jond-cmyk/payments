@@ -34,32 +34,16 @@ const transactionDetailSchema = z.object({
 
 const TransactionDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { session, isLoading: isSessionLoading, user } = useSession();
+  const { session, isLoading: isSessionLoading, user, userProfile } = useSession(); // Use userProfile from context
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [userRole, setUserRole] = useState<Profile['role'] | null>(null);
 
-  // Fetch user role
-  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
-    queryKey: ['userProfile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*') // Changed to select all fields
-        .eq('id', user.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
   useEffect(() => {
-    if (profileData) {
-      setUserRole(profileData.role);
+    if (userProfile) {
+      setUserRole(userProfile.role); // Get role directly from userProfile
     }
-  }, [profileData]);
+  }, [userProfile]);
 
   // Fetch transaction details
   const { data: transaction, isLoading: isTransactionLoading, error: transactionError } = useQuery<Transaction | null>({
@@ -175,7 +159,7 @@ const TransactionDetail = () => {
     }
   };
 
-  if (isSessionLoading || isProfileLoading || isTransactionLoading) {
+  if (isSessionLoading || isTransactionLoading) { // Removed isProfileLoading
     return <div className="flex items-center justify-center h-full text-lg">Loading transaction details...</div>;
   }
 

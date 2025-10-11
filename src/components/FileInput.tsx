@@ -22,7 +22,7 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
 
     React.useEffect(() => {
       if (value && value.length > 0) {
-        const names = Array.from(value as FileList).map(file => file.name);
+        const names = Array.from(value as FileList).map(file => file.name); // Explicitly cast to FileList
         setFileNames(names);
       } else {
         setFileNames([]);
@@ -41,7 +41,7 @@ const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
     const handleRemoveFile = (indexToRemove: number) => {
       if (value) {
         const newFileList = new DataTransfer();
-        Array.from(value as FileList).forEach((file: File, index) => {
+        Array.from(value as FileList).forEach((file: File, index) => { // Explicitly cast to FileList and File
           if (index !== indexToRemove) {
             newFileList.items.add(file);
           }

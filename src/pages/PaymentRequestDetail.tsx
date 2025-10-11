@@ -54,33 +54,12 @@ const receiptUploadSchema = z.object({
 
 const PaymentRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { session, isLoading, user } = useSession();
+  const { session, isLoading, user, userProfile } = useSession(); // Use userProfile from context
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [userRole, setUserRole] = useState<Profile['role'] | null>(null);
   const [isEditing, setIsEditing] = useState(false); // State for editing mode
 
-  // Fetch user role
-  const { data: profileData, isLoading: isProfileLoading } = useQuery<Profile | null>({
-    queryKey: ['userProfile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*') // Changed to select all fields
-        .eq('id', user.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  useEffect(() => {
-    if (profileData) {
-      setUserRole(profileData.role);
-    }
-  }, [profileData]);
+  const userRole = userProfile?.role || null; // Get role directly from userProfile
 
   // Fetch payment request details
   const { data: request, isLoading: isRequestLoading, error: requestError } = useQuery<PaymentRequest | null>({
@@ -407,7 +386,7 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  if (isLoading || isProfileLoading || isRequestLoading || isAuditsLoading || isAuditUsersLoading) {
+  if (isLoading || isRequestLoading || isAuditsLoading || isAuditUsersLoading) { // Removed isProfileLoading
     return <div className="flex items-center justify-center h-full text-lg">Loading payment request...</div>;
   }
 

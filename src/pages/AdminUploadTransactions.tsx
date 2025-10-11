@@ -14,31 +14,14 @@ import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
 
 const AdminUploadTransactions = () => {
-  const { session, isLoading: isSessionLoading, user } = useSession();
+  const { session, isLoading: isSessionLoading, user, userProfile } = useSession(); // Use userProfile from context
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Fetch current user's role
-  const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
-    queryKey: ['userProfile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*') // Changed to select all fields
-        .eq('id', user.id)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!user?.id,
-    staleTime: 0,
-  });
+  const isAdmin = userProfile?.role === 'admin'; // Get role directly from userProfile
 
-  const isAdmin = profileData?.role === 'admin';
-
-  if (isSessionLoading || isProfileLoading) {
+  if (isSessionLoading) { // Removed isProfileLoading
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
   }
 
@@ -47,8 +30,8 @@ const AdminUploadTransactions = () => {
     return null;
   }
 
-  if (profileError) {
-    showError("Error loading your profile. Please try again.");
+  if (!userProfile) { // Check userProfile directly
+    showError("Your user profile could not be loaded. Please try again.");
     navigate('/dashboard');
     return null;
   }

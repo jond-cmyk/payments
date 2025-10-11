@@ -36,7 +36,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
       invoke: () => Promise.resolve({ data: null, error: new Error("Supabase functions not configured") }),
     },
   };
-  supabase = dummyClient as any as SupabaseClient; // Assign dummy client here, cast to any first
+  supabase = dummyClient as unknown as SupabaseClient; // Assign dummy client here, cast to unknown first
 } else {
   supabase = createClient(supabaseUrl, supabaseAnonKey); // Assign real client
 }

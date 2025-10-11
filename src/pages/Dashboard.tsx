@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom'; // Added useSearchParams
+import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -25,13 +25,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 const Dashboard = () => {
-  const { session, isLoading, user } = useSession();
+  const { session, isLoading, user, userProfile } = useSession(); // Use userProfile from context
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams(); // Initialize useSearchParams
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [userRole, setUserRole] = useState<Profile['role'] | null>(null);
+  const userRole = userProfile?.role || null; // Get role directly from userProfile
 
   // Filter states
   const [filterSupplierName, setFilterSupplierName] = useState('');
@@ -50,31 +50,6 @@ const Dashboard = () => {
       setter(value);
     }, 300); // 300ms debounce
   }, []);
-
-  // Fetch user role
-  const { data: profileData, isLoading: isProfileLoading, error: profileError } = useQuery<Profile | null>({
-    queryKey: ['userProfile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*') // Changed to select all fields
-        .eq('id', user.id)
-        .single();
-      if (error) {
-        console.error("Error fetching user profile:", error);
-        throw error;
-      }
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  useEffect(() => {
-    if (profileData) {
-      setUserRole(profileData.role);
-    }
-  }, [profileData]);
 
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
@@ -170,7 +145,7 @@ const Dashboard = () => {
   }, [paymentRequests]);
 
 
-  if (isLoading || isProfileLoading || isRequestsLoading) {
+  if (isLoading || isRequestsLoading) { // Removed isProfileLoading
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
   }
 
@@ -179,8 +154,9 @@ const Dashboard = () => {
     return null;
   }
 
-  if (profileError) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading user profile: {profileError.message}</div>;
+  // Removed profileError check as profile is now from context and handled by ApprovedRoute
+  if (!userProfile) {
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading user profile.</div>;
   }
 
   if (requestsError) {

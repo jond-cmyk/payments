@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 
 interface PrefixedInputProps extends React.ComponentPropsWithoutRef<typeof Input> {
   prefix: string;
+  placeholder?: string; // Added placeholder prop
 }
 
 const PrefixedInput = React.forwardRef<HTMLInputElement, PrefixedInputProps>(
