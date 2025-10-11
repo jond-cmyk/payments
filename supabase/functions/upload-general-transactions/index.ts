@@ -42,6 +42,7 @@ serve(async (req) => {
       records = await parse(fileContent, {
         header: true,
         separator: ',',
+        trimLeadingWhitespace: true, // Added to handle potential leading spaces in column names
       }) as Record<string, string>[];
       console.log(`[upload-general-transactions] CSV parsed successfully. Number of records: ${records.length}`);
       console.log(`[upload-general-transactions] First parsed record: ${JSON.stringify(records[0])}`);
@@ -62,15 +63,17 @@ serve(async (req) => {
       'Contra account', 'Currency', 'Exchange rate', 'Comment', 'SKU', 'Reason For Payment'
     ];
 
+    const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
+
     if (records.length > 0) {
         const actualHeaders = Object.keys(records[0]);
-        const missingHeaders = expectedHeaders.filter(h => !actualHeaders.includes(h));
-        // Critical headers for initial processing (Requester Email removed)
-        const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
+        console.log(`[upload-general-transactions] Actual headers detected by parser: ${JSON.stringify(actualHeaders)}`); // New log
         const missingCriticalHeaders = criticalHeaders.filter(h => !actualHeaders.includes(h));
         if (missingCriticalHeaders.length > 0) {
             errors.push(`Missing critical CSV headers: ${missingCriticalHeaders.join(', ')}. Please ensure these are present.`);
             console.error(`[upload-general-transactions] Missing critical headers: ${missingCriticalHeaders.join(', ')}`);
+            // Log all actual headers for debugging
+            console.error(`[upload-general-transactions] All actual headers found: ${JSON.stringify(actualHeaders)}`);
         }
     }
 
