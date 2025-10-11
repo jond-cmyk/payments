@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { Resend } from 'https://esm.sh/resend@1.1.0'; // Import Resend
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,18 +33,20 @@ serve(async (req) => {
       });
     }
 
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
+    const resendApiKey = Deno.env.get('RESEND_API_KEY'); // Use Resend API Key
 
-    if (!brevoApiKey) {
-      console.error('BREVO_API_KEY is not set in environment variables.');
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    const resend = new Resend(resendApiKey); // Initialize Resend client
+
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
-    const senderEmail = `jon.d@khpayments.com`; // Use your verified Brevo sender email/domain
+    const senderEmail = `jon.d@khpayments.com`; // Use your verified Resend sender email/domain
 
     // --- Fetch Requester Details ---
     const { data: requesterProfile, error: requesterProfileError } = await supabaseClient
@@ -135,34 +138,24 @@ serve(async (req) => {
       });
     }
 
-    const toRecipients = recipientEmails.map(email => ({ email }));
-
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': brevoApiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { email: senderEmail },
-        to: toRecipients,
-        subject: subject,
-        htmlContent: htmlContent,
-      }),
+    const { data, error: resendError } = await resend.emails.send({
+      from: senderEmail,
+      to: recipientEmails,
+      subject: subject,
+      html: htmlContent,
     });
 
-    if (!brevoResponse.ok) {
-      const errorText = await brevoResponse.text();
-      console.error('Error sending email via Brevo:', brevoResponse.status, errorText);
-      return new Response(JSON.stringify({ error: `Failed to send email via Brevo: ${errorText}` }), {
+    if (resendError) {
+      console.error('Error sending email via Resend:', resendError);
+      return new Response(JSON.stringify({ error: `Failed to send email via Resend: ${resendError.message}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Email sent successfully via Brevo.');
+    console.log('Email sent successfully via Resend:', data);
 
-    return new Response(JSON.stringify({ message: 'Email sent successfully via Brevo' }), {
+    return new Response(JSON.stringify({ message: 'Email sent successfully via Resend' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

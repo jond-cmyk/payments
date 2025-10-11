@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { Resend } from 'https://esm.sh/resend@1.1.0'; // Import Resend
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,56 +12,50 @@ serve(async (req) => {
   }
 
   try {
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
+    const resendApiKey = Deno.env.get('RESEND_API_KEY'); // Use Resend API Key
 
-    if (!brevoApiKey) {
-      console.error('BREVO_API_KEY is not set in environment variables.');
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
-    const testEmailRecipient = 'notifications@khpayments.com'; // Changed recipient
-    const senderEmail = `jon.d@khpayments.com`; // Use your verified Brevo sender email/domain
+    const resend = new Resend(resendApiKey); // Initialize Resend client
 
-    const subject = `Test Email from Supabase Edge Function (Brevo) - ${new Date().toLocaleString()}`;
+    const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
+    const testEmailRecipient = 'notifications@khpayments.com';
+    const senderEmail = `jon.d@khpayments.com`; // Use your verified Resend sender email/domain
+
+    const subject = `Test Email from Supabase Edge Function (Resend) - ${new Date().toLocaleString()}`;
     const htmlContent = `
       <p>Hello,</p>
-      <p>This is a test email sent from your Supabase Edge Function using Brevo.</p>
+      <p>This is a test email sent from your Supabase Edge Function using Resend.</p>
       <p>Your configured APP_URL is: <a href="${appUrl}">${appUrl}</a></p>
-      <p>If you received this, your Brevo API key and domain are likely configured correctly!</p>
+      <p>If you received this, your Resend API key and domain are likely configured correctly!</p>
       <p>Best regards,</p>
       <p>Your Dyad App</p>
     `;
 
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': brevoApiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { email: senderEmail },
-        to: [{ email: testEmailRecipient }],
-        subject: subject,
-        htmlContent: htmlContent,
-      }),
+    const { data, error: resendError } = await resend.emails.send({
+      from: senderEmail,
+      to: [testEmailRecipient],
+      subject: subject,
+      html: htmlContent,
     });
 
-    if (!brevoResponse.ok) {
-      const errorText = await brevoResponse.text();
-      console.error('Error sending test email via Brevo:', brevoResponse.status, errorText);
-      return new Response(JSON.stringify({ error: `Failed to send test email via Brevo: ${errorText}` }), {
+    if (resendError) {
+      console.error('Error sending test email via Resend:', resendError);
+      return new Response(JSON.stringify({ error: `Failed to send test email via Resend: ${resendError.message}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Test email sent successfully via Brevo.');
+    console.log('Test email sent successfully via Resend:', data);
 
-    return new Response(JSON.stringify({ message: 'Test email sent successfully via Brevo' }), {
+    return new Response(JSON.stringify({ message: 'Test email sent successfully via Resend' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

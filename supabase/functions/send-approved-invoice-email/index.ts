@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { Resend } from 'https://esm.sh/resend@1.1.0'; // Import Resend
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,76 +34,68 @@ serve(async (req) => {
       });
     }
 
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY');
+    const resendApiKey = Deno.env.get('RESEND_API_KEY'); // Use Resend API Key
 
-    if (!brevoApiKey) {
-      console.error('BREVO_API_KEY is not set in environment variables.');
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const senderEmail = `jon.d@khpayments.com`; // Use your verified Brevo sender email/domain
+    const resend = new Resend(resendApiKey); // Initialize Resend client
+
+    const senderEmail = `jon.d@khpayments.com`; // Use your verified Resend sender email/domain
     const recipientEmail = '868bilag1677646@e-conomic.dk'; // Target email
 
-    const invoicePdfUrl = newRecord.invoice_pdf_urls[0]; // Get the first URL from the array
+    const attachments = await Promise.all(newRecord.invoice_pdf_urls.map(async (invoicePdfUrl: string, index: number) => {
+      const invoiceResponse = await fetch(invoicePdfUrl);
+      if (!invoiceResponse.ok) {
+        throw new Error(`Failed to fetch invoice PDF from ${invoicePdfUrl}: ${invoiceResponse.statusText}`);
+      }
+      const invoiceBlob = await invoiceResponse.blob();
+      const arrayBuffer = await invoiceBlob.arrayBuffer();
+      const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))); // Base64 encode
 
-    // Fetch the invoice PDF content
-    const invoiceResponse = await fetch(invoicePdfUrl);
-    if (!invoiceResponse.ok) {
-      throw new Error(`Failed to fetch invoice PDF from ${invoicePdfUrl}: ${invoiceResponse.statusText}`);
-    }
-    const invoiceBlob = await invoiceResponse.blob();
-    const arrayBuffer = await invoiceBlob.arrayBuffer();
-    const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))); // Base64 encode
+      const urlParts = invoicePdfUrl.split('/');
+      const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
+      const fileName = originalFileName.endsWith('.pdf') ? originalFileName : `invoice_${newRecord.sku_number}_${index + 1}.pdf`;
 
-    // Determine filename from URL or default
-    const urlParts = invoicePdfUrl.split('/');
-    const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
-    const fileName = originalFileName.endsWith('.pdf') ? originalFileName : `invoice_${newRecord.sku_number}.pdf`;
+      return {
+        filename: fileName,
+        content: base64Content,
+      };
+    }));
 
     const subject = `Paid ${newRecord.sku_number}`;
     const htmlContent = `
       <p>Dear Recipient,</p>
       <p>This email confirms that payment for request <strong>#${newRecord.id.substring(0, 8)}</strong> (SKU: ${newRecord.sku_number}) has been approved.</p>
-      <p>The invoice is attached for your records.</p>
+      <p>The invoice(s) are attached for your records.</p>
       <p>Thank you,</p>
       <p>Your Payment Team</p>
     `;
 
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': brevoApiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        sender: { email: senderEmail },
-        to: [{ email: recipientEmail }],
-        subject: subject,
-        htmlContent: htmlContent,
-        attachments: [
-          {
-            content: base64Content,
-            name: fileName,
-          },
-        ],
-      }),
+    const { data, error: resendError } = await resend.emails.send({
+      from: senderEmail,
+      to: [recipientEmail],
+      subject: subject,
+      html: htmlContent,
+      attachments: attachments,
     });
 
-    if (!brevoResponse.ok) {
-      const errorText = await brevoResponse.text();
-      console.error('Error sending approved invoice email via Brevo:', brevoResponse.status, errorText);
-      return new Response(JSON.stringify({ error: `Failed to send approved invoice email via Brevo: ${errorText}` }), {
+    if (resendError) {
+      console.error('Error sending approved invoice email via Resend:', resendError);
+      return new Response(JSON.stringify({ error: `Failed to send approved invoice email via Resend: ${resendError.message}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Approved invoice email sent successfully via Brevo.');
+    console.log('Approved invoice email sent successfully via Resend:', data);
 
-    return new Response(JSON.stringify({ message: 'Approved invoice email sent successfully via Brevo' }), {
+    return new Response(JSON.stringify({ message: 'Approved invoice email sent successfully via Resend' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
