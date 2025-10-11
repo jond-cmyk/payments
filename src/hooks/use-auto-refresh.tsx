@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from 'react'; // Import useRef
+import { useEffect, useRef } from 'react';
 
 interface UseAutoRefreshOptions {
   intervalMinutes?: number; // Interval in minutes
@@ -8,7 +8,7 @@ interface UseAutoRefreshOptions {
 }
 
 const useAutoRefresh = ({ intervalMinutes = 2, enabled = true }: UseAutoRefreshOptions = {}) => {
-  // Use refs to hold the latest values of props, so they don't trigger effect re-runs
+  const timerIdRef = useRef<number | null>(null); // Ref to store the interval ID
   const intervalMinutesRef = useRef(intervalMinutes);
   const enabledRef = useRef(enabled);
 
@@ -19,28 +19,33 @@ const useAutoRefresh = ({ intervalMinutes = 2, enabled = true }: UseAutoRefreshO
   }, [intervalMinutes, enabled]);
 
   useEffect(() => {
-    // Access current values from refs
-    if (!enabledRef.current) {
-      console.log('[AutoRefresh] Auto-refresh is disabled.');
-      return;
+    // Only set up the interval if it hasn't been set yet and is enabled
+    if (timerIdRef.current === null && enabledRef.current) {
+      const currentIntervalMinutes = intervalMinutesRef.current;
+      const intervalMs = currentIntervalMinutes * 60 * 1000;
+
+      console.log(`[AutoRefresh] Setting up auto-refresh timer for ${currentIntervalMinutes} minutes.`);
+
+      timerIdRef.current = window.setInterval(() => {
+        console.warn(`[AutoRefresh] Triggering page reload after ${currentIntervalMinutes} minutes.`);
+        window.location.reload();
+      }, intervalMs);
+    } else if (!enabledRef.current && timerIdRef.current !== null) {
+      // If disabled and timer is running, clear it
+      window.clearInterval(timerIdRef.current);
+      timerIdRef.current = null;
+      console.log('[AutoRefresh] Auto-refresh timer cleared due to disablement.');
     }
 
-    const currentIntervalMinutes = intervalMinutesRef.current;
-    const intervalMs = currentIntervalMinutes * 60 * 1000; // Convert minutes to milliseconds
-
-    console.log(`[AutoRefresh] Setting up auto-refresh timer for ${currentIntervalMinutes} minutes.`);
-
-    const timer = setInterval(() => {
-      console.warn(`[AutoRefresh] Triggering page reload after ${currentIntervalMinutes} minutes.`);
-      window.location.reload();
-    }, intervalMs);
-
-    // Clear the interval when the component unmounts
+    // Cleanup function: clear the interval when the component unmounts
     return () => {
-      clearInterval(timer);
-      console.log('[AutoRefresh] Auto-refresh timer cleared.');
+      if (timerIdRef.current !== null) {
+        window.clearInterval(timerIdRef.current);
+        timerIdRef.current = null;
+        console.log('[AutoRefresh] Auto-refresh timer cleared on unmount.');
+      }
     };
-  }, []); // Empty dependency array ensures this effect runs only once on mount
+  }, [enabled]); // Depend only on 'enabled' to control the timer's active state
 };
 
 export default useAutoRefresh;
