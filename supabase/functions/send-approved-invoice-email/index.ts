@@ -26,9 +26,9 @@ serve(async (req) => {
     const payload = await req.json();
     const { record: newRecord } = payload;
 
-    // Check for invoice_pdf_urls (array) and ensure it's not empty
-    if (!newRecord || !newRecord.id || !newRecord.sku_number || !newRecord.invoice_pdf_urls || newRecord.invoice_pdf_urls.length === 0) {
-      return new Response(JSON.stringify({ error: 'Missing required payment request data (id, sku_number, or invoice_pdf_urls) in payload' }), {
+    // Check for receipt_pdf_url
+    if (!newRecord || !newRecord.id || !newRecord.sku_number || !newRecord.receipt_pdf_url) {
+      return new Response(JSON.stringify({ error: 'Missing required payment request data (id, sku_number, or receipt_pdf_url) in payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -49,30 +49,31 @@ serve(async (req) => {
     const senderEmail = `jon.d@khpayments.com`; // Use your verified Resend sender email/domain
     const recipientEmail = '868bilag1677646@e-conomic.dk'; // Target email
 
-    const attachments = await Promise.all(newRecord.invoice_pdf_urls.map(async (invoicePdfUrl: string, index: number) => {
-      const invoiceResponse = await fetch(invoicePdfUrl);
-      if (!invoiceResponse.ok) {
-        throw new Error(`Failed to fetch invoice PDF from ${invoicePdfUrl}: ${invoiceResponse.statusText}`);
+    const attachments = [];
+    if (newRecord.receipt_pdf_url) {
+      const receiptResponse = await fetch(newRecord.receipt_pdf_url);
+      if (!receiptResponse.ok) {
+        throw new Error(`Failed to fetch receipt PDF from ${newRecord.receipt_pdf_url}: ${receiptResponse.statusText}`);
       }
-      const invoiceBlob = await invoiceResponse.blob();
-      const arrayBuffer = await invoiceBlob.arrayBuffer();
+      const receiptBlob = await receiptResponse.blob();
+      const arrayBuffer = await receiptBlob.arrayBuffer();
       const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))); // Base64 encode
 
-      const urlParts = invoicePdfUrl.split('/');
+      const urlParts = newRecord.receipt_pdf_url.split('/');
       const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
-      const fileName = originalFileName.endsWith('.pdf') ? originalFileName : `invoice_${newRecord.sku_number}_${index + 1}.pdf`;
+      const fileName = originalFileName.endsWith('.pdf') ? originalFileName : `receipt_${newRecord.sku_number}.pdf`;
 
-      return {
+      attachments.push({
         filename: fileName,
         content: base64Content,
-      };
-    }));
+      });
+    }
 
     const subject = `Paid ${newRecord.sku_number}`;
     const htmlContent = `
       <p>Dear Recipient,</p>
-      <p>This email confirms that payment for request <strong>#${newRecord.id.substring(0, 8)}</strong> (SKU: ${newRecord.sku_number}) has been approved.</p>
-      <p>The invoice(s) are attached for your records.</p>
+      <p>This email confirms that payment for request <strong>#${newRecord.id.substring(0, 8)}</strong> (SKU: ${newRecord.sku_number}) has been completed.</p>
+      <p>The payment receipt is attached for your records.</p>
       <p>Thank you,</p>
       <p>Your Payment Team</p>
     `;
@@ -86,16 +87,16 @@ serve(async (req) => {
     });
 
     if (resendError) {
-      console.error('Error sending approved invoice email via Resend:', resendError);
-      return new Response(JSON.stringify({ error: `Failed to send approved invoice email via Resend: ${resendError.message}` }), {
+      console.error('Error sending approved payment receipt email via Resend:', resendError);
+      return new Response(JSON.stringify({ error: `Failed to send approved payment receipt email via Resend: ${resendError.message}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('Approved invoice email sent successfully via Resend:', data);
+    console.log('Approved payment receipt email sent successfully via Resend:', data);
 
-    return new Response(JSON.stringify({ message: 'Approved invoice email sent successfully via Resend' }), {
+    return new Response(JSON.stringify({ message: 'Approved payment receipt email sent successfully via Resend' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
