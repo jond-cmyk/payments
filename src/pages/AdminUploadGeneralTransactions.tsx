@@ -86,7 +86,7 @@ const AdminUploadGeneralTransactions = () => {
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Upload General Transactions Spreadsheet</CardTitle>
           <CardDescription className="text-center">
-            Upload a CSV file containing general transaction data. The system will process it and assign transactions to requesters.
+            Upload a CSV file containing general transaction data. The system will process it and assign transactions to the uploader.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -108,8 +108,8 @@ const AdminUploadGeneralTransactions = () => {
           <p className="text-sm text-muted-foreground text-center">
             Accepted format: CSV. Max file size: 5MB.
             <br />
-            Expected columns: `Date`, `Text`, `Amount`, `Currency`, `Requester Email` (for assignment).
-            Optional columns: `Type`, `Entry`, `Bank`, `Contra account`, `Exchange rate`, `Comment`, `SKU`, `Reason For Payment`.
+            Expected columns: `Date`, `Text`, `Amount`, `Currency`.
+            Optional columns: `Approval`, `Type`, `Entry`, `Bank`, `Contra account`, `Exchange rate`, `Comment`, `SKU`, `Reason For Payment`.
           </p>
         </CardContent>
       </Card>

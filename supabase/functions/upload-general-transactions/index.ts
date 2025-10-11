@@ -56,17 +56,17 @@ serve(async (req) => {
     const transactionsToInsert = [];
     const errors: string[] = [];
 
-    // Expected headers based on your new general_transactions table and CSV input
+    // Updated expected headers - 'Requester Email' is removed
     const expectedHeaders = [
       'Approval', 'Type', 'Date', 'Entry', 'Text', 'Amount', 'Bank',
-      'Contra account', 'Currency', 'Exchange rate', 'Comment', 'SKU', 'Reason For Payment', 'Requester Email'
+      'Contra account', 'Currency', 'Exchange rate', 'Comment', 'SKU', 'Reason For Payment'
     ];
 
     if (records.length > 0) {
         const actualHeaders = Object.keys(records[0]);
         const missingHeaders = expectedHeaders.filter(h => !actualHeaders.includes(h));
-        // Only warn for missing headers that are NOT nullable in the DB and are critical for initial processing
-        const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency', 'Requester Email'];
+        // Critical headers for initial processing (Requester Email removed)
+        const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
         const missingCriticalHeaders = criticalHeaders.filter(h => !actualHeaders.includes(h));
         if (missingCriticalHeaders.length > 0) {
             errors.push(`Missing critical CSV headers: ${missingCriticalHeaders.join(', ')}. Please ensure these are present.`);
@@ -81,7 +81,6 @@ serve(async (req) => {
         'Text': description,
         'Amount': amount,
         'Currency': currency,
-        'Requester Email': requester_email, // Assuming this column exists for assignment
         'Type': type,
         'Entry': entry,
         'Bank': bank,
@@ -93,8 +92,8 @@ serve(async (req) => {
       } = record;
 
       // Validate critical fields for insertion
-      if (!transaction_date || !description || !amount || !currency || !requester_email) {
-        errors.push(`Missing required fields (Date, Text, Amount, Currency, or Requester Email) for a transaction. Skipping record: ${JSON.stringify(record)}`);
+      if (!transaction_date || !description || !amount || !currency) {
+        errors.push(`Missing required fields (Date, Text, Amount, or Currency) for a transaction. Skipping record: ${JSON.stringify(record)}`);
         console.warn(`[upload-general-transactions] Skipping record due to missing critical fields: ${JSON.stringify(record)}`);
         continue;
       }
@@ -113,22 +112,9 @@ serve(async (req) => {
         continue;
       }
 
-      // Find requester_id from email
-      const { data: requesterProfile, error: profileError } = await supabaseClient
-        .from('profile_with_email')
-        .select('id')
-        .eq('user_email', requester_email)
-        .single();
-
-      if (profileError || !requesterProfile) {
-        errors.push(`Could not find requester for email '${requester_email}' for transaction '${description}'. Error: ${profileError?.message || 'Profile not found'}.`);
-        console.warn(`[upload-general-transactions] Skipping record due to requester not found: ${requester_email} for ${description}. Error: ${profileError?.message || 'Profile not found'}`);
-        continue;
-      }
-      console.log(`[upload-general-transactions] Found requester ID: ${requesterProfile.id} for email: ${requester_email}`);
-
+      // Assign requester_id to the uploaderId (the admin who uploaded the file)
       transactionsToInsert.push({
-        requester_id: requesterProfile.id,
+        requester_id: uploaderId, // Assigned to the uploader
         uploaded_by_user_id: uploaderId,
         status: 'pending_input', // Default status for newly uploaded transactions
         type: type || null,
