@@ -321,6 +321,7 @@ const PaymentRequestDetail = () => {
       return true; // Indicate success
     } catch (error: any) {
       dismissToast(toastId);
+      console.error("Error in handleAdminAction:", error); // Added detailed logging
       showError(error.message || `Failed to set status to ${status.replace(/_/g, ' ')}.`);
       throw error; // Re-throw to indicate failure
     }
