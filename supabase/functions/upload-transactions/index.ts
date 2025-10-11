@@ -60,16 +60,16 @@ serve(async (req) => {
     console.log(`[upload-transactions] Received file: ${fileName} from uploader: ${uploaderId}`);
     console.log(`[upload-transactions] File content length: ${fileContent.length}`);
 
-    let records: Record<string, string>[];
+    let parsedRows: string[][];
     try {
-      records = await parse(fileContent, {
-        header: true,
+      parsedRows = await parse(fileContent, {
+        header: false, // Explicitly set to false to get all rows as arrays
         separator: ',',
         trimLeadingWhitespace: true,
-      }) as Record<string, string>[];
-      console.log(`[upload-transactions] CSV parsed successfully. Number of records: ${records.length}`);
-      if (records.length > 0) {
-        console.log(`[upload-transactions] First parsed record: ${JSON.stringify(records[0])}`);
+      }) as string[][];
+      console.log(`[upload-transactions] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
+      if (parsedRows.length > 0) {
+        console.log(`[upload-transactions] First parsed row (potential headers): ${JSON.stringify(parsedRows[0])}`);
       }
     } catch (csvParseError) {
       console.error('[upload-transactions] CSV parsing error:', csvParseError);
@@ -79,10 +79,21 @@ serve(async (req) => {
       });
     }
 
+    if (parsedRows.length === 0) {
+      return new Response(JSON.stringify({ error: 'CSV file is empty or contains no data rows.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const headers = parsedRows[0].map(h => h.trim()); // Extract and trim headers
+    const dataRows = parsedRows.slice(1); // Get actual data rows
+
+    console.log(`[upload-transactions] Extracted headers: ${JSON.stringify(headers)}`);
+    console.log(`[upload-transactions] Number of data rows: ${dataRows.length}`);
+
     const transactionsToInsert = [];
     const errors: string[] = [];
-
-    const headers = records.length > 0 ? Object.keys(records[0]) : [];
 
     // Define expected headers for the unified transaction format
     const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
@@ -98,7 +109,19 @@ serve(async (req) => {
       });
     }
 
-    for (const record of records) {
+    for (const row of dataRows) {
+      if (row.length !== headers.length) {
+        const msg = `Row has a different number of columns than headers. Skipping row: ${JSON.stringify(row)}`;
+        errors.push(msg);
+        console.warn(`[upload-transactions] ${msg}`);
+        continue;
+      }
+
+      const record: Record<string, string> = {};
+      headers.forEach((header, index) => {
+        record[header] = row[index];
+      });
+
       console.log(`[upload-transactions] Processing record: ${JSON.stringify(record)}`);
 
       let {
