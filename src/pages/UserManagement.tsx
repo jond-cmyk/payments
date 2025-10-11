@@ -19,22 +19,23 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Users, CheckCircle, XCircle, UserPlus } from 'lucide-react'; // Added UserPlus icon
+import { Users, CheckCircle, XCircle, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
-import AddUserForm from '@/components/user-management/AddUserForm'; // Import the new AddUserForm
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import AddUserForm from '@/components/user-management/AddUserForm';
 
 const UserManagement = () => {
   const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false); // State for dialog visibility
+  const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
 
   const isAdmin = currentUserProfile?.role === 'admin';
 
   const { data: profiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
     queryKey: ['allProfiles'],
     queryFn: async () => {
+      console.log("UserManagement: Fetching all profiles..."); // Debug log
       const { data, error } = await supabase
         .from('profile_with_email')
         .select('*')
@@ -43,6 +44,7 @@ const UserManagement = () => {
         console.error("UserManagement: Error fetching all profiles:", error);
         throw error;
       }
+      console.log("UserManagement: Fetched profiles:", data); // Debug log
       return data;
     },
     enabled: isAdmin,
@@ -57,13 +59,14 @@ const UserManagement = () => {
       if (error) throw error;
       return true;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
+    onSuccess: async () => {
       showSuccess("User role updated successfully!");
+      console.log("UserManagement: Role updated. Forcing refetch of 'allProfiles' query."); // Debug log
+      await queryClient.refetchQueries({ queryKey: ['allProfiles'] }); // Force refetch
     },
     onError: (error: any) => {
       showError(error.message || "Failed to update user role.");
-      console.error("Update role error:", error);
+      console.error("UserManagement: Update role error:", error);
     },
   });
 
@@ -76,13 +79,14 @@ const UserManagement = () => {
       if (error) throw error;
       return true;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
+    onSuccess: async () => {
       showSuccess("User approval status updated successfully!");
+      console.log("UserManagement: Approval status updated. Forcing refetch of 'allProfiles' query."); // Debug log
+      await queryClient.refetchQueries({ queryKey: ['allProfiles'] }); // Force refetch
     },
     onError: (error: any) => {
       showError(error.message || "Failed to update user approval status.");
-      console.error("Update approval error:", error);
+      console.error("UserManagement: Update approval error:", error);
     },
   });
 
@@ -107,8 +111,8 @@ const UserManagement = () => {
   };
 
   const handleUserAdded = () => {
-    setIsAddUserDialogOpen(false); // Close the dialog
-    queryClient.invalidateQueries({ queryKey: ['allProfiles'] }); // Refresh the user list
+    setIsAddUserDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
   };
 
   if (isSessionLoading) {
