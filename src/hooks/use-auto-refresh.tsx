@@ -14,10 +14,14 @@ const useAutoRefresh = ({ intervalMinutes = 2, enabled = true }: UseAutoRefreshO
       return;
     }
 
-    const intervalMs = intervalMinutes * 60 * 1000; // Convert minutes to milliseconds
+    // Temporarily set a very short interval for debugging
+    const debugIntervalSeconds = 5; // 5 seconds
+    const intervalMs = debugIntervalSeconds * 1000; // Convert seconds to milliseconds
+
+    console.log(`[AutoRefresh] Setting up auto-refresh timer for ${debugIntervalSeconds} seconds.`);
 
     const timer = setInterval(() => {
-      console.warn(`[AutoRefresh] Triggering page reload after ${intervalMinutes} minutes.`); // Changed to warn for visibility
+      console.warn(`[AutoRefresh] Triggering page reload after ${debugIntervalSeconds} seconds.`);
       window.location.reload();
     }, intervalMs);
 
