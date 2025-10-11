@@ -36,6 +36,7 @@ serve(async (req) => {
     console.log(`[upload-general-transactions] Received file: ${fileName} from uploader: ${uploaderId}`);
     console.log(`[upload-general-transactions] File content (first 200 chars): ${fileContent.substring(0, 200)}`);
     console.log(`[upload-general-transactions] File content length: ${fileContent.length}`);
+    console.log(`[upload-general-transactions] File content (raw, full string): "${fileContent}"`); // New log for raw content
 
     let records: Record<string, string>[];
     try {
@@ -45,7 +46,10 @@ serve(async (req) => {
         trimLeadingWhitespace: true, // Added to handle potential leading spaces in column names
       }) as Record<string, string>[];
       console.log(`[upload-general-transactions] CSV parsed successfully. Number of records: ${records.length}`);
-      console.log(`[upload-general-transactions] First parsed record: ${JSON.stringify(records[0])}`);
+      if (records.length > 0) {
+        console.log(`[upload-general-transactions] First parsed record (raw): ${JSON.stringify(records[0])}`);
+        console.log(`[upload-general-transactions] Keys of first parsed record: ${JSON.stringify(Object.keys(records[0]))}`); // Crucial new log
+      }
     } catch (csvParseError) {
       console.error('[upload-general-transactions] CSV parsing error:', csvParseError);
       return new Response(JSON.stringify({ error: `Failed to parse CSV file: ${csvParseError.message}` }), {
@@ -57,22 +61,21 @@ serve(async (req) => {
     const transactionsToInsert = [];
     const errors: string[] = [];
 
-    // Updated expected headers - 'Requester Email' is removed
+    // Corrected capitalization for 'Reason for Payment' to match user's input
     const expectedHeaders = [
       'Approval', 'Type', 'Date', 'Entry', 'Text', 'Amount', 'Bank',
-      'Contra account', 'Currency', 'Exchange rate', 'Comment', 'SKU', 'Reason For Payment'
+      'Contra account', 'Currency', 'Exchange rate', 'Comment', 'SKU', 'Reason for Payment'
     ];
 
     const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
 
     if (records.length > 0) {
         const actualHeaders = Object.keys(records[0]);
-        console.log(`[upload-general-transactions] Actual headers detected by parser: ${JSON.stringify(actualHeaders)}`); // New log
+        console.log(`[upload-general-transactions] Actual headers detected by parser (from Object.keys): ${JSON.stringify(actualHeaders)}`); // Updated log
         const missingCriticalHeaders = criticalHeaders.filter(h => !actualHeaders.includes(h));
         if (missingCriticalHeaders.length > 0) {
             errors.push(`Missing critical CSV headers: ${missingCriticalHeaders.join(', ')}. Please ensure these are present.`);
             console.error(`[upload-general-transactions] Missing critical headers: ${missingCriticalHeaders.join(', ')}`);
-            // Log all actual headers for debugging
             console.error(`[upload-general-transactions] All actual headers found: ${JSON.stringify(actualHeaders)}`);
         }
     }
@@ -91,7 +94,7 @@ serve(async (req) => {
         'Exchange rate': exchange_rate,
         'Comment': comment,
         'SKU': sku,
-        'Reason For Payment': reason_for_payment,
+        'Reason for Payment': reason_for_payment, // Corrected capitalization
       } = record;
 
       // Validate critical fields for insertion
