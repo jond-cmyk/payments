@@ -8,6 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, Profile } from '@/types/supabase'; // Import Profile type
 import { format } from 'date-fns';
 import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast'; // Added missing import
 
 import {
   Table,
@@ -88,10 +89,11 @@ const MissingReceipts = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
       setSelectedTransactionIds([]); // Clear selection after deletion
+      showSuccess("Selected transactions deleted successfully!");
     },
     onError: (error: any) => {
+      showError(error.message || "Failed to delete selected transactions.");
       console.error("Bulk delete error:", error);
-      // Handle error, e.g., show a toast notification
     },
   });
 
@@ -131,11 +133,23 @@ const MissingReceipts = () => {
   }, []);
 
   const handleDeleteSelected = async () => {
-    await bulkDeleteMutation.mutateAsync(selectedTransactionIds);
+    const toastId = showLoading("Deleting selected transactions...");
+    try {
+      await bulkDeleteMutation.mutateAsync(selectedTransactionIds);
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
   };
 
   const handleAssignTransaction = async (transactionId: string, newRequesterId: string) => {
-    await assignTransactionMutation.mutateAsync({ transactionId, newRequesterId });
+    const toastId = showLoading("Reassigning transaction...");
+    try {
+      await assignTransactionMutation.mutateAsync({ transactionId, newRequesterId });
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
   };
 
   if (isSessionLoading || isTransactionsLoading || isProfilesLoading) {
