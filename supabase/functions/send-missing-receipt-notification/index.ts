@@ -40,6 +40,7 @@ serve(async (req) => {
     }
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    console.log(`[send-missing-receipt-notification] RESEND_API_KEY loaded: ${!!resendApiKey}`); // ADDED LOG
     if (!resendApiKey) {
       console.error('[send-missing-receipt-notification] RESEND_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
