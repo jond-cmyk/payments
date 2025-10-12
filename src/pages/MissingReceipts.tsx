@@ -61,8 +61,9 @@ const MissingReceipts = () => {
       clearTimeout(debounceTimeoutRef.current);
     }
     debounceTimeoutRef.current = setTimeout(() => {
+      console.log(`[MissingReceipts] Debounced amount filter update for: ${value}`);
       setFilterAmount(value);
-    }, 300); // 300ms debounce
+    }, 500); // Increased debounce to 500ms
   }, []);
 
   const isAdmin = userProfile?.role === 'admin';
@@ -339,7 +340,7 @@ const MissingReceipts = () => {
                 <SelectItem value="all">All Users</SelectItem>
                 {allProfiles?.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
-                    {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
+                                {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
                   </SelectItem>
                 ))}
               </SelectContent>

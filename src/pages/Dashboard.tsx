@@ -59,15 +59,17 @@ const Dashboard = () => {
       clearTimeout(debounceTimeoutRef.current);
     }
     debounceTimeoutRef.current = setTimeout(() => {
+      console.log(`[Dashboard] Debounced filter update for: ${value}`);
       setter(value);
-    }, 300); // 300ms debounce
+    }, 500); // Increased debounce to 500ms
   }, []);
 
   // Effect to debounce global search term
   useEffect(() => {
     const handler = setTimeout(() => {
+      console.log(`[Dashboard] Debounced global search term: ${searchTerm}`);
       setDebouncedSearchTerm(searchTerm);
-    }, 500); // 500ms debounce for global search
+    }, 700); // Increased debounce to 700ms for global search
 
     return () => {
       clearTimeout(handler);
@@ -97,7 +99,7 @@ const Dashboard = () => {
   const isRequesterPersonalDashboard = userRole === 'requester' && location.pathname === '/dashboard';
 
   // --- Data for Summary Cards (Global Totals) ---
-  const { data: allPaymentRequestsForSummary, isLoading: isAllRequestsSummaryLoading } = useQuery<PaymentRequest[]>({
+  const allPaymentRequestsForSummaryQuery = useQuery<PaymentRequest[]>({
     queryKey: ['allPaymentRequestsForSummary'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -109,7 +111,7 @@ const Dashboard = () => {
     enabled: !!session && !debouncedSearchTerm, // Enabled for any approved user, only if no search term
   });
 
-  const { data: allMissingReceiptsCountForSummary, isLoading: isAllMissingReceiptsSummaryLoading } = useQuery<number>({
+  const allMissingReceiptsCountForSummaryQuery = useQuery<number>({
     queryKey: ['allMissingReceiptsCountForSummary'],
     queryFn: async () => {
       const { count, error } = await supabase
@@ -131,12 +133,12 @@ const Dashboard = () => {
       approved: 0,
       declined: 0,
       queried: 0,
-      missing_receipts: allMissingReceiptsCountForSummary || 0,
+      missing_receipts: allMissingReceiptsCountForSummaryQuery.data || 0,
       total: 0,
     };
 
-    if (allPaymentRequestsForSummary) {
-      allPaymentRequestsForSummary.forEach(request => {
+    if (allPaymentRequestsForSummaryQuery.data) {
+      allPaymentRequestsForSummaryQuery.data.forEach(request => {
         if (request.status in initialCounts) {
           initialCounts[request.status as keyof typeof initialCounts]++;
         }
@@ -144,7 +146,7 @@ const Dashboard = () => {
       });
     }
     return initialCounts;
-  }, [allPaymentRequestsForSummary, allMissingReceiptsCountForSummary]);
+  }, [allPaymentRequestsForSummaryQuery.data, allMissingReceiptsCountForSummaryQuery.data]);
 
 
   // --- Data for Table Display (Conditional) ---
@@ -269,7 +271,7 @@ const Dashboard = () => {
 
   const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterStatus !== 'all' || filterDatePaymentRequired !== undefined;
 
-  if (isLoading || isAllRequestsSummaryLoading || isAllMissingReceiptsSummaryLoading || isRequestsTableLoading || isSearchLoading) {
+  if (isLoading || allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || isRequestsTableLoading || isSearchLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
   }
 
