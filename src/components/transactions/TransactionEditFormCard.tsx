@@ -49,7 +49,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category</FormLabel>
+                  <FormLabel>Category<span className="text-red-500 ml-1">*</span></FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isEditingMode}>
                     <FormControl>
                       <SelectTrigger>
@@ -73,7 +73,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="merchant_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Merchant Name</FormLabel>
+                  <FormLabel>Merchant Name<span className="text-red-500 ml-1">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., Amazon" {...field} disabled={!isEditingMode} />
                   </FormControl>
@@ -99,7 +99,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="sku"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>SKU</FormLabel>
+                  <FormLabel>SKU<span className="text-red-500 ml-1">*</span></FormLabel>
                   <FormControl>
                     <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} disabled={!isEditingMode} />
                   </FormControl>
@@ -126,7 +126,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="new_receipt_files"
               render={({ field: { value, onChange, ...fieldProps } }) => (
                 <FormItem>
-                  <FormLabel>Receipt PDF(s)</FormLabel>
+                  <FormLabel>Receipt PDF(s)<span className="text-red-500 ml-1">*</span></FormLabel>
                   {/* Removed FormControl wrapper around FileInput */}
                   <FileInput
                     {...fieldProps}
