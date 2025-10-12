@@ -21,7 +21,8 @@ import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, B
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle }
+from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 const Dashboard = () => {
@@ -33,7 +34,7 @@ const Dashboard = () => {
 
   const userRole = userProfile?.role || null; // Get role directly from userProfile
 
-  // Filter states
+  // Filter states for the table
   const [filterSupplierName, setFilterSupplierName] = useState('');
   const [filterSkuNumber, setFilterSkuNumber] = useState('');
   const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
@@ -72,10 +73,36 @@ const Dashboard = () => {
   // Determine if it's a requester's personal dashboard
   const isRequesterPersonalDashboard = userRole === 'requester' && location.pathname === '/dashboard';
 
+  // --- Data for Summary Cards (Global Totals) ---
+  const { data: allPaymentRequestsForSummary, isLoading: isAllRequestsSummaryLoading } = useQuery<PaymentRequest[]>({
+    queryKey: ['allPaymentRequestsForSummary'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('payment_requests')
+        .select('*'); // No requester_id filter here
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session, // Enabled for any approved user
+  });
 
-  // Fetch payment requests based on role and filters
-  const { data: paymentRequests, isLoading: isRequestsLoading, error: requestsError } = useQuery<PaymentRequest[]>({
-    queryKey: ['paymentRequests', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, isAllRequestsPage, isRequesterPersonalDashboard],
+  const { data: allMissingReceiptsCountForSummary, isLoading: isAllMissingReceiptsSummaryLoading } = useQuery<number>({
+    queryKey: ['allMissingReceiptsCountForSummary'],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('transactions')
+        .select('id', { count: 'exact' })
+        .eq('status', 'pending_input')
+        .eq('receipt_urls', '{}'); // No requester_id filter here
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!session, // Enabled for any approved user
+  });
+
+  // --- Data for Table Display (Conditional) ---
+  const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<PaymentRequest[]>({
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, isAllRequestsPage, isRequesterPersonalDashboard],
     queryFn: async () => {
       if (!user?.id || !userRole) return [];
 
@@ -108,32 +135,6 @@ const Dashboard = () => {
     enabled: !!user?.id && !!userRole,
   });
 
-  // Fetch count of missing receipts
-  const { data: missingReceiptsCount, isLoading: isMissingReceiptsCountLoading } = useQuery<number>({
-    queryKey: ['missingReceiptsCount', user?.id, userRole],
-    queryFn: async () => {
-      if (!user?.id) return 0;
-
-      let query = supabase
-        .from('transactions')
-        .select('id', { count: 'exact' })
-        .eq('status', 'pending_input')
-        .eq('receipt_urls', '{}'); // Filter for empty receipt_urls array
-
-      if (userRole === 'requester') {
-        query = query.eq('requester_id', user.id);
-      }
-
-      const { count, error } = await query;
-      if (error) {
-        console.error("Error fetching missing receipts count:", error);
-        throw error;
-      }
-      return count || 0;
-    },
-    enabled: !!user?.id && !!userRole,
-  });
-
 
   const clearFilters = () => {
     setFilterSupplierName('');
@@ -141,12 +142,12 @@ const Dashboard = () => {
     setFilterStatus('all');
     setFilterDatePaymentRequired(undefined);
     setSearchParams({}); // Clear URL search params
-    queryClient.invalidateQueries({ queryKey: ['paymentRequests'] }); // Force refetch
+    queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Force refetch
   };
 
-  // Calculate counts for summary cards
+  // Calculate counts for summary cards using global data
   const counts = React.useMemo(() => {
-    if (!paymentRequests) {
+    if (!allPaymentRequestsForSummary) {
       return {
         pending: 0,
         setup_awaiting_approval: 0,
@@ -154,7 +155,7 @@ const Dashboard = () => {
         declined: 0,
         approved: 0,
         total: 0,
-        missing_receipts: missingReceiptsCount || 0, // Include missing receipts count
+        missing_receipts: allMissingReceiptsCountForSummary || 0,
       };
     }
 
@@ -166,7 +167,7 @@ const Dashboard = () => {
       approved: 0,
     };
 
-    paymentRequests.forEach(request => {
+    allPaymentRequestsForSummary.forEach(request => {
       if (request.status in initialCounts) {
         initialCounts[request.status as keyof typeof initialCounts]++;
       }
@@ -174,13 +175,13 @@ const Dashboard = () => {
 
     return {
       ...initialCounts,
-      total: paymentRequests.length,
-      missing_receipts: missingReceiptsCount || 0, // Include missing receipts count
+      total: allPaymentRequestsForSummary.length,
+      missing_receipts: allMissingReceiptsCountForSummary || 0,
     };
-  }, [paymentRequests, missingReceiptsCount]);
+  }, [allPaymentRequestsForSummary, allMissingReceiptsCountForSummary]);
 
 
-  if (isLoading || isRequestsLoading || isMissingReceiptsCountLoading) { // Added isMissingReceiptsCountLoading
+  if (isLoading || isAllRequestsSummaryLoading || isAllMissingReceiptsSummaryLoading || isRequestsTableLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
   }
 
@@ -189,7 +190,6 @@ const Dashboard = () => {
     return null;
   }
 
-  // Removed profileError check as profile is now from context and handled by ApprovedRoute
   if (!userProfile) {
     return <div className="flex items-center justify-center h-red-500">Error loading user profile.</div>;
   }
@@ -310,7 +310,7 @@ const Dashboard = () => {
         <h1 className="text-3xl font-bold">
           {isAllRequestsPage ? 'All Payment Requests' : 'My Payment Requests'}
         </h1>
-        {(userRole === 'requester' || userRole === 'admin') && ( // Updated condition here
+        {(userRole === 'requester' || userRole === 'admin') && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
             <PlusCircle className="mr-2 h-5 w-5" />
             Create New Request
@@ -388,7 +388,7 @@ const Dashboard = () => {
       )}
 
       {/* Table - Show if on the 'All Requests' page OR if it's a requester's personal dashboard */}
-      {(isAllRequestsPage || isRequesterPersonalDashboard) && paymentRequests && paymentRequests.length > 0 ? (
+      {(isAllRequestsPage || isRequesterPersonalDashboard) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -404,7 +404,7 @@ const Dashboard = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paymentRequests.map((request) => (
+              {paymentRequestsForTable.map((request) => (
                 <TableRow
                   key={request.id}
                   className="transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
