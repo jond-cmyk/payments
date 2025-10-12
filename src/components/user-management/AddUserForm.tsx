@@ -48,46 +48,21 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
     const toastId = showLoading("Adding new user...");
 
     try {
-      // 1. Create user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: values.email,
-        password: values.password,
-        email_confirm: false, // Admin is manually adding, so no email confirmation needed for initial setup
-        user_metadata: {
-          first_name: values.first_name,
-          last_name: values.last_name,
-        },
+      // Invoke the Edge Function to create the user with admin privileges
+      const { data, error: invokeError } = await supabase.functions.invoke('create-user', {
+        body: values, // Pass all form values to the Edge Function
       });
 
-      if (authError) {
-        throw new Error(`Failed to create user: ${authError.message}`);
+      if (invokeError) {
+        throw new Error(invokeError.message);
       }
 
-      if (!authData.user) {
-        throw new Error("User creation failed, no user data returned.");
-      }
-
-      // 2. Update the user's profile with the selected role and approval status
-      // The handle_new_user trigger will create a default profile, we then update it.
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          role: values.role,
-          is_approved: values.is_approved,
-          first_name: values.first_name,
-          last_name: values.last_name,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        // If profile update fails, consider deleting the auth user to prevent orphaned accounts
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        throw new Error(`Failed to update user profile: ${profileError.message}. User creation rolled back.`);
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       dismissToast(toastId);
-      showSuccess(`User '${values.email}' added successfully!`);
+      showSuccess(data?.message || `User '${values.email}' added successfully!`);
       form.reset();
       onUserAdded(); // Call callback to refresh list and close dialog
     } catch (error: any) {
