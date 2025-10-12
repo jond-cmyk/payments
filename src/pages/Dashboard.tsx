@@ -81,16 +81,12 @@ const Dashboard = () => {
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
     const statusParam = searchParams.get('status');
+    // If a valid status is in URL, use it. Otherwise, default to 'pending'.
     if (statusParam && (statusParam === 'pending' || statusParam === 'setup_awaiting_approval' || statusParam === 'approved' || statusParam === 'declined' || statusParam === 'queried' || statusParam === 'all')) {
       setFilterStatus(statusParam);
-    } else if (location.pathname === '/admin/requests') {
-      // If on admin requests page but no status param, default to 'pending'
-      setFilterStatus('pending');
     } else {
-      // For requester's personal dashboard, default to 'pending'
-      setFilterStatus('pending');
+      setFilterStatus('pending'); // Default to 'pending' for both dashboard and admin/requests
     }
-    // Note: We don't clear searchParams here so direct links with filters work.
   }, [searchParams, location.pathname]);
 
 
@@ -158,19 +154,22 @@ const Dashboard = () => {
 
       let query = supabase.from('payment_requests').select('*');
 
+      // Always filter for urgent requests with specific statuses
+      query = query.eq('is_urgent', true);
+      query = query.in('status', ['pending', 'setup_awaiting_approval', 'queried']);
+
       if (isRequesterPersonalDashboard) {
-        // For a requester's personal dashboard, only show their pending requests
-        query = query.eq('requester_id', user.id).eq('status', 'pending');
+        query = query.eq('requester_id', user.id);
       } else if (isAllRequestsPage) {
-        // For the 'All Requests' page, show all requests and apply filters
         if (filterSupplierName) {
           query = query.ilike('supplier_name', `%${filterSupplierName}%`);
         }
         if (filterSkuNumber) {
           query = query.ilike('sku_number', `%${filterSkuNumber}%`);
         }
-        // Apply filterStatus, which defaults to 'pending' if not set by URL
-        if (filterStatus !== 'all') {
+        // If filterStatus is set to one of the allowed urgent statuses, apply it.
+        // If it's 'all' or an unallowed status, the 'in' clause above will handle it.
+        if (filterStatus !== 'all' && ['pending', 'setup_awaiting_approval', 'queried'].includes(filterStatus)) {
           query = query.eq('status', filterStatus);
         }
         if (filterDatePaymentRequired) {
@@ -279,11 +278,11 @@ const Dashboard = () => {
   };
 
 
+  const initialFilterStatus = 'pending';
   const clearFilters = () => {
     setFilterSupplierName('');
     setFilterSkuNumber('');
-    // When clearing filters, reset status to 'pending' for dashboard, 'all' for admin/requests
-    setFilterStatus(isAllRequestsPage ? 'pending' : 'pending');
+    setFilterStatus(initialFilterStatus);
     setFilterDatePaymentRequired(undefined);
     setSearchParams({}); // Clear URL search params
     queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Force refetch
@@ -305,7 +304,7 @@ const Dashboard = () => {
     return null;
   };
 
-  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterStatus !== 'pending' || filterDatePaymentRequired !== undefined;
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== initialFilterStatus;
 
   if (isLoading || allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || isRequestsTableLoading || isSearchLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
@@ -438,7 +437,7 @@ const Dashboard = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">
-          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (isAllRequestsPage ? 'All Payment Requests' : 'My Pending Requests')}
+          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : 'Urgent Payment Requests'}
         </h1>
         {(userRole === 'requester' || userRole === 'admin') && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
@@ -631,8 +630,8 @@ const Dashboard = () => {
                     <TableRow
                       key={request.id}
                       className={cn(
-                        "transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10",
-                        request.is_urgent && "bg-red-600 text-white hover:bg-red-700" // Highlight urgent requests with solid red
+                        "transition-all duration-200 ease-in-out",
+                        request.is_urgent ? "bg-red-600 text-white hover:bg-red-700" : "hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
                       )}
                     >
                       <TableCell className="font-medium">{request.supplier_name}</TableCell>
@@ -678,7 +677,7 @@ const Dashboard = () => {
           ) : (
             // Conditional message based on whether it's the 'All Requests' page or requester's dashboard
             (isAllRequestsPage || isRequesterPersonalDashboard) ? (
-              <p className="text-center text-muted-foreground mt-8">No payment requests found matching your criteria.</p>
+              <p className="text-center text-muted-foreground mt-8">No urgent payment requests found matching your criteria.</p>
             ) : (
               <p className="text-center text-muted-foreground mt-8">
                 You can view your payment requests on the "All Requests" page.
