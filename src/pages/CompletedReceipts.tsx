@@ -181,10 +181,10 @@ const CompletedReceipts = () => {
                                   <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                                     {transaction.description}
                                   </td>
-                                  <td className="px-4 py-4 text-sm text-foreground bg-red-200 min-w-[150px]"> {/* Added temporary classes */}
+                                  <td className="px-4 py-4 text-sm text-foreground"> {/* Removed temporary classes */}
                                     {transaction.category || 'N/A'}
                                   </td>
-                                  <td className="px-4 py-4 text-sm text-foreground bg-red-200 min-w-[150px]"> {/* Added temporary classes */}
+                                  <td className="px-4 py-4 text-sm text-foreground"> {/* Removed temporary classes */}
                                     {transaction.merchant_name || 'N/A'}
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
