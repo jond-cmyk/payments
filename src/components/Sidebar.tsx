@@ -5,7 +5,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive } from 'lucide-react'; // Import Archive icon
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface SidebarProps {
@@ -28,7 +28,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   };
 
   if (isLoading) {
-    return null; // Don't render sidebar while session is loading
+    return null;
   }
 
   // If not logged in or not approved, only show login/logout button
@@ -40,7 +40,8 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         className
       )}>
         <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
-          <h1 className="text-2xl font-bold text-dyad-blue">KH Payments</h1>
+          {/* Display logo here */}
+          <img src="/logo.png" alt="KH Payments Logo" className="h-10" />
         </div>
         <div className="mt-auto pt-4 border-t border-sidebar-border">
           {session ? (
@@ -70,24 +71,23 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
       className
     )}>
       <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
-        <h1 className="text-2xl font-bold text-dyad-blue">KH Payments</h1>
+        {/* Display logo here */}
+        <img src="/logo.png" alt="KH Payments Logo" className="h-10" />
       </div>
       <nav className="flex-1 space-y-2">
         <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
-        {/* 'All Requests' is now visible to all approved users */}
         <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
-        <div className="h-px bg-dyad-blue my-4" /> {/* First dividing line */}
+        <div className="h-px bg-dyad-blue my-4" />
         <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
         <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
         {currentRole === 'admin' && (
           <>
-            <div className="h-px bg-dyad-blue my-4" /> {/* Second dividing line */}
+            <div className="h-px bg-dyad-blue my-4" />
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
             <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
-            {/* Removed Test Email link */}
           </>
         )}
       </nav>
