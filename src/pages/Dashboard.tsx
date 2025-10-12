@@ -81,12 +81,16 @@ const Dashboard = () => {
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
     const statusParam = searchParams.get('status');
-    // If a valid status is in URL, use it. Otherwise, default to 'pending'.
     if (statusParam && (statusParam === 'pending' || statusParam === 'setup_awaiting_approval' || statusParam === 'approved' || statusParam === 'declined' || statusParam === 'queried' || statusParam === 'all')) {
       setFilterStatus(statusParam);
+    } else if (location.pathname === '/admin/requests') {
+      // If on admin requests page but no status param, default to 'pending'
+      setFilterStatus('pending');
     } else {
-      setFilterStatus('pending'); // Default to 'pending' for both dashboard and admin/requests
+      // For requester's personal dashboard, default to 'pending'
+      setFilterStatus('pending');
     }
+    // Note: We don't clear searchParams here so direct links with filters work.
   }, [searchParams, location.pathname]);
 
 
@@ -154,22 +158,21 @@ const Dashboard = () => {
 
       let query = supabase.from('payment_requests').select('*');
 
-      // Always filter for urgent requests with specific statuses
-      query = query.eq('is_urgent', true);
-      query = query.in('status', ['pending', 'setup_awaiting_approval', 'queried']);
-
       if (isRequesterPersonalDashboard) {
-        query = query.eq('requester_id', user.id);
+        // For a requester's personal dashboard, only show their urgent pending/setup/queried requests
+        query = query.eq('requester_id', user.id)
+                     .eq('is_urgent', true)
+                     .in('status', ['pending', 'setup_awaiting_approval', 'queried']);
       } else if (isAllRequestsPage) {
+        // For the 'All Requests' page, show all requests and apply filters
         if (filterSupplierName) {
           query = query.ilike('supplier_name', `%${filterSupplierName}%`);
         }
         if (filterSkuNumber) {
           query = query.ilike('sku_number', `%${filterSkuNumber}%`);
         }
-        // If filterStatus is set to one of the allowed urgent statuses, apply it.
-        // If it's 'all' or an unallowed status, the 'in' clause above will handle it.
-        if (filterStatus !== 'all' && ['pending', 'setup_awaiting_approval', 'queried'].includes(filterStatus)) {
+        // Apply filterStatus, which defaults to 'pending' if not set by URL
+        if (filterStatus !== 'all') {
           query = query.eq('status', filterStatus);
         }
         if (filterDatePaymentRequired) {
@@ -437,7 +440,7 @@ const Dashboard = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">
-          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : 'Urgent Payment Requests'}
+          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (isAllRequestsPage ? 'All Payment Requests' : 'Urgent Payment Requests')}
         </h1>
         {(userRole === 'requester' || userRole === 'admin') && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
@@ -676,11 +679,11 @@ const Dashboard = () => {
             </div>
           ) : (
             // Conditional message based on whether it's the 'All Requests' page or requester's dashboard
-            (isAllRequestsPage || isRequesterPersonalDashboard) ? (
-              <p className="text-center text-muted-foreground mt-8">No urgent payment requests found matching your criteria.</p>
+            (isAllRequestsPage) ? (
+              <p className="text-center text-muted-foreground mt-8">No payment requests found matching your criteria.</p>
             ) : (
               <p className="text-center text-muted-foreground mt-8">
-                You can view your payment requests on the "All Requests" page.
+                No urgent payment requests found matching your criteria.
               </p>
             )
           )}
