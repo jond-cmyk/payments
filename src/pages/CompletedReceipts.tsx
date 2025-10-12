@@ -45,10 +45,10 @@ const CompletedReceipts = () => {
         .not('receipt_urls', 'eq', '{}') // Ensure receipt_urls is not an empty array
         .order('transaction_date', { ascending: false }); // Order by date for initial sorting
 
-      // If not admin, filter by requester_id
-      if (!isAdmin) {
-        query = query.eq('requester_id', user.id);
-      }
+      // Removed client-side filtering by requester_id
+      // if (!isAdmin) {
+      //   query = query.eq('requester_id', user.id);
+      // }
 
       const { data, error } = await query;
       if (error) throw error;

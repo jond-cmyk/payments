@@ -53,10 +53,10 @@ const MissingReceipts = () => {
         .eq('receipt_urls', '{}') // Filter for empty receipt_urls array
         .order('transaction_date', { ascending: false });
 
-      // If not admin, filter by requester_id
-      if (!isAdmin) {
-        query = query.eq('requester_id', user.id);
-      }
+      // Removed client-side filtering by requester_id
+      // if (!isAdmin) {
+      //   query = query.eq('requester_id', user.id);
+      // }
 
       const { data, error } = await query;
       if (error) throw error;
