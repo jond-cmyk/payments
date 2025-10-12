@@ -124,8 +124,7 @@ const MissingReceipts = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email')
-        .order('first_name', { ascending: true });
+        .select('id, first_name, last_name, user_email, role, is_approved'); // Select all fields required by Profile type
       if (error) throw error;
       return data;
     },
@@ -368,7 +367,7 @@ const MissingReceipts = () => {
                         <Checkbox
                           checked={allTransactionsSelected}
                           onCheckedChange={handleSelectAll}
-                          indeterminate={someTransactionsSelected}
+                          // Removed indeterminate prop as it's not directly supported
                           aria-label="Select all transactions"
                         />
                       </TableHead>

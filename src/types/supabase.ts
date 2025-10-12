@@ -53,10 +53,10 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
-  role: 'requester' | 'admin';
+  role: 'requester' | 'admin' | null; // Made nullable to match profile_with_email view
   updated_at: string | null;
   user_email?: string; // Added for the profile_with_email view
-  is_approved: boolean; // New field for manual approval
+  is_approved: boolean | null; // Made nullable to match profile_with_email view
 };
 
 export type PaymentRequestAudit = {

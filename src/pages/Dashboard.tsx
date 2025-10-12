@@ -25,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle }
 from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch'; // Import Switch component
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast'; // Import toast utilities
 
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
@@ -156,8 +157,7 @@ const Dashboard = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email')
-        .order('first_name', { ascending: true });
+        .select('id, first_name, last_name, user_email, role, is_approved'); // Select all fields required by Profile type
       if (error) throw error;
       return data;
     },
@@ -242,7 +242,7 @@ const Dashboard = () => {
               return [];
             }
             return data ? data.map(item => ({ ...item, type: 'payment_request' })) : [];
-          })
+          }) as Promise<SearchResult[]> // Explicitly cast to Promise<SearchResult[]>
       );
 
       // Search Missing Receipts (Transactions)
@@ -259,7 +259,7 @@ const Dashboard = () => {
               return [];
             }
             return data ? data.map(item => ({ ...item, type: 'transaction' })) : [];
-          })
+          }) as Promise<SearchResult[]> // Explicitly cast to Promise<SearchResult[]>
       );
 
       const results = await Promise.all(searchPromises);
@@ -611,7 +611,7 @@ const Dashboard = () => {
                   <SelectItem value="all">All Requesters</SelectItem>
                   {allProfiles?.map((profile) => (
                     <SelectItem key={profile.id} value={profile.id}>
-                      {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
+                                {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
                     </SelectItem>
                   ))}
                 </SelectContent>
