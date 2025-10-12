@@ -20,8 +20,9 @@ import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
+  // Removed AccordionTrigger from shadcn/ui import
 } from '@/components/ui/accordion';
+import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger'; // Import the new custom trigger
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import PageTitle from '@/components/PageTitle';
@@ -140,11 +141,11 @@ const CompletedReceipts = () => {
                 const group = groupedTransactions[groupKey];
                 return (
                   <AccordionItem key={groupKey} value={groupKey}>
-                    <AccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-lg font-semibold hover:bg-muted/50 transition-colors">
+                    <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-lg font-semibold hover:bg-muted/50 transition-colors">
                       <span className="flex items-center">
                         <Folder className="mr-2 h-5 w-5 text-primary" /> {group.display} ({group.transactions.length})
                       </span>
-                    </AccordionTrigger>
+                    </CustomAccordionTrigger>
                     <AccordionContent className="border-t border-border bg-secondary/10">
                       <div className="overflow-x-auto">
                         <table className="min-w-full divide-y divide-border">
