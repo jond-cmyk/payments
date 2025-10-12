@@ -474,7 +474,7 @@ const PaymentRequestDetail = () => {
         setIsEditing={setIsEditing}
         editForm={editForm}
         handleRequesterEditSubmit={handleRequesterEditSubmit}
-        auditUsers={auditUsers} {/* Pass auditUsers here */}
+        auditUsers={auditUsers}
       />
 
       <AdminActionsCard
