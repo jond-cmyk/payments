@@ -31,7 +31,10 @@ const PendingApproval = () => {
     } else {
       console.log("PendingApproval: Logout successful, navigating to /login.");
     }
-    navigate('/login');
+    // Add a small delay to allow session state to update before navigating
+    setTimeout(() => {
+      navigate('/login');
+    }, 100);
   };
 
   if (isLoading || !session || isApproved) {

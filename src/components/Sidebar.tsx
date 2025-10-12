@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } => from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +30,10 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
     } else {
       console.log("Sidebar: Logout successful, navigating to /login.");
     }
-    navigate('/login');
+    // Add a small delay to allow session state to update before navigating
+    setTimeout(() => {
+      navigate('/login');
+    }, 100); 
   };
 
   if (isLoading) {

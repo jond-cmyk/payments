@@ -38,7 +38,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   };
   supabase = dummyClient as unknown as SupabaseClient; // Assign dummy client here, cast to unknown first
 } else {
-  supabase = createClient(supabaseUrl, supabaseAnonKey); // Assign real client
+  supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true, // Explicitly set to true
+    },
+  }); // Assign real client
 }
 
 export { supabase };
