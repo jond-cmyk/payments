@@ -45,7 +45,7 @@ const AdminReceiptUploadCard: React.FC<AdminReceiptUploadCardProps> = ({
   }
 
   return (
-    <Card className="mb-8">
+    <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
         <CardTitle>Upload Receipt</CardTitle>
         <CardDescription>Upload the payment receipt once the payment is complete.</CardDescription>
@@ -58,7 +58,7 @@ const AdminReceiptUploadCard: React.FC<AdminReceiptUploadCardProps> = ({
               name="receipt_pdf"
               render={({ field: { value, onChange, ...fieldProps } }) => (
                 <FormItem>
-                  <FormLabel>Receipt PDF</FormLabel>
+                  <FormLabel>Receipt PDF<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
                     <FileInput
                       {...fieldProps}
@@ -72,7 +72,7 @@ const AdminReceiptUploadCard: React.FC<AdminReceiptUploadCardProps> = ({
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={updateRequestMutation.isPending}>
+            <Button type="submit" disabled={updateRequestMutation.isPending} className="shadow-sm"> {/* Added shadow-sm */}
               Upload Receipt
             </Button>
           </form>

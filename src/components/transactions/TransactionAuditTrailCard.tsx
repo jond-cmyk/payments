@@ -17,7 +17,7 @@ const TransactionAuditTrailCard: React.FC<TransactionAuditTrailCardProps> = ({
   auditUsers,
 }) => {
   return (
-    <Card>
+    <Card className="shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
         <CardTitle className="flex items-center">
           <History className="mr-2 h-5 w-5" /> Audit Trail

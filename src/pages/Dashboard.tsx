@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { PlusCircle, XCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { CardTitle } from '@/components/ui/card';
+import { CardTitle, Card } from '@/components/ui/card'; // Import Card
+
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
 // Import new modular components
@@ -400,21 +401,23 @@ const Dashboard = () => {
           placeholder="Search all requests and missing receipts..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-1"
+          className="flex-1 shadow-sm" // Added shadow-sm
         />
         {searchTerm && (
-          <Button variant="outline" onClick={() => setSearchTerm('')} className="flex items-center gap-1">
+          <Button variant="outline" onClick={() => setSearchTerm('')} className="flex items-center gap-1 shadow-sm"> {/* Added shadow-sm */}
             <XCircle className="h-4 w-4" /> Clear Search
           </Button>
         )}
       </div>
 
       {debouncedSearchTerm ? (
-        <GlobalSearchResultsTable
-          searchResults={searchResults}
-          debouncedSearchTerm={debouncedSearchTerm}
-          getStatusBadge={getStatusBadge}
-        />
+        <Card className="shadow-sm"> {/* Added shadow-sm to search results card */}
+          <GlobalSearchResultsTable
+            searchResults={searchResults}
+            debouncedSearchTerm={debouncedSearchTerm}
+            getStatusBadge={getStatusBadge}
+          />
+        </Card>
       ) : (
         <>
           {/* Summary cards always show on /dashboard for both requester and admin */}
@@ -443,15 +446,17 @@ const Dashboard = () => {
           )}
 
           {(isAllRequestsPage || isRequesterPersonalDashboard || isAdminUrgentDashboard) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
-            <PaymentRequestTable
-              paymentRequests={paymentRequestsForTable}
-              userRole={userRole}
-              handleSort={handleSort}
-              renderSortIcon={renderSortIcon}
-              getStatusBadge={getStatusBadge}
-              handleToggleUrgent={handleToggleUrgent}
-              toggleUrgentMutation={toggleUrgentMutation}
-            />
+            <Card className="shadow-sm"> {/* Added shadow-sm to table card */}
+              <PaymentRequestTable
+                paymentRequests={paymentRequestsForTable}
+                userRole={userRole}
+                handleSort={handleSort}
+                renderSortIcon={renderSortIcon}
+                getStatusBadge={getStatusBadge}
+                handleToggleUrgent={handleToggleUrgent}
+                toggleUrgentMutation={toggleUrgentMutation}
+              />
+            </Card>
           ) : (
             <p className="text-center text-muted-foreground mt-8">
               {isAdminUrgentDashboard || isRequesterPersonalDashboard

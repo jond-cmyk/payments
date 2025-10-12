@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Transaction } from '@/types/supabase';
+import { Card } from '@/components/ui/card'; // Import Card
 
 interface TransactionAdminActionsCardProps {
   transaction: Transaction;
@@ -34,12 +35,13 @@ const TransactionAdminActionsCard: React.FC<TransactionAdminActionsCardProps> = 
   }
 
   return (
-    <div className="flex justify-end items-center mb-6">
+    <Card className="mb-8 p-4 flex justify-end items-center shadow-sm"> {/* Added Card wrapper and shadow-sm */}
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <Button
             variant="destructive"
             disabled={deleteTransactionMutation.isPending}
+            className="shadow-sm" // Added shadow-sm
           >
             <Trash2 className="mr-2 h-4 w-4" /> Delete Transaction
           </Button>
@@ -61,7 +63,7 @@ const TransactionAdminActionsCard: React.FC<TransactionAdminActionsCardProps> = 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </Card>
   );
 };
 

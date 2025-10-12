@@ -124,7 +124,7 @@ const CompletedReceipts = () => {
   return (
     <div className="container mx-auto py-8">
       <PageTitle title="Completed Receipts - KH Payments" />
-      <Card className="mb-8">
+      <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
             <CalendarDays className="mr-2 h-6 w-6" /> Completed Receipts
@@ -169,7 +169,7 @@ const CompletedReceipts = () => {
                           </thead>
                           <tbody className="divide-y divide-border">
                             {group.transactions.map((transaction) => (
-                              <tr key={transaction.id} className="hover:bg-secondary/50 transition-colors">
+                              <tr key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background transition-colors"> {/* Added hover effect */}
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                                   {format(parseISO(transaction.transaction_date), 'PPP')}
                                 </td>
@@ -183,7 +183,7 @@ const CompletedReceipts = () => {
                                   {getStatusBadge(transaction.status)}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <Button asChild variant="outline" size="sm">
+                                  <Button asChild variant="outline" size="sm" className="shadow-sm"> {/* Added shadow-sm */}
                                     <Link to={`/transaction/${transaction.id}`}>View Details</Link>
                                   </Button>
                                 </td>

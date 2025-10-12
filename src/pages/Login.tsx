@@ -5,7 +5,7 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } => 'react-router-dom';
 
 const Login = () => {
   const { session, isLoading, isApproved } = useSession();
@@ -31,7 +31,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dyad-blue p-4">
-      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-md">
+      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg"> {/* Added shadow-lg */}
         <div className="flex justify-center mb-6">
           <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-16" />
         </div>

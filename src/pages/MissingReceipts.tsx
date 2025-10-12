@@ -286,7 +286,7 @@ const MissingReceipts = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card>
+      <Card className="shadow-sm"> {/* Added shadow-sm */}
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex items-center text-2xl font-bold">
@@ -295,7 +295,7 @@ const MissingReceipts = () => {
             {isAdmin && selectedTransactionIds.length > 0 && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={bulkDeleteMutation.isPending}>
+                  <Button variant="destructive" disabled={bulkDeleteMutation.isPending} className="shadow-sm"> {/* Added shadow-sm */}
                     <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedTransactionIds.length})
                   </Button>
                 </AlertDialogTrigger>
@@ -321,7 +321,7 @@ const MissingReceipts = () => {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
+          <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm"> {/* Added shadow-sm */}
             <span className="font-medium text-gray-700">Filters:</span>
             <Input
               placeholder="Filter by Amount"
@@ -329,10 +329,10 @@ const MissingReceipts = () => {
               step="0.01"
               value={filterAmount}
               onChange={(e) => handleAmountFilterChange(e.target.value)}
-              className="max-w-xs"
+              className="max-w-xs shadow-sm" // Added shadow-sm
             />
             <Select value={filterAssignedUser} onValueChange={setFilterAssignedUser}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] shadow-sm"> {/* Added shadow-sm */}
                 <SelectValue placeholder="Filter by Assigned User" />
               </SelectTrigger>
               <SelectContent>
@@ -348,10 +348,10 @@ const MissingReceipts = () => {
               date={filterTransactionDate}
               setDate={setFilterTransactionDate}
               placeholder="Filter by Date"
-              className="w-[200px]"
+              className="w-[200px] shadow-sm" // Added shadow-sm
             />
             {hasActiveFilters && (
-              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
+              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm"> {/* Added shadow-sm */}
                 <RotateCcw className="h-4 w-4" /> Clear Filters
               </Button>
             )}
@@ -407,7 +407,7 @@ const MissingReceipts = () => {
                 </TableHeader>
                 <TableBody>
                   {transactions.map((transaction) => (
-                    <TableRow key={transaction.id}>
+                    <TableRow key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background"> {/* Added hover effect */}
                       {isAdmin && (
                         <TableCell>
                           <Checkbox
@@ -442,7 +442,7 @@ const MissingReceipts = () => {
                         </Select>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm">
+                        <Button asChild variant="outline" size="sm" className="shadow-sm"> {/* Added shadow-sm */}
                           <Link to={`/transaction/${transaction.id}`}>View/Add Receipt</Link>
                         </Button>
                       </TableCell>

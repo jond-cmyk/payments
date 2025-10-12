@@ -181,7 +181,7 @@ const NewPaymentRequest = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-2xl mx-auto">
+      <Card className="max-w-2xl mx-auto shadow-sm"> {/* Added shadow-sm */}
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Create New Payment Request</CardTitle>
         </CardHeader>

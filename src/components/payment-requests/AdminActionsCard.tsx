@@ -110,7 +110,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
   }
 
   return (
-    <Card className="mb-8">
+    <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
         <CardTitle>Admin Actions</CardTitle>
         <CardDescription>Manage this payment request.</CardDescription>
@@ -120,7 +120,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
           <Button
             onClick={() => handleAdminAction('setup_awaiting_approval')}
             disabled={updateRequestMutation.isPending}
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm" // Added shadow-sm
           >
             <DollarSign className="mr-2 h-4 w-4" /> Setup Payment
           </Button>
@@ -134,7 +134,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
               <Button
                 variant="default"
                 disabled={updateRequestMutation.isPending}
-                className="bg-gray-500 hover:bg-gray-600 text-white"
+                className="bg-gray-500 hover:bg-gray-600 text-white shadow-sm" // Added shadow-sm
               >
                 <MessageSquare className="mr-2 h-4 w-4" /> Query Payment
               </Button>
@@ -179,7 +179,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
           <Button
             onClick={() => handleAdminAction('approved')}
             disabled={updateRequestMutation.isPending}
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white shadow-sm" // Added shadow-sm
           >
             <CheckCircle className="mr-2 h-4 w-4" /> Approve Payment
           </Button>
@@ -191,6 +191,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
               <Button
                 variant="destructive"
                 disabled={updateRequestMutation.isPending}
+                className="shadow-sm" // Added shadow-sm
               >
                 <XCircle className="mr-2 h-4 w-4" /> Decline Payment
               </Button>
@@ -237,7 +238,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
             <AlertDialogTrigger asChild>
               <Button
                 variant="outline"
-                className="text-orange-500 border-orange-500 hover:bg-orange-50"
+                className="text-orange-500 border-orange-500 hover:bg-orange-50 shadow-sm" // Added shadow-sm
                 disabled={updateRequestMutation.isPending}
               >
                 <RotateCcw className="mr-2 h-4 w-4" /> Revert to Pending
@@ -283,7 +284,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
           <AlertDialogTrigger asChild>
             <Button
               variant="outline"
-              className="text-red-500 border-red-500 hover:bg-red-50"
+              className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm" // Added shadow-sm
               disabled={deleteRequestMutation.isPending}
             >
               <Trash2 className="mr-2 h-4 w-4" /> Delete Request

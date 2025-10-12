@@ -17,6 +17,7 @@ import TransactionAdminActionsCard from '@/components/transactions/TransactionAd
 import TransactionAuditTrailCard from '@/components/transactions/TransactionAuditTrailCard';
 import { Button } from '@/components/ui/button'; // Import Button
 import { transactionDetailSchema, TransactionDetailSchema } from '@/schemas/transactionSchema'; // Import centralized schema
+import { Card } from '@/components/ui/card'; // Import Card
 
 // List of common categories - UPDATED with custom sort
 const categoryOptions = [
@@ -339,16 +340,16 @@ const TransactionDetail = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Transaction Details #{transaction.id.substring(0, 8)}</h1>
         {canAmend && !isEditing && (
-          <Button onClick={() => setIsEditing(true)} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
+          <Button onClick={() => setIsEditing(true)} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"> {/* Added shadow-sm */}
             Amend Transaction
           </Button>
         )}
         {isEditing && (
           <div className="space-x-2">
-            <Button variant="outline" onClick={() => { setIsEditing(false); form.reset(); }}>
+            <Button variant="outline" onClick={() => { setIsEditing(false); form.reset(); }} className="shadow-sm"> {/* Added shadow-sm */}
               Cancel
             </Button>
-            <Button type="submit" form="transaction-edit-form" className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
+            <Button type="submit" form="transaction-edit-form" className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"> {/* Added shadow-sm */}
               Save Changes
             </Button>
           </div>

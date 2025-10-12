@@ -14,7 +14,7 @@ interface TransactionDetailsDisplayCardProps {
 
 const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps> = ({ transaction }) => {
   return (
-    <Card className="max-w-2xl mx-auto mb-8">
+    <Card className="max-w-2xl mx-auto mb-8 shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
         <CardTitle className="text-2xl font-bold">Transaction Details</CardTitle>
         <CardDescription className="text-center">

@@ -89,7 +89,7 @@ const AdminUploadTransactions = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-2xl mx-auto">
+      <Card className="max-w-2xl mx-auto shadow-sm"> {/* Added shadow-sm */}
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Upload Transactions Spreadsheet</CardTitle>
           <CardDescription className="text-center">
@@ -107,7 +107,7 @@ const AdminUploadTransactions = () => {
           <Button
             onClick={handleFileUpload}
             disabled={!selectedFile || selectedFile.length === 0 || isUploading}
-            className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground"
+            className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm" // Added shadow-sm
           >
             <UploadCloud className="mr-2 h-4 w-4" />
             {isUploading ? "Uploading..." : "Upload and Process"}

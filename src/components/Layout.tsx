@@ -7,7 +7,7 @@ import { Outlet } from 'react-router-dom';
 
 const Layout = () => {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-gradient-to-br from-background to-dyad-blue-light/10"> {/* Subtle gradient background */}
       {/* Sidebar is hidden on small screens and shown on medium/large screens */}
       <Sidebar className="hidden sm:flex" /> 
       <div className="flex-1 flex flex-col"> {/* Wrapper for header and main content */}

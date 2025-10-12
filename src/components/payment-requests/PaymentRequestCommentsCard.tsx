@@ -58,7 +58,7 @@ const PaymentRequestCommentsCard: React.FC<PaymentRequestCommentsCardProps> = ({
   const showCommentBox = isAdmin || (isRequester && request.status === 'queried');
 
   return (
-    <Card className="mb-8">
+    <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
         <CardTitle className="flex items-center">
           <MessageSquareText className="mr-2 h-5 w-5" /> Comments
@@ -101,7 +101,7 @@ const PaymentRequestCommentsCard: React.FC<PaymentRequestCommentsCardProps> = ({
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={isAddingComment}>
+              <Button type="submit" disabled={isAddingComment} className="shadow-sm"> {/* Added shadow-sm */}
                 {isAddingComment ? "Adding Comment..." : "Add Comment"}
               </Button>
             </form>

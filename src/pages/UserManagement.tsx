@@ -178,7 +178,7 @@ const UserManagement = () => {
         </CardTitle>
         <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="shadow-sm"> {/* Added shadow-sm */}
               <UserPlus className="mr-2 h-4 w-4" /> Add New User
             </Button>
           </DialogTrigger>
@@ -190,7 +190,7 @@ const UserManagement = () => {
           </DialogContent>
         </Dialog>
       </div>
-      <Card>
+      <Card className="shadow-sm"> {/* Added shadow-sm */}
         <CardContent className="pt-6">
           {profiles && profiles.length > 0 ? (
             <div className="overflow-x-auto">
@@ -206,7 +206,7 @@ const UserManagement = () => {
                 </TableHeader>
                 <TableBody>
                   {profiles.map((profile) => (
-                    <TableRow key={profile.id}>
+                    <TableRow key={profile.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background"> {/* Added hover effect */}
                       <TableCell className="font-medium">
                         {profile.first_name || ''} {profile.last_name || ''}
                       </TableCell>
@@ -239,6 +239,7 @@ const UserManagement = () => {
                           size="sm"
                           onClick={() => handleEditClick(profile)}
                           disabled={updateUserProfileMutation.isPending}
+                          className="shadow-sm" // Added shadow-sm
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -247,7 +248,7 @@ const UserManagement = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-red-500 border-red-500 hover:bg-red-50"
+                              className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm" // Added shadow-sm
                               disabled={deleteUserMutation.isPending || profile.id === user?.id}
                             >
                               <Trash2 className="h-4 w-4" />

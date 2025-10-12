@@ -36,7 +36,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
   categoryOptions,
 }) => {
   return (
-    <Card className="max-w-2xl mx-auto mb-8">
+    <Card className="max-w-2xl mx-auto mb-8 shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
         <CardTitle>Edit Transaction Details</CardTitle>
         <CardDescription>Update the details for this transaction.</CardDescription>

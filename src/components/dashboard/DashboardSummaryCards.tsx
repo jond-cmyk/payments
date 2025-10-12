@@ -103,7 +103,11 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
         const { borderClass, textClass, icon, title, description, link } = getCardStyling(status);
         return (
           <Link key={status} to={link} className="block">
-            <Card className={cn("border-l-4 cursor-pointer hover:shadow-lg transition-shadow", borderClass)}>
+            <Card className={cn(
+              "border-l-4 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 ease-in-out", // Added shadow-sm and transition
+              borderClass,
+              "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background" // Enhanced hover effect
+            )}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
                 <span className={textClass}>{icon}</span>

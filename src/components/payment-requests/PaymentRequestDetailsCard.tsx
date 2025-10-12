@@ -116,7 +116,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
   };
 
   return (
-    <Card className="mb-8">
+    <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
         <CardTitle className="flex items-center">
           Request Details
@@ -146,7 +146,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="supplier_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Supplier Name</FormLabel>
+                    <FormLabel className="font-semibold">Supplier Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -159,7 +159,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="sku_number"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>SKU Number</FormLabel>
+                    <FormLabel className="font-semibold">SKU Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <PrefixedInput prefix="CH" {...field} />
                     </FormControl>
@@ -172,7 +172,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="supplier_address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Supplier Address</FormLabel>
+                    <FormLabel className="font-semibold">Supplier Address<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Textarea {...field} />
                     </FormControl>
@@ -185,7 +185,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="iban_number"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>IBAN Number</FormLabel>
+                    <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -198,7 +198,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="currency"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Currency</FormLabel>
+                    <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -222,7 +222,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="payment_amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Payment Amount</FormLabel>
+                    <FormLabel className="font-semibold">Payment Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" {...field} />
                     </FormControl>
@@ -235,7 +235,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="reason_for_payment"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Reason for Payment</FormLabel>
+                    <FormLabel className="font-semibold">Reason for Payment<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Textarea {...field} />
                     </FormControl>
@@ -248,7 +248,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="date_payment_required"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Date Payment Required</FormLabel>
+                    <FormLabel className="font-semibold">Date Payment Required<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <DatePicker
                         date={field.value}
@@ -265,7 +265,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="invoice_pdf"
                 render={({ field: { value, onChange, ...fieldProps } }) => (
                   <FormItem>
-                    <FormLabel>Invoice PDF(s) (Upload new if needed)</FormLabel>
+                    <FormLabel className="font-semibold">Invoice PDF(s) (Upload new if needed)</FormLabel>
                     <FormControl>
                       <FileInput
                         {...fieldProps}
