@@ -441,10 +441,10 @@ const PaymentRequestDetail = () => {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Payment request not found.</div>;
   }
 
-  const isRequester = userRole === 'requester' && user?.id === request.requester_id;
+  // The `canAmend` logic now allows any authenticated user to amend pending or queried requests
+  const canAmend = (request.status === 'pending' || request.status === 'queried');
   const isAdmin = userRole === 'admin';
-
-  const canAmend = (request.status === 'pending' || request.status === 'queried') && (isRequester || isAdmin);
+  const isRequester = user?.id === request.requester_id; // Still useful for comment box logic
 
   return (
     <div className="container mx-auto py-8">
