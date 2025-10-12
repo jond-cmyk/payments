@@ -22,20 +22,20 @@ const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mb-6">
-          <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm"> {/* Increased gap for better spacing */}
+          <div className="space-y-1"> {/* Added space-y-1 for vertical spacing */}
             <p className="font-medium">Transaction Date:</p>
             <p>{format(new Date(transaction.transaction_date), 'PPP')}</p>
           </div>
-          <div>
+          <div className="space-y-1">
             <p className="font-medium">Description:</p>
             <p>{transaction.description}</p>
           </div>
-          <div>
+          <div className="space-y-1">
             <p className="font-medium">Amount:</p>
             <p>{transaction.currency} {transaction.amount.toFixed(2)}</p>
           </div>
-          <div>
+          <div className="space-y-1">
             <p className="font-medium">Status:</p>
             <p className={`font-semibold ${
               transaction.status === 'pending_input' ? 'text-yellow-600' :
@@ -47,55 +47,68 @@ const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps
               {transaction.status.replace(/_/g, ' ').charAt(0).toUpperCase() + transaction.status.replace(/_/g, ' ').slice(1)}
             </p>
           </div>
-          {/* Always render Category and Merchant Name, show 'N/A' if empty */}
-          <div>
+          <div className="space-y-1">
             <p className="font-medium">Category:</p>
             <p>{transaction.category || 'N/A'}</p>
           </div>
-          <div>
+          <div className="space-y-1">
             <p className="font-medium">Merchant Name:</p>
             <p>{transaction.merchant_name || 'N/A'}</p>
           </div>
           {transaction.original_transaction_id && (
-            <div>
+            <div className="space-y-1">
               <p className="font-medium">Original Transaction ID:</p>
               <p>{transaction.original_transaction_id}</p>
             </div>
           )}
           {transaction.type && (
-            <div>
+            <div className="space-y-1">
               <p className="font-medium">Type:</p>
               <p>{transaction.type}</p>
             </div>
           )}
           {transaction.entry && (
-            <div>
+            <div className="space-y-1">
               <p className="font-medium">Entry:</p>
               <p>{transaction.entry}</p>
             </div>
           )}
           {transaction.bank && (
-            <div>
+            <div className="space-y-1">
               <p className="font-medium">Bank:</p>
               <p>{transaction.bank}</p>
             </div>
           )}
           {transaction.contra_account && (
-            <div>
+            <div className="space-y-1">
               <p className="font-medium">Contra Account:</p>
               <p>{transaction.contra_account}</p>
             </div>
           )}
           {transaction.exchange_rate && (
-            <div>
+            <div className="space-y-1">
               <p className="font-medium">Exchange Rate:</p>
               <p>{transaction.exchange_rate}</p>
             </div>
           )}
-          <div>
+          <div className="space-y-1">
             <p className="font-medium">SKU:</p>
             <p>{transaction.not_sku_related ? 'N/A (Not SKU Related)' : (transaction.sku || 'N/A')}</p>
           </div>
+          {transaction.receipt_urls && transaction.receipt_urls.length > 0 && (
+            <div className="space-y-1 md:col-span-2"> {/* Span two columns for receipts if needed */}
+              <p className="font-medium">Receipt PDF(s):</p>
+              <div className="space-y-1">
+                {transaction.receipt_urls.map((url, index) => (
+                  <Button asChild variant="link" className="p-0 h-auto block" key={index}>
+                    <a href={url} target="_blank" rel="noopener noreferrer">
+                      <Download className="mr-1 h-4 w-4" /> Receipt {index + 1}
+                    </a>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
