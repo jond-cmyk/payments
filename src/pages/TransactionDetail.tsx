@@ -189,7 +189,6 @@ const TransactionDetail = () => {
       const { new_receipt_files, ...dbUpdateFields } = payload;
 
       let updatedReceiptUrls = transaction?.receipt_urls || [];
-      let newStatus: Transaction['status'] = transaction?.status || 'pending_input'; // Default to current status
 
       if (new_receipt_files && new_receipt_files.length > 0) {
         const newUploadedUrls: string[] = [];
@@ -219,8 +218,16 @@ const TransactionDetail = () => {
           newUploadedUrls.push(publicUrlData.publicUrl);
         }
         updatedReceiptUrls = [...updatedReceiptUrls, ...newUploadedUrls];
-        newStatus = 'completed'; // Set status to completed only if new receipts are uploaded
       }
+
+      let newStatus: Transaction['status'] = transaction?.status || 'pending_input';
+
+      // If the transaction was pending_input and now has receipts (either existing or newly uploaded),
+      // set its status to 'completed'.
+      if (transaction?.status === 'pending_input' && updatedReceiptUrls.length > 0) {
+        newStatus = 'completed';
+      }
+      // Otherwise, retain the current status. If it was already 'completed', it stays 'completed'.
 
       const { error } = await supabase
         .from('transactions')
