@@ -193,7 +193,7 @@ const NewPaymentRequest = () => {
                 name="supplier_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Supplier Name<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Supplier Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., ABC Corp" {...field} />
                     </FormControl>
@@ -206,7 +206,7 @@ const NewPaymentRequest = () => {
                 name="sku_number"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>SKU Number<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">SKU Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} />
                     </FormControl>
@@ -219,7 +219,7 @@ const NewPaymentRequest = () => {
                 name="supplier_address"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Supplier Address<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Supplier Address<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Textarea placeholder="e.g., 123 Main St, Anytown, USA" {...field} />
                     </FormControl>
@@ -232,7 +232,7 @@ const NewPaymentRequest = () => {
                 name="iban_number"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>IBAN Number<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Input placeholder="e.g., GB33BUKB20201555555555" {...field} />
                     </FormControl>
@@ -245,7 +245,7 @@ const NewPaymentRequest = () => {
                 name="currency"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Currency<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -269,7 +269,7 @@ const NewPaymentRequest = () => {
                 name="payment_amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Payment Amount<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Payment Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Input type="number" step="0.01" placeholder="e.g., 123.45" {...field} />
                     </FormControl>
@@ -282,7 +282,7 @@ const NewPaymentRequest = () => {
                 name="reason_for_payment"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Reason for Payment<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Reason for Payment<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <Textarea placeholder="e.g., Purchase of office supplies" {...field} />
                     </FormControl>
@@ -295,7 +295,7 @@ const NewPaymentRequest = () => {
                 name="date_payment_required"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Date Payment Required<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Date Payment Required<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <DatePicker
                         date={field.value}
@@ -312,7 +312,7 @@ const NewPaymentRequest = () => {
                 name="invoice_pdf"
                 render={({ field: { value, onChange, ...fieldProps } }) => (
                   <FormItem>
-                    <FormLabel>Invoice PDF(s)<span className="text-red-500 ml-1">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Invoice PDF(s)<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <FileInput
                         {...fieldProps}

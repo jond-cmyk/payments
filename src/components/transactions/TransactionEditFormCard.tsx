@@ -49,7 +49,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="category"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Category<span className="text-red-500 ml-1">*</span></FormLabel>
+                  <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isEditingMode}>
                     <FormControl>
                       <SelectTrigger>
@@ -73,7 +73,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="merchant_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Merchant Name<span className="text-red-500 ml-1">*</span></FormLabel>
+                  <FormLabel className="font-semibold">Merchant Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
                     <Input placeholder="e.g., Amazon" {...field} disabled={!isEditingMode} />
                   </FormControl>
@@ -99,7 +99,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="sku"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>SKU<span className="text-red-500 ml-1">*</span></FormLabel>
+                  <FormLabel className="font-semibold">SKU<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
                     <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} disabled={!isEditingMode} />
                   </FormControl>
@@ -126,7 +126,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="new_receipt_files"
               render={({ field: { value, onChange, ...fieldProps } }) => (
                 <FormItem>
-                  <FormLabel>Receipt PDF(s)<span className="text-red-500 ml-1">*</span></FormLabel>
+                  <FormLabel className="font-semibold">Receipt PDF(s)<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   {/* Removed FormControl wrapper around FileInput */}
                   <FileInput
                     {...fieldProps}
