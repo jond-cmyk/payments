@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@/types/supabase';
 import { format, parseISO } from 'date-fns';
-import { Folder, FileText, CalendarDays, ChevronDown } from 'lucide-react'; // Keep ChevronDown import for potential other uses, but it's not passed directly to CustomAccordionTrigger here
+import { Folder, FileText, CalendarDays, ChevronDown } from 'lucide-react'; // Keep ChevronDown import for use here
 
 import {
   Card,
@@ -20,7 +20,6 @@ import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  // Removed AccordionTrigger from shadcn/ui import
 } from '@/components/ui/accordion';
 import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger'; // Import the new custom trigger
 import { Badge } from '@/components/ui/badge';
@@ -45,11 +44,6 @@ const CompletedReceipts = () => {
         .not('receipt_urls', 'is', null) // Ensure receipt_urls is not null
         .not('receipt_urls', 'eq', '{}') // Ensure receipt_urls is not an empty array
         .order('transaction_date', { ascending: false }); // Order by date for initial sorting
-
-      // Removed client-side filtering by requester_id
-      // if (!isAdmin) {
-      //   query = query.eq('requester_id', user.id);
-      // }
 
       const { data, error } = await query;
       if (error) throw error;
@@ -125,7 +119,7 @@ const CompletedReceipts = () => {
   return (
     <div className="container mx-auto py-8">
       <PageTitle title="Completed Receipts - KH Payments" />
-      <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
+      <Card className="mb-8 shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
             <CalendarDays className="mr-2 h-6 w-6" /> Completed Receipts
@@ -142,8 +136,13 @@ const CompletedReceipts = () => {
                 return (
                   <AccordionItem key={groupKey} value={groupKey}>
                     <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-lg font-semibold hover:bg-muted/50 transition-colors">
-                      <span className="flex items-center">
-                        <Folder className="mr-2 h-5 w-5 text-primary" /> {group.display} ({group.transactions.length})
+                      {/* This is now the SINGLE child element passed to CustomAccordionTrigger */}
+                      <span className="flex items-center justify-between w-full">
+                        <span className="flex items-center">
+                          <Folder className="mr-2 h-5 w-5 text-primary" /> {group.display} ({group.transactions.length})
+                        </span>
+                        {/* The ChevronDown icon is now part of the single child element */}
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
                       </span>
                     </CustomAccordionTrigger>
                     <AccordionContent className="border-t border-border bg-secondary/10">
@@ -170,7 +169,7 @@ const CompletedReceipts = () => {
                           </thead>
                           <tbody className="divide-y divide-border">
                             {group.transactions.map((transaction) => (
-                              <tr key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background transition-colors"> {/* Added hover effect */}
+                              <tr key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background transition-colors">
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                                   {format(parseISO(transaction.transaction_date), 'PPP')}
                                 </td>
@@ -184,7 +183,7 @@ const CompletedReceipts = () => {
                                   {getStatusBadge(transaction.status)}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <Button asChild variant="outline" size="sm" className="shadow-sm"> {/* Added shadow-sm */}
+                                  <Button asChild variant="outline" size="sm" className="shadow-sm">
                                     <Link to={`/transaction/${transaction.id}`}>View Details</Link>
                                   </Button>
                                 </td>
