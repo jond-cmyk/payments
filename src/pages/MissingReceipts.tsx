@@ -76,24 +76,25 @@ const MissingReceipts = () => {
         .eq('status', 'pending_input')
         .eq('receipt_urls', '{}')
         .order('transaction_date', { ascending: false }) // Primary sort
-        .order('created_at', { ascending: false }); // Secondary sort for stability
+        .order('created_at', { ascending: false }) // Secondary sort for stability
+        .order('id', { ascending: false }); // Tertiary sort for absolute stability
 
       // Re-enabling filterAssignedUser
       if (filterAssignedUser !== 'all') {
         query = query.eq('requester_id', filterAssignedUser);
       }
 
-      // Temporarily keep other filters disabled for debugging
-      // if (filterAmount) {
-      //   const amountNum = parseFloat(filterAmount);
-      //   if (!isNaN(amountNum)) {
-      //     query = query.eq('amount', amountNum);
-      //   }
-      // }
+      // Re-enabling other filters
+      if (filterAmount) {
+        const amountNum = parseFloat(filterAmount);
+        if (!isNaN(amountNum)) {
+          query = query.eq('amount', amountNum);
+        }
+      }
 
-      // if (filterTransactionDate) {
-      //   query = query.eq('transaction_date', format(filterTransactionDate, 'yyyy-MM-dd'));
-      // }
+      if (filterTransactionDate) {
+        query = query.eq('transaction_date', format(filterTransactionDate, 'yyyy-MM-dd'));
+      }
 
       const { data, error } = await query;
       if (error) throw error;
