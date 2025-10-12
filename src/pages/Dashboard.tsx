@@ -84,11 +84,11 @@ const Dashboard = () => {
     if (statusParam && (statusParam === 'pending' || statusParam === 'setup_awaiting_approval' || statusParam === 'approved' || statusParam === 'declined' || statusParam === 'queried' || statusParam === 'all')) {
       setFilterStatus(statusParam);
     } else if (location.pathname === '/admin/requests') {
-      // If on admin requests page but no status param, default to 'all'
-      setFilterStatus('all');
+      // If on admin requests page but no status param, default to 'pending'
+      setFilterStatus('pending');
     } else {
-      // For other pages (like requester dashboard), ensure filter is 'all'
-      setFilterStatus('all');
+      // For requester's personal dashboard, default to 'pending'
+      setFilterStatus('pending');
     }
     // Note: We don't clear searchParams here so direct links with filters work.
   }, [searchParams, location.pathname]);
@@ -159,8 +159,8 @@ const Dashboard = () => {
       let query = supabase.from('payment_requests').select('*');
 
       if (isRequesterPersonalDashboard) {
-        // For a requester's personal dashboard, only show their requests
-        query = query.eq('requester_id', user.id);
+        // For a requester's personal dashboard, only show their pending requests
+        query = query.eq('requester_id', user.id).eq('status', 'pending');
       } else if (isAllRequestsPage) {
         // For the 'All Requests' page, show all requests and apply filters
         if (filterSupplierName) {
@@ -169,6 +169,7 @@ const Dashboard = () => {
         if (filterSkuNumber) {
           query = query.ilike('sku_number', `%${filterSkuNumber}%`);
         }
+        // Apply filterStatus, which defaults to 'pending' if not set by URL
         if (filterStatus !== 'all') {
           query = query.eq('status', filterStatus);
         }
@@ -281,7 +282,8 @@ const Dashboard = () => {
   const clearFilters = () => {
     setFilterSupplierName('');
     setFilterSkuNumber('');
-    setFilterStatus('all');
+    // When clearing filters, reset status to 'pending' for dashboard, 'all' for admin/requests
+    setFilterStatus(isAllRequestsPage ? 'pending' : 'pending');
     setFilterDatePaymentRequired(undefined);
     setSearchParams({}); // Clear URL search params
     queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Force refetch
@@ -303,7 +305,7 @@ const Dashboard = () => {
     return null;
   };
 
-  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterStatus !== 'all' || filterDatePaymentRequired !== undefined;
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterStatus !== 'pending' || filterDatePaymentRequired !== undefined;
 
   if (isLoading || allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || isRequestsTableLoading || isSearchLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
@@ -436,7 +438,7 @@ const Dashboard = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">
-          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (isAllRequestsPage ? 'All Payment Requests' : 'My Payment Requests')}
+          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (isAllRequestsPage ? 'All Payment Requests' : 'My Pending Requests')}
         </h1>
         {(userRole === 'requester' || userRole === 'admin') && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
@@ -630,7 +632,7 @@ const Dashboard = () => {
                       key={request.id}
                       className={cn(
                         "transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10",
-                        request.is_urgent && "bg-red-50 border-l-4 border-red-500 hover:bg-red-100" // Highlight urgent requests
+                        request.is_urgent && "bg-red-600 text-white hover:bg-red-700" // Highlight urgent requests with solid red
                       )}
                     >
                       <TableCell className="font-medium">{request.supplier_name}</TableCell>
