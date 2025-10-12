@@ -106,6 +106,14 @@ const TransactionDetail = () => {
     enabled: !!id,
   });
 
+  // Effect to set initial editing mode if transaction is pending_input and has no receipts
+  useEffect(() => {
+    if (transaction) {
+      const canAmendInitial = (transaction.status === 'pending_input' && transaction.receipt_urls.length === 0);
+      setIsEditing(canAmendInitial);
+    }
+  }, [transaction]); // Depend on transaction to ensure it runs after data is fetched
+
   // Fetch audit trail
   const { data: audits, isLoading: isAuditsLoading, error: auditsError } = useQuery<TransactionAudit[]>({
     queryKey: ['transactionAudits', id],
