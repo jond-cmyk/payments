@@ -18,6 +18,9 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const navigate = useNavigate();
 
   const currentRole = userProfile?.role;
+  const displayName = userProfile?.first_name && userProfile?.last_name
+    ? `${userProfile.first_name} ${userProfile.last_name}`
+    : user?.email || 'Guest';
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -93,7 +96,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
           <div className="flex flex-col items-start space-y-2">
             <div className="flex items-center space-x-2 text-sm">
               <User className="h-4 w-4" />
-              <span>{user.email}</span>
+              <span>{displayName}</span>
             </div>
             <div className="text-xs text-muted-foreground">Role: {currentRole || 'Not available'}</div>
             <Button

@@ -309,7 +309,7 @@ const UserManagement = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the user account for <strong>{profile.user_email}</strong> and remove their data.
+                                This action cannot be undone. This will permanently delete the user account for <strong>{profile.first_name || profile.user_email || 'this user'} {profile.last_name || ''}</strong> and remove their data.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
