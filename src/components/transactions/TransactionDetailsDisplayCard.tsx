@@ -14,7 +14,7 @@ interface TransactionDetailsDisplayCardProps {
 
 const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps> = ({ transaction }) => {
   return (
-    <Card className="max-w-2xl mx-auto mb-8 shadow-sm"> {/* Added shadow-sm */}
+    <Card className="max-w-2xl mx-auto mb-8 shadow-sm">
       <CardHeader>
         <CardTitle className="text-2xl font-bold">Transaction Details</CardTitle>
         <CardDescription className="text-center">
@@ -47,6 +47,18 @@ const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps
               {transaction.status.replace(/_/g, ' ').charAt(0).toUpperCase() + transaction.status.replace(/_/g, ' ').slice(1)}
             </p>
           </div>
+          {transaction.category && (
+            <div>
+              <p className="font-medium">Category:</p>
+              <p>{transaction.category}</p>
+            </div>
+          )}
+          {transaction.merchant_name && (
+            <div>
+              <p className="font-medium">Merchant Name:</p>
+              <p>{transaction.merchant_name}</p>
+            </div>
+          )}
           {transaction.original_transaction_id && (
             <div>
               <p className="font-medium">Original Transaction ID:</p>
