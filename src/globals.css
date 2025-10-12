@@ -40,14 +40,14 @@
 
     --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 100%; /* White for sidebar */
-    --sidebar-foreground: 222.2 47.4% 11.2%; /* Dark gray for sidebar text */
-    --sidebar-primary: 192 100% 28%; /* New dominant blue for active sidebar items */
-    --sidebar-primary-foreground: 0 0% 100%; /* White for active sidebar text */
-    --sidebar-accent: 196 34% 56%; /* New secondary blue for hover */
-    --sidebar-accent-foreground: 222.2 47.4% 11.2%; /* Dark gray for hover text */
-    --sidebar-border: 214.3 31.8% 91.4%;
-    --sidebar-ring: 192 100% 28%; /* New dominant blue ring */
+    --sidebar-background: 192 100% 28%; /* Dyad blue for sidebar background */
+    --sidebar-foreground: 0 0% 100%; /* White for sidebar text */
+    --sidebar-primary: 0 0% 100%; /* White for active sidebar items background */
+    --sidebar-primary-foreground: 222.2 84% 4.9%; /* Dark text for active sidebar items */
+    --sidebar-accent: 0 0% 100%; /* White for hover background */
+    --sidebar-accent-foreground: 222.2 84% 4.9%; /* Dark text for hover text */
+    --sidebar-border: 192 100% 28%; /* Dyad blue for sidebar border */
+    --sidebar-ring: 192 100% 28%; /* Dyad blue ring */
 
     --dyad-blue: 192 100% 28%; /* #00718f */
     --dyad-blue-foreground: 0 0% 100%; /* White */
@@ -83,14 +83,14 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 192 100% 28%; /* New dominant blue for ring */
     
-    --sidebar-background: 222.2 84% 4.9%; /* Dark background for sidebar */
-    --sidebar-foreground: 210 40% 98%; /* Light foreground for sidebar text */
-    --sidebar-primary: 192 100% 28%; /* New dominant blue for active sidebar items */
-    --sidebar-primary-foreground: 0 0% 100%; /* White for active sidebar text */
-    --sidebar-accent: 217.2 32.6% 17.5%; /* Darker gray for hover */
-    --sidebar-accent-foreground: 210 40% 98%; /* Light foreground for hover text */
-    --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 192 100% 28%; /* New dominant blue ring */
+    --sidebar-background: 192 100% 28%; /* Dyad blue for sidebar background */
+    --sidebar-foreground: 0 0% 100%; /* White for sidebar text */
+    --sidebar-primary: 0 0% 100%; /* White for active sidebar items background */
+    --sidebar-primary-foreground: 222.2 84% 4.9%; /* Dark text for active sidebar items */
+    --sidebar-accent: 0 0% 100%; /* White for hover background */
+    --sidebar-accent-foreground: 222.2 84% 4.9%; /* Dark text for hover text */
+    --sidebar-border: 192 100% 28%; /* Dyad blue for sidebar border */
+    --sidebar-ring: 192 100% 28%; /* Dyad blue ring */
 
     --dyad-blue: 192 100% 28%; /* #00718f */
     --dyad-blue-foreground: 0 0% 100%; /* White */
