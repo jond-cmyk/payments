@@ -176,7 +176,7 @@ const CompletedReceipts = () => {
                           </thead>
                           <tbody className="divide-y divide-border">
                             {group.transactions.map((transaction) => {
-                              console.log("[CompletedReceipts] Rendering transaction:", transaction); // NEW LOG HERE
+                              console.log("[CompletedReceipts] Rendering transaction:", transaction); // Existing log
                               return (
                                 <tr key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background transition-colors">
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
@@ -186,9 +186,11 @@ const CompletedReceipts = () => {
                                     {transaction.description}
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                    {console.log("[CompletedReceipts] Category value in TD:", transaction.category)}
                                     {transaction.category || 'N/A'}
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                    {console.log("[CompletedReceipts] Merchant Name value in TD:", transaction.merchant_name)}
                                     {transaction.merchant_name || 'N/A'}
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
