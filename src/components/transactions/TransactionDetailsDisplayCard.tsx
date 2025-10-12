@@ -47,18 +47,15 @@ const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps
               {transaction.status.replace(/_/g, ' ').charAt(0).toUpperCase() + transaction.status.replace(/_/g, ' ').slice(1)}
             </p>
           </div>
-          {transaction.category && (
-            <div>
-              <p className="font-medium">Category:</p>
-              <p>{transaction.category}</p>
-            </div>
-          )}
-          {transaction.merchant_name && (
-            <div>
-              <p className="font-medium">Merchant Name:</p>
-              <p>{transaction.merchant_name}</p>
-            </div>
-          )}
+          {/* Always render Category and Merchant Name, show 'N/A' if empty */}
+          <div>
+            <p className="font-medium">Category:</p>
+            <p>{transaction.category || 'N/A'}</p>
+          </div>
+          <div>
+            <p className="font-medium">Merchant Name:</p>
+            <p>{transaction.merchant_name || 'N/A'}</p>
+          </div>
           {transaction.original_transaction_id && (
             <div>
               <p className="font-medium">Original Transaction ID:</p>
