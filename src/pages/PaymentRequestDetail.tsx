@@ -35,7 +35,7 @@ const editFormSchema = z.object({
   }),
   invoice_pdf: z.any()
     .optional() // Make optional for editing, only required if a new file is selected
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
+    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.") // 5MB limit per file
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
@@ -151,7 +151,7 @@ const PaymentRequestDetail = () => {
       });
       return usersMap;
     },
-    enabled: !!audits && audits.length > 0,
+    enabled: !!session, // Changed enabled condition
   });
 
   // Form for editing (requester/admin)

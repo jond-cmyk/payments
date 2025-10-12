@@ -143,7 +143,7 @@ const TransactionDetail = () => {
       });
       return usersMap;
     },
-    enabled: !!audits && audits.length > 0,
+    enabled: !!session, // Changed enabled condition
   });
 
   const form = useForm<TransactionDetailSchema>({
@@ -262,7 +262,7 @@ const TransactionDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['myTransactions'] });
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
       queryClient.invalidateQueries({ queryKey: ['completedReceipts'] }); // Invalidate completed receipts list
-      queryClient.invalidateQueries({ queryKey: ['transactionAudits', id] });
+      queryClient.invalidateQueries({ queryKey: ['transactionAudits', id] }); // Invalidate audit trail
       showSuccess("Transaction updated successfully!");
       setIsEditing(false); // Exit editing mode on success
     },
