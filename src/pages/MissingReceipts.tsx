@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown } from 'lucide-react'; // Added ArrowUp, ArrowDown icons
+import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
 import {
@@ -34,9 +34,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input'; // Import Input for amount filter
-import DatePicker from '@/components/DatePicker'; // Import DatePicker for date filter
-import { cn } from '@/lib/utils'; // Import cn for conditional classNames
+import { Input } from '@/components/ui/input';
+import DatePicker from '@/components/DatePicker';
+import { cn } from '@/lib/utils';
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -46,7 +46,7 @@ const MissingReceipts = () => {
 
   // Filter states
   const [filterAmount, setFilterAmount] = useState<string>('');
-  const [filterAssignedUser, setFilterAssignedUser] = useState<string>('all'); // 'all' or user_id
+  const [filterAssignedUser, setFilterAssignedUser] = useState<string>('all');
   const [filterTransactionDate, setFilterTransactionDate] = useState<Date | undefined>(undefined);
 
   // Sorting states
@@ -63,14 +63,14 @@ const MissingReceipts = () => {
     debounceTimeoutRef.current = setTimeout(() => {
       console.log(`[MissingReceipts] Debounced amount filter update for: ${value}`);
       setFilterAmount(value);
-    }, 500); // Increased debounce to 500ms
+    }, 500);
   }, []);
 
   const isAdmin = userProfile?.role === 'admin';
 
   // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection], // Include sort states in query key
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection],
     queryFn: async () => {
       if (!session) return [];
 
@@ -87,10 +87,10 @@ const MissingReceipts = () => {
         query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
       }
       // Add secondary and tertiary sorts for stability, ensuring 'id' is always the final tie-breaker
-      if (sortColumn !== 'created_at') { // Only add if not already sorting by created_at
+      if (sortColumn !== 'created_at') {
         query = query.order('created_at', { ascending: false });
       }
-      if (sortColumn !== 'id') { // Only add if not already sorting by id
+      if (sortColumn !== 'id') {
         query = query.order('id', { ascending: false });
       }
 
@@ -124,7 +124,7 @@ const MissingReceipts = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved'); // Select all fields required by Profile type
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at'); // Select all fields required by Profile type
       if (error) throw error;
       return data;
     },
@@ -163,7 +163,7 @@ const MissingReceipts = () => {
     },
     onSuccess: () => {
       console.log("Transaction reassigned successfully. Invalidating 'missingReceipts' query.");
-      console.log("Current filterAssignedUser:", filterAssignedUser); // Log current filter state
+      console.log("Current filterAssignedUser:", filterAssignedUser);
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
       queryClient.invalidateQueries({ queryKey: ['transactionAudits'] });
       showSuccess("Transaction reassigned successfully!");
@@ -214,7 +214,7 @@ const MissingReceipts = () => {
       setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
     } else {
       setSortColumn(column);
-      setSortDirection('asc'); // Default to ascending when changing column
+      setSortDirection('asc');
     }
   };
 
@@ -229,7 +229,7 @@ const MissingReceipts = () => {
     setFilterAmount('');
     setFilterAssignedUser('all');
     setFilterTransactionDate(undefined);
-    queryClient.invalidateQueries({ queryKey: ['missingReceipts'] }); // Force refetch
+    queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
   };
 
   const hasActiveFilters = filterAmount !== '' || filterAssignedUser !== 'all' || filterTransactionDate !== undefined;
@@ -282,7 +282,7 @@ const MissingReceipts = () => {
   };
 
   const allTransactionsSelected = transactions && transactions.length > 0 && selectedTransactionIds.length === transactions.length;
-  const someTransactionsSelected = selectedTransactionIds.length > 0 && selectedTransactionIds.length < (transactions?.length || 0);
+  // const someTransactionsSelected = selectedTransactionIds.length > 0 && selectedTransactionIds.length < (transactions?.length || 0); // Removed as indeterminate prop is not used
 
   return (
     <div className="container mx-auto py-8">
@@ -367,7 +367,6 @@ const MissingReceipts = () => {
                         <Checkbox
                           checked={allTransactionsSelected}
                           onCheckedChange={handleSelectAll}
-                          // Removed indeterminate prop as it's not directly supported
                           aria-label="Select all transactions"
                         />
                       </TableHead>
@@ -387,7 +386,7 @@ const MissingReceipts = () => {
                         Amount {renderSortIcon('amount')}
                       </div>
                     </TableHead>
-                    <TableHead>Status</TableHead> {/* Status is not directly sortable by string value in a meaningful way */}
+                    <TableHead>Status</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
                       <div className="flex items-center">
                         SKU {renderSortIcon('sku')}
