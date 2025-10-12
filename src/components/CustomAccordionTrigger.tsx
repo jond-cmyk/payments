@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown } from "lucide-react"; // Keep import for now, might be needed for styling or if assumption is wrong
+import { ChevronDown } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -14,13 +14,16 @@ const CustomAccordionTrigger = React.forwardRef<
     <AccordionPrimitive.Trigger
       ref={ref}
       className={cn(
-        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
+        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline", // Removed [&[data-state=open]>svg]:rotate-180 from here
         className
       )}
       {...props}
     >
-      {/* Pass children directly. Assume AccordionPrimitive.Trigger handles its own chevron. */}
-      {children}
+      {/* This wrapper ensures that AccordionPrimitive.Trigger receives only one child */}
+      <div className="flex items-center justify-between w-full">
+        {children}
+        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 [&[data-state=open]]:rotate-180" /> {/* Added rotation class directly to ChevronDown */}
+      </div>
     </AccordionPrimitive.Trigger>
   </AccordionPrimitive.Header>
 ));
