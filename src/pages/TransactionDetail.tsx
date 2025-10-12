@@ -228,6 +228,14 @@ const TransactionDetail = () => {
       const hasMerchantName = !!dbUpdateFields.merchant_name && dbUpdateFields.merchant_name.trim() !== '';
       const hasSku = !!dbUpdateFields.sku && dbUpdateFields.sku.trim() !== '';
 
+      console.log("--- Debugging Transaction Status Update ---");
+      console.log("Current transaction status:", transaction?.status);
+      console.log("Has Receipts:", hasReceipts, "URLs:", updatedReceiptUrls);
+      console.log("Has Category:", hasCategory, "Value:", dbUpdateFields.category);
+      console.log("Has Merchant Name:", hasMerchantName, "Value:", dbUpdateFields.merchant_name);
+      console.log("Has SKU:", hasSku, "Value:", dbUpdateFields.sku);
+      console.log("Is pending_input and all conditions met?", transaction?.status === 'pending_input' && hasReceipts && hasCategory && hasMerchantName && hasSku);
+
       // If the transaction was pending_input and now meets all criteria, set status to 'completed'.
       if (
         transaction?.status === 'pending_input' &&
@@ -237,8 +245,10 @@ const TransactionDetail = () => {
         hasSku
       ) {
         newStatus = 'completed';
+        console.log("New status set to 'completed'.");
+      } else {
+        console.log("Conditions for 'completed' status not met. Status remains:", newStatus);
       }
-      // Otherwise, retain the current status. If it was already 'completed', it stays 'completed'.
 
       const { error } = await supabase
         .from('transactions')
