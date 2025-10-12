@@ -43,6 +43,7 @@ const Dashboard = () => {
   const [filterSkuNumber, setFilterSkuNumber] = useState('');
   const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
   const [filterDatePaymentRequired, setFilterDatePaymentRequired] = useState<Date | undefined>(undefined);
+  const [filterRequester, setFilterRequester] = useState<string>('all'); // New state for requester filter
 
   // Sorting states for the table
   const [sortColumn, setSortColumn] = useState<keyof PaymentRequest | null>('created_at');
@@ -84,8 +85,8 @@ const Dashboard = () => {
     if (statusParam && (statusParam === 'pending' || statusParam === 'setup_awaiting_approval' || statusParam === 'approved' || statusParam === 'declined' || statusParam === 'queried' || statusParam === 'all')) {
       setFilterStatus(statusParam);
     } else if (location.pathname === '/admin/requests') {
-      // If on admin requests page but no status param, default to 'pending'
-      setFilterStatus('pending');
+      // If on admin requests page and no status param, default to 'all'
+      setFilterStatus('all');
     } else {
       // For requester's personal dashboard, default to 'pending'
       setFilterStatus('pending');
@@ -149,10 +150,24 @@ const Dashboard = () => {
     return initialCounts;
   }, [allPaymentRequestsForSummaryQuery.data, allMissingReceiptsCountForSummaryQuery.data]);
 
+  // Fetch all user profiles for the requester dropdown filter
+  const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
+    queryKey: ['allProfilesForFilter'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profile_with_email')
+        .select('id, first_name, last_name, user_email')
+        .order('first_name', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session && isAllRequestsPage, // Only fetch if on admin requests page
+  });
+
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<PaymentRequest[]>({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, isAllRequestsPage, isRequesterPersonalDashboard, sortColumn, sortDirection],
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, sortColumn, sortDirection],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return []; // Do not fetch if global search is active
 
@@ -171,12 +186,14 @@ const Dashboard = () => {
         if (filterSkuNumber) {
           query = query.ilike('sku_number', `%${filterSkuNumber}%`);
         }
-        // Apply filterStatus, which defaults to 'pending' if not set by URL
         if (filterStatus !== 'all') {
           query = query.eq('status', filterStatus);
         }
         if (filterDatePaymentRequired) {
           query = query.gte('date_payment_required', format(filterDatePaymentRequired, 'yyyy-MM-dd'));
+        }
+        if (filterRequester !== 'all') { // Apply requester filter
+          query = query.eq('requester_id', filterRequester);
         }
       }
       // If it's an admin on /dashboard, no requester_id filter is applied, so they see all requests by default.
@@ -281,12 +298,12 @@ const Dashboard = () => {
   };
 
 
-  const initialFilterStatus = 'pending';
   const clearFilters = () => {
     setFilterSupplierName('');
     setFilterSkuNumber('');
-    setFilterStatus(initialFilterStatus);
+    setFilterStatus('all'); // Default to 'all' when clearing filters on admin page
     setFilterDatePaymentRequired(undefined);
+    setFilterRequester('all'); // Clear requester filter
     setSearchParams({}); // Clear URL search params
     queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Force refetch
   };
@@ -307,9 +324,9 @@ const Dashboard = () => {
     return null;
   };
 
-  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== initialFilterStatus;
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== 'all' || filterRequester !== 'all';
 
-  if (isLoading || allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || isRequestsTableLoading || isSearchLoading) {
+  if (isLoading || allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || isRequestsTableLoading || isSearchLoading || (isAllRequestsPage && isProfilesLoading)) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
   }
 
@@ -328,6 +345,10 @@ const Dashboard = () => {
 
   if (searchError) {
     return <div className="flex items-center justify-center h-full text-red-500">Error during search: {searchError.message}</div>;
+  }
+
+  if (profilesError) {
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading profiles for filter: {profilesError.message}</div>;
   }
 
   const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status']) => {
@@ -579,6 +600,19 @@ const Dashboard = () => {
                 placeholder="Filter by Payment Date"
                 className="w-[200px]"
               />
+              <Select value={filterRequester} onValueChange={setFilterRequester}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Filter by Requester" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Requesters</SelectItem>
+                  {allProfiles?.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.id}>
+                      {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {hasActiveFilters && (
                 <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
                   <XCircle className="h-4 w-4" /> Clear Filters
