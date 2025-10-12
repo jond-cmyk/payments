@@ -460,7 +460,12 @@ const PaymentRequestDetail = () => {
             <Button variant="outline" onClick={() => { setIsEditing(false); editForm.reset(); }}>
               Cancel
             </Button>
-            <Button form="edit-request-form" type="submit" className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
+            <Button 
+              form="edit-request-form" 
+              type="submit" 
+              className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground"
+              disabled={updateRequestMutation.isPending} // Disable button when mutation is pending
+            >
               Save Changes
             </Button>
           </div>
