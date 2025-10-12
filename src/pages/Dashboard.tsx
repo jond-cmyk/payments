@@ -659,7 +659,14 @@ const Dashboard = () => {
                         </TableCell>
                       )}
                       <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm">
+                        <Button
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            request.is_urgent && "text-gray-900 hover:text-white hover:bg-red-800 border-gray-900" // Explicitly set text color for urgent rows
+                          )}
+                        >
                           <Link to={`/request/${request.id}`}>View Details</Link>
                         </Button>
                       </TableCell>
