@@ -109,12 +109,14 @@ const TransactionDetail = () => {
     queryKey: ['transactionAudits', id],
     queryFn: async () => {
       if (!id) return [];
+      console.log(`[TransactionAudits Query] Fetching audits for transaction ID: ${id}`); // Log when query runs
       const { data, error } = await supabase
         .from('transaction_audits')
         .select('*')
         .eq('transaction_id', id)
         .order('changed_at', { ascending: false });
       if (error) throw error;
+      console.log(`[TransactionAudits Query] Fetched ${data?.length || 0} audits:`, data); // Log fetched data
       return data;
     },
     enabled: !!id,
@@ -262,7 +264,10 @@ const TransactionDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['myTransactions'] });
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
       queryClient.invalidateQueries({ queryKey: ['completedReceipts'] }); // Invalidate completed receipts list
-      queryClient.invalidateQueries({ queryKey: ['transactionAudits', id] }); // Invalidate audit trail
+      // Add a small delay before refetching audits to allow the database trigger to complete
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['transactionAudits', id] });
+      }, 500); // 500ms delay
       showSuccess("Transaction updated successfully!");
       setIsEditing(false); // Exit editing mode on success
     },
