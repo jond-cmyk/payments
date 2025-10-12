@@ -302,7 +302,6 @@ const TransactionDetail = () => {
         notes: values.notes,
         sku: values.not_sku_related ? null : values.sku, // Set to null if not SKU related
         not_sku_related: values.not_sku_related, // Save the checkbox state
-        reason_for_payment: values.category, // Assuming category can also be reason for payment
         comment: values.comment,
       };
 
