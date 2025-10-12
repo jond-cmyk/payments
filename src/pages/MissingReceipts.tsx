@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw } from 'lucide-react'; // Added Filter and RotateCcw icons
+import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown } from 'lucide-react'; // Added ArrowUp, ArrowDown icons
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
 import {
@@ -36,6 +36,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input'; // Import Input for amount filter
 import DatePicker from '@/components/DatePicker'; // Import DatePicker for date filter
+import { cn } from '@/lib/utils'; // Import cn for conditional classNames
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -47,6 +48,10 @@ const MissingReceipts = () => {
   const [filterAmount, setFilterAmount] = useState<string>('');
   const [filterAssignedUser, setFilterAssignedUser] = useState<string>('all'); // 'all' or user_id
   const [filterTransactionDate, setFilterTransactionDate] = useState<Date | undefined>(undefined);
+
+  // Sorting states
+  const [sortColumn, setSortColumn] = useState<keyof Transaction | null>('transaction_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Debounce for amount input
   const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -64,27 +69,35 @@ const MissingReceipts = () => {
 
   // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate], // Include filters in query key
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection], // Include sort states in query key
     queryFn: async () => {
       if (!session) return [];
 
-      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}`);
+      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, sortColumn=${sortColumn}, sortDirection=${sortDirection}`);
 
       let query = supabase
         .from('transactions')
         .select('*')
         .eq('status', 'pending_input')
-        .eq('receipt_urls', '{}')
-        .order('transaction_date', { ascending: false }) // Primary sort
-        .order('created_at', { ascending: false }) // Secondary sort for stability
-        .order('id', { ascending: false }); // Tertiary sort for absolute stability
+        .eq('receipt_urls', '{}');
 
-      // Re-enabling filterAssignedUser
+      // Apply dynamic sorting
+      if (sortColumn) {
+        query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+      }
+      // Add secondary and tertiary sorts for stability, ensuring 'id' is always the final tie-breaker
+      if (sortColumn !== 'created_at') { // Only add if not already sorting by created_at
+        query = query.order('created_at', { ascending: false });
+      }
+      if (sortColumn !== 'id') { // Only add if not already sorting by id
+        query = query.order('id', { ascending: false });
+      }
+
+      // Apply filters
       if (filterAssignedUser !== 'all') {
         query = query.eq('requester_id', filterAssignedUser);
       }
 
-      // Re-enabling other filters
       if (filterAmount) {
         const amountNum = parseFloat(filterAmount);
         if (!isNaN(amountNum)) {
@@ -194,6 +207,22 @@ const MissingReceipts = () => {
     } catch (error) {
       dismissToast(toastId);
     }
+  };
+
+  const handleSort = (column: keyof Transaction) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc'); // Default to ascending when changing column
+    }
+  };
+
+  const renderSortIcon = (column: keyof Transaction) => {
+    if (sortColumn === column) {
+      return sortDirection === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />;
+    }
+    return null;
   };
 
   const clearFilters = () => {
@@ -343,13 +372,37 @@ const MissingReceipts = () => {
                         />
                       </TableHead>
                     )}
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>SKU</TableHead>
-                    <TableHead>Reason for Payment</TableHead>
-                    <TableHead>Assigned To</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('transaction_date')}>
+                      <div className="flex items-center">
+                        Date {renderSortIcon('transaction_date')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('description')}>
+                      <div className="flex items-center">
+                        Description {renderSortIcon('description')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('amount')}>
+                      <div className="flex items-center">
+                        Amount {renderSortIcon('amount')}
+                      </div>
+                    </TableHead>
+                    <TableHead>Status</TableHead> {/* Status is not directly sortable by string value in a meaningful way */}
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
+                      <div className="flex items-center">
+                        SKU {renderSortIcon('sku')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('reason_for_payment')}>
+                      <div className="flex items-center">
+                        Reason for Payment {renderSortIcon('reason_for_payment')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('requester_id')}>
+                      <div className="flex items-center">
+                        Assigned To {renderSortIcon('requester_id')}
+                      </div>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
