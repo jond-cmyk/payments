@@ -175,33 +175,36 @@ const CompletedReceipts = () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-border">
-                            {group.transactions.map((transaction) => (
-                              <tr key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background transition-colors">
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
-                                  {format(parseISO(transaction.transaction_date), 'PPP')}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                                  {transaction.description}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
-                                  {transaction.category || 'N/A'}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
-                                  {transaction.merchant_name || 'N/A'}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
-                                  {transaction.currency} {transaction.amount.toFixed(2)}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-sm">
-                                  {getStatusBadge(transaction.status)}
-                                </td>
-                                <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                  <Button asChild variant="outline" size="sm" className="shadow-sm">
-                                    <Link to={`/transaction/${transaction.id}`}>View Details</Link>
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
+                            {group.transactions.map((transaction) => {
+                              console.log("[CompletedReceipts] Rendering transaction:", transaction); // NEW LOG HERE
+                              return (
+                                <tr key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background transition-colors">
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                    {format(parseISO(transaction.transaction_date), 'PPP')}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                                    {transaction.description}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                    {transaction.category || 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                    {transaction.merchant_name || 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                    {transaction.currency} {transaction.amount.toFixed(2)}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-sm">
+                                    {getStatusBadge(transaction.status)}
+                                  </td>
+                                  <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <Button asChild variant="outline" size="sm" className="shadow-sm">
+                                      <Link to={`/transaction/${transaction.id}`}>View Details</Link>
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
