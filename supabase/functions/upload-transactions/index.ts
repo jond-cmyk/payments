@@ -109,6 +109,22 @@ serve(async (req) => {
       });
     }
 
+    // Fetch existing 'entry' values from the database for uniqueness check
+    const { data: existingEntriesData, error: fetchEntriesError } = await supabaseClient
+      .from('transactions')
+      .select('entry');
+
+    if (fetchEntriesError) {
+      console.error('[upload-transactions] Error fetching existing entries:', fetchEntriesError);
+      return new Response(JSON.stringify({ error: `Failed to fetch existing entries for uniqueness check: ${fetchEntriesError.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const existingEntries = new Set(existingEntriesData?.map(row => row.entry).filter(Boolean) || []);
+    console.log(`[upload-transactions] Fetched ${existingEntries.size} existing unique entries.`);
+
     // Cache for user_email to user_id lookups
     const userEmailToIdCache = new Map<string, string | null>();
 
@@ -146,6 +162,14 @@ serve(async (req) => {
       // Validate required fields
       if (!transaction_date_str || !description || !amount_str || !currency) {
         const msg = `Missing required fields (Date, Text, Amount, or Currency). Skipping record: ${JSON.stringify(record)}`;
+        errors.push(msg);
+        console.warn(`[upload-transactions] ${msg}`);
+        continue;
+      }
+
+      // Uniqueness check for 'Entry' field
+      if (entry && existingEntries.has(entry)) {
+        const msg = `Skipping transaction with duplicate Entry number: '${entry}'.`;
         errors.push(msg);
         console.warn(`[upload-transactions] ${msg}`);
         continue;
@@ -235,6 +259,7 @@ serve(async (req) => {
       console.log(`[upload-transactions] First transaction to insert: ${JSON.stringify(transactionsToInsert[0])}`);
     }
 
+    let insertedCount = 0;
     if (transactionsToInsert.length > 0) {
       const { data: insertData, error: insertError } = await supabaseClient
         .from('transactions')
@@ -248,17 +273,18 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      console.log(`[upload-transactions] Successfully inserted ${insertData?.length || 0} transactions.`);
+      insertedCount = insertData?.length || 0;
+      console.log(`[upload-transactions] Successfully inserted ${insertedCount} transactions.`);
     } else {
       console.warn('[upload-transactions] No transactions to insert after processing.');
     }
 
-    let message = `${transactionsToInsert.length} transactions processed successfully.`;
+    let message = `${insertedCount} transactions inserted successfully.`;
     if (errors.length > 0) {
-      message += ` ${errors.length} records skipped due to errors. Please check logs for details.`;
+      message += ` ${errors.length} records skipped due to errors (e.g., duplicates, invalid format).`;
       console.error('[upload-transactions] Transaction processing errors summary:', errors);
       return new Response(JSON.stringify({ message: message, errors: errors }), {
-        status: 400,
+        status: 200, // Still 200 OK if some processed, but include errors
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
