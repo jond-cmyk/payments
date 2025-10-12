@@ -347,16 +347,6 @@ const TransactionDetail = () => {
             Amend Transaction
           </Button>
         )}
-        {isEditing && (
-          <div className="space-x-2">
-            <Button variant="outline" onClick={() => { setIsEditing(false); form.reset(); }} className="shadow-sm"> {/* Added shadow-sm */}
-              Cancel
-            </Button>
-            <Button type="submit" form="transaction-edit-form" className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"> {/* Added shadow-sm */}
-              Save Changes
-            </Button>
-          </div>
-        )}
       </div>
 
       <TransactionAdminActionsCard
@@ -375,6 +365,17 @@ const TransactionDetail = () => {
         updateTransactionMutation={updateTransactionMutation}
         categoryOptions={categoryOptions}
       />
+
+      {isEditing && (
+        <div className="flex justify-end space-x-2 mb-8"> {/* Moved this block here */}
+          <Button variant="outline" onClick={() => { setIsEditing(false); form.reset(); }} className="shadow-sm">
+            Cancel
+          </Button>
+          <Button type="submit" form="transaction-edit-form" className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm">
+            Save Changes
+          </Button>
+        </div>
+      )}
 
       <TransactionAuditTrailCard
         audits={audits}
