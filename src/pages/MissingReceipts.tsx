@@ -442,10 +442,13 @@ const MissingReceipts = () => {
                         </Select>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm" className="shadow-sm"> {/* Added shadow-sm */}
-                          <Link to={`/transaction/${transaction.id}`}>
-                            <span>View/Add Receipt</span> {/* Wrapped text in span */}
-                          </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shadow-sm"
+                          onClick={() => navigate(`/transaction/${transaction.id}`)} // Changed from asChild Link to onClick navigate
+                        >
+                          <span>View/Add Receipt</span>
                         </Button>
                       </TableCell>
                     </TableRow>
