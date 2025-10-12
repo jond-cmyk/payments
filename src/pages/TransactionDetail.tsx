@@ -252,6 +252,8 @@ const TransactionDetail = () => {
         })
         .eq('id', id);
 
+      console.log("Supabase update result error:", error); // New log here!
+
       if (error) throw error;
       return true;
     },
