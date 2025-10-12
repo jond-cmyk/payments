@@ -23,7 +23,8 @@ import { Card } from '@/components/ui/card'; // Import Card
 // Zod schema for editing payment requests (requester)
 const editFormSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
-  sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."),
+  sku_number: z.string().optional(), // Make optional initially, then refine
+  not_sku_related: z.boolean().default(false), // New field
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
   currency: z.string().min(1, "Currency is required"),
@@ -33,11 +34,33 @@ const editFormSchema = z.object({
     required_error: "Date Payment Required is required",
   }),
   invoice_pdf: z.any()
-    .optional()
+    .optional() // Make optional for editing, only required if a new file is selected
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
+}).superRefine((data, ctx) => {
+  if (!data.not_sku_related) {
+    if (!data.sku_number || data.sku_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number is required unless 'Not SKU Related' is checked.",
+        path: ['sku_number'],
+      });
+    } else if (!data.sku_number.startsWith('CH')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number must start with 'CH'.",
+        path: ['sku_number'],
+      });
+    } else if (!/^CH\d+$/.test(data.sku_number)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number must be 'CH' followed by numbers.",
+        path: ['sku_number'],
+      });
+    }
+  }
 });
 
 // Zod schema for admin query note
@@ -137,6 +160,7 @@ const PaymentRequestDetail = () => {
     defaultValues: {
       supplier_name: "",
       sku_number: "CH",
+      not_sku_related: false, // Default to false
       supplier_address: "",
       iban_number: "",
       currency: "CHF", // Default to CHF
@@ -154,7 +178,8 @@ const PaymentRequestDetail = () => {
     if (request && isEditing) {
       editForm.reset({
         supplier_name: request.supplier_name,
-        sku_number: request.sku_number,
+        sku_number: request.sku_number || "CH", // Ensure default for PrefixedInput
+        not_sku_related: request.not_sku_related, // Set the checkbox state
         supplier_address: request.supplier_address,
         iban_number: request.iban_number,
         currency: request.currency,
@@ -287,7 +312,8 @@ const PaymentRequestDetail = () => {
     try {
       const updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList } = {
         supplier_name: values.supplier_name,
-        sku_number: values.sku_number,
+        sku_number: values.not_sku_related ? null : values.sku_number, // Set to null if not SKU related
+        not_sku_related: values.not_sku_related, // Save the checkbox state
         supplier_address: values.supplier_address,
         iban_number: values.iban_number,
         currency: values.currency,

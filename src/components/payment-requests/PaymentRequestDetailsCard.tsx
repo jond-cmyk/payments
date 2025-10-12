@@ -62,7 +62,8 @@ const majorCurrencies = [
 // Zod schema for editing payment requests (requester)
 const editFormSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
-  sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."),
+  sku_number: z.string().optional(), // Make optional initially, then refine
+  not_sku_related: z.boolean().default(false), // New field
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
   currency: z.string().min(1, "Currency is required"),
@@ -77,6 +78,28 @@ const editFormSchema = z.object({
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
+}).superRefine((data, ctx) => {
+  if (!data.not_sku_related) {
+    if (!data.sku_number || data.sku_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number is required unless 'Not SKU Related' is checked.",
+        path: ['sku_number'],
+      });
+    } else if (!data.sku_number.startsWith('CH')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number must start with 'CH'.",
+        path: ['sku_number'],
+      });
+    } else if (!/^CH\d+$/.test(data.sku_number)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number must be 'CH' followed by numbers.",
+        path: ['sku_number'],
+      });
+    }
+  }
 });
 
 interface PaymentRequestDetailsCardProps {
@@ -114,6 +137,9 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
         return status;
     }
   };
+
+  // Watch the not_sku_related field to dynamically update validation and input state
+  const notSkuRelated = editForm.watch("not_sku_related");
 
   return (
     <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
@@ -159,11 +185,36 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="sku_number"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">SKU Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <FormLabel className="font-semibold">SKU Number</FormLabel>
                     <FormControl>
-                      <PrefixedInput prefix="CH" {...field} />
+                      <PrefixedInput prefix="CH" {...field} disabled={notSkuRelated} />
                     </FormControl>
+                    <FormDescription>
+                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : "SKU Number must start with 'CH' and be followed by numbers."}
+                    </FormDescription>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="not_sku_related"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Not SKU Related
+                      </FormLabel>
+                      <FormDescription>
+                        Check this box if this payment request is not associated with an SKU.
+                      </FormDescription>
+                    </div>
                   </FormItem>
                 )}
               />
@@ -353,7 +404,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
             </div>
             <div>
               <p className="font-medium">SKU Number:</p>
-              <p>{request.sku_number}</p>
+              <p>{request.not_sku_related ? 'N/A (Not SKU Related)' : request.sku_number}</p>
             </div>
             <div>
               <p className="font-medium">Supplier Address:</p>

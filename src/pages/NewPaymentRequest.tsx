@@ -61,7 +61,8 @@ const majorCurrencies = [
 // Define the Zod schema for form validation
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
-  sku_number: z.string().regex(/^CH\d+$/, "SKU Number must start with 'CH' and be followed by numbers."),
+  sku_number: z.string().optional(), // Make optional initially, then refine
+  not_sku_related: z.boolean().default(false), // New field
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
   currency: z.string().min(1, "Currency is required"),
@@ -76,6 +77,28 @@ const formSchema = z.object({
     .refine((files) => Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
+}).superRefine((data, ctx) => {
+  if (!data.not_sku_related) {
+    if (!data.sku_number || data.sku_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number is required unless 'Not SKU Related' is checked.",
+        path: ['sku_number'],
+      });
+    } else if (!data.sku_number.startsWith('CH')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number must start with 'CH'.",
+        path: ['sku_number'],
+      });
+    } else if (!/^CH\d+$/.test(data.sku_number)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "SKU Number must be 'CH' followed by numbers.",
+        path: ['sku_number'],
+      });
+    }
+  }
 });
 
 const NewPaymentRequest = () => {
@@ -87,6 +110,7 @@ const NewPaymentRequest = () => {
     defaultValues: {
       supplier_name: "",
       sku_number: "CH",
+      not_sku_related: false, // Default to false
       supplier_address: "",
       iban_number: "",
       currency: "CHF",
@@ -98,6 +122,9 @@ const NewPaymentRequest = () => {
       is_urgent: false, // Default to not urgent
     },
   });
+
+  // Watch the not_sku_related field to dynamically update validation and input state
+  const notSkuRelated = form.watch("not_sku_related");
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -151,7 +178,8 @@ const NewPaymentRequest = () => {
         .insert({
           requester_id: user.id,
           supplier_name: values.supplier_name,
-          sku_number: values.sku_number,
+          sku_number: values.not_sku_related ? null : values.sku_number, // Set to null if not SKU related
+          not_sku_related: values.not_sku_related, // Save the checkbox state
           supplier_address: values.supplier_address,
           iban_number: values.iban_number,
           currency: values.currency,
@@ -170,7 +198,7 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false, is_urgent: false, invoice_pdf: undefined });
+      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false, is_urgent: false, not_sku_related: false, invoice_pdf: undefined });
       navigate('/dashboard');
     } catch (error: any) {
       dismissToast(toastId);
@@ -206,11 +234,36 @@ const NewPaymentRequest = () => {
                 name="sku_number"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">SKU Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <FormLabel className="font-semibold">SKU Number</FormLabel>
                     <FormControl>
-                      <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} />
+                      <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} disabled={notSkuRelated} />
                     </FormControl>
+                    <FormDescription>
+                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : "SKU Number must start with 'CH' and be followed by numbers."}
+                    </FormDescription>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="not_sku_related"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>
+                        Not SKU Related
+                      </FormLabel>
+                      <FormDescription>
+                        Check this box if this payment request is not associated with an SKU.
+                      </FormDescription>
+                    </div>
                   </FormItem>
                 )}
               />

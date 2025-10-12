@@ -20,6 +20,7 @@ export type PaymentRequest = {
   payment_approved_date: string | null; // New field
   receipt_required: boolean; // New field
   is_urgent: boolean; // New field for urgent requests
+  not_sku_related: boolean; // New field
 };
 
 export type Transaction = {
@@ -46,6 +47,7 @@ export type Transaction = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  not_sku_related: boolean; // New field
 };
 
 export type Profile = {

@@ -151,7 +151,8 @@ const TransactionDetail = () => {
       category: "",
       merchant_name: "",
       notes: "",
-      sku: "",
+      sku: "CH", // Default for PrefixedInput
+      not_sku_related: false, // Default to false
       comment: "",
       new_receipt_files: undefined,
     },
@@ -164,7 +165,8 @@ const TransactionDetail = () => {
         category: transaction.category || "",
         merchant_name: transaction.merchant_name || "",
         notes: transaction.notes || "",
-        sku: transaction.sku || "",
+        sku: transaction.sku || "CH", // Ensure default for PrefixedInput
+        not_sku_related: transaction.not_sku_related, // Set the checkbox state
         comment: transaction.comment || "",
         new_receipt_files: undefined, // Always reset file input
       });
@@ -215,14 +217,14 @@ const TransactionDetail = () => {
       const hasReceipts = updatedReceiptUrls.length > 0;
       const hasCategory = !!dbUpdateFields.category && dbUpdateFields.category.trim() !== '';
       const hasMerchantName = !!dbUpdateFields.merchant_name && dbUpdateFields.merchant_name.trim() !== '';
-      const hasSku = !!dbUpdateFields.sku && dbUpdateFields.sku.trim() !== '';
+      const hasSku = dbUpdateFields.not_sku_related || (!!dbUpdateFields.sku && dbUpdateFields.sku.trim() !== ''); // SKU is optional if not_sku_related
 
       console.log("--- Debugging Transaction Status Update ---");
       console.log("Current transaction status:", transaction?.status);
       console.log("Has Receipts:", hasReceipts, "URLs:", updatedReceiptUrls);
       console.log("Has Category:", hasCategory, "Value:", dbUpdateFields.category);
       console.log("Has Merchant Name:", hasMerchantName, "Value:", dbUpdateFields.merchant_name);
-      console.log("Has SKU:", hasSku, "Value:", dbUpdateFields.sku);
+      console.log("Has SKU:", hasSku, "Value:", dbUpdateFields.sku, "Not SKU Related:", dbUpdateFields.not_sku_related);
       console.log("Is pending_input and all conditions met?", transaction?.status === 'pending_input' && hasReceipts && hasCategory && hasMerchantName && hasSku);
 
       // If the transaction was pending_input and now meets all criteria, set status to 'completed'.
@@ -297,7 +299,8 @@ const TransactionDetail = () => {
         category: values.category,
         merchant_name: values.merchant_name,
         notes: values.notes,
-        sku: values.sku,
+        sku: values.not_sku_related ? null : values.sku, // Set to null if not SKU related
+        not_sku_related: values.not_sku_related, // Save the checkbox state
         reason_for_payment: values.category, // Assuming category can also be reason for payment
         comment: values.comment,
       };

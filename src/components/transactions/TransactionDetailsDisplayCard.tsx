@@ -83,6 +83,10 @@ const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps
               <p>{transaction.exchange_rate}</p>
             </div>
           )}
+          <div>
+            <p className="font-medium">SKU:</p>
+            <p>{transaction.not_sku_related ? 'N/A (Not SKU Related)' : (transaction.sku || 'N/A')}</p>
+          </div>
         </div>
       </CardContent>
     </Card>

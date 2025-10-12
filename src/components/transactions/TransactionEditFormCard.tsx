@@ -9,11 +9,12 @@ import { UseMutationResult } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import FileInput from '@/components/FileInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import { Transaction } from '@/types/supabase';
 import PrefixedInput from '@/components/PrefixedInput'; // Import PrefixedInput
 import { transactionDetailSchema, TransactionDetailSchema } from '@/schemas/transactionSchema'; // Import centralized schema
@@ -35,6 +36,9 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
   updateTransactionMutation,
   categoryOptions,
 }) => {
+  // Watch the not_sku_related field to dynamically update validation and input state
+  const notSkuRelated = form.watch("not_sku_related");
+
   return (
     <Card className="max-w-2xl mx-auto mb-8 shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
@@ -99,11 +103,37 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="sku"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="font-semibold">SKU<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <FormLabel className="font-semibold">SKU</FormLabel>
                   <FormControl>
-                    <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} disabled={!isEditingMode} />
+                    <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} disabled={!isEditingMode || notSkuRelated} />
                   </FormControl>
+                  <FormDescription>
+                    {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : "SKU must start with 'CH' and be followed by numbers."}
+                  </FormDescription>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="not_sku_related"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={!isEditingMode}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Not SKU Related
+                    </FormLabel>
+                    <FormDescription>
+                      Check this box if this transaction is not associated with an SKU.
+                    </FormDescription>
+                  </div>
                 </FormItem>
               )}
             />
