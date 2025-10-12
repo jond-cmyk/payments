@@ -209,7 +209,7 @@ const Dashboard = () => {
       if (!debouncedSearchTerm) return [];
 
       const term = `%${debouncedSearchTerm}%`;
-      const searchPromises: Promise<any>[] = [];
+      const searchPromises: Promise<SearchResult>[] = []; // Explicitly type the array of Promises
 
       searchPromises.push(
         supabase
@@ -222,7 +222,7 @@ const Dashboard = () => {
               return [];
             }
             return data ? data.map(item => ({ ...item, type: 'payment_request' })) : [];
-          })
+          }) as Promise<SearchResult[]> // Explicitly cast to Promise<SearchResult[]>
       );
 
       searchPromises.push(
@@ -238,7 +238,7 @@ const Dashboard = () => {
               return [];
             }
             return data ? data.map(item => ({ ...item, type: 'transaction' })) : [];
-          })
+          }) as Promise<SearchResult[]> // Explicitly cast to Promise<SearchResult[]>
       );
 
       const results = await Promise.all(searchPromises);
