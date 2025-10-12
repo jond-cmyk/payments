@@ -17,13 +17,16 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban, FileX } from 'lucide-react'; // Import FileX icon
+import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban, FileX, Search } from 'lucide-react'; // Import Search icon
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
 import { Card, CardContent, CardHeader, CardTitle }
 from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+
+// Define a union type for search results
+type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
 
 const Dashboard = () => {
   const { session, isLoading, user, userProfile } = useSession(); // Use userProfile from context
@@ -32,7 +35,7 @@ const Dashboard = () => {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const userRole = userProfile?.role || null; // Get role directly from userProfile
+  const userRole = userProfile?.role || null;
 
   // Filter states for the table
   const [filterSupplierName, setFilterSupplierName] = useState('');
@@ -40,7 +43,11 @@ const Dashboard = () => {
   const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
   const [filterDatePaymentRequired, setFilterDatePaymentRequired] = useState<Date | undefined>(undefined);
 
-  // Debounce for text inputs
+  // Global Search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+
+  // Debounce for text inputs (filters and global search)
   const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
@@ -51,6 +58,18 @@ const Dashboard = () => {
       setter(value);
     }, 300); // 300ms debounce
   }, []);
+
+  // Effect to debounce global search term
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500); // 500ms debounce for global search
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTerm]);
+
 
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
@@ -83,7 +102,7 @@ const Dashboard = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!session, // Enabled for any approved user
+    enabled: !!session && !debouncedSearchTerm, // Enabled for any approved user, only if no search term
   });
 
   const { data: allMissingReceiptsCountForSummary, isLoading: isAllMissingReceiptsSummaryLoading } = useQuery<number>({
@@ -97,14 +116,14 @@ const Dashboard = () => {
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!session, // Enabled for any approved user
+    enabled: !!session && !debouncedSearchTerm, // Enabled for any approved user, only if no search term
   });
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<PaymentRequest[]>({
     queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, isAllRequestsPage, isRequesterPersonalDashboard],
     queryFn: async () => {
-      if (!user?.id || !userRole) return [];
+      if (!user?.id || !userRole || debouncedSearchTerm) return []; // Do not fetch if global search is active
 
       let query = supabase.from('payment_requests').select('*');
 
@@ -132,7 +151,54 @@ const Dashboard = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id && !!userRole,
+    enabled: !!user?.id && !!userRole && !debouncedSearchTerm, // Enabled only if no global search term
+  });
+
+  // --- Global Search Query ---
+  const { data: searchResults, isLoading: isSearchLoading, error: searchError } = useQuery<SearchResult[]>({
+    queryKey: ['globalSearch', debouncedSearchTerm],
+    queryFn: async () => {
+      if (!debouncedSearchTerm) return [];
+
+      const term = `%${debouncedSearchTerm}%`;
+      const searchPromises: Promise<any>[] = [];
+
+      // Search Payment Requests
+      searchPromises.push(
+        supabase
+          .from('payment_requests')
+          .select('*')
+          .or(`supplier_name.ilike.${term},sku_number.ilike.${term},supplier_address.ilike.${term},iban_number.ilike.${term},currency.ilike.${term},reason_for_payment.ilike.${term},admin_action_reason.ilike.${term}`)
+          .then(({ data, error }) => {
+            if (error) {
+              console.error("Error searching payment requests:", error);
+              return [];
+            }
+            return data ? data.map(item => ({ ...item, type: 'payment_request' })) : [];
+          })
+      );
+
+      // Search Missing Receipts (Transactions)
+      searchPromises.push(
+        supabase
+          .from('transactions')
+          .select('*')
+          .eq('status', 'pending_input') // Only missing receipts
+          .eq('receipt_urls', '{}') // Only missing receipts
+          .or(`description.ilike.${term},type.ilike.${term},entry.ilike.${term},bank.ilike.${term},contra_account.ilike.${term},currency.ilike.${term},comment.ilike.${term},sku.ilike.${term},reason_for_payment.ilike.${term},category.ilike.${term},merchant_name.ilike.${term},notes.ilike.${term}`)
+          .then(({ data, error }) => {
+            if (error) {
+              console.error("Error searching transactions:", error);
+              return [];
+            }
+            return data ? data.map(item => ({ ...item, type: 'transaction' })) : [];
+          })
+      );
+
+      const results = await Promise.all(searchPromises);
+      return results.flat();
+    },
+    enabled: !!debouncedSearchTerm && !!session, // Only run if there's a search term and session
   });
 
 
@@ -181,7 +247,7 @@ const Dashboard = () => {
   }, [allPaymentRequestsForSummary, allMissingReceiptsCountForSummary]);
 
 
-  if (isLoading || isAllRequestsSummaryLoading || isAllMissingReceiptsSummaryLoading || isRequestsTableLoading) {
+  if (isLoading || isAllRequestsSummaryLoading || isAllMissingReceiptsSummaryLoading || isRequestsTableLoading || isSearchLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
   }
 
@@ -198,12 +264,17 @@ const Dashboard = () => {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading requests: {requestsError.message}</div>;
   }
 
-  const getStatusBadge = (status: PaymentRequest['status']) => {
-    let displayText = status.charAt(0).toUpperCase() + status.slice(1);
+  if (searchError) {
+    return <div className="flex items-center justify-center h-full text-red-500">Error during search: {searchError.message}</div>;
+  }
+
+  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status']) => {
+    let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
     let className = '';
 
     switch (status) {
       case 'pending':
+      case 'pending_input':
         className = 'bg-yellow-500 text-yellow-50';
         break;
       case 'setup_awaiting_approval':
@@ -211,14 +282,15 @@ const Dashboard = () => {
         className = 'bg-blue-500 text-blue-50';
         break;
       case 'approved':
-        displayText = 'Payment Complete';
+      case 'completed':
+        displayText = status === 'approved' ? 'Payment Complete' : 'Receipt Added';
         className = 'bg-green-500 text-green-50';
         break;
       case 'declined':
         className = 'bg-red-500 text-red-50';
         break;
       case 'queried':
-        className = 'bg-gray-500 text-gray-50'; // Changed to text-gray-600
+        className = 'bg-gray-500 text-gray-50';
         break;
       default:
         className = 'bg-gray-500 text-gray-50';
@@ -308,7 +380,7 @@ const Dashboard = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">
-          {isAllRequestsPage ? 'All Payment Requests' : 'My Payment Requests'}
+          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (isAllRequestsPage ? 'All Payment Requests' : 'My Payment Requests')}
         </h1>
         {(userRole === 'requester' || userRole === 'admin') && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
@@ -318,129 +390,199 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Summary Cards - Only show if not on the 'All Requests' page */}
-      {!isAllRequestsPage && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
-          {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
-            const status = statusKey as PaymentRequest['status'] | 'missing_receipts';
-            const { borderClass, textClass, icon, title, description, link } = getCardStyling(status);
-            return (
-              <Link key={status} to={link} className="block">
-                <Card className={cn("border-l-4 cursor-pointer hover:shadow-lg transition-shadow", borderClass)}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
-                    <span className={textClass}>{icon}</span>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{counts[status]}</div>
-                    <p className="text-xs text-muted-foreground">{description}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      {/* Global Search Input */}
+      <div className="mb-8 flex items-center gap-2">
+        <Input
+          placeholder="Search all requests and missing receipts..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-1"
+        />
+        {searchTerm && (
+          <Button variant="outline" onClick={() => setSearchTerm('')} className="flex items-center gap-1">
+            <XCircle className="h-4 w-4" /> Clear Search
+          </Button>
+        )}
+      </div>
 
-      {/* Filters - Show if on the 'All Requests' page */}
-      {isAllRequestsPage && (
-        <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
-          <span className="font-medium text-gray-700">Filters:</span>
-          <Input
-            placeholder="Filter by Supplier Name"
-            value={filterSupplierName}
-            onChange={(e) => setFilterSupplierName(e.target.value)}
-            onKeyUp={(e) => handleTextFilterChange(setFilterSupplierName, e.currentTarget.value)}
-            className="max-w-xs"
-          />
-          <Input
-            placeholder="Filter by SKU Number"
-            value={filterSkuNumber}
-            onChange={(e) => setFilterSkuNumber(e.target.value)}
-            onKeyUp={(e) => handleTextFilterChange(setFilterSkuNumber, e.currentTarget.value)}
-            className="max-w-xs"
-          />
-          <Select value={filterStatus} onValueChange={(value: PaymentRequest['status'] | 'all') => setFilterStatus(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="setup_awaiting_approval">Payment Setup</SelectItem>
-              <SelectItem value="approved">Payment Complete</SelectItem>
-              <SelectItem value="declined">Declined</SelectItem>
-              <SelectItem value="queried">Queried</SelectItem>
-            </SelectContent>
-          </Select>
-          <DatePicker
-            date={filterDatePaymentRequired}
-            setDate={setFilterDatePaymentRequired}
-            placeholder="Filter by Payment Date"
-            className="w-[200px]"
-          />
-          {hasActiveFilters && (
-            <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
-              <XCircle className="h-4 w-4" /> Clear Filters
-            </Button>
+      {debouncedSearchTerm ? (
+        // Display Search Results
+        <div className="overflow-x-auto">
+          {searchResults && searchResults.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Description / Supplier</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {searchResults.map((item) => (
+                  <TableRow
+                    key={item.id}
+                    className="transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
+                  >
+                    <TableCell>
+                      <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                        {item.type === 'payment_request' ? 'Payment Request' : 'Missing Receipt'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {item.type === 'payment_request' ? item.supplier_name : item.description}
+                    </TableCell>
+                    <TableCell>
+                      {item.currency} {item.type === 'payment_request' ? item.payment_amount?.toFixed(2) : item.amount.toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(item.status)}
+                    </TableCell>
+                    <TableCell>
+                      {format(new Date(item.type === 'payment_request' ? item.date_payment_required : item.transaction_date), 'PPP')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button asChild variant="outline" size="sm">
+                        <Link to={item.type === 'payment_request' ? `/request/${item.id}` : `/transaction/${item.id}`}>
+                          View Details
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <p className="text-center text-muted-foreground mt-8">No results found for "{debouncedSearchTerm}".</p>
           )}
         </div>
-      )}
-
-      {/* Table - Show if on the 'All Requests' page OR if it's a requester's personal dashboard */}
-      {(isAllRequestsPage || isRequesterPersonalDashboard) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Supplier Name</TableHead>
-                <TableHead>SKU Number</TableHead>
-                <TableHead>Payment Required</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created At</TableHead>
-                <TableHead>Payment Setup Date</TableHead>
-                <TableHead>Payment Approved Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paymentRequestsForTable.map((request) => (
-                <TableRow
-                  key={request.id}
-                  className="transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
-                >
-                  <TableCell className="font-medium">{request.supplier_name}</TableCell>
-                  <TableCell>{request.sku_number}</TableCell>
-                  <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
-                  <TableCell>
-                    {getStatusBadge(request.status)}
-                  </TableCell>
-                  <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
-                  <TableCell>
-                    {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button asChild variant="outline" size="sm">
-                      <Link to={`/request/${request.id}`}>View Details</Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
       ) : (
-        // Conditional message based on whether it's the 'All Requests' page or requester's dashboard
-        (isAllRequestsPage || isRequesterPersonalDashboard) ? (
-          <p className="text-center text-muted-foreground mt-8">No payment requests found matching your criteria.</p>
-        ) : (
-          <p className="text-center text-muted-foreground mt-8">
-            You can view your payment requests on the "All Requests" page.
-          </p>
-        )
+        <>
+          {/* Summary Cards - Only show if not on the 'All Requests' page */}
+          {!isAllRequestsPage && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
+              {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
+                const status = statusKey as PaymentRequest['status'] | 'missing_receipts';
+                const { borderClass, textClass, icon, title, description, link } = getCardStyling(status);
+                return (
+                  <Link key={status} to={link} className="block">
+                    <Card className={cn("border-l-4 cursor-pointer hover:shadow-lg transition-shadow", borderClass)}>
+                      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
+                        <span className={textClass}>{icon}</span>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-2xl font-bold">{counts[status]}</div>
+                        <p className="text-xs text-muted-foreground">{description}</p>
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Filters - Show if on the 'All Requests' page */}
+          {isAllRequestsPage && (
+            <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
+              <span className="font-medium text-gray-700">Filters:</span>
+              <Input
+                placeholder="Filter by Supplier Name"
+                value={filterSupplierName}
+                onChange={(e) => handleTextFilterChange(setFilterSupplierName, e.currentTarget.value)}
+                className="max-w-xs"
+              />
+              <Input
+                placeholder="Filter by SKU Number"
+                value={filterSkuNumber}
+                onChange={(e) => handleTextFilterChange(setFilterSkuNumber, e.currentTarget.value)}
+                className="max-w-xs"
+              />
+              <Select value={filterStatus} onValueChange={(value: PaymentRequest['status'] | 'all') => setFilterStatus(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter by Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="setup_awaiting_approval">Payment Setup</SelectItem>
+                  <SelectItem value="approved">Payment Complete</SelectItem>
+                  <SelectItem value="declined">Declined</SelectItem>
+                  <SelectItem value="queried">Queried</SelectItem>
+                </SelectContent>
+              </Select>
+              <DatePicker
+                date={filterDatePaymentRequired}
+                setDate={setFilterDatePaymentRequired}
+                placeholder="Filter by Payment Date"
+                className="w-[200px]"
+              />
+              {hasActiveFilters && (
+                <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
+                  <XCircle className="h-4 w-4" /> Clear Filters
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Table - Show if on the 'All Requests' page OR if it's a requester's personal dashboard */}
+          {(isAllRequestsPage || isRequesterPersonalDashboard) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Supplier Name</TableHead>
+                    <TableHead>SKU Number</TableHead>
+                    <TableHead>Payment Required</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created At</TableHead>
+                    <TableHead>Payment Setup Date</TableHead>
+                    <TableHead>Payment Approved Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paymentRequestsForTable.map((request) => (
+                    <TableRow
+                      key={request.id}
+                      className="transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
+                    >
+                      <TableCell className="font-medium">{request.supplier_name}</TableCell>
+                      <TableCell>{request.sku_number}</TableCell>
+                      <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
+                      <TableCell>
+                        {getStatusBadge(request.status)}
+                      </TableCell>
+                      <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
+                      <TableCell>
+                        {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
+                      </TableCell>
+                      <TableCell>
+                        {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild variant="outline" size="sm">
+                          <Link to={`/request/${request.id}`}>View Details</Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            // Conditional message based on whether it's the 'All Requests' page or requester's dashboard
+            (isAllRequestsPage || isRequesterPersonalDashboard) ? (
+              <p className="text-center text-muted-foreground mt-8">No payment requests found matching your criteria.</p>
+            ) : (
+              <p className="text-center text-muted-foreground mt-8">
+                You can view your payment requests on the "All Requests" page.
+              </p>
+            )
+          )}
+        </>
       )}
     </div>
   );
