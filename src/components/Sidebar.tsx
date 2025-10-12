@@ -41,7 +41,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
       )}>
         <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
           {/* Display logo here */}
-          <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-10" />
+          <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-12" />
         </div>
         <div className="mt-auto pt-4 border-t border-sidebar-border">
           {session ? (
@@ -72,7 +72,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
     )}>
       <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
         {/* Display logo here */}
-        <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-10" />
+        <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-12" />
       </div>
       <nav className="flex-1 space-y-2">
         <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
