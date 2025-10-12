@@ -16,6 +16,10 @@ const TransactionAuditTrailCard: React.FC<TransactionAuditTrailCardProps> = ({
   audits,
   auditUsers,
 }) => {
+  // Add console logs to inspect the props
+  console.log("[TransactionAuditTrailCard] audits prop:", audits);
+  console.log("[TransactionAuditTrailCard] auditUsers prop:", auditUsers);
+
   return (
     <Card className="shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
