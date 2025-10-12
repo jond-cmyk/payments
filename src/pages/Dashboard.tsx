@@ -166,12 +166,14 @@ const Dashboard = () => {
 
 
   // --- Data for Table Display (Conditional) ---
-  const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<PaymentRequest[]>({
+  const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
+    (PaymentRequest & { profiles: { first_name: string | null } | null })[]
+  >({
     queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, sortColumn, sortDirection],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return []; // Do not fetch if global search is active
 
-      let query = supabase.from('payment_requests').select('*');
+      let query = supabase.from('payment_requests').select('*, profiles(first_name)'); // Fetch first_name from profiles
 
       if (isRequesterPersonalDashboard) {
         // For a requester's personal dashboard, only show their urgent pending/setup/queried requests
@@ -658,6 +660,11 @@ const Dashboard = () => {
                         Payment Approved Date {renderSortIcon('payment_approved_date')}
                       </div>
                     </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('requester_id')}>
+                      <div className="flex items-center">
+                        Requester {renderSortIcon('requester_id')}
+                      </div>
+                    </TableHead> {/* New Requester column header */}
                     {userRole === 'admin' && <TableHead className="text-center">Urgent</TableHead>} {/* New Urgent column header */}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -684,6 +691,7 @@ const Dashboard = () => {
                       <TableCell>
                         {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
                       </TableCell>
+                      <TableCell>{request.profiles?.first_name || 'N/A'}</TableCell> {/* Display requester's first name */}
                       {userRole === 'admin' && (
                         <TableCell className="text-center">
                           <Switch
