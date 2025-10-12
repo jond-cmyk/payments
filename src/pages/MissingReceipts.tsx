@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Transaction, Profile } from '@/types/supabase'; // Import Profile type
+import { Transaction, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react'; // Import ChevronLeft, ChevronRight
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast'; // Added missing import
+import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw } from 'lucide-react'; // Added Filter and RotateCcw icons
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
 import {
   Table,
@@ -33,8 +33,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select components
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination'; // Import shadcn/ui pagination components
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input'; // Import Input for amount filter
+import DatePicker from '@/components/DatePicker'; // Import DatePicker for date filter
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -42,55 +43,59 @@ const MissingReceipts = () => {
   const queryClient = useQueryClient();
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
 
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10); // Default items per page
+  // Filter states
+  const [filterAmount, setFilterAmount] = useState<string>('');
+  const [filterAssignedUser, setFilterAssignedUser] = useState<string>('all'); // 'all' or user_id
+  const [filterTransactionDate, setFilterTransactionDate] = useState<Date | undefined>(undefined);
+
+  // Debounce for amount input
+  const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleAmountFilterChange = useCallback((value: string) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      setFilterAmount(value);
+    }, 300); // 300ms debounce
+  }, []);
 
   const isAdmin = userProfile?.role === 'admin';
 
   // Fetch ALL transactions that are pending input and have no receipts
-  const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError, dataUpdatedAt } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', currentPage, itemsPerPage], // Include pagination in query key
+  const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate], // Include filters in query key
     queryFn: async () => {
-      if (!session) return []; // Only fetch if authenticated
-
-      const startIndex = (currentPage - 1) * itemsPerPage;
-      const endIndex = startIndex + itemsPerPage - 1;
+      if (!session) return [];
 
       let query = supabase
         .from('transactions')
-        .select('*', { count: 'exact' }) // Request count for pagination
-        .eq('status', 'pending_input') // Filter for pending input
-        .eq('receipt_urls', '{}') // Filter for empty receipt_urls array
-        .order('transaction_date', { ascending: false })
-        .range(startIndex, endIndex); // Apply pagination range
+        .select('*')
+        .eq('status', 'pending_input')
+        .eq('receipt_urls', '{}')
+        .order('transaction_date', { ascending: false });
+
+      if (filterAmount) {
+        const amountNum = parseFloat(filterAmount);
+        if (!isNaN(amountNum)) {
+          query = query.eq('amount', amountNum);
+        }
+      }
+
+      if (filterAssignedUser !== 'all') {
+        query = query.eq('requester_id', filterAssignedUser);
+      }
+
+      if (filterTransactionDate) {
+        query = query.eq('transaction_date', format(filterTransactionDate, 'yyyy-MM-dd'));
+      }
 
       const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!session, // Enabled for any authenticated user
-  });
-
-  // Fetch total count for pagination
-  const { data: totalTransactionsCount, isLoading: isCountLoading, error: countError } = useQuery<number>({
-    queryKey: ['missingReceiptsCount'],
-    queryFn: async () => {
-      if (!session) return 0;
-      const { count, error } = await supabase
-        .from('transactions')
-        .select('id', { count: 'exact' })
-        .eq('status', 'pending_input')
-        .eq('receipt_urls', '{}');
-      if (error) throw error;
-      return count || 0;
-    },
     enabled: !!session,
-    staleTime: 1000 * 60 * 5, // Cache count for 5 minutes
-    refetchInterval: 1000 * 60 * 5, // Refetch count every 5 minutes
   });
-
-  const totalPages = Math.ceil((totalTransactionsCount || 0) / itemsPerPage);
 
   // Fetch all user profiles for the assignee dropdown
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
@@ -103,7 +108,7 @@ const MissingReceipts = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!session, // Only fetch if authenticated
+    enabled: !!session,
   });
 
   const bulkDeleteMutation = useMutation({
@@ -118,8 +123,7 @@ const MissingReceipts = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
-      queryClient.invalidateQueries({ queryKey: ['missingReceiptsCount'] }); // Invalidate count
-      setSelectedTransactionIds([]); // Clear selection after deletion
+      setSelectedTransactionIds([]);
       showSuccess("Selected transactions deleted successfully!");
     },
     onError: (error: any) => {
@@ -138,8 +142,8 @@ const MissingReceipts = () => {
       return true;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['missingReceipts'] }); // Refresh the list
-      queryClient.invalidateQueries({ queryKey: ['transactionAudits'] }); // Invalidate audits as well
+      queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
+      queryClient.invalidateQueries({ queryKey: ['transactionAudits'] });
       showSuccess("Transaction reassigned successfully!");
     },
     onError: (error: any) => {
@@ -183,7 +187,16 @@ const MissingReceipts = () => {
     }
   };
 
-  if (isSessionLoading || isTransactionsLoading || isProfilesLoading || isCountLoading) {
+  const clearFilters = () => {
+    setFilterAmount('');
+    setFilterAssignedUser('all');
+    setFilterTransactionDate(undefined);
+    queryClient.invalidateQueries({ queryKey: ['missingReceipts'] }); // Force refetch
+  };
+
+  const hasActiveFilters = filterAmount !== '' || filterAssignedUser !== 'all' || filterTransactionDate !== undefined;
+
+  if (isSessionLoading || isTransactionsLoading || isProfilesLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading missing receipts...</div>;
   }
 
@@ -198,10 +211,6 @@ const MissingReceipts = () => {
 
   if (profilesError) {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading user profiles: {profilesError.message}</div>;
-  }
-
-  if (countError) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading transaction count: {countError.message}</div>;
   }
 
   const getStatusBadge = (status: Transaction['status']) => {
@@ -273,6 +282,43 @@ const MissingReceipts = () => {
           </div>
         </CardHeader>
         <CardContent>
+          {/* Filters */}
+          <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
+            <span className="font-medium text-gray-700">Filters:</span>
+            <Input
+              placeholder="Filter by Amount"
+              type="number"
+              step="0.01"
+              value={filterAmount}
+              onChange={(e) => handleAmountFilterChange(e.target.value)}
+              className="max-w-xs"
+            />
+            <Select value={filterAssignedUser} onValueChange={setFilterAssignedUser}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filter by Assigned User" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {allProfiles?.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <DatePicker
+              date={filterTransactionDate}
+              setDate={setFilterTransactionDate}
+              placeholder="Filter by Date"
+              className="w-[200px]"
+            />
+            {hasActiveFilters && (
+              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
+                <RotateCcw className="h-4 w-4" /> Clear Filters
+              </Button>
+            )}
+          </div>
+
           {transactions && transactions.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
@@ -345,58 +391,7 @@ const MissingReceipts = () => {
               </Table>
             </div>
           ) : (
-            <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found.</p>
-          )}
-
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="mt-8 flex justify-between items-center">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground">Items per page:</span>
-                <Select
-                  value={String(itemsPerPage)}
-                  onValueChange={(value) => {
-                    setItemsPerPage(Number(value));
-                    setCurrentPage(1); // Reset to first page when items per page changes
-                  }}
-                >
-                  <SelectTrigger className="w-[80px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        isActive={currentPage === page}
-                        onClick={() => setCurrentPage(page)}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                      disabled={currentPage === totalPages}
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
+            <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found matching your criteria.</p>
           )}
         </CardContent>
       </Card>
