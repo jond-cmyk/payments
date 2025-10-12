@@ -74,12 +74,9 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
-        {currentRole === 'admin' && (
-          <>
-            <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
-            <div className="h-px bg-dyad-blue my-4" /> {/* First dividing line */}
-          </>
-        )}
+        {/* 'All Requests' is now visible to all approved users */}
+        <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
+        <div className="h-px bg-dyad-blue my-4" /> {/* First dividing line */}
         <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
         <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
         {currentRole === 'admin' && (

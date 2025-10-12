@@ -67,20 +67,25 @@ const Dashboard = () => {
   }, [searchParams, location.pathname]);
 
 
-  const isAdminView = userRole === 'admin' && location.pathname === '/admin/requests';
+  // Determine if we are on the 'All Requests' page
+  const isAllRequestsPage = location.pathname === '/admin/requests';
+  // Determine if it's a requester's personal dashboard
+  const isRequesterPersonalDashboard = userRole === 'requester' && location.pathname === '/dashboard';
+
 
   // Fetch payment requests based on role and filters
   const { data: paymentRequests, isLoading: isRequestsLoading, error: requestsError } = useQuery<PaymentRequest[]>({
-    queryKey: ['paymentRequests', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired],
+    queryKey: ['paymentRequests', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, isAllRequestsPage, isRequesterPersonalDashboard],
     queryFn: async () => {
       if (!user?.id || !userRole) return [];
 
       let query = supabase.from('payment_requests').select('*');
 
-      if (userRole === 'requester') {
+      if (isRequesterPersonalDashboard) {
+        // For a requester's personal dashboard, only show their requests
         query = query.eq('requester_id', user.id);
-      } else if (isAdminView) {
-        // Apply admin filters
+      } else if (isAllRequestsPage) {
+        // For the 'All Requests' page, show all requests and apply filters
         if (filterSupplierName) {
           query = query.ilike('supplier_name', `%${filterSupplierName}%`);
         }
@@ -94,6 +99,7 @@ const Dashboard = () => {
           query = query.gte('date_payment_required', format(filterDatePaymentRequired, 'yyyy-MM-dd'));
         }
       }
+      // If it's an admin on /dashboard, no requester_id filter is applied, so they see all requests by default.
 
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
@@ -212,7 +218,7 @@ const Dashboard = () => {
         className = 'bg-red-500 text-red-50';
         break;
       case 'queried':
-        className = 'bg-gray-500 text-gray-50'; // Changed to grey badge
+        className = 'bg-gray-500 text-gray-50'; // Changed to text-gray-600
         break;
       default:
         className = 'bg-gray-500 text-gray-50';
@@ -302,7 +308,7 @@ const Dashboard = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">
-          {isAdminView ? 'All Payment Requests' : 'My Payment Requests'}
+          {isAllRequestsPage ? 'All Payment Requests' : 'My Payment Requests'}
         </h1>
         {(userRole === 'requester' || userRole === 'admin') && ( // Updated condition here
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
@@ -312,8 +318,8 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Summary Cards - Only show if not in admin view */}
-      {!isAdminView && (
+      {/* Summary Cards - Only show if not on the 'All Requests' page */}
+      {!isAllRequestsPage && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
           {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
             const status = statusKey as PaymentRequest['status'] | 'missing_receipts';
@@ -336,7 +342,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {isAdminView && (
+      {/* Filters - Show if on the 'All Requests' page */}
+      {isAllRequestsPage && (
         <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
           <span className="font-medium text-gray-700">Filters:</span>
           <Input
@@ -380,8 +387,8 @@ const Dashboard = () => {
         </div>
       )}
 
-      {/* Only show the table if it's the admin view AND there are requests */}
-      {isAdminView && paymentRequests && paymentRequests.length > 0 ? (
+      {/* Table - Show if on the 'All Requests' page OR if it's a requester's personal dashboard */}
+      {(isAllRequestsPage || isRequesterPersonalDashboard) && paymentRequests && paymentRequests.length > 0 ? (
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -426,8 +433,8 @@ const Dashboard = () => {
           </Table>
         </div>
       ) : (
-        // Conditional message based on whether it's the admin view or requester view
-        isAdminView ? (
+        // Conditional message based on whether it's the 'All Requests' page or requester's dashboard
+        (isAllRequestsPage || isRequesterPersonalDashboard) ? (
           <p className="text-center text-muted-foreground mt-8">No payment requests found matching your criteria.</p>
         ) : (
           <p className="text-center text-muted-foreground mt-8">
