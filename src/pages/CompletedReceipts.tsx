@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@/types/supabase';
 import { format, parseISO } from 'date-fns';
-import { Folder, FileText, CalendarDays, ChevronDown } from 'lucide-react'; // Keep ChevronDown import for use here
+import { Folder, FileText, CalendarDays, ChevronDown } from 'lucide-react';
 
 import {
   Card,
@@ -21,7 +21,7 @@ import {
   AccordionContent,
   AccordionItem,
 } from '@/components/ui/accordion';
-import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger'; // Import the new custom trigger
+import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import PageTitle from '@/components/PageTitle';
@@ -41,13 +41,12 @@ const CompletedReceipts = () => {
         .from('transactions')
         .select('*')
         .eq('status', 'completed')
-        .not('receipt_urls', 'is', null) // Ensure receipt_urls is not null
-        .not('receipt_urls', 'eq', '{}') // Ensure receipt_urls is not an empty array
-        .order('transaction_date', { ascending: false }); // Order by date for initial sorting
+        .not('receipt_urls', 'is', null)
+        .not('receipt_urls', 'eq', '{}')
+        .order('transaction_date', { ascending: false });
 
       const { data, error } = await query;
       if (error) throw error;
-      console.log("[CompletedReceipts] Fetched completed transactions:", data); // Log fetched data
       return data;
     },
     enabled: !!user?.id,
@@ -137,12 +136,10 @@ const CompletedReceipts = () => {
                 return (
                   <AccordionItem key={groupKey} value={groupKey}>
                     <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-lg font-semibold hover:bg-muted/50 transition-colors">
-                      {/* This is now the SINGLE child element passed to CustomAccordionTrigger */}
                       <span className="flex items-center justify-between w-full">
                         <span className="flex items-center">
                           <Folder className="mr-2 h-5 w-5 text-primary" /> {group.display} ({group.transactions.length})
                         </span>
-                        {/* The ChevronDown icon is now part of the single child element */}
                         <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 [&[data-state=open]]:rotate-180" />
                       </span>
                     </CustomAccordionTrigger>
@@ -176,7 +173,6 @@ const CompletedReceipts = () => {
                           </thead>
                           <tbody className="divide-y divide-border">
                             {group.transactions.map((transaction) => {
-                              console.log("[CompletedReceipts] Rendering transaction:", transaction); // Existing log
                               return (
                                 <tr key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background transition-colors">
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
@@ -185,12 +181,10 @@ const CompletedReceipts = () => {
                                   <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                                     {transaction.description}
                                   </td>
-                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
-                                    {console.log("[CompletedReceipts] Category value in TD:", transaction.category)}
+                                  <td className="px-4 py-4 text-sm text-foreground"> {/* Removed whitespace-nowrap */}
                                     {transaction.category || 'N/A'}
                                   </td>
-                                  <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
-                                    {console.log("[CompletedReceipts] Merchant Name value in TD:", transaction.merchant_name)}
+                                  <td className="px-4 py-4 text-sm text-foreground"> {/* Removed whitespace-nowrap */}
                                     {transaction.merchant_name || 'N/A'}
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
