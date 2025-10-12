@@ -382,9 +382,7 @@ const Dashboard = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">
           {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (
-            isAdminUrgentDashboard ? 'All Urgent Payment Requests' : (
-              isAllRequestsPage ? 'All Payment Requests' : 'Urgent Payment Requests'
-            )
+            isAllRequestsPage ? 'All Payment Requests' : 'Summary of Payment Requests'
           )}
         </h1>
         {(userRole === 'requester' || userRole === 'admin') && (
@@ -423,6 +421,11 @@ const Dashboard = () => {
           {/* Summary cards always show on /dashboard for both requester and admin */}
           {!isAllRequestsPage && (
             <DashboardSummaryCards counts={counts} />
+          )}
+
+          {/* New title for Urgent Payment Requests */}
+          {(!isAllRequestsPage && (isRequesterPersonalDashboard || isAdminUrgentDashboard)) && (
+            <h2 className="text-2xl font-bold mb-4 mt-8">Urgent Payment Requests</h2>
           )}
 
           {/* Filters only show on /admin/requests */}
