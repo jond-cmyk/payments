@@ -106,4 +106,9 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Apply dyad-blue to all header tags */
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-dyad-blue;
+  }
 }
