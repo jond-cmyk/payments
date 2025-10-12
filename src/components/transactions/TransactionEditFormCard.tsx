@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import FileInput from '@/components/FileInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Transaction } from '@/types/supabase';
+import PrefixedInput from '@/components/PrefixedInput'; // Import PrefixedInput
 
 // Zod schema for unified transaction details form
 const transactionDetailSchema = z.object({
@@ -112,7 +113,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>SKU</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., CH12345" {...field} disabled={!isEditingMode} />
+                    <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} disabled={!isEditingMode} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
