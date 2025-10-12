@@ -24,7 +24,13 @@ const PendingApproval = () => {
   }, [session, isLoading, isApproved, navigate]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    console.log("PendingApproval: Attempting to log out...");
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("PendingApproval: Error during logout:", error);
+    } else {
+      console.log("PendingApproval: Logout successful, navigating to /login.");
+    }
     navigate('/login');
   };
 

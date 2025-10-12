@@ -23,7 +23,13 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
     : user?.email || 'Guest';
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    console.log("Sidebar: Attempting to log out...");
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Sidebar: Error during logout:", error);
+    } else {
+      console.log("Sidebar: Logout successful, navigating to /login.");
+    }
     navigate('/login');
   };
 
