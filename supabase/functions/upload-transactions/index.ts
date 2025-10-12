@@ -109,6 +109,9 @@ serve(async (req) => {
       });
     }
 
+    // Cache for user_email to user_id lookups
+    const userEmailToIdCache = new Map<string, string | null>();
+
     for (const row of dataRows) {
       if (row.length !== headers.length) {
         const msg = `Row has a different number of columns than headers. Skipping row: ${JSON.stringify(row)}`;
@@ -137,6 +140,7 @@ serve(async (req) => {
         'Comment': comment,
         'SKU': sku,
         'Reason for Payment': reason_for_payment,
+        'user_email': user_email_from_csv, // New: Get user_email from CSV
       } = record;
 
       // Validate required fields
@@ -178,8 +182,35 @@ serve(async (req) => {
         }
       }
 
+      let requesterIdForTransaction = uploaderId; // Default to uploaderId
+
+      // If user_email is provided in CSV, try to find the corresponding user ID
+      if (user_email_from_csv) {
+        if (userEmailToIdCache.has(user_email_from_csv)) {
+          requesterIdForTransaction = userEmailToIdCache.get(user_email_from_csv) || uploaderId;
+          console.log(`[upload-transactions] Found user_id for ${user_email_from_csv} in cache: ${requesterIdForTransaction}`);
+        } else {
+          const { data: profileData, error: profileError } = await supabaseClient
+            .from('profile_with_email')
+            .select('id')
+            .eq('user_email', user_email_from_csv)
+            .single();
+
+          if (profileError || !profileData) {
+            const msg = `User with email '${user_email_from_csv}' not found. Assigning transaction to uploader.`;
+            errors.push(msg);
+            console.warn(`[upload-transactions] ${msg}`);
+            userEmailToIdCache.set(user_email_from_csv, null); // Cache null to avoid repeated lookups
+          } else {
+            requesterIdForTransaction = profileData.id;
+            userEmailToIdCache.set(user_email_from_csv, profileData.id);
+            console.log(`[upload-transactions] Found user_id for ${user_email_from_csv}: ${requesterIdForTransaction}`);
+          }
+        }
+      }
+
       transactionsToInsert.push({
-        requester_id: uploaderId, // Default to uploaderId as no user_email column in this CSV
+        requester_id: requesterIdForTransaction, // Use the determined requester_id
         uploaded_by_user_id: uploaderId,
         original_transaction_id: null, // Not present in this CSV
         status: 'pending_input',
