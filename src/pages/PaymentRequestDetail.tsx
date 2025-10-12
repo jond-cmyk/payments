@@ -308,6 +308,11 @@ const PaymentRequestDetail = () => {
     try {
       if (!user?.id) throw new Error("Admin user not authenticated.");
 
+      // If declining, first add the reason as a comment
+      if (status === 'declined' && reason) {
+        await addCommentMutation.mutateAsync(`Declined: ${reason}`);
+      }
+
       const updatedFields: Partial<PaymentRequest> = {
         status: status === 'reverted_to_pending' ? 'pending' : status,
         admin_action_by: user.id,
