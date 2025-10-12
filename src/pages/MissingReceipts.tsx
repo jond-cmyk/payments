@@ -75,7 +75,8 @@ const MissingReceipts = () => {
         .select('*')
         .eq('status', 'pending_input')
         .eq('receipt_urls', '{}')
-        .order('transaction_date', { ascending: false });
+        .order('transaction_date', { ascending: false }) // Primary sort
+        .order('created_at', { ascending: false }); // Secondary sort for stability
 
       // Re-enabling filterAssignedUser
       if (filterAssignedUser !== 'all') {
