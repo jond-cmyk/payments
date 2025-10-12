@@ -90,7 +90,6 @@ const TransactionDetail = () => {
         .eq('id', id)
         .single();
       if (error) throw error;
-      console.log("Fetched transaction:", data); // Add this log
       return data;
     },
     enabled: !!id,
@@ -109,14 +108,12 @@ const TransactionDetail = () => {
     queryKey: ['transactionAudits', id],
     queryFn: async () => {
       if (!id) return [];
-      console.log(`[TransactionAudits Query] Fetching audits for transaction ID: ${id}`); // Log when query runs
       const { data, error } = await supabase
         .from('transaction_audits')
         .select('*')
         .eq('transaction_id', id)
         .order('changed_at', { ascending: false });
       if (error) throw error;
-      console.log(`[TransactionAudits Query] Fetched ${data?.length || 0} audits:`, data); // Log fetched data
       return data;
     },
     enabled: !!id,
@@ -222,14 +219,6 @@ const TransactionDetail = () => {
       const hasMerchantName = !!dbUpdateFields.merchant_name && dbUpdateFields.merchant_name.trim() !== '';
       const hasSku = dbUpdateFields.not_sku_related || (!!dbUpdateFields.sku && dbUpdateFields.sku.trim() !== ''); // SKU is optional if not_sku_related
 
-      console.log("--- Debugging Transaction Status Update ---");
-      console.log("Current transaction status:", transaction?.status);
-      console.log("Has Receipts:", hasReceipts, "URLs:", updatedReceiptUrls);
-      console.log("Has Category:", hasCategory, "Value:", dbUpdateFields.category);
-      console.log("Has Merchant Name:", hasMerchantName, "Value:", dbUpdateFields.merchant_name);
-      console.log("Has SKU:", hasSku, "Value:", dbUpdateFields.sku, "Not SKU Related:", dbUpdateFields.not_sku_related);
-      console.log("Is pending_input and all conditions met?", transaction?.status === 'pending_input' && hasReceipts && hasCategory && hasMerchantName && hasSku);
-
       // If the transaction was pending_input and now meets all criteria, set status to 'completed'.
       if (
         transaction?.status === 'pending_input' &&
@@ -239,9 +228,6 @@ const TransactionDetail = () => {
         hasSku
       ) {
         newStatus = 'completed';
-        console.log("New status set to 'completed'.");
-      } else {
-        console.log("Conditions for 'completed' status not met. Status remains:", newStatus);
       }
 
       const { error } = await supabase
@@ -253,8 +239,6 @@ const TransactionDetail = () => {
           status: newStatus, // Use the determined newStatus
         })
         .eq('id', id);
-
-      console.log("Supabase update result error:", error); // New log here!
 
       if (error) throw error;
       return true;
@@ -316,7 +300,6 @@ const TransactionDetail = () => {
         updatedFields.new_receipt_files = values.new_receipt_files;
       }
 
-      console.log("Submitting values to mutation:", updatedFields); // Added debug log
       await updateTransactionMutation.mutateAsync(updatedFields);
       dismissToast(toastId);
     } catch (error: any) {
@@ -364,16 +347,18 @@ const TransactionDetail = () => {
 
       <TransactionDetailsDisplayCard transaction={transaction} />
 
-      <TransactionEditFormCard
-        transaction={transaction}
-        isEditingMode={isEditing} // Pass the new state
-        form={form}
-        onSubmit={onSubmit}
-        updateTransactionMutation={updateTransactionMutation}
-        categoryOptions={categoryOptions}
-      />
+      {isEditing && transaction.status !== 'completed' && ( // Conditional rendering for edit form
+        <TransactionEditFormCard
+          transaction={transaction}
+          isEditingMode={isEditing} // Pass the new state
+          form={form}
+          onSubmit={onSubmit}
+          updateTransactionMutation={updateTransactionMutation}
+          categoryOptions={categoryOptions}
+        />
+      )}
 
-      {isEditing && (
+      {isEditing && transaction.status !== 'completed' && ( // Conditional rendering for save/cancel buttons
         <div className="flex justify-end space-x-2 mb-8"> {/* Moved this block here */}
           <Button variant="outline" onClick={() => { setIsEditing(false); form.reset(); }} className="shadow-sm">
             Cancel

@@ -13,10 +13,6 @@ interface TransactionDetailsDisplayCardProps {
 }
 
 const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps> = ({ transaction }) => {
-  console.log("[TransactionDetailsDisplayCard] Received transaction prop:", transaction);
-  console.log("[TransactionDetailsDisplayCard] Category from prop:", transaction.category);
-  console.log("[TransactionDetailsDisplayCard] Merchant Name from prop:", transaction.merchant_name);
-
   return (
     <Card className="max-w-2xl mx-auto mb-8 shadow-sm">
       <CardHeader>
