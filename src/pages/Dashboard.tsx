@@ -5,7 +5,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'; // Import useMutation
 import { PaymentRequest, Profile, Transaction } from '@/types/supabase'; // Import Transaction type
 import {
   Table,
@@ -17,13 +17,14 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban, FileX, Search, ArrowUp, ArrowDown } from 'lucide-react'; // Import Search, ArrowUp, ArrowDown icons
+import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban, FileX, Search, ArrowUp, ArrowDown, AlertTriangle } from 'lucide-react'; // Import AlertTriangle icon
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
 import { Card, CardContent, CardHeader, CardTitle }
 from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { Switch } from '@/components/ui/switch'; // Import Switch component
 
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
@@ -177,7 +178,8 @@ const Dashboard = () => {
       }
       // If it's an admin on /dashboard, no requester_id filter is applied, so they see all requests by default.
 
-      // Apply dynamic sorting
+      // Apply primary sort for urgency, then dynamic sorting
+      query = query.order('is_urgent', { ascending: false }); // Urgent requests first
       if (sortColumn) {
         query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
       }
@@ -242,6 +244,38 @@ const Dashboard = () => {
     },
     enabled: !!debouncedSearchTerm && !!session, // Only run if there's a search term and session
   });
+
+  // Mutation for toggling urgent status
+  const toggleUrgentMutation = useMutation({
+    mutationFn: async ({ id, is_urgent }: { id: string; is_urgent: boolean }) => {
+      if (!user?.id) throw new Error("User not authenticated.");
+      const { error } = await supabase
+        .from('payment_requests')
+        .update({ is_urgent: is_urgent, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
+      showSuccess(`Request marked as ${variables.is_urgent ? 'urgent' : 'not urgent'}!`);
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to update urgent status.");
+      console.error("Toggle urgent status error:", error);
+    },
+  });
+
+  const handleToggleUrgent = async (requestId: string, currentUrgentStatus: boolean) => {
+    const toastId = showLoading(currentUrgentStatus ? "Removing urgent status..." : "Marking as urgent...");
+    try {
+      await toggleUrgentMutation.mutateAsync({ id: requestId, is_urgent: !currentUrgentStatus });
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
+  };
 
 
   const clearFilters = () => {
@@ -586,6 +620,7 @@ const Dashboard = () => {
                         Payment Approved Date {renderSortIcon('payment_approved_date')}
                       </div>
                     </TableHead>
+                    {userRole === 'admin' && <TableHead className="text-center">Urgent</TableHead>} {/* New Urgent column header */}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -593,7 +628,10 @@ const Dashboard = () => {
                   {paymentRequestsForTable.map((request) => (
                     <TableRow
                       key={request.id}
-                      className="transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
+                      className={cn(
+                        "transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10",
+                        request.is_urgent && "bg-red-50 border-l-4 border-red-500 hover:bg-red-100" // Highlight urgent requests
+                      )}
                     >
                       <TableCell className="font-medium">{request.supplier_name}</TableCell>
                       <TableCell>{request.sku_number}</TableCell>
@@ -608,6 +646,16 @@ const Dashboard = () => {
                       <TableCell>
                         {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
                       </TableCell>
+                      {userRole === 'admin' && (
+                        <TableCell className="text-center">
+                          <Switch
+                            checked={request.is_urgent}
+                            onCheckedChange={() => handleToggleUrgent(request.id, request.is_urgent)}
+                            disabled={toggleUrgentMutation.isPending}
+                            aria-label={`Toggle urgent status for ${request.supplier_name}`}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="text-right">
                         <Button asChild variant="outline" size="sm">
                           <Link to={`/request/${request.id}`}>View Details</Link>

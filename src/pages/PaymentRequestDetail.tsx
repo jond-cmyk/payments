@@ -36,6 +36,7 @@ const editFormSchema = z.object({
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
+  is_urgent: z.boolean().default(false), // New field
 });
 
 // Zod schema for admin query note
@@ -143,6 +144,7 @@ const PaymentRequestDetail = () => {
       date_payment_required: undefined,
       invoice_pdf: undefined,
       receipt_required: false,
+      is_urgent: false, // Default to not urgent
     },
   });
 
@@ -160,6 +162,7 @@ const PaymentRequestDetail = () => {
         date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
         invoice_pdf: undefined,
         receipt_required: request.receipt_required,
+        is_urgent: request.is_urgent, // Set urgent status
       });
     }
   }, [request, isEditing, editForm]);
@@ -246,6 +249,7 @@ const PaymentRequestDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentRequest', id] });
       queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Invalidate dashboard table
       showSuccess("Payment request updated successfully!");
       setIsEditing(false);
     },
@@ -267,6 +271,7 @@ const PaymentRequestDetail = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Invalidate dashboard table
       showSuccess("Payment request deleted successfully!");
       navigate('/admin/requests');
     },
@@ -289,6 +294,7 @@ const PaymentRequestDetail = () => {
         reason_for_payment: values.reason_for_payment,
         date_payment_required: values.date_payment_required.toISOString().split('T')[0],
         receipt_required: values.receipt_required,
+        is_urgent: values.is_urgent, // Include urgent status
       };
 
       if (values.invoice_pdf && values.invoice_pdf.length > 0) {

@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod'; // Added missing import
 import * as z from 'zod';
-import { Download } from 'lucide-react';
+import { Download, AlertTriangle } from 'lucide-react'; // Import AlertTriangle icon
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -19,6 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
 import { PaymentRequest, Profile } from '@/types/supabase';
 import { UseMutationResult } from '@tanstack/react-query';
+import { Badge } from '@/components/ui/badge'; // Import Badge
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -75,6 +76,7 @@ const editFormSchema = z.object({
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.") // 5MB limit per file
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
+  is_urgent: z.boolean().default(false), // New field
 });
 
 interface PaymentRequestDetailsCardProps {
@@ -116,7 +118,14 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Request Details</CardTitle>
+        <CardTitle className="flex items-center">
+          Request Details
+          {request.is_urgent && (
+            <Badge variant="destructive" className="ml-3 bg-red-600 text-white flex items-center">
+              <AlertTriangle className="h-4 w-4 mr-1" /> Urgent
+            </Badge>
+          )}
+        </CardTitle>
         <CardDescription>Status: <span className={`font-semibold ${
           request.status === 'pending' ? 'text-yellow-600' :
           request.status === 'setup_awaiting_approval' ? 'text-blue-600' :
@@ -303,6 +312,28 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                       </FormLabel>
                       <FormDescription>
                         Check this box if a receipt is required after the payment is made.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="is_urgent"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-red-50 border-red-200">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-red-700">
+                        Mark as Urgent
+                      </FormLabel>
+                      <FormDescription className="text-red-600">
+                        Check this box if this payment request is urgent and requires immediate attention.
                       </FormDescription>
                     </div>
                   </FormItem>

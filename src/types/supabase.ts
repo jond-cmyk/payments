@@ -19,6 +19,7 @@ export type PaymentRequest = {
   payment_setup_date: string | null; // New field
   payment_approved_date: string | null; // New field
   receipt_required: boolean; // New field
+  is_urgent: boolean; // New field for urgent requests
 };
 
 export type Transaction = {

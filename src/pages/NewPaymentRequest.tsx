@@ -72,9 +72,10 @@ const formSchema = z.object({
   }),
   invoice_pdf: z.any()
     .refine((files) => files?.length > 0, "At least one Invoice PDF is required.")
-    .refine((files) => Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.") // 5MB limit per file
+    .refine((files) => Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024, "Max file size is 5MB per file.")) // 5MB limit per file
     .refine((files) => Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
+  is_urgent: z.boolean().default(false), // New field
 });
 
 const NewPaymentRequest = () => {
@@ -94,6 +95,7 @@ const NewPaymentRequest = () => {
       date_payment_required: undefined,
       invoice_pdf: undefined,
       receipt_required: false,
+      is_urgent: false, // Default to not urgent
     },
   });
 
@@ -159,6 +161,7 @@ const NewPaymentRequest = () => {
           invoice_pdf_urls: uploadedInvoiceUrls, // Store array of URLs
           status: 'pending',
           receipt_required: values.receipt_required,
+          is_urgent: values.is_urgent, // Save urgent status
         });
 
       if (insertError) {
@@ -167,7 +170,7 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false, invoice_pdf: undefined });
+      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false, is_urgent: false, invoice_pdf: undefined });
       navigate('/dashboard');
     } catch (error: any) {
       dismissToast(toastId);
@@ -344,6 +347,28 @@ const NewPaymentRequest = () => {
                       </FormLabel>
                       <FormDescription>
                         Check this box if a receipt is required after the payment is made.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="is_urgent"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-red-50 border-red-200">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-red-700">
+                        Mark as Urgent
+                      </FormLabel>
+                      <FormDescription className="text-red-600">
+                        Check this box if this payment request is urgent and requires immediate attention.
                       </FormDescription>
                     </div>
                   </FormItem>
