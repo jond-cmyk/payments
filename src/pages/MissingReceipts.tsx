@@ -5,9 +5,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Transaction } from '@/types/supabase';
+import { Transaction, Profile } from '@/types/supabase'; // Import Profile type
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2 } from 'lucide-react';
+import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus } from 'lucide-react';
 
 import {
   Table,
@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select components
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -41,11 +42,11 @@ const MissingReceipts = () => {
 
   const isAdmin = userProfile?.role === 'admin';
 
-  // Fetch transactions assigned to the current user that are pending input and have no receipts
+  // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', user?.id],
+    queryKey: ['missingReceipts'], // Removed user?.id from queryKey to make it global
     queryFn: async () => {
-      if (!user?.id) return [];
+      if (!session) return []; // Only fetch if authenticated
       let query = supabase
         .from('transactions')
         .select('*')
@@ -53,16 +54,25 @@ const MissingReceipts = () => {
         .eq('receipt_urls', '{}') // Filter for empty receipt_urls array
         .order('transaction_date', { ascending: false });
 
-      // Removed client-side filtering by requester_id
-      // if (!isAdmin) {
-      //   query = query.eq('requester_id', user.id);
-      // }
-
       const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!user?.id,
+    enabled: !!session, // Enabled for any authenticated user
+  });
+
+  // Fetch all user profiles for the assignee dropdown
+  const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
+    queryKey: ['allProfilesForAssignment'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profile_with_email')
+        .select('id, first_name, last_name, user_email')
+        .order('first_name', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session, // Only fetch if authenticated
   });
 
   const bulkDeleteMutation = useMutation({
@@ -78,13 +88,30 @@ const MissingReceipts = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
       setSelectedTransactionIds([]); // Clear selection after deletion
-      // Optionally invalidate other relevant queries if needed, e.g., dashboard
-      // queryClient.invalidateQueries({ queryKey: ['myTransactions'] });
-      // queryClient.invalidateQueries({ queryKey: ['allTransactions'] });
     },
     onError: (error: any) => {
       console.error("Bulk delete error:", error);
       // Handle error, e.g., show a toast notification
+    },
+  });
+
+  const assignTransactionMutation = useMutation({
+    mutationFn: async ({ transactionId, newRequesterId }: { transactionId: string; newRequesterId: string }) => {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ requester_id: newRequesterId, updated_at: new Date().toISOString() })
+        .eq('id', transactionId);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missingReceipts'] }); // Refresh the list
+      queryClient.invalidateQueries({ queryKey: ['transactionAudits'] }); // Invalidate audits as well
+      showSuccess("Transaction reassigned successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to reassign transaction.");
+      console.error("Reassign transaction error:", error);
     },
   });
 
@@ -104,11 +131,14 @@ const MissingReceipts = () => {
   }, []);
 
   const handleDeleteSelected = async () => {
-    // Trigger the mutation
     await bulkDeleteMutation.mutateAsync(selectedTransactionIds);
   };
 
-  if (isSessionLoading || isTransactionsLoading) {
+  const handleAssignTransaction = async (transactionId: string, newRequesterId: string) => {
+    await assignTransactionMutation.mutateAsync({ transactionId, newRequesterId });
+  };
+
+  if (isSessionLoading || isTransactionsLoading || isProfilesLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading missing receipts...</div>;
   }
 
@@ -119,6 +149,10 @@ const MissingReceipts = () => {
 
   if (transactionsError) {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading missing receipts: {transactionsError.message}</div>;
+  }
+
+  if (profilesError) {
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading user profiles: {profilesError.message}</div>;
   }
 
   const getStatusBadge = (status: Transaction['status']) => {
@@ -211,6 +245,7 @@ const MissingReceipts = () => {
                     <TableHead>Status</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Reason for Payment</TableHead>
+                    <TableHead>Assigned To</TableHead> {/* New TableHead */}
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -232,6 +267,24 @@ const MissingReceipts = () => {
                       <TableCell>{getStatusBadge(transaction.status)}</TableCell>
                       <TableCell>{transaction.sku || 'N/A'}</TableCell>
                       <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
+                      <TableCell> {/* New TableCell for Assign To */}
+                        <Select
+                          value={transaction.requester_id || ''}
+                          onValueChange={(newRequesterId) => handleAssignTransaction(transaction.id, newRequesterId)}
+                          disabled={assignTransactionMutation.isPending}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Assign User" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allProfiles?.map((profile) => (
+                              <SelectItem key={profile.id} value={profile.id}>
+                                {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
                       <TableCell className="text-right">
                         <Button asChild variant="outline" size="sm">
                           <Link to={`/transaction/${transaction.id}`}>View/Add Receipt</Link>
