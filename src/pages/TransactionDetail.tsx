@@ -90,6 +90,7 @@ const TransactionDetail = () => {
         .eq('id', id)
         .single();
       if (error) throw error;
+      console.log("Fetched transaction:", data); // Add this log
       return data;
     },
     enabled: !!id,
