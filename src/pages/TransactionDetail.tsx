@@ -222,9 +222,20 @@ const TransactionDetail = () => {
 
       let newStatus: Transaction['status'] = transaction?.status || 'pending_input';
 
-      // If the transaction was pending_input and now has receipts (either existing or newly uploaded),
-      // set its status to 'completed'.
-      if (transaction?.status === 'pending_input' && updatedReceiptUrls.length > 0) {
+      // Determine if all required fields are filled for 'completed' status
+      const hasReceipts = updatedReceiptUrls.length > 0;
+      const hasCategory = !!dbUpdateFields.category && dbUpdateFields.category.trim() !== '';
+      const hasMerchantName = !!dbUpdateFields.merchant_name && dbUpdateFields.merchant_name.trim() !== '';
+      const hasSku = !!dbUpdateFields.sku && dbUpdateFields.sku.trim() !== '';
+
+      // If the transaction was pending_input and now meets all criteria, set status to 'completed'.
+      if (
+        transaction?.status === 'pending_input' &&
+        hasReceipts &&
+        hasCategory &&
+        hasMerchantName &&
+        hasSku
+      ) {
         newStatus = 'completed';
       }
       // Otherwise, retain the current status. If it was already 'completed', it stays 'completed'.
