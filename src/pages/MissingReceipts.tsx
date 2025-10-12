@@ -339,7 +339,7 @@ const MissingReceipts = () => {
                 <SelectItem value="all">All Users</SelectItem>
                 {allProfiles?.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
-                                {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
+                                <span>{profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -435,7 +435,7 @@ const MissingReceipts = () => {
                           <SelectContent>
                             {allProfiles?.map((profile) => (
                               <SelectItem key={profile.id} value={profile.id}>
-                                {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
+                                <span>{profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})</span>
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -443,7 +443,9 @@ const MissingReceipts = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <Button asChild variant="outline" size="sm" className="shadow-sm"> {/* Added shadow-sm */}
-                          <Link to={`/transaction/${transaction.id}`}>View/Add Receipt</Link>
+                          <Link to={`/transaction/${transaction.id}`}>
+                            <span>View/Add Receipt</span> {/* Wrapped text in span */}
+                          </Link>
                         </Button>
                       </TableCell>
                     </TableRow>
