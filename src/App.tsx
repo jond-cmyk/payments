@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"; // Import useLocation
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -41,7 +41,21 @@ const ApprovedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => {
-  useAutoRefresh({ intervalMinutes: 2, enabled: true });
+  const location = useLocation(); // Get current location
+  
+  // Define routes where auto-refresh should be disabled
+  const disableAutoRefreshRoutes = [
+    '/new-request',
+    '/request/', // Matches /request/:id
+    '/transaction/', // Matches /transaction/:id
+  ];
+
+  // Check if the current path starts with any of the disabled routes
+  const isAutoRefreshDisabled = disableAutoRefreshRoutes.some(route => 
+    location.pathname.startsWith(route)
+  );
+
+  useAutoRefresh({ intervalMinutes: 2, enabled: !isAutoRefreshDisabled }); // Pass enabled prop dynamically
 
   return (
     <QueryClientProvider client={queryClient}>
