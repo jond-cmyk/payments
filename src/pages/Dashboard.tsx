@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban, FileX, Search } from 'lucide-react'; // Import Search icon
+import { PlusCircle, Filter, XCircle, Clock, Euro, CheckCircle, MessageSquare, Ban, FileX, Search, ArrowUp, ArrowDown } from 'lucide-react'; // Import Search, ArrowUp, ArrowDown icons
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
@@ -42,6 +42,10 @@ const Dashboard = () => {
   const [filterSkuNumber, setFilterSkuNumber] = useState('');
   const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
   const [filterDatePaymentRequired, setFilterDatePaymentRequired] = useState<Date | undefined>(undefined);
+
+  // Sorting states for the table
+  const [sortColumn, setSortColumn] = useState<keyof PaymentRequest | null>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Global Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -121,7 +125,7 @@ const Dashboard = () => {
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<PaymentRequest[]>({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, isAllRequestsPage, isRequesterPersonalDashboard],
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, isAllRequestsPage, isRequesterPersonalDashboard, sortColumn, sortDirection],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return []; // Do not fetch if global search is active
 
@@ -147,7 +151,19 @@ const Dashboard = () => {
       }
       // If it's an admin on /dashboard, no requester_id filter is applied, so they see all requests by default.
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      // Apply dynamic sorting
+      if (sortColumn) {
+        query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+      }
+      // Add secondary and tertiary sorts for stability, ensuring 'id' is always the final tie-breaker
+      if (sortColumn !== 'created_at') { // Only add if not already sorting by created_at
+        query = query.order('created_at', { ascending: false });
+      }
+      if (sortColumn !== 'id') { // Only add if not already sorting by id
+        query = query.order('id', { ascending: false });
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -211,41 +227,23 @@ const Dashboard = () => {
     queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Force refetch
   };
 
-  // Calculate counts for summary cards using global data
-  const counts = React.useMemo(() => {
-    if (!allPaymentRequestsForSummary) {
-      return {
-        pending: 0,
-        setup_awaiting_approval: 0,
-        queried: 0,
-        declined: 0,
-        approved: 0,
-        total: 0,
-        missing_receipts: allMissingReceiptsCountForSummary || 0,
-      };
+  const handleSort = (column: keyof PaymentRequest) => {
+    if (sortColumn === column) {
+      setSortDirection(prev => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc'); // Default to ascending when changing column
     }
+  };
 
-    const initialCounts = {
-      pending: 0,
-      setup_awaiting_approval: 0,
-      queried: 0,
-      declined: 0,
-      approved: 0,
-    };
+  const renderSortIcon = (column: keyof PaymentRequest) => {
+    if (sortColumn === column) {
+      return sortDirection === 'asc' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />;
+    }
+    return null;
+  };
 
-    allPaymentRequestsForSummary.forEach(request => {
-      if (request.status in initialCounts) {
-        initialCounts[request.status as keyof typeof initialCounts]++;
-      }
-    });
-
-    return {
-      ...initialCounts,
-      total: allPaymentRequestsForSummary.length,
-      missing_receipts: allMissingReceiptsCountForSummary || 0,
-    };
-  }, [allPaymentRequestsForSummary, allMissingReceiptsCountForSummary]);
-
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterStatus !== 'all' || filterDatePaymentRequired !== undefined;
 
   if (isLoading || isAllRequestsSummaryLoading || isAllMissingReceiptsSummaryLoading || isRequestsTableLoading || isSearchLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
@@ -373,8 +371,6 @@ const Dashboard = () => {
         };
     }
   };
-
-  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterStatus !== 'all' || filterDatePaymentRequired !== undefined;
 
   return (
     <div className="container mx-auto py-8">
@@ -533,13 +529,37 @@ const Dashboard = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Supplier Name</TableHead>
-                    <TableHead>SKU Number</TableHead>
-                    <TableHead>Payment Required</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('supplier_name')}>
+                      <div className="flex items-center">
+                        Supplier Name {renderSortIcon('supplier_name')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku_number')}>
+                      <div className="flex items-center">
+                        SKU Number {renderSortIcon('sku_number')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('date_payment_required')}>
+                      <div className="flex items-center">
+                        Payment Required {renderSortIcon('date_payment_required')}
+                      </div>
+                    </TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Created At</TableHead>
-                    <TableHead>Payment Setup Date</TableHead>
-                    <TableHead>Payment Approved Date</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('created_at')}>
+                      <div className="flex items-center">
+                        Created At {renderSortIcon('created_at')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_setup_date')}>
+                      <div className="flex items-center">
+                        Payment Setup Date {renderSortIcon('payment_setup_date')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_approved_date')}>
+                      <div className="flex items-center">
+                        Payment Approved Date {renderSortIcon('payment_approved_date')}
+                      </div>
+                    </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
