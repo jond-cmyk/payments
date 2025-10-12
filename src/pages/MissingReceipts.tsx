@@ -77,16 +77,17 @@ const MissingReceipts = () => {
         .eq('receipt_urls', '{}')
         .order('transaction_date', { ascending: false });
 
-      // Temporarily disable dynamic filters for debugging
+      // Re-enabling filterAssignedUser
+      if (filterAssignedUser !== 'all') {
+        query = query.eq('requester_id', filterAssignedUser);
+      }
+
+      // Temporarily keep other filters disabled for debugging
       // if (filterAmount) {
       //   const amountNum = parseFloat(filterAmount);
       //   if (!isNaN(amountNum)) {
       //     query = query.eq('amount', amountNum);
       //   }
-      // }
-
-      // if (filterAssignedUser !== 'all') {
-      //   query = query.eq('requester_id', filterAssignedUser);
       // }
 
       // if (filterTransactionDate) {
