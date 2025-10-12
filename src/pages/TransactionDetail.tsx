@@ -273,7 +273,7 @@ const TransactionDetail = () => {
         merchant_name: values.merchant_name,
         notes: values.notes,
         sku: values.sku,
-        reason_for_payment: values.category,
+        reason_for_payment: values.category, // Assuming category can also be reason for payment
         comment: values.comment,
       };
 
@@ -306,9 +306,8 @@ const TransactionDetail = () => {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Transaction not found.</div>;
   }
 
-  const isAssignedUser = user?.id === transaction.requester_id;
-  // A transaction can be edited if it's pending_input AND has no receipts AND the user is assigned or an admin
-  const canAmend = (transaction.status === 'pending_input' && transaction.receipt_urls.length === 0) && (isAssignedUser || isAdmin);
+  // The `canAmend` logic now allows any authenticated user to amend pending_input transactions without receipts
+  const canAmend = (transaction.status === 'pending_input' && transaction.receipt_urls.length === 0);
 
   return (
     <div className="container mx-auto py-8">
