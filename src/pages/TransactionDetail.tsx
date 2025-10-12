@@ -70,10 +70,10 @@ const categoryOptions = [
 
 // Zod schema for unified transaction details form
 const transactionDetailSchema = z.object({
-  category: z.string().optional(),
-  merchant_name: z.string().optional(),
+  category: z.string().min(1, "Category is required for completion."),
+  merchant_name: z.string().min(1, "Merchant Name is required for completion."),
   notes: z.string().optional(),
-  sku: z.string().optional(),
+  sku: z.string().min(1, "SKU is required for completion."),
   comment: z.string().optional(),
   new_receipt_files: z.any()
     .optional()
