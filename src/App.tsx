@@ -15,7 +15,7 @@ import MissingReceipts from "./pages/MissingReceipts";
 import TransactionDetail from "./pages/TransactionDetail";
 import PendingApproval from "./pages/PendingApproval";
 import AdminTestEmail from "./pages/AdminTestEmail";
-import CompletedReceipts from "./pages/CompletedReceipts"; // Import the new page
+import CompletedReceipts from "./pages/CompletedReceipts";
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import Layout from "./components/Layout";
 import useAutoRefresh from "./hooks/use-auto-refresh";
@@ -56,6 +56,13 @@ const App = () => {
               <Route path="/pending-approval" element={<PendingApproval />} />
               <Route path="/" element={<Index />} />
 
+              {/* Routes accessible to all logged-in users (even if not approved) */}
+              <Route element={<Layout />}>
+                <Route path="/missing-receipts" element={<MissingReceipts />} />
+                <Route path="/completed-receipts" element={<CompletedReceipts />} />
+                <Route path="/transaction/:id" element={<TransactionDetail />} />
+              </Route>
+
               {/* Protected routes requiring approval */}
               <Route element={<ApprovedRoute><Layout /></ApprovedRoute>}>
                 <Route path="/dashboard" element={<Dashboard />} />
@@ -65,9 +72,6 @@ const App = () => {
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
                 <Route path="/admin/test-email" element={<AdminTestEmail />} />
-                <Route path="/missing-receipts" element={<MissingReceipts />} />
-                <Route path="/completed-receipts" element={<CompletedReceipts />} /> {/* New route */}
-                <Route path="/transaction/:id" element={<TransactionDetail />} />
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
