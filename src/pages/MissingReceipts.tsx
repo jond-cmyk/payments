@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, Profile } from '@/types/supabase'; // Import Profile type
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus } from 'lucide-react';
+import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, ChevronLeft, ChevronRight } from 'lucide-react'; // Import ChevronLeft, ChevronRight
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast'; // Added missing import
 
 import {
@@ -34,6 +34,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Import Select components
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationLink, PaginationNext } from '@/components/ui/pagination'; // Import shadcn/ui pagination components
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -41,19 +42,28 @@ const MissingReceipts = () => {
   const queryClient = useQueryClient();
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10); // Default items per page
+
   const isAdmin = userProfile?.role === 'admin';
 
   // Fetch ALL transactions that are pending input and have no receipts
-  const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts'], // Removed user?.id from queryKey to make it global
+  const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError, dataUpdatedAt } = useQuery<Transaction[]>({
+    queryKey: ['missingReceipts', currentPage, itemsPerPage], // Include pagination in query key
     queryFn: async () => {
       if (!session) return []; // Only fetch if authenticated
+
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage - 1;
+
       let query = supabase
         .from('transactions')
-        .select('*')
+        .select('*', { count: 'exact' }) // Request count for pagination
         .eq('status', 'pending_input') // Filter for pending input
         .eq('receipt_urls', '{}') // Filter for empty receipt_urls array
-        .order('transaction_date', { ascending: false });
+        .order('transaction_date', { ascending: false })
+        .range(startIndex, endIndex); // Apply pagination range
 
       const { data, error } = await query;
       if (error) throw error;
@@ -61,6 +71,26 @@ const MissingReceipts = () => {
     },
     enabled: !!session, // Enabled for any authenticated user
   });
+
+  // Fetch total count for pagination
+  const { data: totalTransactionsCount, isLoading: isCountLoading, error: countError } = useQuery<number>({
+    queryKey: ['missingReceiptsCount'],
+    queryFn: async () => {
+      if (!session) return 0;
+      const { count, error } = await supabase
+        .from('transactions')
+        .select('id', { count: 'exact' })
+        .eq('status', 'pending_input')
+        .eq('receipt_urls', '{}');
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!session,
+    staleTime: 1000 * 60 * 5, // Cache count for 5 minutes
+    refetchInterval: 1000 * 60 * 5, // Refetch count every 5 minutes
+  });
+
+  const totalPages = Math.ceil((totalTransactionsCount || 0) / itemsPerPage);
 
   // Fetch all user profiles for the assignee dropdown
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
@@ -88,6 +118,7 @@ const MissingReceipts = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
+      queryClient.invalidateQueries({ queryKey: ['missingReceiptsCount'] }); // Invalidate count
       setSelectedTransactionIds([]); // Clear selection after deletion
       showSuccess("Selected transactions deleted successfully!");
     },
@@ -152,7 +183,7 @@ const MissingReceipts = () => {
     }
   };
 
-  if (isSessionLoading || isTransactionsLoading || isProfilesLoading) {
+  if (isSessionLoading || isTransactionsLoading || isProfilesLoading || isCountLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading missing receipts...</div>;
   }
 
@@ -167,6 +198,10 @@ const MissingReceipts = () => {
 
   if (profilesError) {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading user profiles: {profilesError.message}</div>;
+  }
+
+  if (countError) {
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading transaction count: {countError.message}</div>;
   }
 
   const getStatusBadge = (status: Transaction['status']) => {
@@ -259,7 +294,7 @@ const MissingReceipts = () => {
                     <TableHead>Status</TableHead>
                     <TableHead>SKU</TableHead>
                     <TableHead>Reason for Payment</TableHead>
-                    <TableHead>Assigned To</TableHead> {/* New TableHead */}
+                    <TableHead>Assigned To</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -281,7 +316,7 @@ const MissingReceipts = () => {
                       <TableCell>{getStatusBadge(transaction.status)}</TableCell>
                       <TableCell>{transaction.sku || 'N/A'}</TableCell>
                       <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
-                      <TableCell> {/* New TableCell for Assign To */}
+                      <TableCell>
                         <Select
                           value={transaction.requester_id || ''}
                           onValueChange={(newRequesterId) => handleAssignTransaction(transaction.id, newRequesterId)}
@@ -311,6 +346,57 @@ const MissingReceipts = () => {
             </div>
           ) : (
             <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found.</p>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="mt-8 flex justify-between items-center">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">Items per page:</span>
+                <Select
+                  value={String(itemsPerPage)}
+                  onValueChange={(value) => {
+                    setItemsPerPage(Number(value));
+                    setCurrentPage(1); // Reset to first page when items per page changes
+                  }}
+                >
+                  <SelectTrigger className="w-[80px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                    />
+                  </PaginationItem>
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        isActive={currentPage === page}
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ))}
+                  <PaginationItem>
+                    <PaginationNext
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
           )}
         </CardContent>
       </Card>
