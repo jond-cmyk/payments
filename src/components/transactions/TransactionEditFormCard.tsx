@@ -3,7 +3,7 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import * as z from 'zod'; // Keep z for other Zod usage if any
 import { Download } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
 
@@ -16,25 +16,13 @@ import FileInput from '@/components/FileInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Transaction } from '@/types/supabase';
 import PrefixedInput from '@/components/PrefixedInput'; // Import PrefixedInput
-
-// Zod schema for unified transaction details form
-const transactionDetailSchema = z.object({
-  category: z.string().optional(),
-  merchant_name: z.string().optional(),
-  notes: z.string().optional(),
-  sku: z.string().optional(),
-  comment: z.string().optional(),
-  new_receipt_files: z.any()
-    .optional()
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
-});
+import { transactionDetailSchema, TransactionDetailSchema } from '@/schemas/transactionSchema'; // Import centralized schema
 
 interface TransactionEditFormCardProps {
   transaction: Transaction;
   isEditingMode: boolean;
-  form: ReturnType<typeof useForm<z.infer<typeof transactionDetailSchema>>>;
-  onSubmit: (values: z.infer<typeof transactionDetailSchema>) => Promise<void>;
+  form: ReturnType<typeof useForm<TransactionDetailSchema>>; // Use centralized schema type
+  onSubmit: (values: TransactionDetailSchema) => Promise<void>; // Use centralized schema type
   updateTransactionMutation: UseMutationResult<boolean, Error, Partial<Transaction> & { new_receipt_files?: FileList }, unknown>;
   categoryOptions: { value: string; label: string }[];
 }

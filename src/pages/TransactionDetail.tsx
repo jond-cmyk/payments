@@ -9,13 +9,14 @@ import { Transaction, TransactionAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import * as z from 'zod'; // Keep z for other Zod usage if any
 
 import TransactionDetailsDisplayCard from '@/components/transactions/TransactionDetailsDisplayCard';
 import TransactionEditFormCard from '@/components/transactions/TransactionEditFormCard';
 import TransactionAdminActionsCard from '@/components/transactions/TransactionAdminActionsCard';
 import TransactionAuditTrailCard from '@/components/transactions/TransactionAuditTrailCard';
 import { Button } from '@/components/ui/button'; // Import Button
+import { transactionDetailSchema, TransactionDetailSchema } from '@/schemas/transactionSchema'; // Import centralized schema
 
 // List of common categories - UPDATED with custom sort
 const categoryOptions = [
@@ -66,19 +67,6 @@ const categoryOptions = [
     return prefixA - prefixB; // Sort by numerical prefix
   }
   return a.label.localeCompare(b.label); // Fallback to alphabetical sort
-});
-
-// Zod schema for unified transaction details form
-const transactionDetailSchema = z.object({
-  category: z.string().min(1, "Category is required for completion."),
-  merchant_name: z.string().min(1, "Merchant Name is required for completion."),
-  notes: z.string().optional(),
-  sku: z.string().min(1, "SKU is required for completion."),
-  comment: z.string().optional(),
-  new_receipt_files: z.any()
-    .optional()
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
 });
 
 const TransactionDetail = () => {
@@ -156,7 +144,7 @@ const TransactionDetail = () => {
     enabled: !!audits && audits.length > 0,
   });
 
-  const form = useForm<z.infer<typeof transactionDetailSchema>>({
+  const form = useForm<TransactionDetailSchema>({
     resolver: zodResolver(transactionDetailSchema),
     defaultValues: {
       category: "",
@@ -301,7 +289,7 @@ const TransactionDetail = () => {
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof transactionDetailSchema>) => {
+  const onSubmit = async (values: TransactionDetailSchema) => {
     const toastId = showLoading("Updating transaction...");
     try {
       const updatedFields: Partial<Transaction> & { new_receipt_files?: FileList } = {
@@ -317,6 +305,7 @@ const TransactionDetail = () => {
         updatedFields.new_receipt_files = values.new_receipt_files;
       }
 
+      console.log("Submitting values to mutation:", updatedFields); // Added debug log
       await updateTransactionMutation.mutateAsync(updatedFields);
       dismissToast(toastId);
     } catch (error: any) {
