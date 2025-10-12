@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@/types/supabase';
 import { format, parseISO } from 'date-fns';
-import { Folder, FileText, CalendarDays } from 'lucide-react';
+import { Folder, FileText, CalendarDays, ChevronDown } from 'lucide-react'; // Added ChevronDown import
 
 import {
   Card,
@@ -142,8 +142,11 @@ const CompletedReceipts = () => {
                 return (
                   <AccordionItem key={groupKey} value={groupKey}>
                     <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-lg font-semibold hover:bg-muted/50 transition-colors">
-                      <span className="flex items-center">
-                        <Folder className="mr-2 h-5 w-5 text-primary" /> {group.display} ({group.transactions.length})
+                      <span className="flex items-center justify-between w-full"> {/* Added wrapper span for content and icon */}
+                        <span className="flex items-center">
+                          <Folder className="mr-2 h-5 w-5 text-primary" /> {group.display} ({group.transactions.length})
+                        </span>
+                        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 [&[data-state=open]]:rotate-180" /> {/* Moved ChevronDown here */}
                       </span>
                     </CustomAccordionTrigger>
                     <AccordionContent className="border-t border-border bg-secondary/10">
