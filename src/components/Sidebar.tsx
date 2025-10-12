@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Link, useNavigate, useLocation } => from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
