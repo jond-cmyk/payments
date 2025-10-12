@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react"; // Keep import for now, might be needed for styling or if assumption is wrong
 
 import { cn } from "@/lib/utils";
 
@@ -19,11 +19,8 @@ const CustomAccordionTrigger = React.forwardRef<
       )}
       {...props}
     >
-      {/* This wrapper ensures that AccordionPrimitive.Trigger receives only one child */}
-      <div className="flex items-center justify-between w-full">
-        {children}
-        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" />
-      </div>
+      {/* Pass children directly. Assume AccordionPrimitive.Trigger handles its own chevron. */}
+      {children}
     </AccordionPrimitive.Trigger>
   </AccordionPrimitive.Header>
 ));
