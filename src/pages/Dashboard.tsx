@@ -86,8 +86,11 @@ const Dashboard = () => {
 
   // Determine if we are on the 'All Requests' page
   const isAllRequestsPage = location.pathname === '/admin/requests';
-  // Determine if it's a requester's personal dashboard
+  // Determine if it's a requester's personal dashboard (showing their urgent requests)
   const isRequesterPersonalDashboard = userRole === 'requester' && location.pathname === '/dashboard';
+  // Determine if it's an admin's personal dashboard (showing all urgent requests)
+  const isAdminUrgentDashboard = userRole === 'admin' && location.pathname === '/dashboard';
+
 
   // --- Data for Summary Cards (Global Totals) ---
   const allPaymentRequestsForSummaryQuery = useQuery<PaymentRequest[]>({
@@ -149,24 +152,30 @@ const Dashboard = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!session && isAllRequestsPage,
+    enabled: !!session && isAllRequestsPage, // Only fetch if on the 'All Requests' page
   });
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, sortColumn, sortDirection],
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, isAdminUrgentDashboard, sortColumn, sortDirection],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
       let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)');
 
       if (isRequesterPersonalDashboard) {
+        // Requester's personal dashboard: only their urgent requests
         query = query.eq('requester_id', user.id)
                      .eq('is_urgent', true)
                      .in('status', ['pending', 'setup_awaiting_approval', 'queried']);
+      } else if (isAdminUrgentDashboard) {
+        // Admin's personal dashboard: all urgent requests
+        query = query.eq('is_urgent', true)
+                     .in('status', ['pending', 'setup_awaiting_approval', 'queried']);
       } else if (isAllRequestsPage) {
+        // Admin's 'All Requests' page: apply filters
         if (filterSupplierName) {
           query = query.ilike('supplier_name', `%${filterSupplierName}%`);
         }
@@ -182,12 +191,17 @@ const Dashboard = () => {
         if (filterRequester !== 'all') {
           query = query.eq('requester_id', filterRequester);
         }
+      } else {
+        // Fallback for other cases, e.g., if a non-admin/non-requester somehow lands here
+        return [];
       }
 
+      // Always sort urgent requests to the top, then by the selected column
       query = query.order('is_urgent', { ascending: false });
       if (sortColumn) {
         query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
       }
+      // Add secondary and tertiary sorts for stability
       if (sortColumn !== 'created_at') {
         query = query.order('created_at', { ascending: false });
       }
@@ -209,7 +223,7 @@ const Dashboard = () => {
       if (!debouncedSearchTerm) return [];
 
       const term = `%${debouncedSearchTerm}%`;
-      const searchPromises: Promise<SearchResult[]>[] = []; // Corrected type here
+      const searchPromises: Promise<SearchResult[]>[] = [];
 
       searchPromises.push(
         supabase
@@ -366,7 +380,11 @@ const Dashboard = () => {
     <div className="container mx-auto py-8">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">
-          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (isAllRequestsPage ? 'All Payment Requests' : 'Urgent Payment Requests')}
+          {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (
+            isAdminUrgentDashboard ? 'All Urgent Payment Requests' : (
+              isAllRequestsPage ? 'All Payment Requests' : 'Urgent Payment Requests'
+            )
+          )}
         </h1>
         {(userRole === 'requester' || userRole === 'admin') && (
           <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
@@ -399,10 +417,12 @@ const Dashboard = () => {
         />
       ) : (
         <>
+          {/* Summary cards always show on /dashboard for both requester and admin */}
           {!isAllRequestsPage && (
             <DashboardSummaryCards counts={counts} />
           )}
 
+          {/* Filters only show on /admin/requests */}
           {isAllRequestsPage && (
             <PaymentRequestFilters
               filterSupplierName={filterSupplierName}
@@ -422,7 +442,7 @@ const Dashboard = () => {
             />
           )}
 
-          {(isAllRequestsPage || isRequesterPersonalDashboard) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
+          {(isAllRequestsPage || isRequesterPersonalDashboard || isAdminUrgentDashboard) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
             <PaymentRequestTable
               paymentRequests={paymentRequestsForTable}
               userRole={userRole}
@@ -433,13 +453,11 @@ const Dashboard = () => {
               toggleUrgentMutation={toggleUrgentMutation}
             />
           ) : (
-            (isAllRequestsPage) ? (
-              <p className="text-center text-muted-foreground mt-8">No payment requests found matching your criteria.</p>
-            ) : (
-              <p className="text-center text-muted-foreground mt-8">
-                No urgent payment requests found matching your criteria.
-              </p>
-            )
+            <p className="text-center text-muted-foreground mt-8">
+              {isAdminUrgentDashboard || isRequesterPersonalDashboard
+                ? 'No urgent payment requests found.'
+                : 'No payment requests found matching your criteria.'}
+            </p>
           )}
         </>
       )}
