@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -122,6 +122,30 @@ const Dashboard = () => {
     },
     enabled: !!session && !debouncedSearchTerm, // Enabled for any approved user, only if no search term
   });
+
+  // Calculate counts for summary cards
+  const counts = useMemo(() => {
+    const initialCounts = {
+      pending: 0,
+      setup_awaiting_approval: 0,
+      approved: 0,
+      declined: 0,
+      queried: 0,
+      missing_receipts: allMissingReceiptsCountForSummary || 0,
+      total: 0,
+    };
+
+    if (allPaymentRequestsForSummary) {
+      allPaymentRequestsForSummary.forEach(request => {
+        if (request.status in initialCounts) {
+          initialCounts[request.status as keyof typeof initialCounts]++;
+        }
+        initialCounts.total++;
+      });
+    }
+    return initialCounts;
+  }, [allPaymentRequestsForSummary, allMissingReceiptsCountForSummary]);
+
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<PaymentRequest[]>({
