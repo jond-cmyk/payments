@@ -14,7 +14,6 @@ import AdminUploadTransactions from "./pages/AdminUploadTransactions";
 import MissingReceipts from "./pages/MissingReceipts";
 import TransactionDetail from "./pages/TransactionDetail";
 import PendingApproval from "./pages/PendingApproval";
-import AdminTestEmail from "./pages/AdminTestEmail";
 import CompletedReceipts from "./pages/CompletedReceipts";
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import Layout from "./components/Layout";
@@ -71,7 +70,7 @@ const App = () => {
                 <Route path="/admin/requests" element={<Dashboard />} />
                 <Route path="/admin/users" element={<UserManagement />} />
                 <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
-                <Route path="/admin/test-email" element={<AdminTestEmail />} />
+                {/* Removed AdminTestEmail route */}
               </Route>
 
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

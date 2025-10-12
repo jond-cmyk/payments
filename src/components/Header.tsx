@@ -32,8 +32,7 @@ const Header = () => {
         return 'Login - KH Payments';
       case '/':
         return 'Welcome - KH Payments';
-      case '/admin/test-email':
-        return 'Test Email - KH Payments';
+      // Removed case for '/admin/test-email'
       default:
         if (pathname.startsWith('/request/')) {
           return 'Payment Request Details - KH Payments';

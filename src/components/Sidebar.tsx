@@ -87,7 +87,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
             <div className="h-px bg-dyad-blue my-4" /> {/* Second dividing line */}
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
             <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
-            <NavLink to="/admin/test-email" icon={<Mail className="h-5 w-5" />} label="Test Email" />
+            {/* Removed Test Email link */}
           </>
         )}
       </nav>
