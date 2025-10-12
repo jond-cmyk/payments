@@ -142,6 +142,8 @@ const MissingReceipts = () => {
       return true;
     },
     onSuccess: () => {
+      console.log("Transaction reassigned successfully. Invalidating 'missingReceipts' query.");
+      console.log("Current filterAssignedUser:", filterAssignedUser); // Log current filter state
       queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
       queryClient.invalidateQueries({ queryKey: ['transactionAudits'] });
       showSuccess("Transaction reassigned successfully!");
