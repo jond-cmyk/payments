@@ -167,13 +167,14 @@ const Dashboard = () => {
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
-    (PaymentRequest & { profiles: { first_name: string | null } | null })[]
+    (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
     queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, sortColumn, sortDirection],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return []; // Do not fetch if global search is active
 
-      let query = supabase.from('payment_requests').select('*, profiles(first_name)'); // Fetch first_name from profiles
+      // Use 'requester_id:profiles(first_name)' to explicitly join and alias the relationship
+      let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)');
 
       if (isRequesterPersonalDashboard) {
         // For a requester's personal dashboard, only show their urgent pending/setup/queried requests
@@ -691,7 +692,7 @@ const Dashboard = () => {
                       <TableCell>
                         {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
                       </TableCell>
-                      <TableCell>{request.profiles?.first_name || 'N/A'}</TableCell> {/* Display requester's first name */}
+                      <TableCell>{request.requester_profile?.first_name || 'N/A'}</TableCell> {/* Display requester's first name */}
                       {userRole === 'admin' && (
                         <TableCell className="text-center">
                           <Switch
