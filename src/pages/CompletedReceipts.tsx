@@ -178,13 +178,13 @@ const CompletedReceipts = () => {
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                                     {format(parseISO(transaction.transaction_date), 'PPP')}
                                   </td>
-                                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                                  <td className="px-4 py-4 text-sm font-medium text-foreground max-w-xs"> {/* Removed whitespace-nowrap and added max-w-xs */}
                                     {transaction.description}
                                   </td>
-                                  <td className="px-4 py-4 text-sm text-foreground"> {/* Removed temporary classes */}
+                                  <td className="px-4 py-4 text-sm text-foreground">
                                     {transaction.category || 'N/A'}
                                   </td>
-                                  <td className="px-4 py-4 text-sm text-foreground"> {/* Removed temporary classes */}
+                                  <td className="px-4 py-4 text-sm text-foreground">
                                     {transaction.merchant_name || 'N/A'}
                                   </td>
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
