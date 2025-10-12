@@ -98,7 +98,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
               <User className="h-4 w-4" />
               <span>{displayName}</span>
             </div>
-            <div className="text-xs text-muted-foreground">Role: {currentRole || 'Not available'}</div>
+            <div className="text-xs text-sidebar-foreground">Role: {currentRole || 'Not available'}</div>
             <Button
               variant="ghost"
               onClick={handleLogout}
