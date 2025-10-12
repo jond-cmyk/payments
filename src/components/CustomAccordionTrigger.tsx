@@ -14,16 +14,13 @@ const CustomAccordionTrigger = React.forwardRef<
     <AccordionPrimitive.Trigger
       ref={ref}
       className={cn(
-        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline", // Removed [&[data-state=open]>svg]:rotate-180 from here
+        "flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
         className
       )}
       {...props}
     >
-      {/* This wrapper ensures that AccordionPrimitive.Trigger receives only one child */}
-      <div className="flex items-center justify-between w-full">
-        {children}
-        <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 [&[data-state=open]]:rotate-180" /> {/* Added rotation class directly to ChevronDown */}
-      </div>
+      {children} {/* The content provided by the parent */}
+      <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200" /> {/* The icon */}
     </AccordionPrimitive.Trigger>
   </AccordionPrimitive.Header>
 ));
