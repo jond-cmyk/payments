@@ -68,6 +68,8 @@ const MissingReceipts = () => {
     queryFn: async () => {
       if (!session) return [];
 
+      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}`);
+
       let query = supabase
         .from('transactions')
         .select('*')
@@ -75,23 +77,25 @@ const MissingReceipts = () => {
         .eq('receipt_urls', '{}')
         .order('transaction_date', { ascending: false });
 
-      if (filterAmount) {
-        const amountNum = parseFloat(filterAmount);
-        if (!isNaN(amountNum)) {
-          query = query.eq('amount', amountNum);
-        }
-      }
+      // Temporarily disable dynamic filters for debugging
+      // if (filterAmount) {
+      //   const amountNum = parseFloat(filterAmount);
+      //   if (!isNaN(amountNum)) {
+      //     query = query.eq('amount', amountNum);
+      //   }
+      // }
 
-      if (filterAssignedUser !== 'all') {
-        query = query.eq('requester_id', filterAssignedUser);
-      }
+      // if (filterAssignedUser !== 'all') {
+      //   query = query.eq('requester_id', filterAssignedUser);
+      // }
 
-      if (filterTransactionDate) {
-        query = query.eq('transaction_date', format(filterTransactionDate, 'yyyy-MM-dd'));
-      }
+      // if (filterTransactionDate) {
+      //   query = query.eq('transaction_date', format(filterTransactionDate, 'yyyy-MM-dd'));
+      // }
 
       const { data, error } = await query;
       if (error) throw error;
+      console.log(`[MissingReceipts Query] Fetched ${data?.length || 0} transactions. First transaction: ${JSON.stringify(data?.[0])}`);
       return data;
     },
     enabled: !!session,
