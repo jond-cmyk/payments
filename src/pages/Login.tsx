@@ -5,7 +5,7 @@ import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '@/integrations/supabase/client';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useEffect } from 'react';
-import { useNavigate } => 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
   const { session, isLoading, isApproved } = useSession();
