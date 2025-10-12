@@ -47,6 +47,7 @@ const CompletedReceipts = () => {
 
       const { data, error } = await query;
       if (error) throw error;
+      console.log("[CompletedReceipts] Fetched completed transactions:", data); // Log fetched data
       return data;
     },
     enabled: !!user?.id,
@@ -157,6 +158,12 @@ const CompletedReceipts = () => {
                                 Description
                               </th>
                               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Category
+                              </th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                                Merchant Name
+                              </th>
+                              <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                                 Amount
                               </th>
                               <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -175,6 +182,12 @@ const CompletedReceipts = () => {
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                                   {transaction.description}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                  {transaction.category || 'N/A'}
+                                </td>
+                                <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
+                                  {transaction.merchant_name || 'N/A'}
                                 </td>
                                 <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                                   {transaction.currency} {transaction.amount.toFixed(2)}
