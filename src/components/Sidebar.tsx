@@ -80,12 +80,12 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
         )}
         <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
-        <div className="h-px bg-dyad-blue my-4" />
+        <div className="h-px bg-dyad-blue-foreground my-4" />
         <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
         <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
         {currentRole === 'admin' && (
           <>
-            <div className="h-px bg-dyad-blue my-4" />
+            <div className="h-px bg-dyad-blue-foreground my-4" />
             <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
             <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
           </>
