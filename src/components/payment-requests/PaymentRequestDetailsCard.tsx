@@ -86,7 +86,7 @@ interface PaymentRequestDetailsCardProps {
   setIsEditing: (editing: boolean) => void;
   editForm: ReturnType<typeof useForm<z.infer<typeof editFormSchema>>>;
   handleRequesterEditSubmit: (values: z.infer<typeof editFormSchema>) => Promise<void>;
-  auditUsers: Record<string, string> | undefined;
+  auditUsers: Record<string, string> | undefined; // Added auditUsers prop
 }
 
 const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
@@ -96,7 +96,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
   setIsEditing,
   editForm,
   handleRequesterEditSubmit,
-  auditUsers,
+  auditUsers, // Destructure auditUsers
 }) => {
   const getStatusDisplay = (status: PaymentRequest['status']) => {
     switch (status) {
@@ -343,6 +343,10 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
           </Form>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <p className="font-medium">Requested By:</p>
+              <p>{auditUsers?.[request.requester_id] || request.requester_id}</p>
+            </div>
             <div>
               <p className="font-medium">Supplier Name:</p>
               <p>{request.supplier_name}</p>
