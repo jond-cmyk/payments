@@ -6,7 +6,10 @@ export type PaymentRequest = {
   not_sku_related: boolean; // New field
   lease_id: string | null; // New field
   supplier_address: string;
-  iban_number: string;
+  iban_number: string | null; // Made nullable
+  sort_code: string | null; // New field
+  account_number: string | null; // New field
+  bank_account_name: string | null; // New field
   currency: string; // New field
   payment_amount: number; // New field
   reason_for_payment: string;

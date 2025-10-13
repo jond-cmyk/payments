@@ -69,7 +69,10 @@ const editFormSchema = z.object({
     return /^\d+$/.test(val); // Must be numerical if present
   }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
-  iban_number: z.string().min(1, "IBAN Number is required"),
+  iban_number: z.string().optional(), // Made optional
+  sort_code: z.string().optional(), // New field
+  account_number: z.string().optional(), // New field
+  bank_account_name: z.string().optional(), // New field
   currency: z.string().min(1, "Currency is required"),
   payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"),
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
@@ -104,6 +107,69 @@ const editFormSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
         path: ['sku_number'],
+      });
+    }
+  }
+
+  // Conditional validation for bank details based on country
+  if (data.country === 'United Kingdom') {
+    if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sort Code is required and must be in XX-XX-XX format.",
+        path: ['sort_code'],
+      });
+    }
+    if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account Number is required and must be 8 digits.",
+        path: ['account_number'],
+      });
+    }
+    if (!data.bank_account_name || data.bank_account_name.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account Name is required.",
+        path: ['bank_account_name'],
+      });
+    }
+    // Ensure IBAN is not provided for UK
+    if (data.iban_number && data.iban_number.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number should not be provided for United Kingdom.",
+        path: ['iban_number'],
+      });
+    }
+  } else {
+    if (!data.iban_number || data.iban_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number is required.",
+        path: ['iban_number'],
+      });
+    }
+    // Ensure UK bank details are not provided for non-UK countries
+    if (data.sort_code && data.sort_code.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sort Code should not be provided for this country.",
+        path: ['sort_code'],
+      });
+    }
+    if (data.account_number && data.account_number.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account Number should not be provided for this country.",
+        path: ['account_number'],
+      });
+    }
+    if (data.bank_account_name && data.bank_account_name.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account Name should not be provided for this country.",
+        path: ['bank_account_name'],
       });
     }
   }
@@ -214,6 +280,9 @@ const PaymentRequestDetail = () => {
       lease_id: "", // Default for new field
       supplier_address: "",
       iban_number: "",
+      sort_code: "", // New field
+      account_number: "", // New field
+      bank_account_name: "", // New field
       currency: "CHF", // Default to CHF
       payment_amount: 0.00,
       reason_for_payment: "",
@@ -222,6 +291,7 @@ const PaymentRequestDetail = () => {
       receipt_required: false,
       is_urgent: false, // Default to not urgent
     },
+    context: { country: request?.country }, // Pass the request's country to superRefine
   });
 
   // Effect to reset editForm when request data loads or isEditing changes
@@ -234,7 +304,10 @@ const PaymentRequestDetail = () => {
         not_sku_related: request.not_sku_related, // Set the checkbox state
         lease_id: request.lease_id || "", // Set lease_id
         supplier_address: request.supplier_address,
-        iban_number: request.iban_number,
+        iban_number: request.iban_number || "",
+        sort_code: request.sort_code || "",
+        account_number: request.account_number || "",
+        bank_account_name: request.bank_account_name || "",
         currency: request.currency,
         payment_amount: request.payment_amount,
         reason_for_payment: request.reason_for_payment,
@@ -370,7 +443,6 @@ const PaymentRequestDetail = () => {
         not_sku_related: values.not_sku_related, // Save the checkbox state
         lease_id: values.lease_id || null, // Include lease_id, set to null if empty
         supplier_address: values.supplier_address,
-        iban_number: values.iban_number,
         currency: values.currency,
         payment_amount: values.payment_amount,
         reason_for_payment: values.reason_for_payment,
@@ -378,6 +450,19 @@ const PaymentRequestDetail = () => {
         receipt_required: values.receipt_required,
         is_urgent: values.is_urgent, // Include urgent status
       };
+
+      // Conditionally add bank details to updatedFields
+      if (request?.country === 'United Kingdom') {
+        updatedFields.iban_number = null;
+        updatedFields.sort_code = values.sort_code;
+        updatedFields.account_number = values.account_number?.replace(/\s/g, '');
+        updatedFields.bank_account_name = values.bank_account_name;
+      } else {
+        updatedFields.iban_number = values.iban_number;
+        updatedFields.sort_code = null;
+        updatedFields.account_number = null;
+        updatedFields.bank_account_name = null;
+      }
 
       if (values.invoice_pdf && values.invoice_pdf.length > 0) {
         updatedFields.new_invoice_files = values.invoice_pdf;

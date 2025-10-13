@@ -69,7 +69,10 @@ const formSchema = z.object({
     return /^\d+$/.test(val); // Must be numerical if present
   }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
-  iban_number: z.string().min(1, "IBAN Number is required"),
+  iban_number: z.string().optional(), // Made optional
+  sort_code: z.string().optional(), // New field
+  account_number: z.string().optional(), // New field
+  bank_account_name: z.string().optional(), // New field
   currency: z.string().min(1, "Currency is required"),
   payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"),
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
@@ -106,6 +109,69 @@ const formSchema = z.object({
       });
     }
   }
+
+  // Conditional validation for bank details based on country
+  if (data.country === 'United Kingdom') {
+    if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sort Code is required and must be in XX-XX-XX format.",
+        path: ['sort_code'],
+      });
+    }
+    if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account Number is required and must be 8 digits.",
+        path: ['account_number'],
+      });
+    }
+    if (!data.bank_account_name || data.bank_account_name.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account Name is required.",
+        path: ['bank_account_name'],
+      });
+    }
+    // Ensure IBAN is not provided for UK
+    if (data.iban_number && data.iban_number.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number should not be provided for United Kingdom.",
+        path: ['iban_number'],
+      });
+    }
+  } else {
+    if (!data.iban_number || data.iban_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number is required.",
+        path: ['iban_number'],
+      });
+    }
+    // Ensure UK bank details are not provided for non-UK countries
+    if (data.sort_code && data.sort_code.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sort Code should not be provided for this country.",
+        path: ['sort_code'],
+      });
+    }
+    if (data.account_number && data.account_number.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account Number should not be provided for this country.",
+        path: ['account_number'],
+      });
+    }
+    if (data.bank_account_name && data.bank_account_name.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account Name should not be provided for this country.",
+        path: ['bank_account_name'],
+      });
+    }
+  }
 });
 
 const NewPaymentRequest = () => {
@@ -124,7 +190,10 @@ const NewPaymentRequest = () => {
       not_sku_related: false, // Default to false
       lease_id: "", // Default for new field
       supplier_address: "",
-      iban_number: "",
+      iban_number: currentCountry === 'United Kingdom' ? "" : "", // Default empty for both, but IBAN will be validated conditionally
+      sort_code: currentCountry === 'United Kingdom' ? "" : "",
+      account_number: currentCountry === 'United Kingdom' ? "" : "",
+      bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
       currency: defaultCurrency, // Default based on country
       payment_amount: 0.00,
       reason_for_payment: "",
@@ -133,10 +202,25 @@ const NewPaymentRequest = () => {
       receipt_required: false,
       is_urgent: false, // Default to not urgent
     },
+    context: { country: currentCountry }, // Pass country to superRefine
   });
 
   // Watch the not_sku_related field to dynamically update validation and input state
   const notSkuRelated = form.watch("not_sku_related");
+
+  // Watch currentCountry to update form defaults if it changes
+  React.useEffect(() => {
+    form.reset((prev) => ({
+      ...prev,
+      sku_number: currentCountry === 'United Kingdom' ? 'UK' : 'CH',
+      currency: currentCountry === 'United Kingdom' ? 'GBP' : 'CHF',
+      iban_number: currentCountry === 'United Kingdom' ? "" : "",
+      sort_code: currentCountry === 'United Kingdom' ? "" : "",
+      account_number: currentCountry === 'United Kingdom' ? "" : "",
+      bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
+    }));
+  }, [currentCountry, form]);
+
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -184,6 +268,21 @@ const NewPaymentRequest = () => {
         uploadedInvoiceUrls.push(publicUrlData.publicUrl);
       }
 
+      // Prepare bank details based on country
+      const bankDetails = currentCountry === 'United Kingdom'
+        ? {
+            iban_number: null,
+            sort_code: values.sort_code,
+            account_number: values.account_number?.replace(/\s/g, ''), // Remove spaces for DB storage
+            bank_account_name: values.bank_account_name,
+          }
+        : {
+            iban_number: values.iban_number,
+            sort_code: null,
+            account_number: null,
+            bank_account_name: null,
+          };
+
       // Insert payment request data into Supabase
       const { error: insertError } = await supabase
         .from('payment_requests')
@@ -194,7 +293,7 @@ const NewPaymentRequest = () => {
           not_sku_related: values.not_sku_related, // Save the checkbox state
           lease_id: values.lease_id || null, // Include lease_id, set to null if empty
           supplier_address: values.supplier_address,
-          iban_number: values.iban_number,
+          ...bankDetails, // Spread the conditional bank details
           currency: values.currency,
           payment_amount: values.payment_amount,
           reason_for_payment: values.reason_for_payment,
@@ -212,7 +311,20 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({ sku_number: defaultSkuPrefix, currency: defaultCurrency, payment_amount: 0.00, receipt_required: false, is_urgent: false, not_sku_related: false, invoice_pdf: undefined, lease_id: "" });
+      form.reset({
+        sku_number: defaultSkuPrefix,
+        currency: defaultCurrency,
+        payment_amount: 0.00,
+        receipt_required: false,
+        is_urgent: false,
+        not_sku_related: false,
+        invoice_pdf: undefined,
+        lease_id: "",
+        iban_number: currentCountry === 'United Kingdom' ? "" : "",
+        sort_code: currentCountry === 'United Kingdom' ? "" : "",
+        account_number: currentCountry === 'United Kingdom' ? "" : "",
+        bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
+      });
       navigate('/dashboard');
     } catch (error: any) {
       dismissToast(toastId);
@@ -310,19 +422,93 @@ const NewPaymentRequest = () => {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="iban_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., GB33BUKB20201555555555" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+
+              {currentCountry === 'United Kingdom' ? (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="sort_code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Sort Code<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., 12-34-56"
+                            {...field}
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                              if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
+                              if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+                              else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
+                              field.onChange(value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the 6-digit Sort Code in XX-XX-XX format.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="account_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., 1234 5678"
+                            {...field}
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                              if (value.length > 8) value = value.substring(0, 8); // Max 8 digits
+                              if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
+                              field.onChange(value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the 8-digit Account Number.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="bank_account_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Bank Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., John Doe" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the name of the bank account holder.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              ) : (
+                <FormField
+                  control={form.control}
+                  name="iban_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., CH9300762011623852957" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <FormField
                 control={form.control}
                 name="currency"

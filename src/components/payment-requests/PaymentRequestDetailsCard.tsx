@@ -70,7 +70,10 @@ const editFormSchema = z.object({
     return /^\d+$/.test(val); // Must be numerical if present
   }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
-  iban_number: z.string().min(1, "IBAN Number is required"),
+  iban_number: z.string().optional(), // Made optional
+  sort_code: z.string().optional(), // New field
+  account_number: z.string().optional(), // New field
+  bank_account_name: z.string().optional(), // New field
   currency: z.string().min(1, "Currency is required"),
   payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"),
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
@@ -105,6 +108,69 @@ const editFormSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
         path: ['sku_number'],
+      });
+    }
+  }
+
+  // Conditional validation for bank details based on country
+  if (data.country === 'United Kingdom') {
+    if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sort Code is required and must be in XX-XX-XX format.",
+        path: ['sort_code'],
+      });
+    }
+    if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account Number is required and must be 8 digits.",
+        path: ['account_number'],
+      });
+    }
+    if (!data.bank_account_name || data.bank_account_name.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account Name is required.",
+        path: ['bank_account_name'],
+      });
+    }
+    // Ensure IBAN is not provided for UK
+    if (data.iban_number && data.iban_number.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number should not be provided for United Kingdom.",
+        path: ['iban_number'],
+      });
+    }
+  } else {
+    if (!data.iban_number || data.iban_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number is required.",
+        path: ['iban_number'],
+      });
+    }
+    // Ensure UK bank details are not provided for non-UK countries
+    if (data.sort_code && data.sort_code.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sort Code should not be provided for this country.",
+        path: ['sort_code'],
+      });
+    }
+    if (data.account_number && data.account_number.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account Number should not be provided for this country.",
+        path: ['account_number'],
+      });
+    }
+    if (data.bank_account_name && data.bank_account_name.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account Name should not be provided for this country.",
+        path: ['bank_account_name'],
       });
     }
   }
@@ -258,19 +324,93 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                   </FormItem>
                 )}
               />
-              <FormField
-                control={editForm.control}
-                name="iban_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+
+              {request.country === 'United Kingdom' ? (
+                <>
+                  <FormField
+                    control={editForm.control}
+                    name="sort_code"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Sort Code<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., 12-34-56"
+                            {...field}
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                              if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
+                              if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+                              else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
+                              field.onChange(value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the 6-digit Sort Code in XX-XX-XX format.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="account_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., 1234 5678"
+                            {...field}
+                            onChange={(e) => {
+                              let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                              if (value.length > 8) value = value.substring(0, 8); // Max 8 digits
+                              if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
+                              field.onChange(value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the 8-digit Account Number.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="bank_account_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Bank Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., John Doe" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the name of the bank account holder.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              ) : (
+                <FormField
+                  control={editForm.control}
+                  name="iban_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., CH9300762011623852957" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
+
               <FormField
                 control={editForm.control}
                 name="currency"
@@ -441,10 +581,27 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
               <p className="font-medium">Supplier Address:</p>
               <p>{request.supplier_address}</p>
             </div>
-            <div>
-              <p className="font-medium">IBAN Number:</p>
-              <p>{request.iban_number}</p>
-            </div>
+            {request.country === 'United Kingdom' ? (
+              <>
+                <div>
+                  <p className="font-medium">Sort Code:</p>
+                  <p>{request.sort_code || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Account Number:</p>
+                  <p>{request.account_number ? request.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Bank Account Name:</p>
+                  <p>{request.bank_account_name || 'N/A'}</p>
+                </div>
+              </>
+            ) : (
+              <div>
+                <p className="font-medium">IBAN Number:</p>
+                <p>{request.iban_number || 'N/A'}</p>
+              </div>
+            )}
             <div>
               <p className="font-medium">Currency:</p>
               <p>{request.currency}</p>
