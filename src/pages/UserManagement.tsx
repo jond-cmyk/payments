@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, CheckCircle, XCircle, UserPlus, Trash2, Edit } from 'lucide-react'; // Import Edit icon
+import { Users, CheckCircle, XCircle, UserPlus, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
@@ -33,7 +33,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import AddUserForm from '@/components/user-management/AddUserForm';
-import EditUserForm from '@/components/user-management/EditUserForm'; // Import the new EditUserForm
+import EditUserForm from '@/components/user-management/EditUserForm';
+import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
 
 const UserManagement = () => {
   const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession();
@@ -178,7 +179,7 @@ const UserManagement = () => {
         </CardTitle>
         <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="shadow-sm"> {/* Added shadow-sm */}
+            <Button className="shadow-sm">
               <UserPlus className="mr-2 h-4 w-4" /> Add New User
             </Button>
           </DialogTrigger>
@@ -190,7 +191,7 @@ const UserManagement = () => {
           </DialogContent>
         </Dialog>
       </div>
-      <Card className="shadow-sm"> {/* Added shadow-sm */}
+      <Card className="shadow-sm">
         <CardContent className="pt-6">
           {profiles && profiles.length > 0 ? (
             <div className="overflow-x-auto">
@@ -200,14 +201,14 @@ const UserManagement = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Email Address</TableHead>
                     <TableHead>Role</TableHead>
-                    <TableHead>Country</TableHead> {/* New TableHead for Country */}
+                    <TableHead>Country</TableHead>
                     <TableHead>Approved</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {profiles.map((profile) => (
-                    <TableRow key={profile.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background"> {/* Added hover effect */}
+                    <TableRow key={profile.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
                       <TableCell className="font-medium">
                         {profile.first_name || ''} {profile.last_name || ''}
                       </TableCell>
@@ -224,7 +225,12 @@ const UserManagement = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {profile.role === 'admin' ? 'All Countries' : (profile.country || 'N/A')} {/* Display country, 'All Countries' for admin */}
+                        <div className="flex items-center gap-2">
+                          {profile.role !== 'admin' && profile.country && (
+                            <CountryFlag countryName={profile.country} />
+                          )}
+                          <span>{profile.role === 'admin' ? 'All Countries' : (profile.country || 'N/A')}</span>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {profile.is_approved ? (
@@ -243,7 +249,7 @@ const UserManagement = () => {
                           size="sm"
                           onClick={() => handleEditClick(profile)}
                           disabled={updateUserProfileMutation.isPending}
-                          className="shadow-sm" // Added shadow-sm
+                          className="shadow-sm"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -252,7 +258,7 @@ const UserManagement = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm" // Added shadow-sm
+                              className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm"
                               disabled={deleteUserMutation.isPending || profile.id === user?.id}
                             >
                               <Trash2 className="h-4 w-4" />
