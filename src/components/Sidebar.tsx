@@ -116,6 +116,10 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         <div className="h-px bg-dyad-blue-foreground my-4" />
         <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
         <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
+        
+        {/* NEW SEPARATOR ADDED HERE */}
+        <div className="h-px bg-dyad-blue-foreground my-4" /> 
+
         <NavLink to="/notifications" icon={<Bell className="h-5 w-5" />} label="Notifications">
           {unreadCount > 0 && (
             <Badge className="ml-auto bg-red-500 text-white">
