@@ -120,7 +120,7 @@ const UserManagement = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role: Profile['role']; is_approved: boolean }) => {
+  const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role: Profile['role']; is_approved: boolean; country: string }) => {
     if (!editingUser) return;
     const toastId = showLoading("Saving user changes...");
     try {
@@ -200,6 +200,7 @@ const UserManagement = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Email Address</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Country</TableHead> {/* New TableHead for Country */}
                     <TableHead>Approved</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -219,8 +220,11 @@ const UserManagement = () => {
                               : 'bg-gray-500 text-gray-50'
                           }
                         >
-                          {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
+                          {profile.role?.charAt(0).toUpperCase() + profile.role?.slice(1)}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {profile.role === 'admin' ? 'All Countries' : (profile.country || 'N/A')} {/* Display country, 'All Countries' for admin */}
                       </TableCell>
                       <TableCell>
                         {profile.is_approved ? (
