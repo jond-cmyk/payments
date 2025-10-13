@@ -31,7 +31,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = new URLSearchParams(location.search); // Use location.search for initial state
+  const [searchParams, setSearchParams] = useSearchParams(); // Corrected: Use useSearchParams hook directly
 
   const userRole = userProfile?.role || null;
 
@@ -77,7 +77,7 @@ const Dashboard = () => {
 
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
-    const statusParam = searchParams.get('status');
+    const statusParam = searchParams.get('status'); // Use searchParams from useSearchParams
     if (statusParam && (statusParam === 'pending' || statusParam === 'setup_awaiting_approval' || statusParam === 'approved' || statusParam === 'declined' || statusParam === 'queried' || statusParam === 'all')) {
       setFilterStatus(statusParam);
     } else if (location.pathname === '/admin/requests') {
@@ -85,7 +85,7 @@ const Dashboard = () => {
     } else {
       setFilterStatus('pending');
     }
-  }, [searchParams, location.pathname]);
+  }, [searchParams, location.pathname]); // Depend on searchParams directly
 
   // Determine if we are on the 'All Requests' page
   const isAllRequestsPage = location.pathname === '/admin/requests';
