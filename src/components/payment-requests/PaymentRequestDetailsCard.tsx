@@ -64,6 +64,10 @@ const editFormSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
   sku_number: z.string().optional(), // Make optional initially, then refine
   not_sku_related: z.boolean().default(false), // New field
+  lease_id: z.string().optional().refine((val) => { // New field
+    if (val === undefined || val === null || val.trim() === '') return true; // Optional, so empty is fine
+    return /^\d+$/.test(val); // Must be numerical if present
+  }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
   currency: z.string().min(1, "Currency is required"),
@@ -215,6 +219,22 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                         Check this box if this payment request is not associated with an SKU.
                       </FormDescription>
                     </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="lease_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Lease ID (Optional)</FormLabel>
+                    <FormControl>
+                      <Input type="text" placeholder="e.g., 123456" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Enter a numerical Lease ID if applicable.
+                    </FormDescription>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -405,6 +425,10 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
             <div>
               <p className="font-medium">SKU Number:</p>
               <p>{request.not_sku_related ? 'N/A (Not SKU Related)' : request.sku_number}</p>
+            </div>
+            <div>
+              <p className="font-medium">Lease ID:</p>
+              <p>{request.lease_id || 'N/A'}</p>
             </div>
             <div>
               <p className="font-medium">Supplier Address:</p>

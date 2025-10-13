@@ -25,6 +25,10 @@ const editFormSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
   sku_number: z.string().optional(), // Make optional initially, then refine
   not_sku_related: z.boolean().default(false), // New field
+  lease_id: z.string().optional().refine((val) => { // New field
+    if (val === undefined || val === null || val.trim() === '') return true; // Optional, so empty is fine
+    return /^\d+$/.test(val); // Must be numerical if present
+  }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
   currency: z.string().min(1, "Currency is required"),
@@ -161,6 +165,7 @@ const PaymentRequestDetail = () => {
       supplier_name: "",
       sku_number: "CH",
       not_sku_related: false, // Default to false
+      lease_id: "", // Default for new field
       supplier_address: "",
       iban_number: "",
       currency: "CHF", // Default to CHF
@@ -180,6 +185,7 @@ const PaymentRequestDetail = () => {
         supplier_name: request.supplier_name,
         sku_number: request.sku_number || "CH", // Ensure default for PrefixedInput
         not_sku_related: request.not_sku_related, // Set the checkbox state
+        lease_id: request.lease_id || "", // Set lease_id
         supplier_address: request.supplier_address,
         iban_number: request.iban_number,
         currency: request.currency,
@@ -314,6 +320,7 @@ const PaymentRequestDetail = () => {
         supplier_name: values.supplier_name,
         sku_number: values.not_sku_related ? null : values.sku_number, // Set to null if not SKU related
         not_sku_related: values.not_sku_related, // Save the checkbox state
+        lease_id: values.lease_id || null, // Include lease_id, set to null if empty
         supplier_address: values.supplier_address,
         iban_number: values.iban_number,
         currency: values.currency,
