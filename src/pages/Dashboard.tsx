@@ -438,30 +438,30 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4"> {/* Adjusted for better spacing */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold">
           {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (
             isAllRequestsPage ? 'All Payment Requests' : 'Summary of Payment Requests'
           )}
         </h1>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col items-end space-y-4"> {/* Changed to flex-col items-end space-y-4 */}
           {/* Country Display / Selector */}
           {!isAllRequestsPage && ( // Only show on dashboard, not on /admin/requests
             <>
               {userRole === 'requester' && userProfile?.country && (
-                <div className="flex items-center gap-2 text-lg font-semibold bg-dyad-blue text-dyad-blue-foreground rounded-md p-2 shadow-md">
+                <div className="flex items-center gap-2 text-lg font-semibold bg-dyad-blue text-dyad-blue-foreground rounded-md p-2 shadow-md w-full"> {/* Added w-full */}
                   <CountryFlag countryName={userProfile.country} />
                   <span>{userProfile.country}</span>
                 </div>
               )}
 
               {userRole === 'admin' && (
-                <CountrySelector className="bg-dyad-blue text-dyad-blue-foreground rounded-md shadow-md" />
+                <CountrySelector className="bg-dyad-blue text-dyad-blue-foreground rounded-md shadow-md w-full" triggerClassName="w-full" /> {/* Added w-full and triggerClassName */}
               )}
             </>
           )}
           {(userRole === 'requester' || userRole === 'admin') && (
-            <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
+            <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground w-full" size="lg"> {/* Added w-full */}
               <PlusCircle className="mr-2 h-5 w-5" />
               Create New Request
             </Button>
