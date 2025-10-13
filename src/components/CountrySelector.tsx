@@ -30,7 +30,7 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className, triggerCla
               disabled={isDisabled}
             >
               <SelectTrigger className={cn(
-                "w-max bg-dyad-blue text-dyad-blue-foreground hover:bg-dyad-blue-light transition-colors flex items-center gap-2 px-3 py-2 rounded-md shadow-md border-none", // Added border-none here
+                "w-max bg-dyad-blue text-dyad-blue-foreground hover:bg-dyad-blue-light transition-colors flex items-center gap-2 px-3 py-2 rounded-md shadow-md border-none",
                 triggerClassName // Apply the new triggerClassName here
               )}>
                 {currentCountry !== 'all' ? (
@@ -51,7 +51,7 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className, triggerCla
                     value={country.value} 
                     className="w-full min-w-max"
                   >
-                    <div className="flex items-center gap-2 flex-nowrap w-full">
+                    <div className="flex items-center gap-2 flex-nowrap w-full justify-center"> {/* Added justify-center */}
                       {country.value !== 'all' ? (
                         <CountryFlag countryName={country.value} className="flex-shrink-0" />
                       ) : (

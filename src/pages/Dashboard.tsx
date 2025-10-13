@@ -449,7 +449,7 @@ const Dashboard = () => {
           {!isAllRequestsPage && ( // Only show on dashboard, not on /admin/requests
             <> {/* Added React Fragment here */}
               {userRole === 'requester' && userProfile?.country && (
-                <div className="flex items-center gap-2 text-lg font-semibold bg-dyad-blue text-dyad-blue-foreground rounded-md p-2 shadow-md w-full">
+                <div className="flex items-center gap-2 text-lg font-semibold bg-dyad-blue text-dyad-blue-foreground rounded-md p-2 shadow-md w-full justify-center"> {/* Added justify-center */}
                   <CountryFlag countryName={userProfile.country} />
                   <span>{userProfile.country}</span>
                 </div>
