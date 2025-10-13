@@ -85,6 +85,7 @@ const formSchema = z.object({
     .refine((files) => Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
+  country: z.string().min(1, "Country is required"), // ADDED: country field to schema
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for validation
 
@@ -176,7 +177,7 @@ const formSchema = z.object({
 
 const NewPaymentRequest = () => {
   const { session, isLoading, user } = useSession();
-  const { currentCountry } = useCountry(); // Get currentCountry from context
+  const { currentCountry, availableCountries, isCountryLocked } = useCountry(); // Get isCountryLocked and availableCountries
   const navigate = useNavigate();
 
   const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
@@ -201,23 +202,29 @@ const NewPaymentRequest = () => {
       invoice_pdf: undefined,
       receipt_required: false,
       is_urgent: false, // Default to not urgent
+      country: currentCountry, // ADDED: Set default country from context
     },
-    context: { country: currentCountry }, // Pass country to superRefine
+    // REMOVED: context property as country is now a form field
   });
 
   // Watch the not_sku_related field to dynamically update validation and input state
   const notSkuRelated = form.watch("not_sku_related");
+  const formCountry = form.watch("country"); // Watch the country field in the form
 
-  // Watch currentCountry to update form defaults if it changes
+  // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
+    const newSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
+    const newCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
+
     form.reset((prev) => ({
       ...prev,
-      sku_number: currentCountry === 'United Kingdom' ? 'UK' : 'CH',
-      currency: currentCountry === 'United Kingdom' ? 'GBP' : 'CHF',
+      sku_number: newSkuPrefix,
+      currency: newCurrency,
       iban_number: currentCountry === 'United Kingdom' ? "" : "",
       sort_code: currentCountry === 'United Kingdom' ? "" : "",
       account_number: currentCountry === 'United Kingdom' ? "" : "",
       bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
+      country: currentCountry, // Ensure form's country field is updated
     }));
   }, [currentCountry, form]);
 
@@ -269,7 +276,7 @@ const NewPaymentRequest = () => {
       }
 
       // Prepare bank details based on country
-      const bankDetails = currentCountry === 'United Kingdom'
+      const bankDetails = values.country === 'United Kingdom'
         ? {
             iban_number: null,
             sort_code: values.sort_code,
@@ -302,7 +309,7 @@ const NewPaymentRequest = () => {
           status: 'pending',
           receipt_required: values.receipt_required,
           is_urgent: values.is_urgent, // Save urgent status
-          country: currentCountry, // Add the current country
+          country: values.country, // Add the current country from form values
         });
 
       if (insertError) {
@@ -324,6 +331,7 @@ const NewPaymentRequest = () => {
         sort_code: currentCountry === 'United Kingdom' ? "" : "",
         account_number: currentCountry === 'United Kingdom' ? "" : "",
         bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
+        country: currentCountry, // Reset country to current context country
       });
       navigate('/dashboard');
     } catch (error: any) {
@@ -344,6 +352,33 @@ const NewPaymentRequest = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Country</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isCountryLocked}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a country" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableCountries.map((country) => (
+                          <SelectItem key={country.value} value={country.value}>
+                            {country.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {isCountryLocked ? "Your country is set by your profile and cannot be changed." : "Select the country for this payment request."}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="supplier_name"
                 render={({ field }) => (
                   <FormItem>
@@ -362,10 +397,10 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <FormLabel className="font-semibold">SKU Number</FormLabel>
                     <FormControl>
-                      <PrefixedInput prefix={defaultSkuPrefix} placeholder="e.g., 12345" {...field} disabled={notSkuRelated} />
+                      <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notSkuRelated} />
                     </FormControl>
                     <FormDescription>
-                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${defaultSkuPrefix}' and be followed by numbers.`}
+                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${formCountry === 'United Kingdom' ? 'UK' : 'CH'}' and be followed by numbers.`}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -423,7 +458,7 @@ const NewPaymentRequest = () => {
                 )}
               />
 
-              {currentCountry === 'United Kingdom' ? (
+              {formCountry === 'United Kingdom' ? (
                 <>
                   <FormField
                     control={form.control}

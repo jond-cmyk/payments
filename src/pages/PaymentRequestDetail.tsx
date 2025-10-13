@@ -85,6 +85,7 @@ const editFormSchema = z.object({
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
+  country: z.string().min(1, "Country is required"), // ADDED: country field to schema
 }).superRefine((data, ctx) => {
   // Determine SKU prefix based on the request's country
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
@@ -197,7 +198,7 @@ const revertFormSchema = z.object({
 const PaymentRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { session, isLoading, user, userProfile } = useSession();
-  const { currentCountry } = useCountry(); // Get currentCountry from context
+  const { currentCountry, isCountryLocked, availableCountries } = useCountry(); // Get isCountryLocked and availableCountries
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -280,9 +281,9 @@ const PaymentRequestDetail = () => {
       lease_id: "", // Default for new field
       supplier_address: "",
       iban_number: "",
-      sort_code: "", // New field
-      account_number: "", // New field
-      bank_account_name: "", // New field
+      sort_code: "",
+      account_number: "",
+      bank_account_name: "",
       currency: "CHF", // Default to CHF
       payment_amount: 0.00,
       reason_for_payment: "",
@@ -290,8 +291,9 @@ const PaymentRequestDetail = () => {
       invoice_pdf: undefined,
       receipt_required: false,
       is_urgent: false, // Default to not urgent
+      country: request?.country || "Switzerland", // ADDED: Set default country from request
     },
-    context: { country: request?.country }, // Pass the request's country to superRefine
+    // REMOVED: context property as country is now a form field
   });
 
   // Effect to reset editForm when request data loads or isEditing changes
@@ -314,7 +316,8 @@ const PaymentRequestDetail = () => {
         date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
         invoice_pdf: undefined,
         receipt_required: request.receipt_required,
-        is_urgent: request.is_urgent, // Set urgent status
+        is_urgent: request.is_urgent,
+        country: request.country, // Ensure form's country field is updated
       });
     }
   }, [request, isEditing, editForm]);
@@ -449,10 +452,11 @@ const PaymentRequestDetail = () => {
         date_payment_required: values.date_payment_required.toISOString().split('T')[0],
         receipt_required: values.receipt_required,
         is_urgent: values.is_urgent, // Include urgent status
+        country: values.country, // Include country from form values
       };
 
       // Conditionally add bank details to updatedFields
-      if (request?.country === 'United Kingdom') {
+      if (values.country === 'United Kingdom') {
         updatedFields.iban_number = null;
         updatedFields.sort_code = values.sort_code;
         updatedFields.account_number = values.account_number?.replace(/\s/g, '');

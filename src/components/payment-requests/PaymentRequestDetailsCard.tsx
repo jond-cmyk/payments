@@ -86,6 +86,7 @@ const editFormSchema = z.object({
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
+  country: z.string().min(1, "Country is required"), // ADDED: country field to schema
 }).superRefine((data, ctx) => {
   // Determine SKU prefix based on the request's country
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
@@ -195,7 +196,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
   handleRequesterEditSubmit,
   auditUsers, // Destructure auditUsers
 }) => {
-  const { currentCountry } = useCountry(); // Get currentCountry from context for display logic
+  const { availableCountries, isCountryLocked } = useCountry(); // Get availableCountries and isCountryLocked
 
   const getStatusDisplay = (status: PaymentRequest['status']) => {
     switch (status) {
@@ -216,7 +217,8 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
 
   // Watch the not_sku_related field to dynamically update validation and input state
   const notSkuRelated = editForm.watch("not_sku_related");
-  const skuPrefix = request.country === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for display and PrefixedInput
+  const formCountry = editForm.watch("country"); // Watch the country field in the form
+  const skuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for display and PrefixedInput
 
   return (
     <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
@@ -244,6 +246,33 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
         {isEditing && canAmend ? (
           <Form {...editForm}>
             <form id="edit-request-form" onSubmit={editForm.handleSubmit(handleRequesterEditSubmit)} className="space-y-6">
+              <FormField
+                control={editForm.control}
+                name="country"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Country</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isCountryLocked}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a country" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableCountries.map((country) => (
+                          <SelectItem key={country.value} value={country.value}>
+                            {country.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {isCountryLocked ? "Your country is set by your profile and cannot be changed." : "Select the country for this payment request."}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={editForm.control}
                 name="supplier_name"
@@ -325,7 +354,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 )}
               />
 
-              {request.country === 'United Kingdom' ? (
+              {formCountry === 'United Kingdom' ? (
                 <>
                   <FormField
                     control={editForm.control}
@@ -502,7 +531,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                       <div className="mt-2 space-y-1">
                         <p className="text-sm font-medium text-muted-foreground">Current Invoices:</p>
                         {request.invoice_pdf_urls.map((url, index) => (
-                          <Button asChild variant="link" className="p-0 h-auto text-sm block" key={index}>
+                          <Button asChild variant="link" className="p-0 h-auto block" key={index}>
                             <a href={url} target="_blank" rel="noopener noreferrer">
                               <Download className="mr-1 h-4 w-4" /> Invoice {index + 1}
                             </a>
@@ -581,6 +610,10 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
               <p className="font-medium">Supplier Address:</p>
               <p>{request.supplier_address}</p>
             </div>
+            <div>
+              <p className="font-medium">Country:</p>
+              <p>{request.country}</p>
+            </div>
             {request.country === 'United Kingdom' ? (
               <>
                 <div>
@@ -639,7 +672,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 <p className="font-medium">Receipt PDF:</p>
                 <Button asChild variant="link" className="p-0 h-auto">
                   <a href={request.receipt_pdf_url} target="_blank" rel="noopener noreferrer">
-                    <Download className="mr-1 h-4 w-4" /> Download Receipt
+                        <Download className="mr-1 h-4 w-4" /> Download Receipt
                   </a>
                 </Button>
               </div>
