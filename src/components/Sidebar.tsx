@@ -1,19 +1,25 @@
 "use client";
 
-import React, { useState } from 'react'; // Import useState
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNotifications } from '@/integrations/supabase/NotificationContext'; // Import useNotifications
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { useNotifications } from '@/integrations/supabase/NotificationContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound } from 'lucide-react'; // Import KeyRound icon
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings } from 'lucide-react'; // Import Settings icon for Admin Panel
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
-import { useQuery } from '@tanstack/react-query'; // Import useQuery for unread count
-import { Badge } from '@/components/ui/badge'; // Import Badge for notification count
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
-import ChangePasswordForm from '@/components/auth/ChangePasswordForm'; // Import ChangePasswordForm
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useQuery } from '@tanstack/react-query';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import ChangePasswordForm from '@/components/auth/ChangePasswordForm';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"; // Import Accordion components
+import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger'; // Re-import CustomAccordionTrigger
 
 interface SidebarProps {
   className?: string;
@@ -22,9 +28,9 @@ interface SidebarProps {
 
 const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const { session, user, isLoading, isApproved, userProfile } = useSession();
-  const { notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications } = useNotifications(); // Use notification context
+  const { notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications } = useNotifications();
   const navigate = useNavigate();
-  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false); // State for change password dialog
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false);
 
   const currentRole = userProfile?.role;
   const displayName = userProfile?.first_name && userProfile?.last_name
@@ -58,9 +64,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
     } else {
       console.log("Sidebar: Logout successful. SessionContext will handle navigation.");
     }
-    // Removed explicit navigate('/login') and setTimeout.
-    // The SessionContext's onAuthStateChange listener will detect SIGNED_OUT
-    // and the Index/Login pages' useEffects will handle redirection.
   };
 
   if (isLoading) {
@@ -76,7 +79,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         className
       )}>
         <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
-          {/* Display logo here */}
           <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-12" />
         </div>
         <div className="mt-auto pt-4 border-t border-sidebar-border">
@@ -107,7 +109,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
       className
     )}>
       <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
-        {/* Display logo here */}
         <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-12" />
       </div>
       <nav className="flex-1 space-y-2">
@@ -120,7 +121,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
         <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
         
-        {/* NEW SEPARATOR ADDED HERE */}
         <div className="h-px bg-dyad-blue-foreground my-4" /> 
 
         <NavLink to="/notifications" icon={<Bell className="h-5 w-5" />} label="Notifications">
@@ -130,11 +130,23 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
             </Badge>
           )}
         </NavLink>
+        
         {currentRole === 'admin' && (
           <>
             <div className="h-px bg-dyad-blue-foreground my-4" />
-            <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
-            <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
+            <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="admin-panel" className="border-b-0">
+                <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors rounded-md">
+                  <span className="flex items-center">
+                    <Settings className="mr-2 h-5 w-5" /> Admin Panel
+                  </span>
+                </CustomAccordionTrigger>
+                <AccordionContent className="pl-6 pt-2 pb-0 space-y-2">
+                  <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
+                  <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </>
         )}
       </nav>
@@ -145,7 +157,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
               <User className="h-4 w-4" />
               <span>{displayName}</span>
             </div>
-            {/* Notification toggle for all authenticated users */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -157,7 +168,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                       ? "text-green-400 hover:bg-green-900 hover:text-green-300"
                       : "text-red-400 hover:bg-red-900 hover:text-red-300"
                   )}
-                  disabled={notificationPermission === 'denied'} // Disable if permission is permanently denied
+                  disabled={notificationPermission === 'denied'}
                 >
                   {notificationsEnabled && notificationPermission === 'granted' ? (
                     <Bell className="mr-2 h-4 w-4" />
@@ -178,7 +189,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
               </TooltipContent>
             </Tooltip>
 
-            {/* Change Password Dialog Trigger */}
             <Dialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen}>
               <DialogTrigger asChild>
                 <Button variant="ghost" className="w-full justify-start">
@@ -216,7 +226,7 @@ interface NavLinkProps {
   to: string;
   icon: React.ReactNode;
   label: string;
-  children?: React.ReactNode; // Allow children for badge
+  children?: React.ReactNode;
 }
 
 const NavLink = ({ to, icon, label, children }: NavLinkProps) => {
@@ -234,7 +244,7 @@ const NavLink = ({ to, icon, label, children }: NavLinkProps) => {
           : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       )}
     >
-      <Link to={to} className="flex items-center w-full"> {/* Ensure Link takes full width */}
+      <Link to={to} className="flex items-center w-full">
         {icon}
         <span className="ml-2">{label}</span>
         {children}
