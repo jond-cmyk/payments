@@ -12,6 +12,12 @@ export const transactionDetailSchema = z.object({
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
 }).superRefine((data, ctx) => {
+  // This schema is used for transactions, which are already associated with a country.
+  // The country context is not directly available here, so we'll assume 'CH' as default for validation
+  // or rely on the backend for more robust country-specific SKU validation.
+  // For now, keeping 'CH' as the default prefix for client-side validation.
+  const skuPrefix = 'CH'; // Default for transaction schema, as country context is not directly available here.
+
   if (!data.not_sku_related) {
     if (!data.sku || data.sku.trim() === '') {
       ctx.addIssue({
@@ -19,16 +25,16 @@ export const transactionDetailSchema = z.object({
         message: "SKU is required unless 'Not SKU Related' is checked.",
         path: ['sku'],
       });
-    } else if (!data.sku.startsWith('CH')) {
+    } else if (!data.sku.startsWith(skuPrefix)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU must start with 'CH'.",
+        message: `SKU must start with '${skuPrefix}'.`,
         path: ['sku'],
       });
-    } else if (!/^CH\d+$/.test(data.sku)) {
+    } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU must be 'CH' followed by numbers.",
+        message: `SKU must be '${skuPrefix}' followed by numbers.`,
         path: ['sku'],
       });
     }

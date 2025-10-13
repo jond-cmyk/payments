@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod'; // Added missing import
 import * as z from 'zod';
 import { Download, AlertTriangle } from 'lucide-react'; // Import AlertTriangle icon
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -83,23 +84,26 @@ const editFormSchema = z.object({
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
 }).superRefine((data, ctx) => {
+  // Determine SKU prefix based on the request's country
+  const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
+
   if (!data.not_sku_related) {
     if (!data.sku_number || data.sku_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number is required unless 'Not SKU Related' is checked.",
+        message: `SKU Number is required unless 'Not SKU Related' is checked.`,
         path: ['sku_number'],
       });
-    } else if (!data.sku_number.startsWith('CH')) {
+    } else if (!data.sku_number.startsWith(skuPrefix)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number must start with 'CH'.",
+        message: `SKU Number must start with '${skuPrefix}'.`,
         path: ['sku_number'],
       });
-    } else if (!/^CH\d+$/.test(data.sku_number)) {
+    } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku_number)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number must be 'CH' followed by numbers.",
+        message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
         path: ['sku_number'],
       });
     }
@@ -125,6 +129,8 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
   handleRequesterEditSubmit,
   auditUsers, // Destructure auditUsers
 }) => {
+  const { currentCountry } = useCountry(); // Get currentCountry from context for display logic
+
   const getStatusDisplay = (status: PaymentRequest['status']) => {
     switch (status) {
       case 'pending':
@@ -144,6 +150,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
 
   // Watch the not_sku_related field to dynamically update validation and input state
   const notSkuRelated = editForm.watch("not_sku_related");
+  const skuPrefix = request.country === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for display and PrefixedInput
 
   return (
     <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
@@ -191,10 +198,10 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                   <FormItem>
                     <FormLabel className="font-semibold">SKU Number</FormLabel>
                     <FormControl>
-                      <PrefixedInput prefix="CH" {...field} disabled={notSkuRelated} />
+                      <PrefixedInput prefix={skuPrefix} {...field} disabled={notSkuRelated} />
                     </FormControl>
                     <FormDescription>
-                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : "SKU Number must start with 'CH' and be followed by numbers."}
+                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${skuPrefix}' and be followed by numbers.`}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

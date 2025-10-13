@@ -5,7 +5,8 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { PaymentRequest } from '@/types/supabase';
-import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX } from 'lucide-react';
+import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling } from 'lucide-react'; // Import PoundSterling
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 interface DashboardSummaryCardsProps {
   counts: {
@@ -20,6 +21,8 @@ interface DashboardSummaryCardsProps {
 }
 
 const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts }) => {
+  const { currentCountry } = useCountry(); // Get currentCountry from context
+
   // Helper to get card specific styling based on status
   const getCardStyling = (status: PaymentRequest['status'] | 'missing_receipts') => {
     switch (status) {
@@ -37,7 +40,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
         return {
           borderClass: 'border-blue-500',
           textClass: 'text-blue-600',
-          icon: <Euro className="h-4 w-4" />,
+          icon: currentCountry === 'United Kingdom' ? <PoundSterling className="h-4 w-4" /> : <Euro className="h-4 w-4" />, // Conditional icon
           title: 'Payment Setup',
           description: 'Payments being processed',
           statusValue: 'setup_awaiting_approval',

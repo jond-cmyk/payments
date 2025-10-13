@@ -21,6 +21,44 @@ import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentR
 import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard';
 import { Card } from '@/components/ui/card'; // Import Card
 
+// List of major currencies, expanded and sorted alphabetically
+const majorCurrencies = [
+  { value: 'ALL', label: 'ALL - Albanian Lek' },
+  { value: 'AMD', label: 'AMD - Armenian Dram' },
+  { value: 'AUD', label: 'AUD - Australian Dollar' },
+  { value: 'AZN', label: 'AZN - Azerbaijani Manat' },
+  { value: 'BAM', label: 'BAM - Bosnia and Herzegovina Convertible Mark' },
+  { value: 'BGN', label: 'BGN - Bulgarian Lev' },
+  { value: 'BYN', label: 'BYN - Belarusian Ruble' },
+  { value: 'CAD', label: 'CAD - Canadian Dollar' },
+  { value: 'CHF', label: 'CHF - Swiss Franc' },
+  { value: 'CNY', label: 'CNY - Chinese Yuan' },
+  { value: 'CZK', label: 'CZK - Czech Koruna' },
+  { value: 'DKK', label: 'DKK - Danish Krone' },
+  { value: 'EUR', label: 'EUR - Euro' },
+  { value: 'GBP', label: 'GBP - British Pound' },
+  { value: 'GEL', label: 'GEL - Georgian Lari' },
+  { value: 'HKD', label: 'HKD - Hong Kong Dollar' },
+  { value: 'HUF', label: 'HUF - Hungarian Forint' },
+  { value: 'INR', label: 'INR - Indian Rupee' },
+  { value: 'ISK', label: 'ISK - Icelandic Króna' },
+  { value: 'JPY', label: 'JPY - Japanese Yen' },
+  { value: 'MKD', label: 'MKD - Macedonian Denar' },
+  { value: 'MDL', label: 'MDL - Moldovan Leu' },
+  { value: 'MXN', label: 'MXN - Mexican Peso' },
+  { value: 'NOK', label: 'NOK - Norwegian Krone' },
+  { value: 'NZD', label: 'NZD - New Zealand Dollar' },
+  { value: 'PLN', label: 'PLN - Polish Zloty' },
+  { value: 'RON', label: 'RON - Romanian Leu' },
+  { value: 'RSD', label: 'RSD - Serbian Dinar' },
+  { value: 'SEK', label: 'SEK - Swedish Krona' },
+  { value: 'SGD', label: 'SGD - Singapore Dollar' },
+  { value: 'TRY', label: 'TRY - Turkish Lira' },
+  { value: 'UAH', label: 'UAH - Ukrainian Hryvnia' },
+  { value: 'USD', label: 'USD - United States Dollar' },
+  { value: 'ZAR', label: 'ZAR - South African Rand' },
+].sort((a, b) => a.label.localeCompare(b.label));
+
 // Zod schema for editing payment requests (requester)
 const editFormSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
@@ -45,23 +83,26 @@ const editFormSchema = z.object({
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
 }).superRefine((data, ctx) => {
+  // Determine SKU prefix based on the request's country
+  const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
+
   if (!data.not_sku_related) {
     if (!data.sku_number || data.sku_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number is required unless 'Not SKU Related' is checked.",
+        message: `SKU Number is required unless 'Not SKU Related' is checked.`,
         path: ['sku_number'],
       });
-    } else if (!data.sku_number.startsWith('CH')) {
+    } else if (!data.sku_number.startsWith(skuPrefix)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number must start with 'CH'.",
+        message: `SKU Number must start with '${skuPrefix}'.`,
         path: ['sku_number'],
       });
-    } else if (!/^CH\d+$/.test(data.sku_number)) {
+    } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku_number)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number must be 'CH' followed by numbers.",
+        message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
         path: ['sku_number'],
       });
     }
@@ -168,7 +209,7 @@ const PaymentRequestDetail = () => {
     resolver: zodResolver(editFormSchema),
     defaultValues: {
       supplier_name: "",
-      sku_number: "CH",
+      sku_number: "CH", // Default for PrefixedInput
       not_sku_related: false, // Default to false
       lease_id: "", // Default for new field
       supplier_address: "",
@@ -186,9 +227,10 @@ const PaymentRequestDetail = () => {
   // Effect to reset editForm when request data loads or isEditing changes
   useEffect(() => {
     if (request && isEditing) {
+      const defaultSkuPrefix = request.country === 'United Kingdom' ? 'UK' : 'CH';
       editForm.reset({
         supplier_name: request.supplier_name,
-        sku_number: request.sku_number || "CH", // Ensure default for PrefixedInput
+        sku_number: request.sku_number || defaultSkuPrefix, // Ensure default for PrefixedInput based on country
         not_sku_related: request.not_sku_related, // Set the checkbox state
         lease_id: request.lease_id || "", // Set lease_id
         supplier_address: request.supplier_address,

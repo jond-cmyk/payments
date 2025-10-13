@@ -83,23 +83,25 @@ const formSchema = z.object({
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
 }).superRefine((data, ctx) => {
+  const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for validation
+
   if (!data.not_sku_related) {
     if (!data.sku_number || data.sku_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number is required unless 'Not SKU Related' is checked.",
+        message: `SKU Number is required unless 'Not SKU Related' is checked.`,
         path: ['sku_number'],
       });
-    } else if (!data.sku_number.startsWith('CH')) {
+    } else if (!data.sku_number.startsWith(skuPrefix)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number must start with 'CH'.",
+        message: `SKU Number must start with '${skuPrefix}'.`,
         path: ['sku_number'],
       });
-    } else if (!/^CH\d+$/.test(data.sku_number)) {
+    } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku_number)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "SKU Number must be 'CH' followed by numbers.",
+        message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
         path: ['sku_number'],
       });
     }
@@ -111,16 +113,19 @@ const NewPaymentRequest = () => {
   const { currentCountry } = useCountry(); // Get currentCountry from context
   const navigate = useNavigate();
 
+  const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
+  const defaultCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       supplier_name: "",
-      sku_number: "CH",
+      sku_number: defaultSkuPrefix, // Default based on country
       not_sku_related: false, // Default to false
       lease_id: "", // Default for new field
       supplier_address: "",
       iban_number: "",
-      currency: "CHF",
+      currency: defaultCurrency, // Default based on country
       payment_amount: 0.00,
       reason_for_payment: "",
       date_payment_required: undefined,
@@ -207,7 +212,7 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false, is_urgent: false, not_sku_related: false, invoice_pdf: undefined, lease_id: "" });
+      form.reset({ sku_number: defaultSkuPrefix, currency: defaultCurrency, payment_amount: 0.00, receipt_required: false, is_urgent: false, not_sku_related: false, invoice_pdf: undefined, lease_id: "" });
       navigate('/dashboard');
     } catch (error: any) {
       dismissToast(toastId);
@@ -245,10 +250,10 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <FormLabel className="font-semibold">SKU Number</FormLabel>
                     <FormControl>
-                      <PrefixedInput prefix="CH" placeholder="e.g., 12345" {...field} disabled={notSkuRelated} />
+                      <PrefixedInput prefix={defaultSkuPrefix} placeholder="e.g., 12345" {...field} disabled={notSkuRelated} />
                     </FormControl>
                     <FormDescription>
-                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : "SKU Number must start with 'CH' and be followed by numbers."}
+                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${defaultSkuPrefix}' and be followed by numbers.`}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
