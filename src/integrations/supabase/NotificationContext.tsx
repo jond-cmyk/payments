@@ -36,7 +36,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     }
 
     Notification.requestPermission().then((permission) => {
-      console.log("[NotificationProvider] Permission requested. Result:", permission); // ADDED LOG
+      console.log("[NotificationProvider] Permission requested. Result:", permission);
       setNotificationPermission(permission);
       if (permission === 'granted') {
         showSuccess("Desktop notifications enabled!");
@@ -68,15 +68,22 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const currentBrowserPermission = Notification.permission;
-      console.log("[NotificationProvider] Initial browser permission on mount:", currentBrowserPermission); // ADDED LOG
       setNotificationPermission(currentBrowserPermission);
+      console.log("[NotificationProvider] Initial browser permission on mount:", currentBrowserPermission);
+
+      // If notifications are enabled in localStorage but browser permission is 'default',
+      // proactively request permission again to ensure the state is updated to 'granted'.
+      if (notificationsEnabled && currentBrowserPermission === 'default') {
+        console.log("[NotificationProvider] Notifications enabled in localStorage and permission is 'default'. Requesting permission again.");
+        requestNotificationPermission();
+      }
     }
-  }, []);
+  }, [notificationsEnabled, requestNotificationPermission]); // Depend on these to re-run if they change
 
   useEffect(() => {
     if (isSessionLoading || !user) return; // Only proceed if session is loaded and user exists
 
-    console.log(`[NotificationProvider] Realtime useEffect: notificationPermission=${notificationPermission}, notificationsEnabled=${notificationsEnabled}`); // ADDED LOG
+    console.log(`[NotificationProvider] Realtime useEffect: notificationPermission=${notificationPermission}, notificationsEnabled=${notificationsEnabled}`);
 
     if (notificationPermission !== 'granted' || !notificationsEnabled) {
       console.log("[NotificationProvider] Not subscribing to Realtime for notifications table: Permission not granted, or notifications disabled.");
@@ -101,7 +108,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
           // Only show desktop notification if it's not marked as read and notifications are enabled
           if (!newNotification.is_read && notificationsEnabled && Notification.permission === 'granted') {
-            console.log("[NotificationProvider] Attempting to display desktop notification. Current browser permission:", Notification.permission); // ADDED LOG
+            console.log("[NotificationProvider] Attempting to display desktop notification. Current browser permission:", Notification.permission);
             const notificationTitle = newNotification.title;
             const notificationOptions: NotificationOptions = {
               body: newNotification.message,
@@ -138,7 +145,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       console.log("[NotificationProvider] Unsubscribing from user_notifications channel.");
       notificationsChannel.unsubscribe();
     };
-  }, [user, isSessionLoading, notificationPermission, notificationsEnabled, queryClient]); // Add queryClient to dependencies
+  }, [user, isSessionLoading, notificationPermission, notificationsEnabled, queryClient]);
 
   return (
     <NotificationContext.Provider value={{ notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications }}>
