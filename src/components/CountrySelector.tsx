@@ -24,9 +24,9 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
               onValueChange={setCurrentCountry}
               disabled={isCountryLocked}
             >
-              <SelectTrigger className="w-[180px] bg-background text-foreground border-border hover:bg-muted/50 transition-colors flex items-center gap-2">
-                <CountryFlag countryName={currentCountry} className="text-lg" />
-                <SelectValue placeholder="Select Country" />
+              <SelectTrigger className="w-[200px] bg-dyad-blue text-dyad-blue-foreground border-dyad-blue-foreground hover:bg-dyad-blue-light transition-colors flex items-center gap-2 px-3 py-2 rounded-md shadow-md">
+                <CountryFlag countryName={currentCountry} className="text-xl" /> {/* Larger flag */}
+                <span className="font-semibold text-base">{currentCountry}</span> {/* Explicitly show country name */}
               </SelectTrigger>
               <SelectContent className="bg-popover text-popover-foreground">
                 {availableCountries.map((country) => (
