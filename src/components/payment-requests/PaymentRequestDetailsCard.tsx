@@ -21,6 +21,7 @@ import FileInput from '@/components/FileInput';
 import { PaymentRequest, Profile } from '@/types/supabase';
 import { UseMutationResult } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge'; // Import Badge
+import { cn } from '@/lib/utils'; // Import cn for utility classes
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -226,7 +227,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
         <CardTitle className="flex items-center">
           Request Details
           {request.is_urgent && (
-            <Badge variant="destructive" className="ml-3 bg-red-600 text-white flex items-center">
+            <Badge variant="destructive" className={cn("ml-3 bg-red-600 text-white flex items-center", "transform translate-x-0 translate-y-0")}>
               <AlertTriangle className="h-4 w-4 mr-1" /> Urgent
             </Badge>
           )}

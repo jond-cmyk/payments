@@ -35,6 +35,7 @@ import {
 import AddUserForm from '@/components/user-management/AddUserForm';
 import EditUserForm from '@/components/user-management/EditUserForm';
 import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
+import { cn } from '@/lib/utils'; // Import cn for utility classes
 
 const UserManagement = () => {
   const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession();
@@ -215,11 +216,12 @@ const UserManagement = () => {
                       <TableCell>{profile.user_email || 'N/A'}</TableCell>
                       <TableCell>
                         <Badge
-                          className={
+                          className={cn(
                             profile.role === 'admin'
                               ? 'bg-purple-500 text-purple-50'
-                              : 'bg-gray-500 text-gray-50'
-                          }
+                              : 'bg-gray-500 text-gray-50',
+                            "transform translate-x-0 translate-y-0" // Added transform
+                          )}
                         >
                           {profile.role?.charAt(0).toUpperCase() + profile.role?.slice(1)}
                         </Badge>
@@ -234,11 +236,11 @@ const UserManagement = () => {
                       </TableCell>
                       <TableCell>
                         {profile.is_approved ? (
-                          <Badge className="bg-green-500 text-green-50">
+                          <Badge className={cn("bg-green-500 text-green-50", "transform translate-x-0 translate-y-0")}>
                             <CheckCircle className="mr-1 h-3 w-3" /> Approved
                           </Badge>
                         ) : (
-                          <Badge className="bg-red-500 text-red-50">
+                          <Badge className={cn("bg-red-500 text-red-50", "transform translate-x-0 translate-y-0")}>
                             <XCircle className="mr-1 h-3 w-3" /> Pending
                           </Badge>
                         )}

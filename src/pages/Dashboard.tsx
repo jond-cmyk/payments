@@ -433,7 +433,7 @@ const Dashboard = () => {
       default:
         className = 'bg-gray-500 text-gray-50';
     }
-    return <Badge className={className}>{displayText}</Badge>;
+    return <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>{displayText}</Badge>;
   };
 
   return (
@@ -449,7 +449,7 @@ const Dashboard = () => {
           {!isAllRequestsPage && ( // Only show on dashboard, not on /admin/requests
             <> {/* Added React Fragment here */}
               {userRole === 'requester' && userProfile?.country && (
-                <div className="flex items-center gap-2 text-lg font-semibold bg-dyad-blue text-dyad-blue-foreground rounded-md p-2 shadow-md w-full justify-center"> {/* Added justify-center */}
+                <div className="flex items-center gap-2 text-lg font-semibold bg-dyad-blue text-dyad-blue-foreground rounded-md p-2 shadow-md w-full justify-center">
                   <CountryFlag countryName={userProfile.country} />
                   <span>{userProfile.country}</span>
                 </div>

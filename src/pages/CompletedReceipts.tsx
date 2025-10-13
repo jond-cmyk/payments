@@ -26,6 +26,7 @@ import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import PageTitle from '@/components/PageTitle';
+import { cn } from '@/lib/utils'; // Import cn for utility classes
 
 const CompletedReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -119,7 +120,7 @@ const CompletedReceipts = () => {
         className = 'bg-gray-500 text-gray-50';
     }
     return (
-      <Badge className={className}>
+      <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>
         {status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)}
       </Badge>
     );

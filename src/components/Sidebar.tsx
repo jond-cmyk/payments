@@ -125,7 +125,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
 
         <NavLink to="/notifications" icon={<Bell className="h-5 w-5" />} label="Notifications">
           {unreadCount > 0 && (
-            <Badge className="ml-auto bg-red-500 text-white">
+            <Badge className="ml-auto bg-red-500 text-white transform translate-x-0 translate-y-0">
               {unreadCount}
             </Badge>
           )}

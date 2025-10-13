@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { cn } from '@/lib/utils'; // Import cn for utility classes
 
 interface CountryFlagProps {
   countryName: string;
@@ -19,15 +20,18 @@ const CountryFlag: React.FC<CountryFlagProps> = ({ countryName, className }) => 
   const flagUrl = countryCode ? `https://flagcdn.com/w40/${countryCode}.png` : null; // Changed to w40 for higher resolution
 
   if (!flagUrl) {
-    return <span className={className} role="img" aria-label={countryName}>🌐</span>; // Fallback to globe emoji
+    return <span className={cn(className, "transform translate-x-0 translate-y-0")} role="img" aria-label={countryName}>🌐</span>; // Fallback to globe emoji
   }
 
   return (
     <img
       src={flagUrl}
       alt={`${countryName} flag`}
-      className={`w-6 h-6 rounded-full object-cover ${className || ''}`} // Fixed size and rounded for favicon style
-      style={{ border: '1px solid #e5e7eb' }} // Subtle border for better visibility
+      className={cn(
+        `w-6 h-6 rounded-full object-cover border border-gray-200`, // Fixed size, rounded, and Tailwind border
+        "transform translate-x-0 translate-y-0", // Added transform for smoother edges
+        className
+      )}
     />
   );
 };
