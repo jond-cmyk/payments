@@ -39,10 +39,14 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
                 )}
               </SelectTrigger>
               <SelectContent 
-                className="bg-popover text-popover-foreground w-auto min-w-[300px] max-w-none overflow-visible" // Increased min-w and added w-auto
+                className="bg-popover text-popover-foreground w-auto min-w-[300px] max-w-none overflow-visible"
               >
                 {availableCountries.map((country) => (
-                  <SelectItem key={country.value} value={country.value} className="flex items-center gap-2 flex-nowrap"> {/* Added flex items-center */}
+                  <SelectItem 
+                    key={country.value} 
+                    value={country.value} 
+                    className="flex items-center gap-2 flex-nowrap w-full min-w-max" // Added w-full and min-w-max here
+                  >
                     {country.value !== 'all' ? (
                       <CountryFlag countryName={country.value} className="flex-shrink-0" />
                     ) : (
