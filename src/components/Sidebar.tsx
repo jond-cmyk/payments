@@ -1,18 +1,19 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react'; // Import useState
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNotifications } from '@/integrations/supabase/NotificationContext'; // Import useNotifications
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe } from 'lucide-react'; // Import Globe icon
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound } from 'lucide-react'; // Import KeyRound icon
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 import { useQuery } from '@tanstack/react-query'; // Import useQuery for unread count
 import { Badge } from '@/components/ui/badge'; // Import Badge for notification count
-// Removed import for CountrySelector as it's moving to Header
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
+import ChangePasswordForm from '@/components/auth/ChangePasswordForm'; // Import ChangePasswordForm
 
 interface SidebarProps {
   className?: string;
@@ -22,8 +23,8 @@ interface SidebarProps {
 const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const { session, user, isLoading, isApproved, userProfile } = useSession();
   const { notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications } = useNotifications(); // Use notification context
-  // Removed useCountry as the selector is moving
   const navigate = useNavigate();
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false); // State for change password dialog
 
   const currentRole = userProfile?.role;
   const displayName = userProfile?.first_name && userProfile?.last_name
@@ -144,8 +145,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
               <User className="h-4 w-4" />
               <span>{displayName}</span>
             </div>
-            {/* Removed static country display as it's now in the header */}
-            {/* Removed Country Selector for Admins as it's now in the header */}
             {/* Notification toggle for all authenticated users */}
             <Tooltip>
               <TooltipTrigger asChild>
@@ -178,6 +177,22 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                 )}
               </TooltipContent>
             </Tooltip>
+
+            {/* Change Password Dialog Trigger */}
+            <Dialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" className="w-full justify-start">
+                  <KeyRound className="mr-2 h-4 w-4" /> Change Password
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Change Password</DialogTitle>
+                </DialogHeader>
+                <ChangePasswordForm onPasswordChanged={() => setIsChangePasswordDialogOpen(false)} />
+              </DialogContent>
+            </Dialog>
+
             <Button
               variant="ghost"
               onClick={handleLogout}
