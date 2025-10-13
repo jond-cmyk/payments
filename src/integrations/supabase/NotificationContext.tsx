@@ -34,7 +34,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       showError("This browser does not support desktop notifications.");
       return;
     }
-
+    console.log("[NotificationProvider] Before Notification.requestPermission(), browser permission is:", Notification.permission); // NEW LOG
     Notification.requestPermission().then((permission) => {
       console.log("[NotificationProvider] Permission requested. Result:", permission);
       setNotificationPermission(permission);
@@ -65,18 +65,18 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     });
   }, [notificationPermission, requestNotificationPermission]);
 
+  // This useEffect now handles the initial permission check and proactive request
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const currentBrowserPermission = Notification.permission;
-      setNotificationPermission(currentBrowserPermission);
-      console.log("[NotificationProvider] Initial browser permission on mount:", currentBrowserPermission);
+    if (typeof window === 'undefined') return;
 
-      // If notifications are enabled in localStorage but browser permission is 'default',
-      // proactively request permission again to ensure the state is updated to 'granted'.
-      if (notificationsEnabled && currentBrowserPermission === 'default') {
-        console.log("[NotificationProvider] Notifications enabled in localStorage and permission is 'default'. Requesting permission again.");
-        requestNotificationPermission();
-      }
+    // If notifications are enabled in localStorage, ensure we have permission
+    if (notificationsEnabled) {
+      // Always request permission if enabled, to ensure our state is up-to-date
+      // and to trigger the browser's permission check if it's 'default'
+      requestNotificationPermission();
+    } else {
+      // If notifications are disabled, ensure our permission state reflects the current browser status
+      setNotificationPermission(Notification.permission);
     }
   }, [notificationsEnabled, requestNotificationPermission]); // Depend on these to re-run if they change
 
