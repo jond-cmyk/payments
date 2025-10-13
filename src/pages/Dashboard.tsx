@@ -9,33 +9,30 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PaymentRequest, Profile, Transaction } from '@/types/supabase';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, XCircle, ArrowUp, ArrowDown } from 'lucide-react'; // Removed KeyRound icon
+import { PlusCircle, XCircle, ArrowUp, ArrowDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { CardTitle, Card } from '@/components/ui/card'; // Import Card
-// Removed Dialog components imports
+import { CardTitle, Card } from '@/components/ui/card';
 
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { useCountry } from '@/integrations/supabase/CountryContext';
 
-// Import new modular components
 import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
 import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
 import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
 import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
-import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
-// Removed import for ChangePasswordForm
+import CountrySelector from '@/components/CountrySelector';
+import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
 
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
 
 const Dashboard = () => {
   const { session, isLoading, user, userProfile } = useSession();
-  const { currentCountry } = useCountry(); // Get currentCountry from context
+  const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams(); // Corrected: Use useSearchParams hook directly
-  // Removed state for change password dialog
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const userRole = userProfile?.role || null;
 
@@ -81,7 +78,7 @@ const Dashboard = () => {
 
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
-    const statusParam = searchParams.get('status'); // Use searchParams from useSearchParams
+    const statusParam = searchParams.get('status');
     if (statusParam && (statusParam === 'pending' || statusParam === 'setup_awaiting_approval' || statusParam === 'approved' || statusParam === 'declined' || statusParam === 'queried' || statusParam === 'all')) {
       setFilterStatus(statusParam);
     } else if (location.pathname === '/admin/requests') {
@@ -89,7 +86,7 @@ const Dashboard = () => {
     } else {
       setFilterStatus('pending');
     }
-  }, [searchParams, location.pathname]); // Depend on searchParams directly
+  }, [searchParams, location.pathname]);
 
   // Determine if we are on the 'All Requests' page
   const isAllRequestsPage = location.pathname === '/admin/requests';
@@ -101,7 +98,7 @@ const Dashboard = () => {
 
   // --- Data for Summary Cards (Global Totals) ---
   const allPaymentRequestsForSummaryQuery = useQuery<PaymentRequest[]>({
-    queryKey: ['allPaymentRequestsForSummary', currentCountry], // Add currentCountry to queryKey
+    queryKey: ['allPaymentRequestsForSummary', currentCountry],
     queryFn: async () => {
       let query = supabase
         .from('payment_requests')
@@ -124,7 +121,7 @@ const Dashboard = () => {
   });
 
   const allMissingReceiptsCountForSummaryQuery = useQuery<number>({
-    queryKey: ['allMissingReceiptsCountForSummary', currentCountry], // Add currentCountry to queryKey
+    queryKey: ['allMissingReceiptsCountForSummary', currentCountry],
     queryFn: async () => {
       let query = supabase
         .from('transactions')
@@ -173,11 +170,11 @@ const Dashboard = () => {
 
   // Fetch all user profiles for the requester dropdown filter
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
-    queryKey: ['allProfilesForFilter', currentCountry], // Add currentCountry to queryKey
+    queryKey: ['allProfilesForFilter', currentCountry],
     queryFn: async () => {
       let query = supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at'); // Select all fields required by Profile type
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at');
       
       // Filter profiles by selected country if not 'all'
       if (currentCountry !== 'all') {
@@ -188,14 +185,14 @@ const Dashboard = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!session && isAllRequestsPage, // Only fetch if on the 'All Requests' page
+    enabled: !!session && isAllRequestsPage,
   });
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, isAdminUrgentDashboard, sortColumn, sortDirection, currentCountry], // Add currentCountry to queryKey
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, isAdminUrgentDashboard, sortColumn, sortDirection, currentCountry],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
@@ -262,7 +259,7 @@ const Dashboard = () => {
 
   // --- Global Search Query ---
   const { data: searchResults, isLoading: isSearchLoading, error: searchError } = useQuery<SearchResult[]>({
-    queryKey: ['globalSearch', debouncedSearchTerm, currentCountry], // Add currentCountry to queryKey
+    queryKey: ['globalSearch', debouncedSearchTerm, currentCountry],
     queryFn: async () => {
       if (!debouncedSearchTerm) return [];
 
@@ -447,8 +444,7 @@ const Dashboard = () => {
             isAllRequestsPage ? 'All Payment Requests' : 'Summary of Payment Requests'
           )}
         </h1>
-        <div className="flex items-center space-x-4"> {/* Added a div to group buttons */}
-          {/* Removed Change Password Dialog Trigger */}
+        <div className="flex items-center space-x-4">
           {(userRole === 'requester' || userRole === 'admin') && (
             <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
               <PlusCircle className="mr-2 h-5 w-5" />
@@ -463,18 +459,18 @@ const Dashboard = () => {
         <Input
           placeholder="Search all requests and missing receipts..."
           value={searchTerm}
-          onChange={(e) => handleTextFilterChange(setSearchTerm, e.target.value)} // Use handleTextFilterChange for global search
-          className="flex-1 shadow-sm" // Added shadow-sm
+          onChange={(e) => handleTextFilterChange(setSearchTerm, e.target.value)}
+          className="flex-1 shadow-sm"
         />
         {searchTerm && (
-          <Button variant="outline" onClick={() => setSearchTerm('')} className="flex items-center gap-1 shadow-sm"> {/* Added shadow-sm */}
+          <Button variant="outline" onClick={() => setSearchTerm('')} className="flex items-center gap-1 shadow-sm">
             <XCircle className="h-4 w-4" /> Clear Search
           </Button>
         )}
       </div>
 
       {debouncedSearchTerm ? (
-        <Card className="shadow-sm"> {/* Added shadow-sm to search results card */}
+        <Card className="shadow-sm">
           <GlobalSearchResultsTable
             searchResults={searchResults}
             debouncedSearchTerm={debouncedSearchTerm}
@@ -483,6 +479,14 @@ const Dashboard = () => {
         </Card>
       ) : (
         <>
+          {/* Country Display for Requesters on Dashboard */}
+          {userRole === 'requester' && userProfile?.country && !isAllRequestsPage && (
+            <div className="mb-6 flex items-center gap-2 text-lg font-semibold text-dyad-blue">
+              <CountryFlag countryName={userProfile.country} />
+              <span>{userProfile.country} Dashboard</span>
+            </div>
+          )}
+
           {/* Country Selector for Admins on Dashboard */}
           {userRole === 'admin' && !isAllRequestsPage && (
             <div className="mb-6">
@@ -521,7 +525,7 @@ const Dashboard = () => {
           )}
 
           {(isAllRequestsPage || isRequesterPersonalDashboard || isAdminUrgentDashboard) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
-            <Card className="shadow-sm"> {/* Added shadow-sm to table card */}
+            <Card className="shadow-sm">
               <PaymentRequestTable
                 paymentRequests={paymentRequestsForTable}
                 userRole={userRole}
