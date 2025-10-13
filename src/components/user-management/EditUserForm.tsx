@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { Profile } from '@/types/supabase';
 import { User } from '@supabase/supabase-js';
 import { UserCheck } from 'lucide-react';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,7 @@ const editUserFormSchema = z.object({
     required_error: "Role is required",
   }),
   is_approved: z.boolean().default(false),
+  country: z.string().min(1, "Country is required"), // New country field
 });
 
 interface EditUserFormProps {
@@ -32,6 +34,8 @@ interface EditUserFormProps {
 }
 
 const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSave, isSaving }) => {
+  const { availableCountries } = useCountry(); // Use availableCountries from context
+
   const form = useForm<z.infer<typeof editUserFormSchema>>({
     resolver: zodResolver(editUserFormSchema),
     defaultValues: {
@@ -39,6 +43,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
       last_name: profile.last_name || "",
       role: profile.role,
       is_approved: profile.is_approved,
+      country: profile.country || "Switzerland", // Set default from profile or 'Switzerland'
     },
   });
 
@@ -46,7 +51,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
     await onSave(values);
   };
 
-  // Disable editing role/approval for the current logged-in user
+  // Disable editing role/approval/country for the current logged-in user
   const isCurrentUser = currentUser?.id === profile.id;
 
   return (
@@ -95,6 +100,30 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
                 <SelectContent>
                   <SelectItem value="requester">Requester</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="country"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Country</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSaving || isCurrentUser}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a country" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {availableCountries.map((country) => (
+                    <SelectItem key={country.value} value={country.value}>
+                      {country.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />

@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { UserPlus } from 'lucide-react';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ const addUserFormSchema = z.object({
     required_error: "Role is required",
   }),
   is_approved: z.boolean().default(false),
+  country: z.string().min(1, "Country is required"), // New country field
 });
 
 interface AddUserFormProps {
@@ -32,6 +34,8 @@ interface AddUserFormProps {
 }
 
 const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
+  const { availableCountries } = useCountry(); // Use availableCountries from context
+
   const form = useForm<z.infer<typeof addUserFormSchema>>({
     resolver: zodResolver(addUserFormSchema),
     defaultValues: {
@@ -41,6 +45,7 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
       last_name: "",
       role: "requester",
       is_approved: false,
+      country: "Switzerland", // Default to Switzerland
     },
   });
 
@@ -63,7 +68,7 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
 
       dismissToast(toastId);
       showSuccess(data?.message || `User '${values.email}' added successfully!`);
-      form.reset();
+      form.reset({ country: "Switzerland" }); // Reset with default country
       onUserAdded(); // Call callback to refresh list and close dialog
     } catch (error: any) {
       dismissToast(toastId);
@@ -144,6 +149,30 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
                 <SelectContent>
                   <SelectItem value="requester">Requester</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="country"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Country</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a country" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {availableCountries.map((country) => (
+                    <SelectItem key={country.value} value={country.value}>
+                      {country.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />

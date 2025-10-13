@@ -15,27 +15,27 @@ interface SessionContextType {
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
+// Function to fetch user profile
+const fetchUserProfile = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.error("SessionContext: Error fetching user profile:", error);
+    return null;
+  }
+  return data;
+};
+
 export const SessionContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true); // Start as true
   const [isApproved, setIsApproved] = useState<boolean | null>(null); // State for approval status
   const [userProfile, setUserProfile] = useState<Profile | null>(null); // State for full profile
-
-  // Function to fetch user profile
-  const fetchUserProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      console.error("SessionContext: Error fetching user profile:", error);
-      return null;
-    }
-    return data;
-  };
 
   useEffect(() => {
     const loadSessionAndProfile = async () => {

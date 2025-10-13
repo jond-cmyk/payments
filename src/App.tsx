@@ -18,6 +18,7 @@ import CompletedReceipts from "./pages/CompletedReceipts";
 import NotificationsPage from "./pages/Notifications"; // Import the NotificationsPage
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
+import { CountryProvider } from "./integrations/supabase/CountryContext"; // Import CountryProvider
 import Layout from "./components/Layout";
 import AutoRefreshHandler from "./components/AutoRefreshHandler";
 
@@ -51,34 +52,36 @@ const App = () => {
         <BrowserRouter>
           <SessionContextProvider>
             <NotificationProvider>
-              <AutoRefreshHandler>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/pending-approval" element={<PendingApproval />} />
-                  <Route path="/" element={<Index />} />
+              <CountryProvider> {/* Wrap with CountryProvider */}
+                <AutoRefreshHandler>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/pending-approval" element={<PendingApproval />} />
+                    <Route path="/" element={<Index />} />
 
-                  {/* Routes accessible to all logged-in users (even if not approved) */}
-                  <Route element={<Layout />}>
-                    <Route path="/missing-receipts" element={<MissingReceipts />} />
-                    <Route path="/completed-receipts" element={<CompletedReceipts />} />
-                    <Route path="/transaction/:id" element={<TransactionDetail />} />
-                  </Route>
+                    {/* Routes accessible to all logged-in users (even if not approved) */}
+                    <Route element={<Layout />}>
+                      <Route path="/missing-receipts" element={<MissingReceipts />} />
+                      <Route path="/completed-receipts" element={<CompletedReceipts />} />
+                      <Route path="/transaction/:id" element={<TransactionDetail />} />
+                    </Route>
 
-                  {/* Protected routes requiring approval */}
-                  <Route element={<ApprovedRoute><Layout /></ApprovedRoute>}>
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/new-request" element={<NewPaymentRequest />} />
-                    <Route path="/request/:id" element={<PaymentRequestDetail />} />
-                    <Route path="/admin/requests" element={<Dashboard />} />
-                    <Route path="/admin/users" element={<UserManagement />} />
-                    <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
-                    <Route path="/notifications" element={<NotificationsPage />} /> {/* New route for Notifications */}
-                  </Route>
+                    {/* Protected routes requiring approval */}
+                    <Route element={<ApprovedRoute><Layout /></ApprovedRoute>}>
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/new-request" element={<NewPaymentRequest />} />
+                      <Route path="/request/:id" element={<PaymentRequestDetail />} />
+                      <Route path="/admin/requests" element={<Dashboard />} />
+                      <Route path="/admin/users" element={<UserManagement />} />
+                      <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
+                      <Route path="/notifications" element={<NotificationsPage />} /> {/* New route for Notifications */}
+                    </Route>
 
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </AutoRefreshHandler>
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </AutoRefreshHandler>
+              </CountryProvider>
             </NotificationProvider>
           </SessionContextProvider>
         </BrowserRouter>

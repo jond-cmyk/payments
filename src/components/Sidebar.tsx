@@ -5,12 +5,14 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNotifications } from '@/integrations/supabase/NotificationContext'; // Import useNotifications
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff } from 'lucide-react'; // Import Bell and BellOff icons
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe } from 'lucide-react'; // Import Globe icon
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 import { useQuery } from '@tanstack/react-query'; // Import useQuery for unread count
 import { Badge } from '@/components/ui/badge'; // Import Badge for notification count
+import CountrySelector from './CountrySelector'; // Import CountrySelector
 
 interface SidebarProps {
   className?: string;
@@ -20,6 +22,7 @@ interface SidebarProps {
 const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const { session, user, isLoading, isApproved, userProfile } = useSession();
   const { notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications } = useNotifications(); // Use notification context
+  const { currentCountry, isCountryLocked } = useCountry(); // Use country context
   const navigate = useNavigate();
 
   const currentRole = userProfile?.role;
@@ -142,6 +145,15 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
               <span>{displayName}</span>
             </div>
             <div className="text-xs text-sidebar-foreground">Role: {currentRole || 'Not available'}</div>
+            {/* Display user's assigned country */}
+            <div className="flex items-center space-x-2 text-sm">
+              <Globe className="h-4 w-4" />
+              <span>Country: {userProfile?.country || 'N/A'}</span>
+            </div>
+            {/* Country Selector for Admins */}
+            {currentRole === 'admin' && (
+              <CountrySelector className="w-full mt-2" />
+            )}
             {/* Notification toggle for all authenticated users */}
             <Tooltip>
               <TooltipTrigger asChild>

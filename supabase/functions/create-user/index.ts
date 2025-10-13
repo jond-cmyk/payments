@@ -23,10 +23,10 @@ serve(async (req) => {
       }
     );
 
-    const { email, password, first_name, last_name, role, is_approved } = await req.json();
+    const { email, password, first_name, last_name, role, is_approved, country } = await req.json(); // Added country
 
-    if (!email || !password || !role) {
-      return new Response(JSON.stringify({ error: 'Email, password, and role are required.' }), {
+    if (!email || !password || !role || !country) { // Country is now required
+      return new Response(JSON.stringify({ error: 'Email, password, role, and country are required.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -59,7 +59,7 @@ serve(async (req) => {
       });
     }
 
-    // 2. Update the user's profile with the selected role and approval status
+    // 2. Update the user's profile with the selected role, approval status, and country
     // The handle_new_user trigger creates a default profile, we then update it.
     const { error: profileError } = await supabaseAdminClient
       .from('profiles')
@@ -68,6 +68,7 @@ serve(async (req) => {
         is_approved: is_approved,
         first_name: first_name,
         last_name: last_name,
+        country: country, // Set the country
         updated_at: new Date().toISOString(),
       })
       .eq('id', authData.user.id);
