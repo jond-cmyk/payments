@@ -4,9 +4,11 @@ import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
+import { useNotifications } from '@/integrations/supabase/NotificationContext'; // Import useNotifications
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive } from 'lucide-react';
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff } from 'lucide-react'; // Import Bell and BellOff icons
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 
 interface SidebarProps {
   className?: string;
@@ -15,6 +17,7 @@ interface SidebarProps {
 
 const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const { session, user, isLoading, isApproved, userProfile } = useSession();
+  const { notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications } = useNotifications(); // Use notification context
   const navigate = useNavigate();
 
   const currentRole = userProfile?.role;
@@ -108,6 +111,39 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
               <span>{displayName}</span>
             </div>
             <div className="text-xs text-sidebar-foreground">Role: {currentRole || 'Not available'}</div>
+            {currentRole === 'admin' && ( // Only show notification toggle for admins
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    onClick={toggleNotifications}
+                    className={cn(
+                      "w-full justify-start",
+                      notificationsEnabled && notificationPermission === 'granted'
+                        ? "text-green-400 hover:bg-green-900 hover:text-green-300"
+                        : "text-red-400 hover:bg-red-900 hover:text-red-300"
+                    )}
+                    disabled={notificationPermission === 'denied'} // Disable if permission is permanently denied
+                  >
+                    {notificationsEnabled && notificationPermission === 'granted' ? (
+                      <Bell className="mr-2 h-4 w-4" />
+                    ) : (
+                      <BellOff className="mr-2 h-4 w-4" />
+                    )}
+                    {notificationsEnabled && notificationPermission === 'granted' ? "Notifications On" : "Notifications Off"}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {notificationPermission === 'denied' ? (
+                    <span>Notifications are blocked. Enable in browser settings.</span>
+                  ) : notificationsEnabled ? (
+                    <span>Click to disable new request notifications.</span>
+                  ) : (
+                    <span>Click to enable new request notifications.</span>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Button
               variant="ghost"
               onClick={handleLogout}
