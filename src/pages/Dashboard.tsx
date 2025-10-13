@@ -175,7 +175,7 @@ const Dashboard = () => {
     queryFn: async () => {
       let query = supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at');
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at, country'); // ADDED 'country'
       
       // Filter profiles by selected country if not 'all'
       if (currentCountry !== 'all') {

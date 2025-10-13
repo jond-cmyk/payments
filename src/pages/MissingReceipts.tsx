@@ -134,7 +134,7 @@ const MissingReceipts = () => {
     queryFn: async () => {
       let query = supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at'); // Select all fields required by Profile type
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at, country'); // Select all fields required by Profile type, ADDED 'country'
       
       // Filter profiles by selected country if not 'all'
       if (currentCountry !== 'all') {
@@ -157,9 +157,9 @@ const MissingReceipts = () => {
         .in('id', ids);
       
       // Apply country filter for delete
-      // For requesters, RLS will handle the country filter.
-      // For admins, apply client-side filter if a specific country is selected.
-      if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
 
@@ -186,9 +186,9 @@ const MissingReceipts = () => {
         .eq('id', transactionId);
       
       // Apply country filter for update
-      // For requesters, RLS will handle the country filter.
-      // For admins, apply client-side filter if a specific country is selected.
-      if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
 
