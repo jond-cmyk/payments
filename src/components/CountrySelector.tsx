@@ -14,9 +14,10 @@ interface CountrySelectorProps {
   value?: string; // Added value prop
   onValueChange?: (value: string) => void; // Added onValueChange prop
   availableCountries?: { value: string; label: string }[]; // Added availableCountries prop
+  disabled?: boolean; // ADDED: disabled prop
 }
 
-const CountrySelector: React.FC<CountrySelectorProps> = ({ className, triggerClassName, value, onValueChange, availableCountries }) => {
+const CountrySelector: React.FC<CountrySelectorProps> = ({ className, triggerClassName, value, onValueChange, availableCountries, disabled }) => {
   const { currentCountry, setCurrentCountry, availableCountries: contextAvailableCountries, isCountryLocked } = useCountry();
   const { userProfile } = useSession();
 
@@ -25,7 +26,8 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className, triggerCla
   const handleCountryChange = onValueChange !== undefined ? onValueChange : setCurrentCountry;
   const countriesToDisplay = availableCountries !== undefined ? availableCountries : contextAvailableCountries;
 
-  const isDisabled = isCountryLocked && userProfile?.role !== 'admin';
+  // Combine internal disabled state with external disabled prop
+  const isDisabled = disabled || (isCountryLocked && userProfile?.role !== 'admin');
 
   return (
     <div className={cn("flex items-center space-x-2", className)}>
