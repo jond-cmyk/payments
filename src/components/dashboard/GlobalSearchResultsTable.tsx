@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { PaymentRequest, Transaction } from '@/types/supabase';
+import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
 
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
@@ -45,6 +46,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
             <TableHead>Amount</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Date</TableHead>
+            <TableHead>Country</TableHead> {/* New Country column */}
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -70,6 +72,12 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
               </TableCell>
               <TableCell>
                 {format(new Date(item.type === 'payment_request' ? item.date_payment_required : item.transaction_date), 'PPP')}
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <CountryFlag countryName={item.country} />
+                  <span>{item.country}</span>
+                </div>
               </TableCell>
               <TableCell className="text-right">
                 <Button asChild variant="outline" size="sm">

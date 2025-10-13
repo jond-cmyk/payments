@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 import PageTitle from './PageTitle';
-import CountrySelector from './CountrySelector'; // Import CountrySelector
+// Removed import for CountrySelector as it's moving
 
 const Header = () => {
   const location = useLocation();
@@ -67,7 +67,7 @@ const Header = () => {
 
       <h2 className="text-xl font-semibold">{title.replace(' - KH Payments', '')}</h2>
       <div className="ml-auto flex items-center gap-4"> {/* Added flex and gap for spacing */}
-        <CountrySelector /> {/* Place CountrySelector here */}
+        {/* CountrySelector removed from here */}
       </div>
     </header>
   );

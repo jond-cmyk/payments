@@ -18,6 +18,7 @@ import { PaymentRequest, Transaction } from '@/types/supabase';
 import { format } from 'date-fns';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
+import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
 
 interface PaymentRequestTableProps {
   paymentRequests: (PaymentRequest & { requester_profile: { first_name: string | null } | null })[] | undefined;
@@ -79,6 +80,11 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                 Requester {renderSortIcon('requester_id')}
               </div>
             </TableHead>
+            <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('country')}>
+              <div className="flex items-center">
+                Country {renderSortIcon('country')}
+              </div>
+            </TableHead>
             {userRole === 'admin' && <TableHead className="text-center">Urgent</TableHead>}
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -106,6 +112,12 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                 {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
               </TableCell>
               <TableCell>{request.requester_profile?.first_name || 'N/A'}</TableCell>
+              <TableCell>
+                <div className="flex items-center gap-2">
+                  <CountryFlag countryName={request.country} />
+                  <span>{request.country}</span>
+                </div>
+              </TableCell>
               {userRole === 'admin' && (
                 <TableCell className="text-center">
                   <Switch

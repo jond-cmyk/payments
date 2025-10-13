@@ -7,6 +7,7 @@ import DatePicker from '@/components/DatePicker';
 import { Button } from '@/components/ui/button';
 import { XCircle, RotateCcw } from 'lucide-react';
 import { PaymentRequest, Profile } from '@/types/supabase';
+import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
 
 interface PaymentRequestFiltersProps {
   filterSupplierName: string;
@@ -44,6 +45,7 @@ const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({
   return (
     <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
       <span className="font-medium text-gray-700">Filters:</span>
+      <CountrySelector className="w-[240px]" /> {/* Add CountrySelector here */}
       <Input
         placeholder="Filter by Supplier Name"
         value={filterSupplierName}

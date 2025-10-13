@@ -99,10 +99,20 @@ const Dashboard = () => {
   const allPaymentRequestsForSummaryQuery = useQuery<PaymentRequest[]>({
     queryKey: ['allPaymentRequestsForSummary', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('payment_requests')
-        .select('*')
-        .eq('country', currentCountry); // Filter by country
+        .select('*');
+      
+      // Admins see all countries in summary, requesters see only their country
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        // If admin and a specific country is selected, filter by it
+        query = query.eq('country', currentCountry);
+      }
+      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -112,12 +122,22 @@ const Dashboard = () => {
   const allMissingReceiptsCountForSummaryQuery = useQuery<number>({
     queryKey: ['allMissingReceiptsCountForSummary', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
-      const { count, error } = await supabase
+      let query = supabase
         .from('transactions')
         .select('id', { count: 'exact' })
         .eq('status', 'pending_input')
-        .eq('receipt_urls', '{}')
-        .eq('country', currentCountry); // Filter by country
+        .eq('receipt_urls', '{}');
+
+      // Admins see all countries in summary, requesters see only their country
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        // If admin and a specific country is selected, filter by it
+        query = query.eq('country', currentCountry);
+      }
+      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
+
+      const { count, error } = await query;
       if (error) throw error;
       return count || 0;
     },
@@ -151,10 +171,16 @@ const Dashboard = () => {
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
     queryKey: ['allProfilesForFilter', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at') // Select all fields required by Profile type
-        .eq('country', currentCountry); // Filter by country
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at'); // Select all fields required by Profile type
+      
+      // Filter profiles by selected country if not 'all'
+      if (currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -171,8 +197,13 @@ const Dashboard = () => {
 
       let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)');
 
-      // Always filter by country
-      query = query.eq('country', currentCountry);
+      // Apply country filter based on user role and selected country
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
       if (isRequesterPersonalDashboard) {
         // Requester's personal dashboard: only their urgent requests
@@ -234,13 +265,21 @@ const Dashboard = () => {
       const term = `%${debouncedSearchTerm}%`;
       const searchPromises: Promise<SearchResult[]>[] = [];
 
-      searchPromises.push(
-        supabase
+      // Base query for payment requests
+      let paymentRequestQuery = supabase
           .from('payment_requests')
           .select('*')
-          .eq('country', currentCountry) // Filter by country
-          .or(`supplier_name.ilike.${term},sku_number.ilike.${term},supplier_address.ilike.${term},iban_number.ilike.${term},currency.ilike.${term},reason_for_payment.ilike.${term},admin_action_reason.ilike.${term}`)
-          .then(({ data, error }) => {
+          .or(`supplier_name.ilike.${term},sku_number.ilike.${term},supplier_address.ilike.${term},iban_number.ilike.${term},currency.ilike.${term},reason_for_payment.ilike.${term},admin_action_reason.ilike.${term}`);
+      
+      // Apply country filter for payment requests
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        paymentRequestQuery = paymentRequestQuery.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        paymentRequestQuery = paymentRequestQuery.eq('country', currentCountry);
+      }
+
+      searchPromises.push(
+        paymentRequestQuery.then(({ data, error }) => {
             if (error) {
               console.error("Error searching payment requests:", error);
               return [];
@@ -249,15 +288,23 @@ const Dashboard = () => {
           }) as Promise<SearchResult[]>
       );
 
-      searchPromises.push(
-        supabase
+      // Base query for transactions
+      let transactionQuery = supabase
           .from('transactions')
           .select('*')
           .eq('status', 'pending_input')
           .eq('receipt_urls', '{}')
-          .eq('country', currentCountry) // Filter by country
-          .or(`description.ilike.${term},type.ilike.${term},entry.ilike.${term},bank.ilike.${term},contra_account.ilike.${term},currency.ilike.${term},comment.ilike.${term},sku.ilike.${term},reason_for_payment.ilike.${term},category.ilike.${term},merchant_name.ilike.${term},notes.ilike.${term}`)
-          .then(({ data, error }) => {
+          .or(`description.ilike.${term},type.ilike.${term},entry.ilike.${term},bank.ilike.${term},contra_account.ilike.${term},currency.ilike.${term},comment.ilike.${term},sku.ilike.${term},reason_for_payment.ilike.${term},category.ilike.${term},merchant_name.ilike.${term},notes.ilike.${term}`);
+
+      // Apply country filter for transactions
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        transactionQuery = transactionQuery.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        transactionQuery = transactionQuery.eq('country', currentCountry);
+      }
+
+      searchPromises.push(
+        transactionQuery.then(({ data, error }) => {
             if (error) {
               console.error("Error searching transactions:", error);
               return [];

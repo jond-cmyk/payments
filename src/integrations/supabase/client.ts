@@ -35,6 +35,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
     functions: { // Added functions for completeness
       invoke: () => Promise.resolve({ data: null, error: new Error("Supabase functions not configured") }),
     },
+    rpc: () => Promise.resolve({ data: null, error: new Error("Supabase RPC not configured") }), // Added dummy rpc
   };
   supabase = dummyClient as unknown as SupabaseClient; // Assign dummy client here, cast to unknown first
 } else {

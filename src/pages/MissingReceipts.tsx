@@ -82,8 +82,15 @@ const MissingReceipts = () => {
         .from('transactions')
         .select('*')
         .eq('status', 'pending_input')
-        .eq('receipt_urls', '{}')
-        .eq('country', currentCountry); // Filter by country
+        .eq('receipt_urls', '{}');
+        
+      // Apply country filter based on user role and selected country
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
       // Apply dynamic sorting
       if (sortColumn) {
@@ -125,10 +132,16 @@ const MissingReceipts = () => {
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
     queryKey: ['allProfilesForAssignment', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at') // Select all fields required by Profile type
-        .eq('country', currentCountry); // Filter by country
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at'); // Select all fields required by Profile type
+      
+      // Filter profiles by selected country if not 'all'
+      if (currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -138,11 +151,19 @@ const MissingReceipts = () => {
   const bulkDeleteMutation = useMutation({
     mutationFn: async (ids: string[]) => {
       if (ids.length === 0) throw new Error("No transactions selected for deletion.");
-      const { error } = await supabase
+      let query = supabase
         .from('transactions')
         .delete()
-        .in('id', ids)
-        .eq('country', currentCountry); // Ensure country filter for delete
+        .in('id', ids);
+      
+      // Apply country filter for delete
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { error } = await query;
       if (error) throw error;
       return true;
     },
@@ -159,11 +180,19 @@ const MissingReceipts = () => {
 
   const assignTransactionMutation = useMutation({
     mutationFn: async ({ transactionId, newRequesterId }: { transactionId: string; newRequesterId: string }) => {
-      const { error } = await supabase
+      let query = supabase
         .from('transactions')
         .update({ requester_id: newRequesterId, updated_at: new Date().toISOString() })
-        .eq('id', transactionId)
-        .eq('country', currentCountry); // Ensure country filter for update
+        .eq('id', transactionId);
+      
+      // Apply country filter for update
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { error } = await query;
       if (error) throw error;
       return true;
     },

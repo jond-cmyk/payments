@@ -44,9 +44,15 @@ const CompletedReceipts = () => {
         .select('*')
         .eq('status', 'completed')
         .not('receipt_urls', 'is', null)
-        .not('receipt_urls', 'eq', '{}')
-        .eq('country', currentCountry) // Filter by country
-        .order('transaction_date', { ascending: false });
+        .not('receipt_urls', 'eq', '{}');
+        
+      // Apply country filter based on user role and selected country
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
       const { data, error } = await query;
       if (error) throw error;

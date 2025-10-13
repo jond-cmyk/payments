@@ -210,12 +210,19 @@ const PaymentRequestDetail = () => {
     queryKey: ['paymentRequest', id, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!id) return null;
-      const { data, error } = await supabase
+      let query = supabase
         .from('payment_requests')
         .select('*')
-        .eq('id', id)
-        .eq('country', currentCountry) // Filter by country
-        .single();
+        .eq('id', id);
+      
+      // Apply country filter based on user role and selected country
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { data, error } = await query.single();
       if (error) throw error;
       return data;
     },
@@ -248,10 +255,16 @@ const PaymentRequestDetail = () => {
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
     queryKey: ['auditUsers', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email')
-        .eq('country', currentCountry); // Filter by country
+        .select('id, first_name, last_name, user_email');
+      
+      // Filter profiles by selected country if not 'all'
+      if (currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
@@ -389,15 +402,23 @@ const PaymentRequestDetail = () => {
         updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls];
       }
 
-      const { error } = await supabase
+      let query = supabase
         .from('payment_requests')
         .update({
           ...updatedFields,
           invoice_pdf_urls: updatedInvoicePdfUrls,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', id)
-        .eq('country', currentCountry); // Ensure country filter for update
+        .eq('id', id);
+      
+      // Apply country filter for update
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { error } = await query;
       if (error) throw error;
       return true;
     },
@@ -417,11 +438,19 @@ const PaymentRequestDetail = () => {
   const deleteRequestMutation = useMutation({
     mutationFn: async () => {
       if (!id) throw new Error("Request ID missing.");
-      const { error } = await supabase
+      let query = supabase
         .from('payment_requests')
         .delete()
-        .eq('id', id)
-        .eq('country', currentCountry); // Ensure country filter for delete
+        .eq('id', id);
+      
+      // Apply country filter for delete
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { error } = await query;
       if (error) throw error;
       return true;
     },

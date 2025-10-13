@@ -7,7 +7,7 @@ interface CountryContextType {
   currentCountry: string;
   setCurrentCountry: (country: string) => void;
   availableCountries: { value: string; label: string }[];
-  isCountryLocked: boolean; // To indicate if the country selector should be disabled
+  isCountryLocked: boolean; // To indicate if the country selector should be disabled for requesters
 }
 
 const CountryContext = createContext<CountryContextType | undefined>(undefined);
@@ -47,7 +47,7 @@ export const CountryProvider = ({ children }: { children: React.ReactNode }) => 
       } else if (userProfile.role === 'admin') {
         // Admin can select, but default to localStorage or 'Switzerland'
         // If localStorage is empty, it will already be 'Switzerland' by initial state
-        setIsCountryLocked(false);
+        setIsCountryLocked(false); // Admins are NOT locked to a country
       }
     } else if (!isSessionLoading && !userProfile) {
       // If no user profile (e.g., not logged in or profile error), default to Switzerland
@@ -56,12 +56,13 @@ export const CountryProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [isSessionLoading, userProfile]);
 
-  // Wrapper for setCurrentCountryState to respect isCountryLocked
+  // Wrapper for setCurrentCountryState to respect isCountryLocked for requesters
   const handleSetCurrentCountry = useCallback((country: string) => {
-    if (!isCountryLocked) {
+    // Only allow change if not locked OR if the user is an admin (admins are never locked by this context)
+    if (!isCountryLocked || userProfile?.role === 'admin') {
       setCurrentCountryState(country);
     }
-  }, [isCountryLocked]);
+  }, [isCountryLocked, userProfile?.role]);
 
   return (
     <CountryContext.Provider
