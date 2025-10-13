@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@/types/supabase';
 import { format, parseISO } from 'date-fns';
 import { Folder, FileText, CalendarDays, ChevronDown } from 'lucide-react';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import {
   Card,
@@ -28,13 +29,14 @@ import PageTitle from '@/components/PageTitle';
 
 const CompletedReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
+  const { currentCountry } = useCountry(); // Get currentCountry from context
   const navigate = useNavigate();
 
   const isAdmin = userProfile?.role === 'admin';
 
   // Fetch completed transactions with receipts
   const { data: completedTransactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['completedReceipts', user?.id],
+    queryKey: ['completedReceipts', user?.id, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!user?.id) return [];
       let query = supabase
@@ -43,6 +45,7 @@ const CompletedReceipts = () => {
         .eq('status', 'completed')
         .not('receipt_urls', 'is', null)
         .not('receipt_urls', 'eq', '{}')
+        .eq('country', currentCountry) // Filter by country
         .order('transaction_date', { ascending: false });
 
       const { data, error } = await query;

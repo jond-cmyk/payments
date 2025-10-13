@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { CardTitle, Card } from '@/components/ui/card'; // Import Card
 
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 // Import new modular components
 import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
@@ -26,10 +27,11 @@ type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transactio
 
 const Dashboard = () => {
   const { session, isLoading, user, userProfile } = useSession();
+  const { currentCountry } = useCountry(); // Get currentCountry from context
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = new URLSearchParams(location.search); // Use location.search for initial state
 
   const userRole = userProfile?.role || null;
 
@@ -95,11 +97,12 @@ const Dashboard = () => {
 
   // --- Data for Summary Cards (Global Totals) ---
   const allPaymentRequestsForSummaryQuery = useQuery<PaymentRequest[]>({
-    queryKey: ['allPaymentRequestsForSummary'],
+    queryKey: ['allPaymentRequestsForSummary', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       const { data, error } = await supabase
         .from('payment_requests')
-        .select('*');
+        .select('*')
+        .eq('country', currentCountry); // Filter by country
       if (error) throw error;
       return data;
     },
@@ -107,13 +110,14 @@ const Dashboard = () => {
   });
 
   const allMissingReceiptsCountForSummaryQuery = useQuery<number>({
-    queryKey: ['allMissingReceiptsCountForSummary'],
+    queryKey: ['allMissingReceiptsCountForSummary', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       const { count, error } = await supabase
         .from('transactions')
         .select('id', { count: 'exact' })
         .eq('status', 'pending_input')
-        .eq('receipt_urls', '{}');
+        .eq('receipt_urls', '{}')
+        .eq('country', currentCountry); // Filter by country
       if (error) throw error;
       return count || 0;
     },
@@ -145,11 +149,12 @@ const Dashboard = () => {
 
   // Fetch all user profiles for the requester dropdown filter
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
-    queryKey: ['allProfilesForFilter'],
+    queryKey: ['allProfilesForFilter', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at'); // Select all fields required by Profile type
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at') // Select all fields required by Profile type
+        .eq('country', currentCountry); // Filter by country
       if (error) throw error;
       return data;
     },
@@ -160,11 +165,14 @@ const Dashboard = () => {
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, isAdminUrgentDashboard, sortColumn, sortDirection],
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, isRequesterPersonalDashboard, isAdminUrgentDashboard, sortColumn, sortDirection, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
       let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)');
+
+      // Always filter by country
+      query = query.eq('country', currentCountry);
 
       if (isRequesterPersonalDashboard) {
         // Requester's personal dashboard: only their urgent requests
@@ -219,7 +227,7 @@ const Dashboard = () => {
 
   // --- Global Search Query ---
   const { data: searchResults, isLoading: isSearchLoading, error: searchError } = useQuery<SearchResult[]>({
-    queryKey: ['globalSearch', debouncedSearchTerm],
+    queryKey: ['globalSearch', debouncedSearchTerm, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!debouncedSearchTerm) return [];
 
@@ -230,6 +238,7 @@ const Dashboard = () => {
         supabase
           .from('payment_requests')
           .select('*')
+          .eq('country', currentCountry) // Filter by country
           .or(`supplier_name.ilike.${term},sku_number.ilike.${term},supplier_address.ilike.${term},iban_number.ilike.${term},currency.ilike.${term},reason_for_payment.ilike.${term},admin_action_reason.ilike.${term}`)
           .then(({ data, error }) => {
             if (error) {
@@ -246,6 +255,7 @@ const Dashboard = () => {
           .select('*')
           .eq('status', 'pending_input')
           .eq('receipt_urls', '{}')
+          .eq('country', currentCountry) // Filter by country
           .or(`description.ilike.${term},type.ilike.${term},entry.ilike.${term},bank.ilike.${term},contra_account.ilike.${term},currency.ilike.${term},comment.ilike.${term},sku.ilike.${term},reason_for_payment.ilike.${term},category.ilike.${term},merchant_name.ilike.${term},notes.ilike.${term}`)
           .then(({ data, error }) => {
             if (error) {
@@ -269,7 +279,8 @@ const Dashboard = () => {
       const { error } = await supabase
         .from('payment_requests')
         .update({ is_urgent: is_urgent, updated_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('country', currentCountry); // Ensure country filter for update
       if (error) throw error;
       return true;
     },
@@ -398,7 +409,7 @@ const Dashboard = () => {
         <Input
           placeholder="Search all requests and missing receipts..."
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => handleTextFilterChange(setSearchTerm, e.target.value)} // Use handleTextFilterChange for global search
           className="flex-1 shadow-sm" // Added shadow-sm
         />
         {searchTerm && (

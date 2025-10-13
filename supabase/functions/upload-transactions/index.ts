@@ -60,6 +60,25 @@ serve(async (req) => {
     console.log(`[upload-transactions] Received file: ${fileName} from uploader: ${uploaderId}`);
     console.log(`[upload-transactions] File content length: ${fileContent.length}`);
 
+    // Fetch uploader's country
+    const { data: uploaderProfile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('country')
+      .eq('id', uploaderId)
+      .single();
+
+    if (profileError || !uploaderProfile?.country) {
+      const msg = `Uploader profile or country not found for user ID: ${uploaderId}. Cannot process transactions without a country.`;
+      console.error(`[upload-transactions] Error: ${msg}`, profileError);
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const uploaderCountry = uploaderProfile.country;
+    console.log(`[upload-transactions] Uploader country: ${uploaderCountry}`);
+
+
     let parsedRows: string[][];
     try {
       parsedRows = await parse(fileContent, {
@@ -109,10 +128,11 @@ serve(async (req) => {
       });
     }
 
-    // Fetch existing 'entry' values from the database for uniqueness check
+    // Fetch existing 'entry' values from the database for uniqueness check, filtered by country
     const { data: existingEntriesData, error: fetchEntriesError } = await supabaseClient
       .from('transactions')
-      .select('entry');
+      .select('entry')
+      .eq('country', uploaderCountry); // Filter existing entries by country
 
     if (fetchEntriesError) {
       console.error('[upload-transactions] Error fetching existing entries:', fetchEntriesError);
@@ -123,7 +143,7 @@ serve(async (req) => {
     }
 
     const existingEntries = new Set(existingEntriesData?.map(row => row.entry).filter(Boolean) || []);
-    console.log(`[upload-transactions] Fetched ${existingEntries.size} existing unique entries.`);
+    console.log(`[upload-transactions] Fetched ${existingEntries.size} existing unique entries for country ${uploaderCountry}.`);
 
     // Cache for user_email to user_id lookups
     const userEmailToIdCache = new Map<string, string | null>();
@@ -169,7 +189,7 @@ serve(async (req) => {
 
       // Uniqueness check for 'Entry' field
       if (entry && existingEntries.has(entry)) {
-        const msg = `Skipping transaction with duplicate Entry number: '${entry}'.`;
+        const msg = `Skipping transaction with duplicate Entry number: '${entry}' for country ${uploaderCountry}.`;
         errors.push(msg);
         console.warn(`[upload-transactions] ${msg}`);
         continue;
@@ -218,10 +238,11 @@ serve(async (req) => {
             .from('profile_with_email')
             .select('id')
             .eq('user_email', user_email_from_csv)
+            .eq('country', uploaderCountry) // Filter by country for user lookup
             .single();
 
           if (profileError || !profileData) {
-            const msg = `User with email '${user_email_from_csv}' not found. Assigning transaction to uploader.`;
+            const msg = `User with email '${user_email_from_csv}' not found in country ${uploaderCountry}. Assigning transaction to uploader.`;
             errors.push(msg);
             console.warn(`[upload-transactions] ${msg}`);
             userEmailToIdCache.set(user_email_from_csv, null); // Cache null to avoid repeated lookups
@@ -251,6 +272,7 @@ serve(async (req) => {
         sku: sku || null,
         reason_for_payment: reason_for_payment || null,
         receipt_urls: [],
+        country: uploaderCountry, // Assign the uploader's country
       });
     }
 

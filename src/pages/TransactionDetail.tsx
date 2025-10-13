@@ -10,6 +10,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod'; // Keep z for other Zod usage if any
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import TransactionDetailsDisplayCard from '@/components/transactions/TransactionDetailsDisplayCard';
 import TransactionEditFormCard from '@/components/transactions/TransactionEditFormCard';
@@ -73,6 +74,7 @@ const categoryOptions = [
 const TransactionDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
+  const { currentCountry } = useCountry(); // Get currentCountry from context
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false); // New state for editing mode
@@ -81,13 +83,14 @@ const TransactionDetail = () => {
 
   // Fetch transaction details
   const { data: transaction, isLoading: isTransactionLoading, error: transactionError } = useQuery<Transaction | null>({
-    queryKey: ['transaction', id],
+    queryKey: ['transaction', id, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!id) return null;
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('id', id)
+        .eq('country', currentCountry) // Filter by country
         .single();
       if (error) throw error;
       return data;
@@ -105,13 +108,14 @@ const TransactionDetail = () => {
 
   // Fetch audit trail
   const { data: audits, isLoading: isAuditsLoading, error: auditsError } = useQuery<TransactionAudit[]>({
-    queryKey: ['transactionAudits', id],
+    queryKey: ['transactionAudits', id, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!id) return [];
       const { data, error } = await supabase
         .from('transaction_audits')
         .select('*')
         .eq('transaction_id', id)
+        // No country filter on audit table itself, as it references transactions
         .order('changed_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -121,11 +125,12 @@ const TransactionDetail = () => {
 
   // Fetch user names and emails for audit trail
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
-    queryKey: ['auditUsers'],
+    queryKey: ['auditUsers', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email');
+        .select('id, first_name, last_name, user_email')
+        .eq('country', currentCountry); // Filter by country
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
@@ -238,8 +243,8 @@ const TransactionDetail = () => {
           updated_at: new Date().toISOString(),
           status: newStatus, // Use the determined newStatus
         })
-        .eq('id', id);
-
+        .eq('id', id)
+        .eq('country', currentCountry); // Ensure country filter for update
       if (error) throw error;
       return true;
     },
@@ -267,7 +272,8 @@ const TransactionDetail = () => {
       const { error } = await supabase
         .from('transactions')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('country', currentCountry); // Ensure country filter for delete
       if (error) throw error;
       return true;
     },

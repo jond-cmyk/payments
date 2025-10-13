@@ -9,6 +9,7 @@ import { Transaction, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
 import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import {
   Table,
@@ -40,6 +41,7 @@ import { cn } from '@/lib/utils';
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
+  const { currentCountry } = useCountry(); // Get currentCountry from context
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
@@ -70,17 +72,18 @@ const MissingReceipts = () => {
 
   // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection],
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!session) return [];
 
-      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, sortColumn=${sortColumn}, sortDirection=${sortDirection}`);
+      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, sortColumn=${sortColumn}, sortDirection=${sortDirection}, country=${currentCountry}`);
 
       let query = supabase
         .from('transactions')
         .select('*')
         .eq('status', 'pending_input')
-        .eq('receipt_urls', '{}');
+        .eq('receipt_urls', '{}')
+        .eq('country', currentCountry); // Filter by country
 
       // Apply dynamic sorting
       if (sortColumn) {
@@ -120,11 +123,12 @@ const MissingReceipts = () => {
 
   // Fetch all user profiles for the assignee dropdown
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
-    queryKey: ['allProfilesForAssignment'],
+    queryKey: ['allProfilesForAssignment', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at'); // Select all fields required by Profile type
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at') // Select all fields required by Profile type
+        .eq('country', currentCountry); // Filter by country
       if (error) throw error;
       return data;
     },
@@ -137,7 +141,8 @@ const MissingReceipts = () => {
       const { error } = await supabase
         .from('transactions')
         .delete()
-        .in('id', ids);
+        .in('id', ids)
+        .eq('country', currentCountry); // Ensure country filter for delete
       if (error) throw error;
       return true;
     },
@@ -157,7 +162,8 @@ const MissingReceipts = () => {
       const { error } = await supabase
         .from('transactions')
         .update({ requester_id: newRequesterId, updated_at: new Date().toISOString() })
-        .eq('id', transactionId);
+        .eq('id', transactionId)
+        .eq('country', currentCountry); // Ensure country filter for update
       if (error) throw error;
       return true;
     },

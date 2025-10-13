@@ -8,6 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -107,6 +108,7 @@ const formSchema = z.object({
 
 const NewPaymentRequest = () => {
   const { session, isLoading, user } = useSession();
+  const { currentCountry } = useCountry(); // Get currentCountry from context
   const navigate = useNavigate();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -196,6 +198,7 @@ const NewPaymentRequest = () => {
           status: 'pending',
           receipt_required: values.receipt_required,
           is_urgent: values.is_urgent, // Save urgent status
+          country: currentCountry, // Add the current country
         });
 
       if (insertError) {

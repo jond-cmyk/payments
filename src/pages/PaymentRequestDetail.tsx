@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import { Button } from '@/components/ui/button';
 import PaymentRequestDetailsCard from '@/components/payment-requests/PaymentRequestDetailsCard';
@@ -89,6 +90,7 @@ const revertFormSchema = z.object({
 const PaymentRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { session, isLoading, user, userProfile } = useSession();
+  const { currentCountry } = useCountry(); // Get currentCountry from context
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -97,13 +99,14 @@ const PaymentRequestDetail = () => {
 
   // Fetch payment request details
   const { data: request, isLoading: isRequestLoading, error: requestError } = useQuery<PaymentRequest | null>({
-    queryKey: ['paymentRequest', id],
+    queryKey: ['paymentRequest', id, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!id) return null;
       const { data, error } = await supabase
         .from('payment_requests')
         .select('*')
         .eq('id', id)
+        .eq('country', currentCountry) // Filter by country
         .single();
       if (error) throw error;
       return data;
@@ -113,13 +116,14 @@ const PaymentRequestDetail = () => {
 
   // Fetch audit trail
   const { data: audits, isLoading: isAuditsLoading, error: auditsError } = useQuery<PaymentRequestAudit[]>({
-    queryKey: ['paymentRequestAudits', id],
+    queryKey: ['paymentRequestAudits', id, currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       if (!id) return [];
       const { data, error } = await supabase
         .from('payment_request_audits')
         .select('*')
         .eq('payment_request_id', id)
+        // No country filter on audit table itself, as it references payment_requests
         .order('changed_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -134,11 +138,12 @@ const PaymentRequestDetail = () => {
 
   // Fetch user names and emails for audit trail and comments
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
-    queryKey: ['auditUsers'],
+    queryKey: ['auditUsers', currentCountry], // Add currentCountry to queryKey
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email');
+        .select('id, first_name, last_name, user_email')
+        .eq('country', currentCountry); // Filter by country
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
@@ -273,8 +278,8 @@ const PaymentRequestDetail = () => {
           invoice_pdf_urls: updatedInvoicePdfUrls,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', id);
-
+        .eq('id', id)
+        .eq('country', currentCountry); // Ensure country filter for update
       if (error) throw error;
       return true;
     },
@@ -297,7 +302,8 @@ const PaymentRequestDetail = () => {
       const { error } = await supabase
         .from('payment_requests')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('country', currentCountry); // Ensure country filter for delete
       if (error) throw error;
       return true;
     },
