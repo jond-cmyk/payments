@@ -29,12 +29,11 @@ const PendingApproval = () => {
     if (error) {
       console.error("PendingApproval: Error during logout:", error);
     } else {
-      console.log("PendingApproval: Logout successful, navigating to /login.");
+      console.log("PendingApproval: Logout successful. SessionContext will handle navigation.");
     }
-    // Add a small delay to allow session state to update before navigating
-    setTimeout(() => {
-      navigate('/login');
-    }, 100);
+    // Removed explicit navigate('/login') and setTimeout.
+    // The SessionContext's onAuthStateChange listener will detect SIGNED_OUT
+    // and the Index/Login pages' useEffects will handle redirection.
   };
 
   if (isLoading || !session || isApproved) {

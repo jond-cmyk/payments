@@ -52,12 +52,11 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
     if (error) {
       console.error("Sidebar: Error during logout:", error);
     } else {
-      console.log("Sidebar: Logout successful, navigating to /login.");
+      console.log("Sidebar: Logout successful. SessionContext will handle navigation.");
     }
-    // Add a small delay to allow session state to update before navigating
-    setTimeout(() => {
-      navigate('/login');
-    }, 100); 
+    // Removed explicit navigate('/login') and setTimeout.
+    // The SessionContext's onAuthStateChange listener will detect SIGNED_OUT
+    // and the Index/Login pages' useEffects will handle redirection.
   };
 
   if (isLoading) {
