@@ -52,7 +52,13 @@ serve(async (req) => {
 
     const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
     const senderEmail = `jon.d@khpayments.com`;
-    const recipientEmail = '868bilag1677646@e-conomic.dk'; // Target email
+    
+    // Determine recipient email based on country
+    let recipientEmail = '868bilag1677646@e-conomic.dk'; // Default email
+    if (newRecord.country === 'United Kingdom') {
+      recipientEmail = '505bilag1675383@e-conomic.dk'; // UK specific email
+    }
+    console.log(`[send-missing-receipt-notification] Sending to: ${recipientEmail} for country: ${newRecord.country}`);
 
     const subject = `Receipt Added for Transaction - ${newRecord.entry}`; // Updated subject
     const htmlContent = `

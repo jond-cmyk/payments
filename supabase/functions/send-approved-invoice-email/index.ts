@@ -48,8 +48,14 @@ serve(async (req) => {
 
     const resend = new Resend(resendApiKey); // Initialize Resend client
 
-    const senderEmail = `jon.d@khpayments.com`; // Use your verified Resend sender email/domain
-    const recipientEmail = '868bilag1677646@e-conomic.dk'; // Target email
+    const senderEmail = `jon.d@khpayments.com`;
+    
+    // Determine recipient email based on country
+    let recipientEmail = '868bilag1677646@e-conomic.dk'; // Default email
+    if (newRecord.country === 'United Kingdom') {
+      recipientEmail = '505bilag1675383@e-conomic.dk'; // UK specific email
+    }
+    console.log(`[send-approved-invoice-email] Sending to: ${recipientEmail} for country: ${newRecord.country}`);
 
     const attachments = [];
     for (const invoiceUrl of newRecord.invoice_pdf_urls) {
@@ -71,7 +77,7 @@ serve(async (req) => {
           filename: fileName,
           content: base64Content,
         });
-      } catch (fetchError) {
+      } catch (fetchError: any) {
         console.error(`Error processing invoice URL ${invoiceUrl}: ${fetchError.message}`);
       }
     }
@@ -111,7 +117,7 @@ serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Edge Function error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
