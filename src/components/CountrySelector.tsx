@@ -45,14 +45,17 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
                   <SelectItem 
                     key={country.value} 
                     value={country.value} 
-                    className="flex items-center gap-2 flex-nowrap w-full min-w-max" // Added w-full and min-w-max here
+                    className="w-full min-w-max" // Keep these on SelectItem, but remove flex properties
                   >
-                    {country.value !== 'all' ? (
-                      <CountryFlag countryName={country.value} className="flex-shrink-0" />
-                    ) : (
-                      <span className="text-lg flex-shrink-0">🌐</span>
-                    )}
-                    <span className="whitespace-nowrap flex-shrink-0">{country.label}</span>
+                    {/* NEW: Inner div to explicitly control flex layout of flag and text */}
+                    <div className="flex items-center gap-2 flex-nowrap w-full">
+                      {country.value !== 'all' ? (
+                        <CountryFlag countryName={country.value} className="flex-shrink-0" />
+                      ) : (
+                        <span className="text-lg flex-shrink-0">🌐</span>
+                      )}
+                      <span className="whitespace-nowrap flex-shrink-0">{country.label}</span>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
