@@ -365,7 +365,7 @@ const NewPaymentRequest = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Country</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={isCountryLocked}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Select a country" />
@@ -380,7 +380,7 @@ const NewPaymentRequest = () => {
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      {isCountryLocked ? "Your country is set by your profile and cannot be changed." : "Select the country for this payment request."}
+                      {userProfile?.role !== 'admin' && isCountryLocked ? "Your country is set by your profile and cannot be changed." : "Select the country for this payment request."}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
