@@ -9,9 +9,10 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { PaymentRequest, Profile, Transaction } from '@/types/supabase';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { PlusCircle, XCircle, ArrowUp, ArrowDown } from 'lucide-react';
+import { PlusCircle, XCircle, ArrowUp, ArrowDown, KeyRound } from 'lucide-react'; // Import KeyRound icon
 import { Input } from '@/components/ui/input';
 import { CardTitle, Card } from '@/components/ui/card'; // Import Card
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
 
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
@@ -22,6 +23,7 @@ import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters'
 import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
 import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
 import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
+import ChangePasswordForm from '@/components/auth/ChangePasswordForm'; // Import ChangePasswordForm
 
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
@@ -33,6 +35,7 @@ const Dashboard = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams(); // Corrected: Use useSearchParams hook directly
+  const [isChangePasswordDialogOpen, setIsChangePasswordDialogOpen] = useState(false); // State for change password dialog
 
   const userRole = userProfile?.role || null;
 
@@ -444,12 +447,27 @@ const Dashboard = () => {
             isAllRequestsPage ? 'All Payment Requests' : 'Summary of Payment Requests'
           )}
         </h1>
-        {(userRole === 'requester' || userRole === 'admin') && (
-          <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Create New Request
-          </Button>
-        )}
+        <div className="flex items-center space-x-4"> {/* Added a div to group buttons */}
+          <Dialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="shadow-sm">
+                <KeyRound className="mr-2 h-4 w-4" /> Change Password
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Change Password</DialogTitle>
+              </DialogHeader>
+              <ChangePasswordForm onPasswordChanged={() => setIsChangePasswordDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
+          {(userRole === 'requester' || userRole === 'admin') && (
+            <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
+              <PlusCircle className="mr-2 h-5 w-5" />
+              Create New Request
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Global Search Input */}
