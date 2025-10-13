@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
 import { useQuery } from '@tanstack/react-query'; // Import useQuery for unread count
 import { Badge } from '@/components/ui/badge'; // Import Badge for notification count
-import CountrySelector from './CountrySelector'; // Import CountrySelector
+// Removed import for CountrySelector as it's moving to Header
 
 interface SidebarProps {
   className?: string;
@@ -22,7 +22,7 @@ interface SidebarProps {
 const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const { session, user, isLoading, isApproved, userProfile } = useSession();
   const { notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications } = useNotifications(); // Use notification context
-  const { currentCountry, isCountryLocked } = useCountry(); // Use country context
+  // Removed useCountry as the selector is moving
   const navigate = useNavigate();
 
   const currentRole = userProfile?.role;
@@ -144,16 +144,8 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
               <User className="h-4 w-4" />
               <span>{displayName}</span>
             </div>
-            <div className="text-xs text-sidebar-foreground">Role: {currentRole || 'Not available'}</div>
-            {/* Display user's assigned country */}
-            <div className="flex items-center space-x-2 text-sm">
-              <Globe className="h-4 w-4" />
-              <span>Country: {userProfile?.country || 'N/A'}</span>
-            </div>
-            {/* Country Selector for Admins */}
-            {currentRole === 'admin' && (
-              <CountrySelector className="w-full mt-2" />
-            )}
+            {/* Removed static country display as it's now in the header */}
+            {/* Removed Country Selector for Admins as it's now in the header */}
             {/* Notification toggle for all authenticated users */}
             <Tooltip>
               <TooltipTrigger asChild>

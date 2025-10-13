@@ -3,8 +3,9 @@
 import React from 'react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Globe } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import CountryFlag from './CountryFlag'; // Import the new CountryFlag component
+import { cn } from '@/lib/utils'; // Import cn for conditional class names
 
 interface CountrySelectorProps {
   className?: string;
@@ -14,22 +15,23 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
   const { currentCountry, setCurrentCountry, availableCountries, isCountryLocked } = useCountry();
 
   return (
-    <div className={className}>
+    <div className={cn("flex items-center space-x-2", className)}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center space-x-2 text-sidebar-foreground">
-            <Globe className="h-5 w-5" />
+          <div className="flex items-center space-x-2">
             <Select
               value={currentCountry}
               onValueChange={setCurrentCountry}
               disabled={isCountryLocked}
             >
-              <SelectTrigger className="w-full bg-sidebar-background text-sidebar-foreground border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
+              <SelectTrigger className="w-[180px] bg-background text-foreground border-border hover:bg-muted/50 transition-colors flex items-center gap-2">
+                <CountryFlag countryName={currentCountry} className="text-lg" />
                 <SelectValue placeholder="Select Country" />
               </SelectTrigger>
               <SelectContent className="bg-popover text-popover-foreground">
                 {availableCountries.map((country) => (
-                  <SelectItem key={country.value} value={country.value}>
+                  <SelectItem key={country.value} value={country.value} className="flex items-center gap-2">
+                    <CountryFlag countryName={country.value} className="text-lg" />
                     {country.label}
                   </SelectItem>
                 ))}

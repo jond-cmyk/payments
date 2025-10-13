@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 import PageTitle from './PageTitle';
+import CountrySelector from './CountrySelector'; // Import CountrySelector
 
 const Header = () => {
   const location = useLocation();
@@ -26,13 +27,14 @@ const Header = () => {
         return 'Upload Transactions - KH Payments';
       case '/missing-receipts':
         return 'Missing Receipts - KH Payments';
-      case '/completed-receipts': // New title for completed receipts
+      case '/completed-receipts':
         return 'Completed Receipts - KH Payments';
       case '/login':
         return 'Login - KH Payments';
       case '/':
         return 'Welcome - KH Payments';
-      // Removed case for '/admin/test-email'
+      case '/notifications':
+        return 'Notifications - KH Payments';
       default:
         if (pathname.startsWith('/request/')) {
           return 'Payment Request Details - KH Payments';
@@ -64,7 +66,8 @@ const Header = () => {
       </Sheet>
 
       <h2 className="text-xl font-semibold">{title.replace(' - KH Payments', '')}</h2>
-      <div className="ml-auto">
+      <div className="ml-auto flex items-center gap-4"> {/* Added flex and gap for spacing */}
+        <CountrySelector /> {/* Place CountrySelector here */}
       </div>
     </header>
   );
