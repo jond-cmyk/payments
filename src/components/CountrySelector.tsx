@@ -32,13 +32,23 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
               disabled={isDisabled} // Use the new isDisabled logic
             >
               <SelectTrigger className="w-[240px] bg-dyad-blue text-dyad-blue-foreground border-dyad-blue-foreground hover:bg-dyad-blue-light transition-colors flex items-center gap-2 px-3 py-2 rounded-md shadow-md">
-                <CountryFlag countryName={currentCountry} className="text-xl" />
-                <span className="font-semibold text-base">{currentCountry}</span> {/* Explicitly show country name */}
+                {currentCountry !== 'all' ? (
+                  <>
+                    <CountryFlag countryName={currentCountry} className="text-xl" />
+                    <span className="font-semibold text-base">{currentCountry}</span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-base flex items-center gap-2">🌐 All Countries</span>
+                )}
               </SelectTrigger>
               <SelectContent className="bg-popover text-popover-foreground">
                 {availableCountries.map((country) => (
                   <SelectItem key={country.value} value={country.value} className="flex items-center gap-2">
-                    <CountryFlag countryName={country.value} className="text-lg" />
+                    {country.value !== 'all' ? (
+                      <CountryFlag countryName={country.value} className="text-lg" />
+                    ) : (
+                      <span className="text-lg">🌐</span>
+                    )}
                     {country.label}
                   </SelectItem>
                 ))}

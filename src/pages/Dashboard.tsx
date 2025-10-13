@@ -21,6 +21,7 @@ import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards'
 import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
 import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
 import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
+import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
 
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
@@ -476,6 +477,13 @@ const Dashboard = () => {
         </Card>
       ) : (
         <>
+          {/* Country Selector for Admins on Dashboard */}
+          {userRole === 'admin' && !isAllRequestsPage && (
+            <div className="mb-6">
+              <CountrySelector className="w-full max-w-xs" />
+            </div>
+          )}
+
           {/* Summary cards always show on /dashboard for both requester and admin */}
           {!isAllRequestsPage && (
             <DashboardSummaryCards counts={counts} />

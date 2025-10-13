@@ -12,8 +12,9 @@ interface CountryContextType {
 
 const CountryContext = createContext<CountryContextType | undefined>(undefined);
 
-// Define available countries
+// Define available countries, including 'All Countries'
 const defaultAvailableCountries = [
+  { value: 'all', label: 'All Countries' }, // New 'All Countries' option
   { value: 'Switzerland', label: 'Switzerland' },
   { value: 'United Kingdom', label: 'United Kingdom' },
   // Add more countries as needed
@@ -45,8 +46,9 @@ export const CountryProvider = ({ children }: { children: React.ReactNode }) => 
         setCurrentCountryState(userProfile.country);
         setIsCountryLocked(true);
       } else if (userProfile.role === 'admin') {
-        // Admin can select, but default to localStorage or 'Switzerland'
-        // If localStorage is empty, it will already be 'Switzerland' by initial state
+        // Admin can select, default to localStorage or 'all' if not set
+        const storedCountry = localStorage.getItem('currentCountry');
+        setCurrentCountryState(storedCountry || 'all'); // Admins default to 'all' if no country is stored
         setIsCountryLocked(false); // Admins are NOT locked to a country
       }
     } else if (!isSessionLoading && !userProfile) {
