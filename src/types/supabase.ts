@@ -22,6 +22,7 @@ export type PaymentRequest = {
   payment_approved_date: string | null; // New field
   receipt_required: boolean; // New field
   is_urgent: boolean; // New field for urgent requests
+  country: string; // New field for country
 };
 
 export type Transaction = {
@@ -49,6 +50,7 @@ export type Transaction = {
   created_at: string;
   updated_at: string;
   not_sku_related: boolean; // New field
+  country: string; // New field for country
 };
 
 export type Profile = {
@@ -60,6 +62,7 @@ export type Profile = {
   updated_at: string | null;
   user_email?: string; // Added for the profile_with_email view
   is_approved: boolean | null; // Made nullable to match profile_with_email view
+  country: string | null; // New field for country
 };
 
 export type PaymentRequestAudit = {
