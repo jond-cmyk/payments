@@ -437,14 +437,29 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="container mx-auto py-8 relative"> {/* Added relative positioning */}
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto py-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4"> {/* Adjusted for better spacing */}
         <h1 className="text-3xl font-bold">
           {debouncedSearchTerm ? `Search Results for "${debouncedSearchTerm}"` : (
             isAllRequestsPage ? 'All Payment Requests' : 'Summary of Payment Requests'
           )}
         </h1>
         <div className="flex items-center space-x-4">
+          {/* Country Display / Selector */}
+          {!isAllRequestsPage && ( // Only show on dashboard, not on /admin/requests
+            <>
+              {userRole === 'requester' && userProfile?.country && (
+                <div className="flex items-center gap-2 text-lg font-semibold bg-dyad-blue text-dyad-blue-foreground rounded-md p-2 shadow-md">
+                  <CountryFlag countryName={userProfile.country} />
+                  <span>{userProfile.country}</span>
+                </div>
+              )}
+
+              {userRole === 'admin' && (
+                <CountrySelector className="bg-dyad-blue text-dyad-blue-foreground rounded-md shadow-md" />
+              )}
+            </>
+          )}
           {(userRole === 'requester' || userRole === 'admin') && (
             <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
               <PlusCircle className="mr-2 h-5 w-5" />
@@ -453,22 +468,6 @@ const Dashboard = () => {
           )}
         </div>
       </div>
-
-      {/* Country Display / Selector in top right corner */}
-      {!isAllRequestsPage && ( // Only show on dashboard, not on /admin/requests
-        <div className="absolute top-8 right-8 z-10"> {/* Adjusted top/right for better spacing */}
-          {userRole === 'requester' && userProfile?.country && (
-            <div className="flex items-center gap-2 text-lg font-semibold bg-dyad-blue text-dyad-blue-foreground rounded-md p-2 shadow-md">
-              <CountryFlag countryName={userProfile.country} />
-              <span>{userProfile.country}</span>
-            </div>
-          )}
-
-          {userRole === 'admin' && (
-            <CountrySelector className="bg-dyad-blue text-dyad-blue-foreground rounded-md shadow-md" />
-          )}
-        </div>
-      )}
 
       {/* Global Search Input */}
       <div className="mb-8 flex items-center gap-2">
