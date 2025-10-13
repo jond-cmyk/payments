@@ -176,7 +176,7 @@ const formSchema = z.object({
 });
 
 const NewPaymentRequest = () => {
-  const { session, isLoading, user } = useSession();
+  const { session, isLoading, user, userProfile } = useSession(); // Added userProfile
   const { currentCountry, availableCountries, isCountryLocked } = useCountry(); // Get isCountryLocked and availableCountries
   const navigate = useNavigate();
 
@@ -239,6 +239,15 @@ const NewPaymentRequest = () => {
   }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    // --- START DEBUG LOGS ---
+    console.log("--- NewPaymentRequest Submission Debug ---");
+    console.log("Logged-in User ID (auth.uid()):", user?.id);
+    console.log("User Profile Country (from SessionContext):", userProfile?.country);
+    console.log("Form Submitted Country (values.country):", values.country);
+    console.log("Form Submitted Requester ID (user.id):", user?.id);
+    console.log("-----------------------------------------");
+    // --- END DEBUG LOGS ---
+
     const toastId = showLoading("Creating payment request...");
 
     try {
