@@ -28,7 +28,7 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
               onValueChange={setCurrentCountry}
               disabled={isDisabled}
             >
-              <SelectTrigger className="w-max bg-dyad-blue text-dyad-blue-foreground border-dyad-blue-foreground hover:bg-dyad-blue-light transition-colors flex items-center gap-2 px-3 py-2 rounded-md shadow-md"> {/* Reverted to w-max */}
+              <SelectTrigger className="w-max bg-dyad-blue text-dyad-blue-foreground border-dyad-blue-foreground hover:bg-dyad-blue-light transition-colors flex items-center gap-2 px-3 py-2 rounded-md shadow-md">
                 {currentCountry !== 'all' ? (
                   <>
                     <CountryFlag countryName={currentCountry} className="flex-shrink-0" />
@@ -39,10 +39,10 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
                 )}
               </SelectTrigger>
               <SelectContent 
-                className="bg-popover text-popover-foreground w-fit min-w-[250px] max-w-none overflow-visible" // Explicit min-w
+                className="bg-popover text-popover-foreground w-auto min-w-[300px] max-w-none overflow-visible" // Increased min-w and added w-auto
               >
                 {availableCountries.map((country) => (
-                  <SelectItem key={country.value} value={country.value} className="flex items-center gap-2 flex-nowrap">
+                  <SelectItem key={country.value} value={country.value} className="flex items-center gap-2 flex-nowrap"> {/* Added flex items-center */}
                     {country.value !== 'all' ? (
                       <CountryFlag countryName={country.value} className="flex-shrink-0" />
                     ) : (
