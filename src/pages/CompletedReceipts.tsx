@@ -48,9 +48,9 @@ const CompletedReceipts = () => {
         .not('receipt_urls', 'eq', '{}');
         
       // Apply country filter based on user role and selected country
-      if (userProfile?.role === 'requester' && userProfile.country) {
-        query = query.eq('country', userProfile.country);
-      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+      // For requesters, RLS will handle the country filter.
+      // For admins, apply client-side filter if a specific country is selected.
+      if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
       // If admin and currentCountry is 'all', no country filter is applied, showing all countries
