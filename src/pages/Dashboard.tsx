@@ -15,6 +15,7 @@ import { CardTitle, Card } from '@/components/ui/card';
 
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
+import { cn } from '@/lib/utils'; // Ensure cn is imported
 
 import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
 import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
