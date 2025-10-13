@@ -15,10 +15,11 @@ import MissingReceipts from "./pages/MissingReceipts";
 import TransactionDetail from "./pages/TransactionDetail";
 import PendingApproval from "./pages/PendingApproval";
 import CompletedReceipts from "./pages/CompletedReceipts";
+import NotificationsPage from "./pages/Notifications"; // Import the NotificationsPage
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
-import { NotificationProvider } from "./integrations/supabase/NotificationContext"; // Import NotificationProvider
+import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import Layout from "./components/Layout";
-import AutoRefreshHandler from "./components/AutoRefreshHandler"; // Import the new component
+import AutoRefreshHandler from "./components/AutoRefreshHandler";
 
 const queryClient = new QueryClient();
 
@@ -49,7 +50,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <SessionContextProvider>
-            <NotificationProvider> {/* Wrap with NotificationProvider */}
+            <NotificationProvider>
               <AutoRefreshHandler>
                 <Routes>
                   <Route path="/login" element={<Login />} />
@@ -71,6 +72,7 @@ const App = () => {
                     <Route path="/admin/requests" element={<Dashboard />} />
                     <Route path="/admin/users" element={<UserManagement />} />
                     <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
+                    <Route path="/notifications" element={<NotificationsPage />} /> {/* New route for Notifications */}
                   </Route>
 
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
