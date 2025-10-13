@@ -63,6 +63,10 @@ const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
   sku_number: z.string().optional(), // Make optional initially, then refine
   not_sku_related: z.boolean().default(false), // New field
+  lease_id: z.string().optional().refine((val) => { // New field
+    if (val === undefined || val === null || val.trim() === '') return true; // Optional, so empty is fine
+    return /^\d+$/.test(val); // Must be numerical if present
+  }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().min(1, "IBAN Number is required"),
   currency: z.string().min(1, "Currency is required"),
@@ -111,6 +115,7 @@ const NewPaymentRequest = () => {
       supplier_name: "",
       sku_number: "CH",
       not_sku_related: false, // Default to false
+      lease_id: "", // Default for new field
       supplier_address: "",
       iban_number: "",
       currency: "CHF",
@@ -180,6 +185,7 @@ const NewPaymentRequest = () => {
           supplier_name: values.supplier_name,
           sku_number: values.not_sku_related ? null : values.sku_number, // Set to null if not SKU related
           not_sku_related: values.not_sku_related, // Save the checkbox state
+          lease_id: values.lease_id || null, // Include lease_id, set to null if empty
           supplier_address: values.supplier_address,
           iban_number: values.iban_number,
           currency: values.currency,
@@ -198,7 +204,7 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false, is_urgent: false, not_sku_related: false, invoice_pdf: undefined });
+      form.reset({ sku_number: "CH", currency: "CHF", payment_amount: 0.00, receipt_required: false, is_urgent: false, not_sku_related: false, invoice_pdf: undefined, lease_id: "" });
       navigate('/dashboard');
     } catch (error: any) {
       dismissToast(toastId);
@@ -264,6 +270,22 @@ const NewPaymentRequest = () => {
                         Check this box if this payment request is not associated with an SKU.
                       </FormDescription>
                     </div>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lease_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Lease ID (Optional)</FormLabel>
+                    <FormControl>
+                      <Input type="text" placeholder="e.g., 123456" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Enter a numerical Lease ID if applicable.
+                    </FormDescription>
+                    <FormMessage />
                   </FormItem>
                 )}
               />

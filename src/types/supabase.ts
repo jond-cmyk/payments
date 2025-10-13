@@ -3,6 +3,8 @@ export type PaymentRequest = {
   requester_id: string;
   supplier_name: string;
   sku_number: string;
+  not_sku_related: boolean; // New field
+  lease_id: string | null; // New field
   supplier_address: string;
   iban_number: string;
   currency: string; // New field
@@ -20,7 +22,6 @@ export type PaymentRequest = {
   payment_approved_date: string | null; // New field
   receipt_required: boolean; // New field
   is_urgent: boolean; // New field for urgent requests
-  not_sku_related: boolean; // New field
 };
 
 export type Transaction = {
