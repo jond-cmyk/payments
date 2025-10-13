@@ -40,7 +40,7 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
               </SelectTrigger>
               <SelectContent 
                 className="bg-popover text-popover-foreground w-fit max-w-none overflow-visible"
-                style={{ width: 'auto', minWidth: 'max-content' }} // Explicitly set width and min-width
+                style={{ minWidth: 'var(--radix-popper-anchor-width)' }} // Use Radix's internal variable for min-width
               >
                 {availableCountries.map((country) => (
                   <SelectItem key={country.value} value={country.value} className="flex items-center gap-2 flex-nowrap">
