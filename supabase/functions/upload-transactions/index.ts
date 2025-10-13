@@ -47,42 +47,25 @@ serve(async (req) => {
     }
 
     const payload = await req.json();
-    const { fileName, fileContent, uploaderId } = payload;
+    const { fileName, fileContent, uploaderId, country } = payload; // Extract country from payload
 
-    if (!fileName || !fileContent || !uploaderId) {
-      console.error('[upload-transactions] Missing file data or uploader ID in payload.');
-      return new Response(JSON.stringify({ error: 'Missing file data or uploader ID in payload' }), {
+    if (!fileName || !fileContent || !uploaderId || !country) { // Country is now required
+      console.error('[upload-transactions] Missing file data, uploader ID, or country in payload.');
+      return new Response(JSON.stringify({ error: 'Missing file data, uploader ID, or country in payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`[upload-transactions] Received file: ${fileName} from uploader: ${uploaderId}`);
+    console.log(`[upload-transactions] Received file: ${fileName} from uploader: ${uploaderId} for country: ${country}`);
     console.log(`[upload-transactions] File content length: ${fileContent.length}`);
 
-    // Fetch uploader's country
-    const { data: uploaderProfile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('country')
-      .eq('id', uploaderId)
-      .single();
-
-    if (profileError || !uploaderProfile?.country) {
-      const msg = `Uploader profile or country not found for user ID: ${uploaderId}. Cannot process transactions without a country.`;
-      console.error(`[upload-transactions] Error: ${msg}`, profileError);
-      return new Response(JSON.stringify({ error: msg }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const uploaderCountry = uploaderProfile.country;
-    console.log(`[upload-transactions] Uploader country: ${uploaderCountry}`);
-
+    // Removed fetching uploader's country, as it's now provided in the payload
 
     let parsedRows: string[][];
     try {
       parsedRows = await parse(fileContent, {
-        header: false, // Explicitly set to false to get all rows as arrays
+        header: false,
         separator: ',',
         trimLeadingWhitespace: true,
       }) as string[][];
@@ -105,8 +88,8 @@ serve(async (req) => {
       });
     }
 
-    const headers = parsedRows[0].map(h => h.trim()); // Extract and trim headers
-    const dataRows = parsedRows.slice(1); // Get actual data rows
+    const headers = parsedRows[0].map(h => h.trim());
+    const dataRows = parsedRows.slice(1);
 
     console.log(`[upload-transactions] Extracted headers: ${JSON.stringify(headers)}`);
     console.log(`[upload-transactions] Number of data rows: ${dataRows.length}`);
@@ -114,7 +97,6 @@ serve(async (req) => {
     const transactionsToInsert = [];
     const errors: string[] = [];
 
-    // Define expected headers for the unified transaction format
     const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
     const missingCriticalHeaders = criticalHeaders.filter(h => !headers.includes(h));
 
@@ -128,11 +110,11 @@ serve(async (req) => {
       });
     }
 
-    // Fetch existing 'entry' values from the database for uniqueness check, filtered by country
+    // Fetch existing 'entry' values from the database for uniqueness check, filtered by the provided country
     const { data: existingEntriesData, error: fetchEntriesError } = await supabaseClient
       .from('transactions')
       .select('entry')
-      .eq('country', uploaderCountry); // Filter existing entries by country
+      .eq('country', country); // Filter existing entries by the provided country
 
     if (fetchEntriesError) {
       console.error('[upload-transactions] Error fetching existing entries:', fetchEntriesError);
@@ -143,9 +125,8 @@ serve(async (req) => {
     }
 
     const existingEntries = new Set(existingEntriesData?.map(row => row.entry).filter(Boolean) || []);
-    console.log(`[upload-transactions] Fetched ${existingEntries.size} existing unique entries for country ${uploaderCountry}.`);
+    console.log(`[upload-transactions] Fetched ${existingEntries.size} existing unique entries for country ${country}.`);
 
-    // Cache for user_email to user_id lookups
     const userEmailToIdCache = new Map<string, string | null>();
 
     for (const row of dataRows) {
@@ -176,10 +157,9 @@ serve(async (req) => {
         'Comment': comment,
         'SKU': sku,
         'Reason for Payment': reason_for_payment,
-        'user_email': user_email_from_csv, // New: Get user_email from CSV
+        'user_email': user_email_from_csv,
       } = record;
 
-      // Validate required fields
       if (!transaction_date_str || !description || !amount_str || !currency) {
         const msg = `Missing required fields (Date, Text, Amount, or Currency). Skipping record: ${JSON.stringify(record)}`;
         errors.push(msg);
@@ -187,15 +167,13 @@ serve(async (req) => {
         continue;
       }
 
-      // Uniqueness check for 'Entry' field
       if (entry && existingEntries.has(entry)) {
-        const msg = `Skipping transaction with duplicate Entry number: '${entry}' for country ${uploaderCountry}.`;
+        const msg = `Skipping transaction with duplicate Entry number: '${entry}' for country ${country}.`;
         errors.push(msg);
         console.warn(`[upload-transactions] ${msg}`);
         continue;
       }
 
-      // Date reformatting from DD.MM.YYYY to YYYY-MM-DD
       const dateParts = transaction_date_str.split('.');
       if (dateParts.length !== 3) {
         const msg = `Invalid date format '${transaction_date_str}'. Expected DD.MM.YYYY. Skipping record: ${JSON.stringify(record)}`;
@@ -205,7 +183,6 @@ serve(async (req) => {
       }
       const transaction_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
 
-      // Amount parsing: remove thousands commas, then parse float
       const parsedAmount = parseFloat(amount_str.replace(/,/g, ''));
       if (isNaN(parsedAmount)) {
         const msg = `Invalid amount '${amount_str}'. Skipping record: ${JSON.stringify(record)}`;
@@ -214,7 +191,6 @@ serve(async (req) => {
         continue;
       }
 
-      // Exchange rate parsing: replace comma decimal with period, then parse float
       let parsedExchangeRate: number | null = null;
       if (exchange_rate_str) {
         parsedExchangeRate = parseFloat(exchange_rate_str.replace(',', '.'));
@@ -226,9 +202,8 @@ serve(async (req) => {
         }
       }
 
-      let requesterIdForTransaction = uploaderId; // Default to uploaderId
+      let requesterIdForTransaction = uploaderId;
 
-      // If user_email is provided in CSV, try to find the corresponding user ID
       if (user_email_from_csv) {
         if (userEmailToIdCache.has(user_email_from_csv)) {
           requesterIdForTransaction = userEmailToIdCache.get(user_email_from_csv) || uploaderId;
@@ -238,14 +213,14 @@ serve(async (req) => {
             .from('profile_with_email')
             .select('id')
             .eq('user_email', user_email_from_csv)
-            .eq('country', uploaderCountry) // Filter by country for user lookup
+            .eq('country', country) // Filter by the provided country for user lookup
             .single();
 
           if (profileError || !profileData) {
-            const msg = `User with email '${user_email_from_csv}' not found in country ${uploaderCountry}. Assigning transaction to uploader.`;
+            const msg = `User with email '${user_email_from_csv}' not found in country ${country}. Assigning transaction to uploader.`;
             errors.push(msg);
             console.warn(`[upload-transactions] ${msg}`);
-            userEmailToIdCache.set(user_email_from_csv, null); // Cache null to avoid repeated lookups
+            userEmailToIdCache.set(user_email_from_csv, null);
           } else {
             requesterIdForTransaction = profileData.id;
             userEmailToIdCache.set(user_email_from_csv, profileData.id);
@@ -255,9 +230,9 @@ serve(async (req) => {
       }
 
       transactionsToInsert.push({
-        requester_id: requesterIdForTransaction, // Use the determined requester_id
+        requester_id: requesterIdForTransaction,
         uploaded_by_user_id: uploaderId,
-        original_transaction_id: null, // Not present in this CSV
+        original_transaction_id: null,
         status: 'pending_input',
         type: type || null,
         transaction_date: transaction_date,
@@ -272,7 +247,7 @@ serve(async (req) => {
         sku: sku || null,
         reason_for_payment: reason_for_payment || null,
         receipt_urls: [],
-        country: uploaderCountry, // Assign the uploader's country
+        country: country, // Assign the provided country
       });
     }
 
@@ -306,7 +281,7 @@ serve(async (req) => {
       message += ` ${errors.length} records skipped due to errors (e.g., duplicates, invalid format).`;
       console.error('[upload-transactions] Transaction processing errors summary:', errors);
       return new Response(JSON.stringify({ message: message, errors: errors }), {
-        status: 200, // Still 200 OK if some processed, but include errors
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

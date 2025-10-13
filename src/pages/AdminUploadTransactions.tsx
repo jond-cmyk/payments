@@ -5,19 +5,28 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
+import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
 
 const AdminUploadTransactions = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
+  const { currentCountry, setCurrentCountry, availableCountries } = useCountry(); // Use useCountry hook
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedUploadCountry, setSelectedUploadCountry] = useState<string>(currentCountry === 'all' ? 'Switzerland' : currentCountry); // State for selected country, default to Switzerland if currentCountry is 'all'
 
   const isAdmin = userProfile?.role === 'admin';
+
+  // Update selectedUploadCountry when currentCountry changes in context
+  React.useEffect(() => {
+    setSelectedUploadCountry(currentCountry === 'all' ? 'Switzerland' : currentCountry);
+  }, [currentCountry]);
 
   if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
@@ -45,6 +54,10 @@ const AdminUploadTransactions = () => {
       showError("Please select a file to upload.");
       return;
     }
+    if (!selectedUploadCountry || selectedUploadCountry === 'all') {
+      showError("Please select a specific country for the transactions.");
+      return;
+    }
 
     const file = selectedFile[0];
     const toastId = showLoading("Uploading and processing spreadsheet...");
@@ -58,20 +71,18 @@ const AdminUploadTransactions = () => {
           fileName: file.name,
           fileContent: fileContent,
           uploaderId: user?.id,
+          country: selectedUploadCountry, // Pass the selected country
         },
       });
 
       if (invokeError) {
-        console.error("Supabase Function Invoke Error:", invokeError); // Log the full error object
-        // Prioritize the specific error message from the Edge Function's response body if available
+        console.error("Supabase Function Invoke Error:", invokeError);
         if (data?.error) {
           throw new Error(data.error);
         }
-        // Otherwise, throw the generic invoke error message
         throw new Error(invokeError.message);
       }
 
-      // If no invokeError and data.error is present, it means the function returned 200 but with an error in body
       if (data?.error) {
         throw new Error(data.error);
       }
@@ -89,7 +100,7 @@ const AdminUploadTransactions = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-2xl mx-auto shadow-sm"> {/* Added shadow-sm */}
+      <Card className="max-w-2xl mx-auto shadow-sm">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Upload Transactions Spreadsheet</CardTitle>
           <CardDescription className="text-center">
@@ -97,6 +108,20 @@ const AdminUploadTransactions = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="flex flex-col space-y-2">
+            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+              Select Country for Upload
+            </label>
+            <CountrySelector
+              className="w-full"
+              value={selectedUploadCountry}
+              onValueChange={setSelectedUploadCountry}
+              // Admins are not locked to a country, so they can always change it here
+              disabled={isUploading}
+              // Filter out 'All Countries' option for this selector
+              availableCountries={availableCountries.filter(c => c.value !== 'all')}
+            />
+          </div>
           <FileInput
             label="Choose CSV File"
             accept=".csv"
@@ -106,8 +131,8 @@ const AdminUploadTransactions = () => {
           />
           <Button
             onClick={handleFileUpload}
-            disabled={!selectedFile || selectedFile.length === 0 || isUploading}
-            className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm" // Added shadow-sm
+            disabled={!selectedFile || selectedFile.length === 0 || isUploading || selectedUploadCountry === 'all'}
+            className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
           >
             <UploadCloud className="mr-2 h-4 w-4" />
             {isUploading ? "Uploading..." : "Upload and Process"}
