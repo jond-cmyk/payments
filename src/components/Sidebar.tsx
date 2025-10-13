@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff } from 'lucide-react'; // Import Bell and BellOff icons
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'; // Import Tooltip components
+import { useQuery } from '@tanstack/react-query'; // Import useQuery for unread count
+import { Badge } from '@/components/ui/badge'; // Import Badge for notification count
 
 interface SidebarProps {
   className?: string;
@@ -24,6 +26,25 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
   const displayName = userProfile?.first_name && userProfile?.last_name
     ? `${userProfile.first_name} ${userProfile.last_name}`
     : user?.email || 'Guest';
+
+  // Fetch unread notifications count
+  const { data: unreadCount = 0 } = useQuery<number>({
+    queryKey: ['unreadNotificationsCount', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return 0;
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact' })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+      if (error) {
+        console.error("Error fetching unread notifications count:", error);
+        return 0;
+      }
+      return count || 0;
+    },
+    enabled: !!user?.id,
+  });
 
   const handleLogout = async () => {
     console.log("Sidebar: Attempting to log out...");
@@ -95,6 +116,13 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         <div className="h-px bg-dyad-blue-foreground my-4" />
         <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
         <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
+        <NavLink to="/notifications" icon={<Bell className="h-5 w-5" />} label="Notifications">
+          {unreadCount > 0 && (
+            <Badge className="ml-auto bg-red-500 text-white">
+              {unreadCount}
+            </Badge>
+          )}
+        </NavLink>
         {currentRole === 'admin' && (
           <>
             <div className="h-px bg-dyad-blue-foreground my-4" />
@@ -111,39 +139,38 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
               <span>{displayName}</span>
             </div>
             <div className="text-xs text-sidebar-foreground">Role: {currentRole || 'Not available'}</div>
-            {currentRole === 'admin' && ( // Only show notification toggle for admins
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    onClick={toggleNotifications}
-                    className={cn(
-                      "w-full justify-start",
-                      notificationsEnabled && notificationPermission === 'granted'
-                        ? "text-green-400 hover:bg-green-900 hover:text-green-300"
-                        : "text-red-400 hover:bg-red-900 hover:text-red-300"
-                    )}
-                    disabled={notificationPermission === 'denied'} // Disable if permission is permanently denied
-                  >
-                    {notificationsEnabled && notificationPermission === 'granted' ? (
-                      <Bell className="mr-2 h-4 w-4" />
-                    ) : (
-                      <BellOff className="mr-2 h-4 w-4" />
-                    )}
-                    {notificationsEnabled && notificationPermission === 'granted' ? "Notifications On" : "Notifications Off"}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {notificationPermission === 'denied' ? (
-                    <span>Notifications are blocked. Enable in browser settings.</span>
-                  ) : notificationsEnabled ? (
-                    <span>Click to disable new request notifications.</span>
-                  ) : (
-                    <span>Click to enable new request notifications.</span>
+            {/* Notification toggle for all authenticated users */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  onClick={toggleNotifications}
+                  className={cn(
+                    "w-full justify-start",
+                    notificationsEnabled && notificationPermission === 'granted'
+                      ? "text-green-400 hover:bg-green-900 hover:text-green-300"
+                      : "text-red-400 hover:bg-red-900 hover:text-red-300"
                   )}
-                </TooltipContent>
-              </Tooltip>
-            )}
+                  disabled={notificationPermission === 'denied'} // Disable if permission is permanently denied
+                >
+                  {notificationsEnabled && notificationPermission === 'granted' ? (
+                    <Bell className="mr-2 h-4 w-4" />
+                  ) : (
+                    <BellOff className="mr-2 h-4 w-4" />
+                  )}
+                  {notificationsEnabled && notificationPermission === 'granted' ? "Notifications On" : "Notifications Off"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {notificationPermission === 'denied' ? (
+                  <span>Notifications are blocked. Enable in browser settings.</span>
+                ) : notificationsEnabled ? (
+                  <span>Click to disable desktop notifications.</span>
+                ) : (
+                  <span>Click to enable desktop notifications.</span>
+                )}
+              </TooltipContent>
+            </Tooltip>
             <Button
               variant="ghost"
               onClick={handleLogout}
@@ -167,9 +194,10 @@ interface NavLinkProps {
   to: string;
   icon: React.ReactNode;
   label: string;
+  children?: React.ReactNode; // Allow children for badge
 }
 
-const NavLink = ({ to, icon, label }: NavLinkProps) => {
+const NavLink = ({ to, icon, label, children }: NavLinkProps) => {
   const location = useLocation();
   const isActive = location.pathname === to;
 
@@ -184,9 +212,10 @@ const NavLink = ({ to, icon, label }: NavLinkProps) => {
           : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       )}
     >
-      <Link to={to}>
+      <Link to={to} className="flex items-center w-full"> {/* Ensure Link takes full width */}
         {icon}
         <span className="ml-2">{label}</span>
+        {children}
       </Link>
     </Button>
   );

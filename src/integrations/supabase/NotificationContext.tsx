@@ -3,8 +3,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './client';
 import { useSession } from './SessionContext';
-import { PaymentRequest } from '@/types/supabase';
+import { Notification as NotificationType } from '@/types/supabase'; // Import Notification type
 import { showSuccess, showError } from '@/utils/toast';
+import { useQueryClient } from '@tanstack/react-query'; // Import useQueryClient
 
 interface NotificationContextType {
   notificationPermission: NotificationPermission;
@@ -16,7 +17,8 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
-  const { userProfile, user, isLoading: isSessionLoading } = useSession();
+  const { user, isLoading: isSessionLoading } = useSession();
+  const queryClient = useQueryClient(); // Initialize useQueryClient
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
     // Initialize from localStorage, default to false
@@ -69,62 +71,68 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    if (isSessionLoading || !userProfile || !user) return;
+    if (isSessionLoading || !user) return; // Only proceed if session is loaded and user exists
 
-    const isAdmin = userProfile.role === 'admin';
-
-    if (!isAdmin || notificationPermission !== 'granted' || !notificationsEnabled) {
-      console.log("[NotificationProvider] Not subscribing to Realtime: Not admin, permission not granted, or notifications disabled.");
+    if (notificationPermission !== 'granted' || !notificationsEnabled) {
+      console.log("[NotificationProvider] Not subscribing to Realtime for notifications table: Permission not granted, or notifications disabled.");
       return;
     }
 
-    console.log("[NotificationProvider] Admin user detected, permission granted, notifications enabled. Subscribing to new payment requests...");
+    console.log("[NotificationProvider] Subscribing to user-specific notifications via Realtime for user:", user.id);
 
-    const paymentRequestsChannel = supabase
-      .channel('payment_requests_channel')
+    const notificationsChannel = supabase
+      .channel(`user_notifications_${user.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'payment_requests' },
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`, // Filter for current user's notifications
+        },
         (payload) => {
-          const newRequest = payload.new as PaymentRequest;
-          console.log("[NotificationProvider] New payment request received via Realtime:", newRequest);
+          const newNotification = payload.new as NotificationType;
+          console.log("[NotificationProvider] New user notification received via Realtime:", newNotification);
 
-          // Prevent self-notification
-          if (newRequest.requester_id === user.id) {
-            console.log("[NotificationProvider] New request created by current user, skipping notification.");
-            return;
-          }
-
-          if (Notification.permission === 'granted') {
-            const notificationTitle = `New Payment Request: ${newRequest.supplier_name}`;
+          // Only show desktop notification if it's not marked as read and notifications are enabled
+          if (!newNotification.is_read && notificationsEnabled && Notification.permission === 'granted') {
+            const notificationTitle = newNotification.title;
             const notificationOptions: NotificationOptions = {
-              body: `SKU: ${newRequest.sku_number || 'N/A'}\nAmount: ${newRequest.currency} ${newRequest.payment_amount.toFixed(2)}\nReason: ${newRequest.reason_for_payment}`,
-              icon: '/favicon.svg', // Path to your app's icon
+              body: newNotification.message,
+              icon: '/favicon.svg',
               data: {
-                url: `${window.location.origin}/request/${newRequest.id}`,
+                url: `${window.location.origin}${newNotification.link}`,
+                notificationId: newNotification.id,
               },
             };
 
-            const notification = new Notification(notificationTitle, notificationOptions);
+            const browserNotification = new Notification(notificationTitle, notificationOptions);
 
-            notification.onclick = (event) => {
+            browserNotification.onclick = (event) => {
               event.preventDefault();
-              if (notification.data && notification.data.url) {
-                window.focus(); // Bring browser window to front
-                window.open(notification.data.url, '_blank'); // Open in new tab
+              if (browserNotification.data && browserNotification.data.url) {
+                window.focus();
+                window.open(browserNotification.data.url, '_blank');
               }
-              notification.close();
+              // Mark notification as read in the database when clicked
+              supabase.from('notifications').update({ is_read: true }).eq('id', newNotification.id).then(({ error }) => {
+                if (error) console.error("Failed to mark notification as read:", error);
+                else queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] }); // Invalidate count
+              });
+              browserNotification.close();
             };
           }
+          // Invalidate the unread count query to update the sidebar badge
+          queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
         }
       )
       .subscribe();
 
     return () => {
-      console.log("[NotificationProvider] Unsubscribing from payment_requests_channel.");
-      paymentRequestsChannel.unsubscribe();
+      console.log("[NotificationProvider] Unsubscribing from user_notifications channel.");
+      notificationsChannel.unsubscribe();
     };
-  }, [userProfile, user, isSessionLoading, notificationPermission, notificationsEnabled]); // Re-run effect if these change
+  }, [user, isSessionLoading, notificationPermission, notificationsEnabled, queryClient]); // Add queryClient to dependencies
 
   return (
     <NotificationContext.Provider value={{ notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications }}>

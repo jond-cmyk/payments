@@ -1,0 +1,295 @@
+"use client";
+
+import React from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useSession } from '@/integrations/supabase/SessionContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Notification } from '@/types/supabase';
+import { format } from 'date-fns';
+import { Bell, CheckCircle, MailOpen, Trash2, XCircle, RotateCcw } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import PageTitle from '@/components/PageTitle';
+import { Separator } from '@/components/ui/separator';
+
+const NotificationsPage = () => {
+  const { session, isLoading: isSessionLoading, user } = useSession();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const { data: notifications, isLoading: isNotificationsLoading, error: notificationsError } = useQuery<Notification[]>({
+    queryKey: ['userNotifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const markAsReadMutation = useMutation({
+    mutationFn: async (notificationId: string) => {
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, created_at: new Date().toISOString() }) // Update created_at to trigger Realtime
+        .eq('id', notificationId);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to mark notification as read.");
+      console.error("Mark as read error:", error);
+    },
+  });
+
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error("User not authenticated.");
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, created_at: new Date().toISOString() }) // Update created_at to trigger Realtime
+        .eq('user_id', user.id)
+        .eq('is_read', false); // Only mark unread ones
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
+      showSuccess("All notifications marked as read!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to mark all notifications as read.");
+      console.error("Mark all as read error:", error);
+    },
+  });
+
+  const deleteNotificationMutation = useMutation({
+    mutationFn: async (notificationId: string) => {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
+      showSuccess("Notification deleted!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to delete notification.");
+      console.error("Delete notification error:", error);
+    },
+  });
+
+  const clearAllNotificationsMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error("User not authenticated.");
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', user.id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['userNotifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
+      showSuccess("Notification log cleared!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to clear notification log.");
+      console.error("Clear all notifications error:", error);
+    },
+  });
+
+  if (isSessionLoading || isNotificationsLoading) {
+    return <div className="flex items-center justify-center h-full text-lg">Loading notifications...</div>;
+  }
+
+  if (!session) {
+    navigate('/login');
+    return null;
+  }
+
+  if (notificationsError) {
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading notifications: {notificationsError.message}</div>;
+  }
+
+  const unreadCount = notifications?.filter(n => !n.is_read).length || 0;
+
+  return (
+    <div className="container mx-auto py-8">
+      <PageTitle title="Notifications - KH Payments" />
+      <Card className="shadow-sm">
+        <CardHeader>
+          <div className="flex justify-between items-center mb-4">
+            <CardTitle className="flex items-center text-2xl font-bold">
+              <Bell className="mr-2 h-6 w-6" /> Your Notifications ({unreadCount} unread)
+            </CardTitle>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => markAllAsReadMutation.mutate()}
+                disabled={markAllAsReadMutation.isPending || unreadCount === 0}
+                className="shadow-sm"
+              >
+                <MailOpen className="mr-2 h-4 w-4" /> Mark All as Read
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {}} // Prevent immediate action
+                    disabled={clearAllNotificationsMutation.isPending || (notifications?.length || 0) === 0}
+                    className="shadow-sm"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Clear All
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete all your notifications.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => clearAllNotificationsMutation.mutate()} asChild>
+                      <Button variant="destructive">
+                        Clear All Notifications
+                      </Button>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+          <CardDescription>
+            Here you can find a log of all important updates related to payment requests.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {notifications && notifications.length > 0 ? (
+            <div className="space-y-4">
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`flex items-start space-x-4 p-4 rounded-md border ${
+                    notification.is_read ? 'bg-muted/50 text-muted-foreground' : 'bg-card text-foreground border-primary/20 shadow-sm'
+                  }`}
+                >
+                  <div className="flex-shrink-0 mt-1">
+                    {notification.is_read ? (
+                      <MailOpen className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <Bell className="h-5 w-5 text-primary" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className={`font-semibold ${notification.is_read ? 'text-muted-foreground' : 'text-primary'}`}>
+                        {notification.title}
+                      </h3>
+                      <span className="text-xs text-muted-foreground">
+                        {format(new Date(notification.created_at), 'MMM dd, yyyy HH:mm')}
+                      </span>
+                    </div>
+                    <p className="text-sm mt-1">{notification.message}</p>
+                    {notification.link && (
+                      <Button asChild variant="link" className="p-0 h-auto mt-2 text-sm">
+                        <Link to={notification.link} onClick={() => markAsReadMutation.mutate(notification.id)}>
+                          View Details
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex-shrink-0 flex space-x-2">
+                    {!notification.is_read && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => markAsReadMutation.mutate(notification.id)}
+                        disabled={markAsReadMutation.isPending}
+                        className="text-green-600 hover:bg-green-50"
+                        title="Mark as Read"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-500 hover:bg-red-50"
+                          disabled={deleteNotificationMutation.isPending}
+                          title="Delete Notification"
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Notification?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this notification? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteNotificationMutation.mutate(notification.id)} asChild>
+                            <Button variant="destructive">
+                              Delete
+                            </Button>
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground mt-8">No notifications found.</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default NotificationsPage;
