@@ -16,7 +16,7 @@ const countryCodeMap: Record<string, string> = {
 
 const CountryFlag: React.FC<CountryFlagProps> = ({ countryName, className }) => {
   const countryCode = countryCodeMap[countryName]?.toLowerCase();
-  const flagUrl = countryCode ? `https://flagcdn.com/w20/${countryCode}.png` : null; // Using w20 for 20px width
+  const flagUrl = countryCode ? `https://flagcdn.com/w40/${countryCode}.png` : null; // Changed to w40 for higher resolution
 
   if (!flagUrl) {
     return <span className={className} role="img" aria-label={countryName}>🌐</span>; // Fallback to globe emoji
