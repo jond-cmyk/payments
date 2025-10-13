@@ -38,7 +38,7 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className }) => {
                   <span className="font-semibold text-base flex items-center gap-2 whitespace-nowrap">🌐 All Countries</span>
                 )}
               </SelectTrigger>
-              <SelectContent className="bg-popover text-popover-foreground w-fit min-w-[200px] max-w-none"> {/* Removed var(--radix-select-trigger-width) and set a fixed min-w */}
+              <SelectContent className="bg-popover text-popover-foreground w-fit min-w-max max-w-none overflow-visible"> {/* Changed min-w to min-w-max, added overflow-visible */}
                 {availableCountries.map((country) => (
                   <SelectItem key={country.value} value={country.value} className="flex items-center gap-2 flex-nowrap">
                     {country.value !== 'all' ? (
