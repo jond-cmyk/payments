@@ -34,7 +34,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       showError("This browser does not support desktop notifications.");
       return;
     }
-    console.log("[NotificationProvider] Before Notification.requestPermission(), browser permission is:", Notification.permission); // NEW LOG
+    console.log("[NotificationProvider] Before Notification.requestPermission(), browser permission is:", Notification.permission);
     Notification.requestPermission().then((permission) => {
       console.log("[NotificationProvider] Permission requested. Result:", permission);
       setNotificationPermission(permission);
@@ -55,6 +55,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     setNotificationsEnabled(prev => {
       const newState = !prev;
       localStorage.setItem('notificationsEnabled', String(newState));
+      console.log(`[NotificationProvider] Toggled notifications. New state: ${newState}. localStorage: ${localStorage.getItem('notificationsEnabled')}`); // NEW LOG
       if (newState && notificationPermission !== 'granted') {
         // If enabling and permission is not granted, request it
         requestNotificationPermission();
@@ -65,20 +66,21 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     });
   }, [notificationPermission, requestNotificationPermission]);
 
-  // This useEffect now handles the initial permission check and proactive request
+  // Effect to read initial browser permission status once on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const currentBrowserPermission = Notification.permission;
+    setNotificationPermission(currentBrowserPermission);
+    console.log("[NotificationProvider] Initial browser permission on mount:", currentBrowserPermission);
+  }, []); // Empty dependency array: runs once on mount
 
-    // If notifications are enabled in localStorage, ensure we have permission
-    if (notificationsEnabled) {
-      // Always request permission if enabled, to ensure our state is up-to-date
-      // and to trigger the browser's permission check if it's 'default'
+  // Effect to proactively request permission if enabled in localStorage but permission is 'default'
+  useEffect(() => {
+    if (notificationsEnabled && notificationPermission === 'default') {
+      console.log("[NotificationProvider] Notifications enabled in localStorage and permission is 'default'. Proactively requesting permission.");
       requestNotificationPermission();
-    } else {
-      // If notifications are disabled, ensure our permission state reflects the current browser status
-      setNotificationPermission(Notification.permission);
     }
-  }, [notificationsEnabled, requestNotificationPermission]); // Depend on these to re-run if they change
+  }, [notificationsEnabled, notificationPermission, requestNotificationPermission]);
 
   useEffect(() => {
     if (isSessionLoading || !user) return; // Only proceed if session is loaded and user exists
