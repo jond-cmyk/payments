@@ -96,6 +96,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
           // Only show desktop notification if it's not marked as read and notifications are enabled
           if (!newNotification.is_read && notificationsEnabled && Notification.permission === 'granted') {
+            console.log("[NotificationProvider] Attempting to display desktop notification. Current browser permission:", Notification.permission); // ADDED LOG
             const notificationTitle = newNotification.title;
             const notificationOptions: NotificationOptions = {
               body: newNotification.message,
