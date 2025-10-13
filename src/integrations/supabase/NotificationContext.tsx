@@ -36,6 +36,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     }
 
     Notification.requestPermission().then((permission) => {
+      console.log("[NotificationProvider] Permission requested. Result:", permission); // ADDED LOG
       setNotificationPermission(permission);
       if (permission === 'granted') {
         showSuccess("Desktop notifications enabled!");
@@ -66,12 +67,16 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setNotificationPermission(Notification.permission);
+      const currentBrowserPermission = Notification.permission;
+      console.log("[NotificationProvider] Initial browser permission on mount:", currentBrowserPermission); // ADDED LOG
+      setNotificationPermission(currentBrowserPermission);
     }
   }, []);
 
   useEffect(() => {
     if (isSessionLoading || !user) return; // Only proceed if session is loaded and user exists
+
+    console.log(`[NotificationProvider] Realtime useEffect: notificationPermission=${notificationPermission}, notificationsEnabled=${notificationsEnabled}`); // ADDED LOG
 
     if (notificationPermission !== 'granted' || !notificationsEnabled) {
       console.log("[NotificationProvider] Not subscribing to Realtime for notifications table: Permission not granted, or notifications disabled.");
