@@ -42,7 +42,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
 import AddStandingOrderForm from '@/components/standing-orders/AddStandingOrderForm'; // Import the new form
 import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm'; // Import the renamed form
-import { cn } => '@/lib/utils';
+import { cn } from '@/lib/utils';
 import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
 
 const StandingOrders = () => {
@@ -54,7 +54,7 @@ const StandingOrders = () => {
   const [isEditStandingOrderDialogOpen, setIsEditStandingOrderDialogOpen] = useState(false);
   const [editingStandingOrder, setEditingStandingOrder] = useState<StandingOrder | null>(null);
 
-  // Filter states (debounced for query)
+  // Filter states
   const [filterPayee, setFilterPayee] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterPaymentDate, setFilterPaymentDate] = useState<Date | undefined>(undefined);
