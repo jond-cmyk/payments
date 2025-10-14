@@ -35,10 +35,12 @@ serve(async (req) => {
     console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 1. Create user in Supabase Auth using admin privileges
+    // We set email_confirm: false here, meaning Supabase Auth won't send a verification email.
+    // Our application's approval logic will rely on public.profiles.is_approved.
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: false, // Admin is manually adding, so no email confirmation needed for initial setup
+      email_confirm: false, 
       user_metadata: {
         first_name: first_name,
         last_name: last_name,
@@ -63,31 +65,8 @@ serve(async (req) => {
 
     console.log(`Edge Function: User created with ID: ${authData.user.id}. Initial email_confirmed_at: ${authData.user.email_confirmed_at}`);
 
-    // Mark the user's email as confirmed immediately
-    const { error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
-      authData.user.id,
-      { email_confirmed_at: new Date().toISOString() }
-    );
-
-    if (updateAuthError) {
-      console.error('Edge Function: Error confirming user email in auth:', updateAuthError);
-      // Attempt to delete the auth user to prevent orphaned accounts
-      await supabaseAdminClient.auth.admin.deleteUser(authData.user.id);
-      return new Response(JSON.stringify({ error: `Failed to confirm user email: ${updateAuthError.message}. User creation rolled back.` }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // --- NEW: Explicitly fetch user again to verify email_confirmed_at ---
-    const { data: verifiedAuthUser, error: verifyError } = await supabaseAdminClient.auth.admin.getUserById(authData.user.id);
-    if (verifyError) {
-      console.error('Edge Function: Error fetching user after email confirmation update:', verifyError);
-      // Continue, as the update might have happened even if fetch failed
-    } else {
-      console.log(`Edge Function: User email confirmed for ${authData.user.id}. VERIFIED email_confirmed_at: ${verifiedAuthUser?.user?.email_confirmed_at}`);
-    }
-    // --- END NEW ---
+    // --- REMOVED: The admin.updateUserById call for email_confirmed_at as it was ineffective. ---
+    // The application will now rely solely on public.profiles.is_approved for access control.
 
     console.log(`Edge Function: Attempting to update public.profiles for user ${authData.user.id} with role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
