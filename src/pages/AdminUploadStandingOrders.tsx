@@ -42,6 +42,7 @@ const AdminUploadStandingOrders = () => {
     return null;
   }
 
+  // Restrict access to admin users only
   if (!isAdmin) {
     showError("You do not have permission to view this page.");
     navigate('/dashboard');

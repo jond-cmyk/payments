@@ -15,7 +15,7 @@ import CountrySelector from '@/components/CountrySelector'; // Import CountrySel
 
 const AdminUploadTransactions = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
-  const { currentCountry, setCurrentCountry, availableCountries } = useCountry(); // Use useCountry hook
+  const { currentCountry, availableCountries } = useCountry(); // Use useCountry hook
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -43,6 +43,7 @@ const AdminUploadTransactions = () => {
     return null;
   }
 
+  // Restrict access to admin users only
   if (!isAdmin) {
     showError("You do not have permission to view this page.");
     navigate('/dashboard');
