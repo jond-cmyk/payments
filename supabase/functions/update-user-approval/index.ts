@@ -41,6 +41,11 @@ serve(async (req) => {
       { email_confirmed_at: emailConfirmedAtValue }
     );
 
+    // NEW LOGS: Log the raw data and error from the Supabase Admin API call
+    console.log(`[update-user-approval] Response from supabaseAdminClient.auth.admin.updateUserById for user ${userId}:`);
+    console.log(`[update-user-approval]   Data: ${JSON.stringify(data)}`);
+    console.log(`[update-user-approval]   Error: ${JSON.stringify(authError)}`);
+
     if (authError) {
       console.error('Edge Function: Error updating user email confirmation status:', authError);
       return new Response(JSON.stringify({ error: `Failed to update user email confirmation status: ${authError.message}` }), {
