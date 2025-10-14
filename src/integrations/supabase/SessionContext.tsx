@@ -58,6 +58,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
           const profile = await fetchUserProfile(initialSession.user.id);
           setUserProfile(profile);
           setIsApproved(profile?.is_approved ?? false);
+          console.log("SessionContext: Initial profile loaded - Role:", profile?.role, "Country:", profile?.country); // NEW LOG
         } else {
           setUserProfile(null);
           setIsApproved(false);
@@ -95,6 +96,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         const profile = await fetchUserProfile(user.id);
         setUserProfile(profile);
         setIsApproved(profile?.is_approved ?? false);
+        console.log("SessionContext: User changed, profile updated - Role:", profile?.role, "Country:", profile?.country); // NEW LOG
       } else {
         setUserProfile(null);
         setIsApproved(false);
