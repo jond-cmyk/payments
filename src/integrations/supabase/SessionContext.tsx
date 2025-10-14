@@ -29,7 +29,7 @@ const fetchUserProfile = async (userId: string) => {
     return null;
   }
   console.log(`[SessionContext] Fetched profile for user ${userId}:`, data);
-  console.log(`[SessionContext] Profile is_approved for user ${userId}: ${data?.is_approved}`); // --- NEW LOG ---
+  console.log(`[SessionContext] Profile is_approved for user ${userId}: ${data?.is_approved}`);
   return data;
 };
 
@@ -49,15 +49,14 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
 
     const isProfileApproved = profile.is_approved ?? false;
 
-    // If the user's email is confirmed (e.g., self-registered), then both email and profile must be approved.
-    // If email_confirmed_at is null (e.g., admin-created user with email_confirm: false),
-    // then we rely solely on the profile's is_approved status.
+    // For admin-created users, the email_confirmed_at field in auth.users MUST be set.
+    // If it's not set, the Auth UI will block login, so we reflect that here.
     if (authUser.email_confirmed_at) {
-      console.log(`[SessionContext] getCombinedApprovalStatus: User ${authUser.id} has confirmed email (${authUser.email_confirmed_at}). Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
+      console.log(`[SessionContext] getCombinedApprovalStatus: User ${authUser.id} has email_confirmed_at (${authUser.email_confirmed_at}). Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
       return isProfileApproved;
     } else {
-      console.log(`[SessionContext] getCombinedApprovalStatus: User ${authUser.id} has NOT confirmed email. Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
-      return isProfileApproved;
+      console.log(`[SessionContext] getCombinedApprovalStatus: User ${authUser.id} has NULL email_confirmed_at. Profile approved: ${isProfileApproved}. Result: false (Auth UI will likely block login)`);
+      return false; // If email_confirmed_at is null, Auth UI will block login, so we reflect that.
     }
   };
 
@@ -86,20 +85,20 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
           } else if (freshUser) {
             authUser = freshUser; // Use the freshest user data
           }
-          console.log(`[SessionContext] loadSessionAndProfile: authUser.email_confirmed_at: ${authUser.email_confirmed_at}`); // NEW LOG
+          console.log(`[SessionContext] loadSessionAndProfile: authUser.email_confirmed_at: ${authUser.email_confirmed_at}`);
         }
         setUser(authUser);
 
         if (authUser) {
           const profile = await fetchUserProfile(authUser.id);
           setUserProfile(profile);
-          const approvedStatus = getCombinedApprovalStatus(authUser, profile); // Store result
+          const approvedStatus = getCombinedApprovalStatus(authUser, profile);
           setIsApproved(approvedStatus);
-          console.log("SessionContext: Initial profile loaded - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!authUser.email_confirmed_at, "Profile Approved:", profile?.is_approved, "Final isApproved:", approvedStatus); // UPDATED LOG
+          console.log("SessionContext: Initial profile loaded - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!authUser.email_confirmed_at, "Profile Approved:", profile?.is_approved, "Final isApproved:", approvedStatus);
         } else {
           setUserProfile(null);
           setIsApproved(false);
-          console.log("SessionContext: No authUser found. Setting isApproved to false."); // NEW LOG
+          console.log("SessionContext: No authUser found. Setting isApproved to false.");
         }
       }
       setIsLoading(false);
@@ -115,7 +114,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       if (!currentSession?.user) {
         setUserProfile(null);
         setIsApproved(false);
-        console.log("SessionContext: Auth state change - No currentSession.user. Setting isApproved to false."); // NEW LOG
+        console.log("SessionContext: Auth state change - No currentSession.user. Setting isApproved to false.");
       }
     });
 
@@ -136,17 +135,17 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         } else if (freshUser) {
           authUser = freshUser;
         }
-        console.log(`[SessionContext] user-change effect: authUser.email_confirmed_at: ${authUser.email_confirmed_at}`); // NEW LOG
+        console.log(`[SessionContext] user-change effect: authUser.email_confirmed_at: ${authUser.email_confirmed_at}`);
 
         const profile = await fetchUserProfile(authUser.id);
         setUserProfile(profile);
-        const approvedStatus = getCombinedApprovalStatus(authUser, profile); // Store result
+        const approvedStatus = getCombinedApprovalStatus(authUser, profile);
         setIsApproved(approvedStatus);
-        console.log("SessionContext: User changed, profile updated - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!authUser.email_confirmed_at, "Profile Approved:", profile?.is_approved, "Final isApproved:", approvedStatus); // UPDATED LOG
+        console.log("SessionContext: User changed, profile updated - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!authUser.email_confirmed_at, "Profile Approved:", profile?.is_approved, "Final isApproved:", approvedStatus);
       } else {
         setUserProfile(null);
         setIsApproved(false);
-        console.log("SessionContext: user-change effect - No user. Setting isApproved to false."); // NEW LOG
+        console.log("SessionContext: user-change effect - No user. Setting isApproved to false.");
       }
     };
     if (!isLoading) { // Only run if initial loading is complete

@@ -12,7 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    // Create a Supabase client with the service role key
     const supabaseAdminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -35,11 +34,11 @@ serve(async (req) => {
     console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 1. Create user in Supabase Auth using admin privileges
-    // Set email_confirm: true to mark the email as confirmed from the start for admin-created users.
+    // We set email_confirm: false here, and will explicitly set email_confirmed_at later.
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: true, // Changed to true
+      email_confirm: false, // Do not send confirmation email, we'll manually confirm
       user_metadata: {
         first_name: first_name,
         last_name: last_name,
@@ -62,7 +61,27 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Edge Function: User created with ID: ${authData.user.id}. email_confirmed_at: ${authData.user.email_confirmed_at}`);
+    console.log(`Edge Function: User created with ID: ${authData.user.id}. Initial email_confirmed_at: ${authData.user.email_confirmed_at}`);
+
+    // Explicitly set email_confirmed_at to bypass email verification for admin-created users
+    const { data: updateAuthUser, error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
+      authData.user.id,
+      { email_confirmed_at: new Date().toISOString() }
+    );
+
+    if (updateAuthError) {
+      console.error('Edge Function: Error explicitly confirming user email in auth:', updateAuthError);
+      // Attempt to delete the auth user to prevent orphaned accounts
+      await supabaseAdminClient.auth.admin.deleteUser(authData.user.id);
+      return new Response(JSON.stringify({ error: `Failed to confirm user email: ${updateAuthError.message}. User creation rolled back.` }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    console.log(`Edge Function: User email confirmed for ${authData.user.id}. Updated auth.users.email_confirmed_at: ${updateAuthUser?.user?.email_confirmed_at}`);
+
+
+    console.log(`Edge Function: Attempting to update public.profiles for user ${authData.user.id} with role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 2. Update the user's profile with the selected role, approval status, and country
     // The handle_new_user trigger creates a default profile, we then update it.
