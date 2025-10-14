@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Edit } from 'lucide-react';
+import { Edit } from 'lucide-react'; // Corrected icon import
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -546,12 +546,12 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
           )}
         />
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}> {/* Disabled for non-admins */}
-          <PlusCircle className="mr-2 h-4 w-4" />
-          {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
+          <Edit className="mr-2 h-4 w-4" /> {/* Corrected icon */}
+          {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"} {/* Corrected text */}
         </Button>
       </form>
     </Form>
   );
 };
 
-export default AddStandingOrderForm;
+export default EditStandingOrderForm;
