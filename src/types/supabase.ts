@@ -81,11 +81,17 @@ export type StandingOrder = { // NEW: StandingOrder type
   updated_at: string;
   requester_id: string;
   payee: string;
-  payment_date: string; // YYYY-MM-DD format
+  payment_date: string; // YYYY-MM-DD format (start date of the standing order)
   sku: string | null;
   not_property_related: boolean;
   category: string;
-  account_number: string;
+  account_name: string; // NEW
+  account_address: string | null; // NEW, nullable
+  iban_number: string | null; // NEW, nullable
+  sort_code: string | null; // NEW, nullable
+  account_number: string | null; // NEW, nullable
+  from_day: number; // NEW, for accruals period (day of month)
+  to_day: number; // NEW, for accruals period (day of month)
   payment_reference: string;
   status: 'active' | 'cancelled' | 'paused'; // Example statuses
   country: string;

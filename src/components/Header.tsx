@@ -29,9 +29,9 @@ const Header = () => {
         return 'Missing Receipts - KH Payments';
       case '/completed-receipts':
         return 'Completed Receipts - KH Payments';
-      case '/direct-debits': // NEW: Direct Debits page title
+      case '/direct-debits':
         return 'Direct Debits - KH Payments';
-      case '/standing-orders': // NEW: Standing Orders page title
+      case '/standing-orders':
         return 'Standing Orders - KH Payments';
       case '/login':
         return 'Login - KH Payments';
@@ -45,6 +45,12 @@ const Header = () => {
         }
         if (pathname.startsWith('/transaction/')) {
           return 'Transaction Details - KH Payments';
+        }
+        if (pathname.startsWith('/direct-debit/')) {
+          return 'Direct Debit Details - KH Payments';
+        }
+        if (pathname.startsWith('/standing-order/')) { // NEW: Standing Order Detail Page Title
+          return 'Standing Order Details - KH Payments';
         }
         return 'KH Payments'; // Default title for unknown routes
     }

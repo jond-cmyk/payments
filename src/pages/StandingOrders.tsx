@@ -2,12 +2,12 @@
 
 import React, { useState, useCallback } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { StandingOrder } from '@/types/supabase'; // Import StandingOrder type
 import { format } from 'date-fns';
-import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2 } from 'lucide-react';
+import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye } from 'lucide-react'; // Import Eye icon
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -38,17 +38,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
+import AddStandingOrderForm from '@/components/standing-orders/AddStandingOrderForm'; // Import the new form
+import EditStandingOrderForm from '@/components/standing-orders/EditStandingOrderForm'; // Import the new form
 import { cn } from '@/lib/utils';
 import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
-
-// Placeholder for AddStandingOrderForm - will be created if user requests
-const AddStandingOrderForm = ({ onStandingOrderAdded }: { onStandingOrderAdded: () => void }) => (
-  <div className="p-4 text-center">
-    <p className="text-muted-foreground">Form to add a new standing order will go here.</p>
-    <Button onClick={onStandingOrderAdded} className="mt-4">Close Form</Button>
-  </div>
-);
 
 const StandingOrders = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
@@ -56,6 +50,8 @@ const StandingOrders = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isAddStandingOrderDialogOpen, setIsAddStandingOrderDialogOpen] = useState(false);
+  const [isEditStandingOrderDialogOpen, setIsEditStandingOrderDialogOpen] = useState(false);
+  const [editingStandingOrder, setEditingStandingOrder] = useState<StandingOrder | null>(null);
 
   // Filter states
   const [filterPayee, setFilterPayee] = useState<string>('');
@@ -81,79 +77,63 @@ const StandingOrders = () => {
 
   const isAdmin = userProfile?.role === 'admin';
 
-  // Fetch Standing Orders (placeholder query)
+  // Fetch Standing Orders
   const { data: standingOrders, isLoading: isStandingOrdersLoading, error: standingOrdersError } = useQuery<StandingOrder[]>({
     queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, sortColumn, sortDirection],
     queryFn: async () => {
       if (!session) return [];
 
-      // This is a placeholder. Replace with actual Supabase query for 'standing_orders' table.
-      // For now, it returns dummy data.
-      console.log(`[StandingOrders Query] Fetching with filters: country=${currentCountry}, payee=${filterPayee}, category=${filterCategory}, date=${filterPaymentDate?.toISOString().split('T')[0]}, status=${filterStatus}, sortColumn=${sortColumn}, sortDirection=${sortDirection}`);
+      let query = supabase
+        .from('standing_orders')
+        .select('*');
       
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      const dummyData: StandingOrder[] = [
-        { id: 'so1', created_at: '2023-01-15T10:00:00Z', updated_at: '2023-01-15T10:00:00Z', requester_id: 'user1', payee: 'Rent Co.', payment_date: '2024-03-01', sku: 'CH123', not_property_related: false, category: '950_rent', account_number: '123456789', payment_reference: 'SO-RENT-001', status: 'active', country: 'Switzerland' },
-        { id: 'so2', created_at: '2023-02-20T11:00:00Z', updated_at: '2023-02-20T11:00:00Z', requester_id: 'user2', payee: 'Internet Provider', payment_date: '2024-03-05', sku: null, not_property_related: true, category: '958_internet', account_number: '987654321', payment_reference: 'SO-INT-002', status: 'paused', country: 'Switzerland' },
-        { id: 'so3', created_at: '2023-03-10T12:00:00Z', updated_at: '2023-03-10T12:00:00Z', requester_id: 'user1', payee: 'Electricity Bill', payment_date: '2024-03-10', sku: 'UK456', not_property_related: false, category: '952_utilities_el', account_number: '112233445', payment_reference: 'SO-EL-003', status: 'active', country: 'United Kingdom' },
-        { id: 'so4', created_at: '2023-04-01T09:00:00Z', updated_at: '2023-04-01T09:00:00Z', requester_id: 'user3', payee: 'Cleaning Services', payment_date: '2024-03-15', sku: null, not_property_related: true, category: '960_cleaning_services', account_number: '556677889', payment_reference: 'SO-CLEAN-004', status: 'active', country: 'Switzerland' },
-      ];
-
-      let filteredData = dummyData;
-
-      // Apply country filter
+      // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
-        filteredData = filteredData.filter(so => so.country === userProfile.country);
+        query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
-        filteredData = filteredData.filter(so => so.country === currentCountry);
+        query = query.eq('country', currentCountry);
       }
 
-      // Apply other filters
+      // Apply filters
       if (filterPayee) {
-        filteredData = filteredData.filter(so => so.payee.toLowerCase().includes(filterPayee.toLowerCase()));
+        query = query.ilike('payee', `%${filterPayee}%`);
       }
       if (filterCategory !== 'all') {
-        filteredData = filteredData.filter(so => so.category === filterCategory);
+        query = query.eq('category', filterCategory);
       }
       if (filterPaymentDate) {
-        filteredData = filteredData.filter(so => so.payment_date === format(filterPaymentDate, 'yyyy-MM-dd'));
+        query = query.eq('payment_date', format(filterPaymentDate, 'yyyy-MM-dd'));
       }
       if (filterStatus !== 'all') {
-        filteredData = filteredData.filter(so => so.status === filterStatus);
+        query = query.eq('status', filterStatus);
       }
 
       // Apply sorting
       if (sortColumn) {
-        filteredData.sort((a, b) => {
-          const aValue = a[sortColumn];
-          const bValue = b[sortColumn];
-
-          if (typeof aValue === 'string' && typeof bValue === 'string') {
-            return sortDirection === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-          }
-          if (typeof aValue === 'number' && typeof bValue === 'number') {
-            return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-          }
-          // Fallback for other types or nulls
-          return 0;
-        });
+        query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+      }
+      // Add secondary and tertiary sorts for stability
+      if (sortColumn !== 'created_at') {
+        query = query.order('created_at', { ascending: false });
+      }
+      if (sortColumn !== 'id') {
+        query = query.order('id', { ascending: false });
       }
 
-      return filteredData;
+      const { data, error } = await query;
+      if (error) throw error;
+      return data;
     },
     enabled: !!session,
   });
 
   const deleteStandingOrderMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Placeholder for actual delete logic
-      console.log(`[StandingOrders] Deleting standing order with ID: ${id}`);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
-      // Replace with actual Supabase delete:
-      // const { error } = await supabase.from('standing_orders').delete().eq('id', id);
-      // if (error) throw error;
+      const { error } = await supabase
+        .from('standing_orders')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
       return true;
     },
     onSuccess: () => {
@@ -217,6 +197,18 @@ const StandingOrders = () => {
   const handleStandingOrderAdded = () => {
     setIsAddStandingOrderDialogOpen(false);
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+  };
+
+  const handleEditClick = (standingOrder: StandingOrder) => {
+    setEditingStandingOrder(standingOrder);
+    setIsEditStandingOrderDialogOpen(true);
+  };
+
+  const handleStandingOrderUpdated = () => {
+    setIsEditStandingOrderDialogOpen(false);
+    setEditingStandingOrder(null);
+    queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+    queryClient.invalidateQueries({ queryKey: ['standingOrder', editingStandingOrder?.id] }); // Invalidate detail page query
   };
 
   if (isSessionLoading || isStandingOrdersLoading) {
@@ -319,7 +311,7 @@ const StandingOrders = () => {
                     </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
                       <div className="flex items-center">
-                        Payment Date {renderSortIcon('payment_date')}
+                        Start Date {renderSortIcon('payment_date')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
@@ -332,7 +324,17 @@ const StandingOrders = () => {
                         Category {renderSortIcon('category')}
                       </div>
                     </TableHead>
-                    <TableHead>Account Number</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('account_name')}>
+                      <div className="flex items-center">
+                        Account Name {renderSortIcon('account_name')}
+                      </div>
+                    </TableHead>
+                    <TableHead>Bank Details</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('from_day')}>
+                      <div className="flex items-center">
+                        Accruals Period {renderSortIcon('from_day')}
+                      </div>
+                    </TableHead>
                     <TableHead>Payment Reference</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
@@ -351,12 +353,34 @@ const StandingOrders = () => {
                         {order.not_property_related ? 'N/A (Not Property Related)' : (order.sku || 'N/A')}
                       </TableCell>
                       <TableCell>{categoryOptions.find(c => c.value === order.category)?.label || order.category}</TableCell>
-                      <TableCell>{order.account_number}</TableCell>
+                      <TableCell>{order.account_name}</TableCell>
+                      <TableCell>
+                        {order.country === 'United Kingdom' ? (
+                          <>
+                            Sort: {order.sort_code || 'N/A'}<br />
+                            Acc: {order.account_number ? order.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}
+                          </>
+                        ) : (
+                          <>
+                            IBAN: {order.iban_number || 'N/A'}<br />
+                            Addr: {order.account_address || 'N/A'}
+                          </>
+                        )}
+                      </TableCell>
+                      <TableCell>Day {order.from_day} to Day {order.to_day}</TableCell>
                       <TableCell>{order.payment_reference}</TableCell>
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shadow-sm"
+                          onClick={() => navigate(`/standing-order/${order.id}`)}
+                        >
+                          <Eye className="h-4 w-4" /> View
+                        </Button>
                         {isAdmin && (
-                          <Button variant="outline" size="sm" className="shadow-sm">
+                          <Button variant="outline" size="sm" className="shadow-sm" onClick={() => handleEditClick(order)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         )}
@@ -399,6 +423,17 @@ const StandingOrders = () => {
           )}
         </CardContent>
       </Card>
+
+      {editingStandingOrder && (
+        <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
+          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Standing Order: {editingStandingOrder.payee}</DialogTitle>
+            </DialogHeader>
+            <EditStandingOrderForm standingOrder={editingStandingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

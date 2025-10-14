@@ -19,6 +19,7 @@ import NotificationsPage from "./pages/Notifications"; // Import the Notificatio
 import DirectDebits from "./pages/DirectDebits"; // Import DirectDebits
 import DirectDebitDetail from "./pages/DirectDebitDetail"; // NEW: Import DirectDebitDetail
 import StandingOrders from "./pages/StandingOrders"; // Import StandingOrders
+import StandingOrderDetail from "./pages/StandingOrderDetail"; // NEW: Import StandingOrderDetail
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext"; // Import CountryProvider
@@ -70,6 +71,7 @@ const App = () => {
                       <Route path="/direct-debits" element={<DirectDebits />} />
                       <Route path="/direct-debit/:id" element={<DirectDebitDetail />} /> {/* NEW: Direct Debit Detail Route */}
                       <Route path="/standing-orders" element={<StandingOrders />} />
+                      <Route path="/standing-order/:id" element={<StandingOrderDetail />} /> {/* NEW: Standing Order Detail Route */}
                     </Route>
 
                     {/* Protected routes requiring approval */}

@@ -17,8 +17,9 @@ const AutoRefreshHandler: React.FC<AutoRefreshHandlerProps> = ({ children }) => 
     '/request/', // Matches /request/:id
     '/transaction/', // Matches /transaction/:id
     '/direct-debits', // Disable auto-refresh for Direct Debits page
-    '/direct-debit/', // NEW: Disable auto-refresh for Direct Debit Detail page
+    '/direct-debit/', // Disable auto-refresh for Direct Debit Detail page
     '/standing-orders', // Disable auto-refresh for Standing Orders page
+    '/standing-order/', // NEW: Disable auto-refresh for Standing Order Detail page
   ];
 
   // Check if the current path starts with any of the disabled routes
