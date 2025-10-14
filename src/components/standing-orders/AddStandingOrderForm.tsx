@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
-import { Textarea } from '@/components/ui/textarea'; // Import Textarea
+import { Textarea } from '@/components/ui/textarea';
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -167,13 +167,13 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       to_day: "31", // Default to 31st day
       payment_reference: "",
       status: "active",
-      country: currentCountry === 'all' ? 'Switzerland' : currentCountry,
+      country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
     },
   });
 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
-  const isAdmin = userProfile?.role === 'admin'; // Determine if the current user is an admin
+  const isAdmin = userProfile?.role === 'admin';
 
   // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
@@ -271,13 +271,13 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Country</FormLabel>
               <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
-                <FormControl>
-                  <SelectTrigger>
+                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select a country" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
+                  {availableCountries.filter(c => c.value !== 'all').map((country) => ( // Filter out 'All Countries'
                     <SelectItem key={country.value} value={country.value}>
                       {country.label}
                     </SelectItem>
@@ -298,7 +298,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Rent Co." {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                <Input placeholder="e.g., Rent Co." {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -315,7 +315,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   date={field.value}
                   setDate={field.onChange}
                   placeholder="Select start date"
-                  disabled={!isAdmin} // Disabled for non-admins
+                  disabled={!isAdmin}
                 />
               </FormControl>
               <FormMessage />
@@ -329,7 +329,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">SKU</FormLabel>
               <FormControl>
-                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !isAdmin} /> {/* Disabled for non-admins */}
+                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !isAdmin} />
               </FormControl>
               <FormDescription>
                 {notPropertyRelated ? "SKU field is optional as 'Not Property Related' is checked." : `SKU must start with '${formCountry === 'United Kingdom' ? 'UK' : 'CH'}' and be followed by numbers.`}
@@ -347,7 +347,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <Checkbox
                   checked={field.value}
                   onCheckedChange={field.onChange}
-                  disabled={!isAdmin} // Disabled for non-admins
+                  disabled={!isAdmin}
                 />
               </FormControl>
               <div className="space-y-1 leading-none">
@@ -367,9 +367,9 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
-                <FormControl>
-                  <SelectTrigger>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
+                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                 </FormControl>
@@ -393,7 +393,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., John Doe" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                <Input placeholder="e.g., John Doe" {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -419,7 +419,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                         else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                         field.onChange(value);
                       }}
-                      disabled={!isAdmin} // Disabled for non-admins
+                      disabled={!isAdmin}
                     />
                   </FormControl>
                   <FormDescription>
@@ -445,7 +445,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                         if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
                         field.onChange(value);
                       }}
-                      disabled={!isAdmin} // Disabled for non-admins
+                      disabled={!isAdmin}
                     />
                   </FormControl>
                   <FormDescription>
@@ -465,7 +465,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormItem>
                   <FormLabel className="font-semibold">Account Address<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
-                    <Textarea placeholder="e.g., 123 Bank St, City, Country" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                    <Textarea placeholder="e.g., 123 Bank St, City, Country" {...field} disabled={!isAdmin} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -478,7 +478,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormItem>
                   <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., CH9300762011623852957" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                    <Input placeholder="e.g., CH9300762011623852957" {...field} disabled={!isAdmin} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -494,9 +494,9 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period From Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
-                  <FormControl>
-                    <SelectTrigger>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                  <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                    <SelectTrigger id={field.name}>
                       <SelectValue placeholder="Select day" />
                     </SelectTrigger>
                   </FormControl>
@@ -518,9 +518,9 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period To Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
-                  <FormControl>
-                    <SelectTrigger>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                  <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                    <SelectTrigger id={field.name}>
                       <SelectValue placeholder="Select day" />
                     </SelectTrigger>
                   </FormControl>
@@ -545,7 +545,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Payment Reference<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., SO-RENT-001" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                <Input placeholder="e.g., SO-RENT-001" {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -557,9 +557,9 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
-                <FormControl>
-                  <SelectTrigger>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
+                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                 </FormControl>
