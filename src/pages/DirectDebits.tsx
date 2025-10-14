@@ -54,13 +54,31 @@ const DirectDebits = () => {
   const [isEditDirectDebitDialogOpen, setIsEditDirectDebitDialogOpen] = useState(false); // NEW: State for edit dialog
   const [editingDirectDebit, setEditingDirectDebit] = useState<DirectDebit | null>(null); // NEW: State for direct debit being edited
 
-  // Filter states
+  // Filter states (debounced for query)
   const [filterPayee, setFilterPayee] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterPaymentDate, setFilterPaymentDate] = useState<Date | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<DirectDebit['status'] | 'all'>('all');
-  const [filterSku, setFilterSku] = useState<string>(''); // NEW: Filter for SKU
-  const [filterPaymentReference, setFilterPaymentReference] = useState<string>(''); // NEW: Filter for Payment Reference
+  const [filterSku, setFilterSku] = useState<string>('');
+  const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
+
+  // Local states for immediate input feedback
+  const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
+  const [localFilterSku, setLocalFilterSku] = useState<string>('');
+  const [localFilterPaymentReference, setLocalFilterPaymentReference] = useState<string>('');
+
+  // Effect to sync local filter states with actual filter states when they are cleared externally
+  useEffect(() => {
+    setLocalFilterPayee(filterPayee);
+  }, [filterPayee]);
+
+  useEffect(() => {
+    setLocalFilterSku(filterSku);
+  }, [filterSku]);
+
+  useEffect(() => {
+    setLocalFilterPaymentReference(filterPaymentReference);
+  }, [filterPaymentReference]);
 
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof DirectDebit | null>('payment_date');
@@ -173,11 +191,14 @@ const DirectDebits = () => {
 
   const clearFilters = () => {
     setFilterPayee('');
+    setLocalFilterPayee('');
     setFilterCategory('all');
     setFilterPaymentDate(undefined);
     setFilterStatus('all');
-    setFilterSku(''); // Clear new filter
-    setFilterPaymentReference(''); // Clear new filter
+    setFilterSku('');
+    setLocalFilterSku('');
+    setFilterPaymentReference('');
+    setLocalFilterPaymentReference('');
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
@@ -269,20 +290,29 @@ const DirectDebits = () => {
             {isAdmin && <CountrySelector className="w-full" triggerClassName="w-full" />}
             <Input
               placeholder="Filter by Payee"
-              value={filterPayee}
-              onChange={(e) => handleTextFilterChange(setFilterPayee, e.target.value)}
+              value={localFilterPayee}
+              onChange={(e) => {
+                setLocalFilterPayee(e.target.value);
+                handleTextFilterChange(setFilterPayee, e.target.value);
+              }}
               className="w-full shadow-sm"
             />
             <Input
               placeholder="Filter by SKU"
-              value={filterSku}
-              onChange={(e) => handleTextFilterChange(setFilterSku, e.target.value)}
+              value={localFilterSku}
+              onChange={(e) => {
+                setLocalFilterSku(e.target.value);
+                handleTextFilterChange(setFilterSku, e.target.value);
+              }}
               className="w-full shadow-sm"
             />
             <Input
               placeholder="Filter by Payment Reference"
-              value={filterPaymentReference}
-              onChange={(e) => handleTextFilterChange(setFilterPaymentReference, e.target.value)}
+              value={localFilterPaymentReference}
+              onChange={(e) => {
+                setLocalFilterPaymentReference(e.target.value);
+                handleTextFilterChange(setFilterPaymentReference, e.target.value);
+              }}
               className="w-full shadow-sm"
             />
             <Select value={filterCategory} onValueChange={setFilterCategory}>
