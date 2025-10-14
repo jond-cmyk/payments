@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { Banknote, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye } from 'lucide-react'; // Import Eye icon
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
+import { categoryOptions } from '@/lib/constants';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -59,6 +59,8 @@ const DirectDebits = () => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterPaymentDate, setFilterPaymentDate] = useState<Date | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<DirectDebit['status'] | 'all'>('all');
+  const [filterSku, setFilterSku] = useState<string>(''); // NEW: Filter for SKU
+  const [filterPaymentReference, setFilterPaymentReference] = useState<string>(''); // NEW: Filter for Payment Reference
 
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof DirectDebit | null>('payment_date');
@@ -80,7 +82,7 @@ const DirectDebits = () => {
 
   // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
-    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, sortColumn, sortDirection],
+    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection], // Added new filters to queryKey
     queryFn: async () => {
       if (!session) return [];
 
@@ -107,6 +109,12 @@ const DirectDebits = () => {
       }
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus);
+      }
+      if (filterSku) { // NEW: Apply SKU filter
+        query = query.ilike('sku', `%${filterSku}%`);
+      }
+      if (filterPaymentReference) { // NEW: Apply Payment Reference filter
+        query = query.ilike('payment_reference', `%${filterPaymentReference}%`);
       }
 
       // Apply sorting
@@ -168,10 +176,12 @@ const DirectDebits = () => {
     setFilterCategory('all');
     setFilterPaymentDate(undefined);
     setFilterStatus('all');
+    setFilterSku(''); // Clear new filter
+    setFilterPaymentReference(''); // Clear new filter
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all';
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== ''; // Updated hasActiveFilters
 
   const getStatusBadge = (status: DirectDebit['status']) => {
     let className = '';
@@ -263,6 +273,18 @@ const DirectDebits = () => {
               onChange={(e) => handleTextFilterChange(setFilterPayee, e.target.value)}
               className="max-w-xs shadow-sm"
             />
+            <Input // NEW: SKU Filter
+              placeholder="Filter by SKU"
+              value={filterSku}
+              onChange={(e) => handleTextFilterChange(setFilterSku, e.target.value)}
+              className="max-w-xs shadow-sm"
+            />
+            <Input // NEW: Payment Reference Filter
+              placeholder="Filter by Payment Reference"
+              value={filterPaymentReference}
+              onChange={(e) => handleTextFilterChange(setFilterPaymentReference, e.target.value)}
+              className="max-w-xs shadow-sm"
+            />
             <Select value={filterCategory} onValueChange={setFilterCategory}>
               <SelectTrigger className="w-[180px] shadow-sm">
                 <SelectValue placeholder="Filter by Category" />
@@ -326,7 +348,11 @@ const DirectDebits = () => {
                       </div>
                     </TableHead>
                     <TableHead>Account Number</TableHead>
-                    <TableHead>Payment Reference</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_reference')}>
+                      <div className="flex items-center">
+                        Payment Reference {renderSortIcon('payment_reference')}
+                      </div>
+                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('bank_account')}>
                       <div className="flex items-center">
                         Bank Account {renderSortIcon('bank_account')}
@@ -350,7 +376,7 @@ const DirectDebits = () => {
                       </TableCell>
                       <TableCell>{categoryOptions.find(c => c.value === debit.category)?.label || debit.category}</TableCell>
                       <TableCell>{debit.account_number}</TableCell>
-                      <TableCell>{debit.payment_reference}</TableCell>
+                      <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
                       <TableCell>{debit.bank_account || 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">

@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { PaymentRequest } from '@/types/supabase';
-import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling } from 'lucide-react'; // Import PoundSterling
+import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat } from 'lucide-react'; // Import Repeat icon
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 interface DashboardSummaryCardsProps {
@@ -16,6 +16,7 @@ interface DashboardSummaryCardsProps {
     declined: number;
     queried: number;
     missing_receipts: number;
+    pending_standing_orders: number; // NEW: Add pending standing orders count
     total: number;
   };
 }
@@ -24,7 +25,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
   const { currentCountry } = useCountry(); // Get currentCountry from context
 
   // Helper to get card specific styling based on status
-  const getCardStyling = (status: PaymentRequest['status'] | 'missing_receipts') => {
+  const getCardStyling = (status: PaymentRequest['status'] | 'missing_receipts' | 'pending_standing_orders') => { // Updated type
     switch (status) {
       case 'pending':
         return {
@@ -86,6 +87,16 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
           statusValue: 'missing_receipts',
           link: `/missing-receipts`,
         };
+      case 'pending_standing_orders': // NEW: Card for pending standing orders
+        return {
+          borderClass: 'border-purple-500',
+          textClass: 'text-purple-600',
+          icon: <Repeat className="h-4 w-4" />,
+          title: 'Pending Standing Orders',
+          description: 'Standing orders awaiting approval',
+          statusValue: 'pending_standing_orders',
+          link: `/standing-orders?status=pending`,
+        };
       default:
         return {
           borderClass: 'border-gray-300',
@@ -102,7 +113,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
       {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
-        const status = statusKey as PaymentRequest['status'] | 'missing_receipts';
+        const status = statusKey as PaymentRequest['status'] | 'missing_receipts' | 'pending_standing_orders'; // Updated type
         const { borderClass, textClass, icon, title, description, link } = getCardStyling(status);
         return (
           <Link key={status} to={link} className="block">

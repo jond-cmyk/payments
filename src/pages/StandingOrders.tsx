@@ -58,6 +58,8 @@ const StandingOrders = () => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterPaymentDate, setFilterPaymentDate] = useState<Date | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<StandingOrder['status'] | 'all'>('all');
+  const [filterSku, setFilterSku] = useState<string>(''); // NEW: Filter for SKU
+  const [filterPaymentReference, setFilterPaymentReference] = useState<string>(''); // NEW: Filter for Payment Reference
 
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof StandingOrder | null>('payment_date');
@@ -79,7 +81,7 @@ const StandingOrders = () => {
 
   // Fetch Standing Orders
   const { data: standingOrders, isLoading: isStandingOrdersLoading, error: standingOrdersError } = useQuery<StandingOrder[]>({
-    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, sortColumn, sortDirection],
+    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection], // Added new filters to queryKey
     queryFn: async () => {
       if (!session) return [];
 
@@ -106,6 +108,12 @@ const StandingOrders = () => {
       }
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus);
+      }
+      if (filterSku) { // NEW: Apply SKU filter
+        query = query.ilike('sku', `%${filterSku}%`);
+      }
+      if (filterPaymentReference) { // NEW: Apply Payment Reference filter
+        query = query.ilike('payment_reference', `%${filterPaymentReference}%`);
       }
 
       // Apply sorting
@@ -167,10 +175,12 @@ const StandingOrders = () => {
     setFilterCategory('all');
     setFilterPaymentDate(undefined);
     setFilterStatus('all');
+    setFilterSku(''); // Clear new filter
+    setFilterPaymentReference(''); // Clear new filter
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all';
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== ''; // Updated hasActiveFilters
 
   const getStatusBadge = (status: StandingOrder['status']) => {
     let className = '';
@@ -183,6 +193,9 @@ const StandingOrders = () => {
         break;
       case 'cancelled':
         className = 'bg-red-500 text-red-50';
+        break;
+      case 'pending': // NEW: Style for pending status
+        className = 'bg-orange-500 text-orange-50';
         break;
       default:
         className = 'bg-gray-500 text-gray-50';
@@ -197,6 +210,7 @@ const StandingOrders = () => {
   const handleStandingOrderAdded = () => {
     setIsAddStandingOrderDialogOpen(false);
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate new dashboard table
   };
 
   const handleEditClick = (standingOrder: StandingOrder) => {
@@ -209,6 +223,7 @@ const StandingOrders = () => {
     setEditingStandingOrder(null);
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
     queryClient.invalidateQueries({ queryKey: ['standingOrder', editingStandingOrder?.id] }); // Invalidate detail page query
+    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate new dashboard table
   };
 
   if (isSessionLoading || isStandingOrdersLoading) {
@@ -235,7 +250,7 @@ const StandingOrders = () => {
             </CardTitle>
             <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="shadow-sm" disabled={!isAdmin}> {/* Disabled for non-admins */}
+                <Button className="shadow-sm"> {/* Enabled for all authenticated users */}
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Standing Order
                 </Button>
               </DialogTrigger>
@@ -260,6 +275,18 @@ const StandingOrders = () => {
               placeholder="Filter by Payee"
               value={filterPayee}
               onChange={(e) => handleTextFilterChange(setFilterPayee, e.target.value)}
+              className="max-w-xs shadow-sm"
+            />
+            <Input // NEW: SKU Filter
+              placeholder="Filter by SKU"
+              value={filterSku}
+              onChange={(e) => handleTextFilterChange(setFilterSku, e.target.value)}
+              className="max-w-xs shadow-sm"
+            />
+            <Input // NEW: Payment Reference Filter
+              placeholder="Filter by Payment Reference"
+              value={filterPaymentReference}
+              onChange={(e) => handleTextFilterChange(setFilterPaymentReference, e.target.value)}
               className="max-w-xs shadow-sm"
             />
             <Select value={filterCategory} onValueChange={setFilterCategory}>
@@ -287,6 +314,7 @@ const StandingOrders = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem> {/* Added pending status */}
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -335,7 +363,11 @@ const StandingOrders = () => {
                         Accruals Period {renderSortIcon('from_day')}
                       </div>
                     </TableHead>
-                    <TableHead>Payment Reference</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_reference')}>
+                      <div className="flex items-center">
+                        Payment Reference {renderSortIcon('payment_reference')}
+                      </div>
+                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}

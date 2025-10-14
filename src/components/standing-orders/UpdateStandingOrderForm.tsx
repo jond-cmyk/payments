@@ -41,7 +41,7 @@ const updateStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().min(1, "Payment Reference is required."),
-  status: z.enum(['active', 'cancelled', 'paused'], {
+  status: z.enum(['active', 'cancelled', 'paused', 'pending'], { // Added 'pending' to enum
     required_error: "Status is required.",
   }).default('active'),
   country: z.string().min(1, "Country is required."),
@@ -533,6 +533,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -542,13 +543,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
-          <Edit className="mr-2 h-4 w-4" />
-          {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
         </Button>
       </form>
     </Form>
   );
 };
 
-export default UpdateStandingOrderForm;
+export default AddStandingOrderForm;

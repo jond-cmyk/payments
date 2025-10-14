@@ -10,13 +10,13 @@ import { Card } from '@/components/ui/card';
 import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { PaymentRequest, Transaction } from '@/types/supabase';
+import { PaymentRequest, Transaction, StandingOrder } from '@/types/supabase'; // Import StandingOrder
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 
 // Define a union type for search results
-type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
+type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }); // Added StandingOrder
 
 interface GlobalSearchSectionProps {
   onSearchTermChange: (term: string) => void;
@@ -98,13 +98,36 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
           }) as Promise<SearchResult[]>
       );
 
+      // NEW: Base query for standing orders
+      let standingOrderQuery = supabase
+          .from('standing_orders')
+          .select('*')
+          .or(`payee.ilike.${term},sku.ilike.${term},account_name.ilike.${term},account_address.ilike.${term},iban_number.ilike.${term},sort_code.ilike.${term},account_number.ilike.${term},payment_reference.ilike.${term},category.ilike.${term}`);
+
+      // Apply country filter for standing orders
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        standingOrderQuery = standingOrderQuery.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        standingOrderQuery = standingOrderQuery.eq('country', currentCountry);
+      }
+
+      searchPromises.push(
+        standingOrderQuery.then(({ data, error }) => {
+            if (error) {
+              console.error("Error searching standing orders:", error);
+              return [];
+            }
+            return data ? data.map(item => ({ ...item, type: 'standing_order' })) : [];
+          }) as Promise<SearchResult[]>
+      );
+
       const results = await Promise.all(searchPromises);
       return results.flat();
     },
     enabled: !!debouncedSearchTerm && !!session,
   });
 
-  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status']) => {
+  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status']) => { // Updated to include StandingOrder status
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
     let className = '';
 
@@ -127,6 +150,11 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
         break;
       case 'queried':
         className = 'bg-gray-500 text-gray-50';
+        break;
+      // NEW: Standing Order pending status
+      case 'pending':
+        displayText = 'Pending';
+        className = 'bg-orange-500 text-orange-50';
         break;
       default:
         className = 'bg-gray-500 text-gray-50';

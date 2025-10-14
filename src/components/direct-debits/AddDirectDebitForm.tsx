@@ -29,7 +29,7 @@ const addDirectDebitFormSchema = z.object({
   not_property_related: z.boolean().default(false),
   category: z.string().min(1, "Category is required."),
   account_number: z.string().min(1, "Account Number is required."),
-  payment_reference: z.string().min(1, "Payment Reference is required."),
+  payment_reference: z.string().optional(), // Made optional
   status: z.enum(['active', 'cancelled', 'paused'], {
     required_error: "Status is required.",
   }).default('active'),
@@ -87,7 +87,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       not_property_related: false,
       category: "",
       account_number: "",
-      payment_reference: "",
+      payment_reference: "", // Ensure default is empty string for optional field
       status: "active",
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
       bank_account: undefined, // NEW: Default value for bank_account
@@ -126,7 +126,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           not_property_related: values.not_property_related,
           category: values.category,
           account_number: values.account_number,
-          payment_reference: values.payment_reference,
+          payment_reference: values.payment_reference || null, // Store null if empty string
           status: values.status,
           country: values.country,
           bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
@@ -145,7 +145,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         not_property_related: false,
         category: "",
         account_number: "",
-        payment_reference: "",
+        payment_reference: "", // NEW: Reset payment_reference to empty string
         status: "active",
         country: formCountry,
         bank_account: undefined, // NEW: Reset bank_account
@@ -319,7 +319,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           name="payment_reference"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-semibold">Payment Reference<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormLabel className="font-semibold">Payment Reference</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., DD-12345" {...field} />
               </FormControl>

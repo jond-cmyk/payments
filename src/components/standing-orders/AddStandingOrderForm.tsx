@@ -40,9 +40,9 @@ const addStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().min(1, "Payment Reference is required."),
-  status: z.enum(['active', 'cancelled', 'paused'], {
+  status: z.enum(['active', 'cancelled', 'paused', 'pending'], { // Added 'pending' to enum
     required_error: "Status is required.",
-  }).default('active'),
+  }).default('pending'), // Default to 'pending'
   country: z.string().min(1, "Country is required."),
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
@@ -166,14 +166,14 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       from_day: "1", // Default to 1st day
       to_day: "31", // Default to 31st day
       payment_reference: "",
-      status: "active",
+      status: "pending", // Default to 'pending'
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
     },
   });
 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
-  const isAdmin = userProfile?.role === 'admin';
+  const isAdmin = userProfile?.role === 'admin'; // Determine if the current user is an admin
 
   // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
@@ -250,7 +250,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         from_day: "1",
         to_day: "31",
         payment_reference: "",
-        status: "active",
+        status: "pending", // Reset to 'pending'
         country: formCountry,
       });
       onStandingOrderAdded();
@@ -298,7 +298,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Rent Co." {...field} disabled={!isAdmin} />
+                <Input placeholder="e.g., Rent Co." {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -315,7 +315,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   date={field.value}
                   setDate={field.onChange}
                   placeholder="Select start date"
-                  disabled={!isAdmin}
                 />
               </FormControl>
               <FormMessage />
@@ -329,7 +328,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">SKU</FormLabel>
               <FormControl>
-                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !isAdmin} />
+                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -344,7 +343,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <Checkbox
                   checked={field.value}
                   onCheckedChange={field.onChange}
-                  disabled={!isAdmin}
                 />
               </FormControl>
               <div className="space-y-1 leading-none">
@@ -364,7 +362,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
+              <Select onValueChange={field.onChange} defaultValue={field.value}>
                 <SelectTrigger id={field.name}>
                   <FormControl>
                     <SelectValue placeholder="Select a category" />
@@ -390,7 +388,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., John Doe" {...field} disabled={!isAdmin} />
+                <Input placeholder="e.g., John Doe" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -416,7 +414,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                         else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                         field.onChange(value);
                       }}
-                      disabled={!isAdmin}
                     />
                   </FormControl>
                   <FormDescription>
@@ -442,7 +439,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                         if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
                         field.onChange(value);
                       }}
-                      disabled={!isAdmin}
                     />
                   </FormControl>
                   <FormDescription>
@@ -462,7 +458,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormItem>
                   <FormLabel className="font-semibold">Account Address<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
-                    <Textarea placeholder="e.g., 123 Bank St, City, Country" {...field} disabled={!isAdmin} />
+                    <Textarea placeholder="e.g., 123 Bank St, City, Country" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -475,7 +471,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormItem>
                   <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., CH9300762011623852957" {...field} disabled={!isAdmin} />
+                    <Input placeholder="e.g., CH9300762011623852957" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -491,7 +487,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period From Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <SelectTrigger id={field.name}>
                     <FormControl>
                       <SelectValue placeholder="Select day" />
@@ -515,7 +511,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period To Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <SelectTrigger id={field.name}>
                     <FormControl>
                       <SelectValue placeholder="Select day" />
@@ -542,7 +538,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Payment Reference<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., SO-RENT-001" {...field} disabled={!isAdmin} />
+                <Input placeholder="e.g., SO-RENT-001" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -554,23 +550,27 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}> {/* Only admins can change status */}
                 <SelectTrigger id={field.name}>
                   <FormControl>
                     <SelectValue placeholder="Select status" />
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
+              <FormDescription>
+                {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Pending' by default and can only be changed by an administrator."}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
           <PlusCircle className="mr-2 h-4 w-4" />
           {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
         </Button>

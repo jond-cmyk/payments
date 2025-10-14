@@ -30,7 +30,7 @@ const editDirectDebitFormSchema = z.object({
   not_property_related: z.boolean().default(false),
   category: z.string().min(1, "Category is required."),
   account_number: z.string().min(1, "Account Number is required."),
-  payment_reference: z.string().min(1, "Payment Reference is required."),
+  payment_reference: z.string().optional(), // Made optional
   status: z.enum(['active', 'cancelled', 'paused'], {
     required_error: "Status is required.",
   }).default('active'),
@@ -88,7 +88,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
       not_property_related: directDebit.not_property_related,
       category: directDebit.category,
       account_number: directDebit.account_number,
-      payment_reference: directDebit.payment_reference,
+      payment_reference: directDebit.payment_reference || "", // Ensure default is empty string for optional field
       status: directDebit.status,
       country: directDebit.country,
       bank_account: directDebit.bank_account || undefined,
@@ -116,7 +116,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           not_property_related: values.not_property_related,
           category: values.category,
           account_number: values.account_number,
-          payment_reference: values.payment_reference,
+          payment_reference: values.payment_reference || null, // Store null if empty string
           status: values.status,
           country: values.country,
           bank_account: values.country === 'Switzerland' ? values.bank_account : null,
@@ -302,7 +302,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           name="payment_reference"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-semibold">Payment Reference<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormLabel className="font-semibold">Payment Reference</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., DD-12345" {...field} disabled={!isAdmin} />
               </FormControl>

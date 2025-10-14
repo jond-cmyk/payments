@@ -12,10 +12,11 @@ import { cn } from '@/lib/utils';
 import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
 import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
 import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
+import PendingStandingOrderTable from '@/components/dashboard/PendingStandingOrderTable'; // NEW: Import PendingStandingOrderTable
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
-import { PaymentRequest, Profile, Transaction } from '@/types/supabase';
+import { PaymentRequest, Profile, Transaction, StandingOrder } from '@/types/supabase'; // Import StandingOrder
 import { format } from 'date-fns';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
@@ -120,6 +121,28 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     enabled: !!session && !debouncedSearchTerm,
   });
 
+  // NEW: Fetch count of pending standing orders for summary card
+  const allPendingStandingOrdersCountForSummaryQuery = useQuery<number>({
+    queryKey: ['allPendingStandingOrdersCountForSummary', currentCountry],
+    queryFn: async () => {
+      let query = supabase
+        .from('standing_orders')
+        .select('id', { count: 'exact' })
+        .eq('status', 'pending');
+
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!session && !debouncedSearchTerm,
+  });
+
   // Calculate counts for summary cards
   const counts = useMemo(() => {
     const initialCounts = {
@@ -129,6 +152,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       declined: 0,
       queried: 0,
       missing_receipts: allMissingReceiptsCountForSummaryQuery.data || 0,
+      pending_standing_orders: allPendingStandingOrdersCountForSummaryQuery.data || 0, // NEW: Add pending standing orders count
       total: 0,
     };
 
@@ -141,7 +165,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       });
     }
     return initialCounts;
-  }, [allPaymentRequestsForSummaryQuery.data, allMissingReceiptsCountForSummaryQuery.data]);
+  }, [allPaymentRequestsForSummaryQuery.data, allMissingReceiptsCountForSummaryQuery.data, allPendingStandingOrdersCountForSummaryQuery.data]); // Added new dependency
 
   // Fetch all user profiles for the requester dropdown filter
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
@@ -296,7 +320,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
 
   const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== 'all' || filterRequester !== 'all';
 
-  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status']) => {
+  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status']) => { // Updated to include StandingOrder status
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
     let className = '';
 
@@ -320,13 +344,18 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       case 'queried':
         className = 'bg-gray-500 text-gray-50';
         break;
+      // NEW: Standing Order pending status
+      case 'pending':
+        displayText = 'Pending';
+        className = 'bg-orange-500 text-orange-50';
+        break;
       default:
         className = 'bg-gray-500 text-gray-50';
     }
     return <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>{displayText}</Badge>;
   };
 
-  if (allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || isRequestsTableLoading || (isAllRequestsPage && isProfilesLoading)) {
+  if (allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || allPendingStandingOrdersCountForSummaryQuery.isLoading || isRequestsTableLoading || (isAllRequestsPage && isProfilesLoading)) { // Added new query to loading check
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard content...</div>;
   }
 
@@ -391,6 +420,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
           No priority payment requests found.
         </p>
       )}
+
+      {/* NEW: Pending Standing Orders Table, shown only on dashboard and if there are pending orders */}
+      {!isAllRequestsPage && <PendingStandingOrderTable />}
     </>
   );
 };

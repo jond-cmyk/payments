@@ -13,16 +13,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { PaymentRequest, Transaction } from '@/types/supabase';
+import { PaymentRequest, Transaction, StandingOrder } from '@/types/supabase'; // Import StandingOrder
 import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
 
 // Define a union type for search results
-type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' });
+type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }); // Added StandingOrder
 
 interface GlobalSearchResultsTableProps {
   searchResults: SearchResult[] | undefined;
   debouncedSearchTerm: string;
-  getStatusBadge: (status: PaymentRequest['status'] | Transaction['status']) => React.ReactNode;
+  getStatusBadge: (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status']) => React.ReactNode; // Updated type
 }
 
 const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
@@ -42,7 +42,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
         <TableHeader>
           <TableRow>
             <TableHead>Type</TableHead>
-            <TableHead>Description / Supplier</TableHead>
+            <TableHead>Description / Supplier / Payee</TableHead> {/* Updated header */}
             <TableHead>Amount</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Date</TableHead>
@@ -58,20 +58,23 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
             >
               <TableCell>
                 <Badge variant="outline" className="bg-gray-100 text-gray-800">
-                  {item.type === 'payment_request' ? 'Payment Request' : 'Missing Receipt'}
+                  {item.type === 'payment_request' ? 'Payment Request' : item.type === 'transaction' ? 'Missing Receipt' : 'Standing Order'} {/* Updated display */}
                 </Badge>
               </TableCell>
               <TableCell className="font-medium">
-                {item.type === 'payment_request' ? item.supplier_name : item.description}
+                {item.type === 'payment_request' ? item.supplier_name : item.type === 'transaction' ? item.description : item.payee} {/* Conditional display */}
               </TableCell>
               <TableCell>
-                {item.currency} {item.type === 'payment_request' ? item.payment_amount?.toFixed(2) : item.amount.toFixed(2)}
+                {/* Amount is not directly available for StandingOrder, display N/A or specific info */}
+                {item.type === 'payment_request' ? `${item.currency} ${item.payment_amount?.toFixed(2)}` :
+                 item.type === 'transaction' ? `${item.currency} ${item.amount.toFixed(2)}` :
+                 'N/A'}
               </TableCell>
               <TableCell>
                 {getStatusBadge(item.status)}
               </TableCell>
               <TableCell>
-                {format(new Date(item.type === 'payment_request' ? item.date_payment_required : item.transaction_date), 'PPP')}
+                {format(new Date(item.type === 'payment_request' ? item.date_payment_required : item.payment_date), 'PPP')} {/* Conditional date */}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">
@@ -81,7 +84,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
               </TableCell>
               <TableCell className="text-right">
                 <Button asChild variant="outline" size="sm">
-                  <Link to={item.type === 'payment_request' ? `/request/${item.id}` : `/transaction/${item.id}`}>
+                  <Link to={item.type === 'payment_request' ? `/request/${item.id}` : item.type === 'transaction' ? `/transaction/${item.id}` : `/standing-order/${item.id}`}> {/* Conditional link */}
                     View Details
                   </Link>
                 </Button>
