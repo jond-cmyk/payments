@@ -546,12 +546,12 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
           )}
         />
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}> {/* Disabled for non-admins */}
-          <Edit className="mr-2 h-4 w-4" />
-          {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
+          <PlusCircle className="mr-2 h-4 w-4" />
+          {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
         </Button>
       </form>
     </Form>
   );
 };
 
-export default EditStandingOrderForm;
+export default AddStandingOrderForm;
