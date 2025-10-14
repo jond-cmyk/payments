@@ -40,8 +40,8 @@ const updateStandingOrderFormSchema = z.object({
   account_number: z.string().optional(),
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
-  payment_reference: z.string().min(1, "Payment Reference is required."),
-  status: z.enum(['active', 'cancelled', 'paused', 'pending'], { // Added 'pending' to enum
+  payment_reference: z.string().optional(), // Changed to optional()
+  status: z.enum(['active', 'cancelled', 'paused', 'pending'], {
     required_error: "Status is required.",
   }).default('active'),
   country: z.string().min(1, "Country is required."),
@@ -212,7 +212,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           ...bankDetails,
           from_day: parseInt(values.from_day),
           to_day: parseInt(values.to_day),
-          payment_reference: values.payment_reference,
+          payment_reference: values.payment_reference || null, // Store null if empty string
           status: values.status,
           country: values.country,
           updated_at: new Date().toISOString(),
@@ -512,7 +512,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           name="payment_reference"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-semibold">Payment Reference<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormLabel className="font-semibold">Payment Reference</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., SO-RENT-001" {...field} disabled={!isAdmin} />
               </FormControl>
