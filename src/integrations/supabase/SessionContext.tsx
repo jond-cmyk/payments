@@ -28,7 +28,8 @@ const fetchUserProfile = async (userId: string) => {
     console.error("SessionContext: Error fetching user profile:", error);
     return null;
   }
-  console.log(`[SessionContext] Fetched profile for user ${userId}:`, data); // NEW LOG
+  console.log(`[SessionContext] Fetched profile for user ${userId}:`, data);
+  console.log(`[SessionContext] Profile is_approved for user ${userId}: ${data?.is_approved}`); // --- NEW LOG ---
   return data;
 };
 

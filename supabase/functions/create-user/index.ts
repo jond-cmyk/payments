@@ -32,6 +32,10 @@ serve(async (req) => {
       });
     }
 
+    // --- NEW LOG: Verify is_approved value received from client ---
+    console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
+    // --- END NEW LOG ---
+
     // 1. Create user in Supabase Auth using admin privileges
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
@@ -78,6 +82,9 @@ serve(async (req) => {
     }
     console.log(`Edge Function: User email confirmed for ${authData.user.id}. Updated email_confirmed_at: ${updatedAuthData.user?.email_confirmed_at}`);
 
+    // --- NEW LOG: Confirm values before profile update ---
+    console.log(`Edge Function: Attempting to update public.profiles for user ${authData.user.id} with role: ${role}, is_approved: ${is_approved}, country: ${country}`);
+    // --- END NEW LOG ---
 
     // 2. Update the user's profile with the selected role, approval status, and country
     // The handle_new_user trigger creates a default profile, we then update it.
@@ -85,7 +92,7 @@ serve(async (req) => {
       .from('profiles')
       .update({
         role: role,
-        is_approved: is_approved,
+        is_approved: is_approved, // This is the value from the form
         first_name: first_name,
         last_name: last_name,
         country: country, // Set the country
