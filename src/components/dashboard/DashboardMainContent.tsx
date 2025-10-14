@@ -207,8 +207,11 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       }
       // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
-      // Define common statuses for the main dashboard and 'All Requests' page
-      const activeStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'queried'];
+      // Define all possible statuses for the 'All Requests' page when filterStatus is 'all'
+      const allPossibleStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'approved', 'declined', 'queried'];
+      // Define common active statuses for the main dashboard
+      const activeDashboardStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'queried'];
+
 
       if (isAllRequestsPage) {
         // Admin's 'All Requests' page: apply filters
@@ -221,7 +224,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         if (filterStatus !== 'all') {
           query = query.eq('status', filterStatus);
         } else {
-          query = query.in('status', activeStatuses); // Show all active statuses if 'all' is selected
+          // FIX: When filterStatus is 'all', include all possible statuses
+          query = query.in('status', allPossibleStatuses); 
         }
         if (filterDatePaymentRequired) {
           query = query.gte('date_payment_required', format(filterDatePaymentRequired, 'yyyy-MM-dd'));
@@ -231,7 +235,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         }
       } else { // This is the main dashboard view (for both requester and admin)
         // Filter by active statuses AND (is_urgent OR is_reminded)
-        query = query.in('status', activeStatuses)
+        query = query.in('status', activeDashboardStatuses)
                      .or('is_urgent.eq.true,is_reminded.eq.true');
 
         // REMOVED: The requester_id filter for requesters on the main dashboard
