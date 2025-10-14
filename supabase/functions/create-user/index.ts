@@ -34,11 +34,12 @@ serve(async (req) => {
     console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 1. Create user in Supabase Auth using admin privileges
-    // We set email_confirm: false here, and will explicitly set email_confirmed_at later if approved.
+    // Set email_confirm based on the is_approved flag.
+    // If is_approved is true, email_confirmed_at should be set on creation.
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: false, // Do not send confirmation email
+      email_confirm: is_approved, // Directly use is_approved to set email_confirmed_at
       user_metadata: {
         first_name: first_name,
         last_name: last_name,
@@ -61,30 +62,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Edge Function: User created with ID: ${authData.user.id}. Initial email_confirmed_at: ${authData.user.email_confirmed_at}`);
-
-    // If the user is approved immediately, explicitly set email_confirmed_at
-    if (is_approved) {
-      console.log(`Edge Function: User ${authData.user.id} is approved. Attempting to set email_confirmed_at.`);
-      const { data: updateAuthUser, error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
-        authData.user.id,
-        { email_confirmed_at: new Date().toISOString() }
-      );
-
-      if (updateAuthError) {
-        console.error('Edge Function: Error explicitly confirming user email in auth:', updateAuthError);
-        await supabaseAdminClient.auth.admin.deleteUser(authData.user.id); // Rollback
-        return new Response(JSON.stringify({ error: `Failed to confirm user email: ${updateAuthError.message}. User creation rolled back.` }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      console.log(`Edge Function: User email confirmed for ${authData.user.id}. Updated auth.users.email_confirmed_at: ${updateAuthUser?.user?.email_confirmed_at}`);
-    } else {
-      console.log(`Edge Function: User ${authData.user.id} is NOT approved. Leaving email_confirmed_at as null.`);
-    }
-
-    console.log(`Edge Function: Attempting to update public.profiles for user ${authData.user.id} with role: ${role}, is_approved: ${is_approved}, country: ${country}`);
+    console.log(`Edge Function: User created with ID: ${authData.user.id}. auth.users.email_confirmed_at: ${authData.user.email_confirmed_at}`);
 
     // 2. Update the user's profile with the selected role, approval status, and country
     // The handle_new_user trigger creates a default profile, we then update it.
