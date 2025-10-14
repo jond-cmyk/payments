@@ -245,8 +245,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
               <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                 <FormControl>
                   <SelectTrigger>
-                    {/* Replaced SelectValue with a simple span for debugging */}
-                    <span>{availableCountries.find(c => c.value === field.value)?.label || "Select a country"}</span>
+                    <SelectValue placeholder="Select a country" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -343,8 +342,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
                 <FormControl>
                   <SelectTrigger>
-                    {/* Replaced SelectValue with a simple span for debugging */}
-                    <span>{categoryOptions.find(c => c.value === field.value)?.label || "Select a category"}</span>
+                    <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -471,8 +469,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                   <FormControl>
                     <SelectTrigger>
-                      {/* Replaced SelectValue with a simple span for debugging */}
-                      <span>{field.value || "Select day"}</span>
+                      <SelectValue placeholder="Select day" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -496,8 +493,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                   <FormControl>
                     <SelectTrigger>
-                      {/* Replaced SelectValue with a simple span for debugging */}
-                      <span>{field.value || "Select day"}</span>
+                      <SelectValue placeholder="Select day" />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -536,8 +532,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
                 <FormControl>
                   <SelectTrigger>
-                    {/* Replaced SelectValue with a simple span for debugging */}
-                    <span>{field.value || "Select status"}</span>
+                    <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
