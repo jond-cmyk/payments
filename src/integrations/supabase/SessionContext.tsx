@@ -13,6 +13,9 @@ interface SessionContextType {
   userProfile: Profile | null; // Add userProfile to context
 }
 
+// Create the context
+const SessionContext = createContext<SessionContextType | undefined>(undefined);
+
 // Function to fetch user profile
 const fetchUserProfile = async (userId: string) => {
   const { data, error } = await supabase
@@ -116,4 +119,12 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       {children}
     </SessionContext.Provider>
   );
+};
+
+export const useSession = () => {
+  const context = useContext(SessionContext);
+  if (context === undefined) {
+    throw new Error('useSession must be used within a SessionContextProvider');
+  }
+  return context;
 };
