@@ -22,41 +22,49 @@ const defaultAvailableCountries = [
 
 export const CountryProvider = ({ children }: { children: React.ReactNode }) => {
   const { userProfile, isLoading: isSessionLoading } = useSession();
-  const [currentCountry, setCurrentCountryState] = useState<string>(() => {
-    // Initialize from localStorage or default to 'Switzerland'
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('currentCountry') || 'Switzerland';
-    }
-    return 'Switzerland';
-  });
+  // Initialize currentCountry to an empty string, let useEffect set the actual value
+  const [currentCountry, setCurrentCountryState] = useState<string>('');
   const [isCountryLocked, setIsCountryLocked] = useState(false);
 
-  // Update currentCountry in localStorage whenever it changes
+  // Effect to set initial country based on user role and profile
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (!isSessionLoading) {
+      if (userProfile) {
+        if (userProfile.role === 'requester' && userProfile.country) {
+          // Requester is locked to their assigned country
+          setCurrentCountryState(userProfile.country);
+          localStorage.setItem('currentCountry', userProfile.country); // Ensure requester's country is always in local storage
+          setIsCountryLocked(true);
+        } else if (userProfile.role === 'admin') {
+          // Admin logic: Default to 'all' on login, overriding any specific country left by a requester.
+          // If 'all' was explicitly stored by an admin, respect that.
+          const storedCountry = localStorage.getItem('currentCountry');
+          if (storedCountry === 'all') {
+            setCurrentCountryState('all');
+          } else {
+            // This covers cases where storedCountry is null/undefined or a specific country (e.g., 'Switzerland')
+            // For admins, we always default to 'all' on login if not already 'all'.
+            setCurrentCountryState('all');
+            localStorage.setItem('currentCountry', 'all'); // Persist this 'all' default
+          }
+          setIsCountryLocked(false); // Admins are NOT locked to a country
+        }
+      } else {
+        // If no user profile (e.g., not logged in or profile error), default to Switzerland
+        setCurrentCountryState('Switzerland');
+        localStorage.setItem('currentCountry', 'Switzerland'); // Persist this default
+        setIsCountryLocked(false); // Allow selection if no user is logged in (e.g., for testing)
+      }
+    }
+  }, [isSessionLoading, userProfile]);
+
+  // This effect ensures that any *subsequent* changes to currentCountry (via handleSetCurrentCountry)
+  // are persisted to localStorage.
+  useEffect(() => {
+    if (currentCountry) { // Only save if currentCountry is not empty
       localStorage.setItem('currentCountry', currentCountry);
     }
   }, [currentCountry]);
-
-  // Logic to set initial country based on user role and profile
-  useEffect(() => {
-    if (!isSessionLoading && userProfile) {
-      if (userProfile.role === 'requester' && userProfile.country) {
-        // Requester is locked to their assigned country
-        setCurrentCountryState(userProfile.country);
-        setIsCountryLocked(true);
-      } else if (userProfile.role === 'admin') {
-        // Admin can select, default to localStorage or 'all' if not set
-        const storedCountry = localStorage.getItem('currentCountry');
-        setCurrentCountryState(storedCountry || 'all'); // Admins default to 'all' if no country is stored
-        setIsCountryLocked(false); // Admins are NOT locked to a country
-      }
-    } else if (!isSessionLoading && !userProfile) {
-      // If no user profile (e.g., not logged in or profile error), default to Switzerland
-      setCurrentCountryState('Switzerland');
-      setIsCountryLocked(false); // Allow selection if no user is logged in (e.g., for testing)
-    }
-  }, [isSessionLoading, userProfile]);
 
   // Wrapper for setCurrentCountryState to respect isCountryLocked for requesters
   const handleSetCurrentCountry = useCallback((country: string) => {
