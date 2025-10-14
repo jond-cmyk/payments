@@ -243,11 +243,11 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Country</FormLabel>
               <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                <FormControl>
-                  <SelectTrigger>
+                <SelectTrigger id={field.name}> {/* Added id for accessibility */}
+                  <FormControl> {/* FormControl wraps SelectValue directly */}
                     <SelectValue placeholder="Select a country" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   {availableCountries.filter(c => c.value !== 'all').map((country) => (
                     <SelectItem key={country.value} value={country.value}>
@@ -340,11 +340,11 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <FormControl>
-                  <SelectTrigger>
+                <SelectTrigger id={field.name}> {/* Added id for accessibility */}
+                  <FormControl> {/* FormControl wraps SelectValue directly */}
                     <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   {categoryOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
@@ -467,11 +467,11 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period From Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                  <FormControl>
-                    <SelectTrigger>
+                  <SelectTrigger id={field.name}> {/* Added id for accessibility */}
+                    <FormControl> {/* FormControl wraps SelectValue directly */}
                       <SelectValue placeholder="Select day" />
-                    </SelectTrigger>
-                  </FormControl>
+                    </FormControl>
+                  </SelectTrigger>
                   <SelectContent>
                     {daysOfMonth.map((day) => (
                       <SelectItem key={day} value={day}>
@@ -491,11 +491,11 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period To Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                  <FormControl>
-                    <SelectTrigger>
+                  <SelectTrigger id={field.name}> {/* Added id for accessibility */}
+                    <FormControl> {/* FormControl wraps SelectValue directly */}
                       <SelectValue placeholder="Select day" />
-                    </SelectTrigger>
-                  </FormControl>
+                    </FormControl>
+                  </SelectTrigger>
                   <SelectContent>
                     {daysOfMonth.map((day) => (
                       <SelectItem key={day} value={day}>
@@ -530,31 +530,28 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <FormControl>
-                  <SelectTrigger>
+                <SelectTrigger id={field.name}> {/* Added id for accessibility */}
+                  <FormControl> {/* FormControl wraps SelectValue directly */}
                     <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
-              <FormDescription>
-                {isAdmin ? "Select the current status of this standing order." : "Only administrators can change the status."}
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
-          <Edit className="mr-2 h-4 w-4" />
-          {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}> {/* Disabled for non-admins */}
+          <PlusCircle className="mr-2 h-4 w-4" />
+          {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
         </Button>
       </form>
     </Form>
   );
 };
 
-export default EditStandingOrderForm;
+export default AddStandingOrderForm;
