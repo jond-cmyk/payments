@@ -147,12 +147,12 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Country</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Only admin can change country */}
-                <FormControl> {/* Corrected: FormControl without asChild */}
-                  <SelectTrigger id={field.name}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                <SelectTrigger id={field.name}>
+                  <FormControl>
                     <SelectValue placeholder="Select a country" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   {availableCountries.filter(c => c.value !== 'all').map((country) => (
                     <SelectItem key={country.value} value={country.value}>
@@ -175,7 +175,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             <FormItem>
               <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Electricity Company" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                <Input placeholder="e.g., Electricity Company" {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -209,9 +209,6 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <FormControl>
                 <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !isAdmin} />
               </FormControl>
-              <FormDescription>
-                {notPropertyRelated ? "SKU field is optional as 'Not Property Related' is checked." : `SKU must start with '${formCountry === 'United Kingdom' ? 'UK' : 'CH'}' and be followed by numbers.`}
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -246,11 +243,11 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <FormControl> {/* Corrected: FormControl without asChild */}
-                  <SelectTrigger id={field.name}>
+                <SelectTrigger id={field.name}>
+                  <FormControl>
                     <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   {categoryOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
@@ -271,11 +268,11 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <FormItem>
                 <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                  <FormControl> {/* Corrected: FormControl without asChild */}
-                    <SelectTrigger id={field.name}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
                       <SelectValue placeholder="Select a bank account" />
-                    </SelectTrigger>
-                  </FormControl>
+                    </FormControl>
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
                     <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
@@ -320,11 +317,11 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <FormControl> {/* Corrected: FormControl without asChild */}
-                  <SelectTrigger id={field.name}>
+                <SelectTrigger id={field.name}>
+                  <FormControl>
                     <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
@@ -339,7 +336,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           )}
         />
         
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}> {/* Disabled for non-admins */}
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
           <Edit className="mr-2 h-4 w-4" />
           {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
         </Button>

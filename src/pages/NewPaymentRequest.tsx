@@ -352,7 +352,7 @@ const NewPaymentRequest = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-2xl mx-auto shadow-sm"> {/* Added shadow-sm */}
+      <Card className="max-w-2xl mx-auto shadow-sm">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">Create New Payment Request</CardTitle>
         </CardHeader>
@@ -366,11 +366,11 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <FormLabel className="font-semibold">Country</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
-                      <FormControl>
-                        <SelectTrigger>
+                      <SelectTrigger>
+                        <FormControl>
                           <SelectValue placeholder="Select a country" />
-                        </SelectTrigger>
-                      </FormControl>
+                        </FormControl>
+                      </SelectTrigger>
                       <SelectContent>
                         {availableCountries.map((country) => (
                           <SelectItem key={country.value} value={country.value}>
@@ -560,11 +560,11 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
+                      <SelectTrigger>
+                        <FormControl>
                           <SelectValue placeholder="Select a currency" />
-                        </SelectTrigger>
-                      </FormControl>
+                        </FormControl>
+                      </SelectTrigger>
                       <SelectContent>
                         {majorCurrencies.map((currency) => (
                           <SelectItem key={currency.value} value={currency.value}>

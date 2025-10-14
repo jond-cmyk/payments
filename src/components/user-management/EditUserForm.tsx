@@ -92,11 +92,11 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
             <FormItem>
               <FormLabel>Role</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSaving || isCurrentUser}>
-                <FormControl>
-                  <SelectTrigger>
+                <SelectTrigger>
+                  <FormControl>
                     <SelectValue placeholder="Select a role" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="requester">Requester</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
@@ -113,11 +113,11 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
             <FormItem>
               <FormLabel>Country</FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSaving || isCurrentUser}>
-                <FormControl>
-                  <SelectTrigger>
+                <SelectTrigger>
+                  <FormControl>
                     <SelectValue placeholder="Select a country" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   {availableCountries.map((country) => (
                     <SelectItem key={country.value} value={country.value}>

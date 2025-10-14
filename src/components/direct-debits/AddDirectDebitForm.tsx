@@ -168,11 +168,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             <FormItem>
               <FormLabel className="font-semibold">Country</FormLabel>
               <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
-                <FormControl> {/* Corrected: FormControl without asChild */}
-                  <SelectTrigger id={field.name}>
+                <SelectTrigger id={field.name}>
+                  <FormControl>
                     <SelectValue placeholder="Select a country" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   {availableCountries.filter(c => c.value !== 'all').map((country) => ( // Filter out 'All Countries'
                     <SelectItem key={country.value} value={country.value}>
@@ -227,9 +227,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
               <FormControl>
                 <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated} />
               </FormControl>
-              <FormDescription>
-                {notPropertyRelated ? "SKU field is optional as 'Not Property Related' is checked." : `SKU must start with '${formCountry === 'United Kingdom' ? 'UK' : 'CH'}' and be followed by numbers.`}
-              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -263,11 +260,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl> {/* Corrected: FormControl without asChild */}
-                  <SelectTrigger id={field.name}>
+                <SelectTrigger id={field.name}>
+                  <FormControl>
                     <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   {categoryOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
@@ -288,11 +285,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
               <FormItem>
                 <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl> {/* Corrected: FormControl without asChild */}
-                    <SelectTrigger id={field.name}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
                       <SelectValue placeholder="Select a bank account" />
-                    </SelectTrigger>
-                  </FormControl>
+                    </FormControl>
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
                     <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
@@ -337,11 +334,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl> {/* Corrected: FormControl without asChild */}
-                  <SelectTrigger id={field.name}>
+                <SelectTrigger id={field.name}>
+                  <FormControl>
                     <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                </FormControl>
+                  </FormControl>
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>

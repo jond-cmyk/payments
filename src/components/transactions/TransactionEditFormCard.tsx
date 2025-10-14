@@ -40,7 +40,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
   const notSkuRelated = form.watch("not_sku_related");
 
   return (
-    <Card className="max-w-2xl mx-auto mb-8 shadow-sm"> {/* Added shadow-sm */}
+    <Card className="max-w-2xl mx-auto mb-8 shadow-sm">
       <CardHeader>
         <CardTitle>Edit Transaction Details</CardTitle>
         <CardDescription>Update the details for this transaction.</CardDescription>
@@ -55,11 +55,11 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isEditingMode}>
-                    <FormControl>
-                      <SelectTrigger>
+                    <SelectTrigger>
+                      <FormControl>
                         <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
+                      </FormControl>
+                    </SelectTrigger>
                     <SelectContent>
                       {categoryOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
@@ -157,16 +157,17 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               render={({ field: { value, onChange, ...fieldProps } }) => (
                 <FormItem>
                   <FormLabel className="font-semibold">Receipt PDF(s)<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  {/* Removed FormControl wrapper around FileInput */}
-                  <FileInput
-                    {...fieldProps}
-                    label={transaction.receipt_urls && transaction.receipt_urls.length > 0 ? "Add More Receipt PDF(s)" : "Upload Receipt PDF(s)"}
-                    accept=".pdf"
-                    value={value}
-                    onChange={onChange}
-                    multiple
-                    disabled={!isEditingMode}
-                  />
+                  <FormControl>
+                    <FileInput
+                      {...fieldProps}
+                      label={transaction.receipt_urls && transaction.receipt_urls.length > 0 ? "Add More Receipt PDF(s)" : "Upload Receipt PDF(s)"}
+                      accept=".pdf"
+                      value={value}
+                      onChange={onChange}
+                      multiple
+                      disabled={!isEditingMode}
+                    />
+                  </FormControl>
                   <FormMessage />
                   {transaction.receipt_urls && transaction.receipt_urls.length > 0 && (
                     <div className="mt-2 space-y-1">
@@ -183,7 +184,6 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 </FormItem>
               )}
             />
-            {/* The submit button is now controlled by the parent component */}
           </form>
         </Form>
       </CardContent>

@@ -222,7 +222,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
   const skuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for display and PrefixedInput
 
   return (
-    <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
+    <Card className="mb-8 shadow-sm">
       <CardHeader>
         <CardTitle className="flex items-center">
           Request Details
@@ -237,7 +237,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
           request.status === 'setup_awaiting_approval' ? 'text-blue-600' :
           request.status === 'approved' ? 'text-green-600' :
           request.status === 'declined' ? 'text-red-600' :
-          request.status === 'queried' ? 'text-gray-600' : // Changed to text-gray-600
+          request.status === 'queried' ? 'text-gray-600' :
           'text-gray-600'
         }`}>
           {getStatusDisplay(request.status)}
@@ -254,11 +254,11 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                   <FormItem>
                     <FormLabel className="font-semibold">Country</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value} disabled={isCountryLocked}>
-                      <FormControl>
-                        <SelectTrigger>
+                      <SelectTrigger>
+                        <FormControl>
                           <SelectValue placeholder="Select a country" />
-                        </SelectTrigger>
-                      </FormControl>
+                        </FormControl>
+                      </SelectTrigger>
                       <SelectContent>
                         {availableCountries.map((country) => (
                           <SelectItem key={country.value} value={country.value}>
@@ -448,11 +448,11 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                   <FormItem>
                     <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
+                      <SelectTrigger>
+                        <FormControl>
                           <SelectValue placeholder="Select a currency" />
-                        </SelectTrigger>
-                      </FormControl>
+                        </FormControl>
+                      </SelectTrigger>
                       <SelectContent>
                         {majorCurrencies.map((currency) => (
                           <SelectItem key={currency.value} value={currency.value}>

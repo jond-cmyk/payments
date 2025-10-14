@@ -694,19 +694,19 @@ const PaymentRequestDetail = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Payment Request #{request.id.substring(0, 8)}</h1>
         {canAmend && !isEditing && (
-          <Button onClick={() => setIsEditing(true)} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"> {/* Added shadow-sm */}
+          <Button onClick={() => setIsEditing(true)} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm">
             Amend Request
           </Button>
         )}
         {isEditing && (
           <div className="space-x-2">
-            <Button variant="outline" onClick={() => { setIsEditing(false); editForm.reset(); }} className="shadow-sm"> {/* Added shadow-sm */}
+            <Button variant="outline" onClick={() => { setIsEditing(false); editForm.reset(); }} className="shadow-sm">
               Cancel
             </Button>
             <Button 
               form="edit-request-form" 
               type="submit" 
-              className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm" // Added shadow-sm
+              className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               disabled={updateRequestMutation.isPending} // Disable button when mutation is pending
             >
               Save Changes
@@ -733,8 +733,8 @@ const PaymentRequestDetail = () => {
         handleAdminAction={handleAdminAction}
         handleAdminQuery={handleAdminQuery}
         handleAdminRevert={handleAdminRevert}
-        handleSendReminder={handleSendReminder} // Pass new prop
-        isSendingReminder={sendReminderMutation.isPending} // Pass new prop
+        handleSendReminder={handleSendReminder}
+        isSendingReminder={sendReminderMutation.isPending}
         user={user}
       />
 
