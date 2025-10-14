@@ -13,6 +13,7 @@ export const categoryOptions = [
   { value: '972_maintenance_move_out', label: '972 - Maintenance, at move-out' },
   { value: '974_other', label: '974 - Other' },
   { value: '975_small_furniture', label: '975 - Small Furniture' },
+  { value: '976_council_tax', label: '976 - Council Tax', countries: ['United Kingdom'] }, // NEW: Council Tax for UK
   { value: '3055_subcontractors', label: '3055 - Subcontractors' },
   { value: '3056_otg_service_team_costs', label: '3056 - OTG - Service Team Costs' },
   { value: '3057_storage_units_facilities', label: '3057 - Storage Units & Facilities' },

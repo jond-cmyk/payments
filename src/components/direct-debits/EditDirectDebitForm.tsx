@@ -138,6 +138,11 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
     }
   };
 
+  // Filter category options based on the selected country in the form
+  const filteredCategoryOptions = categoryOptions.filter(option =>
+    !option.countries || option.countries.includes(formCountry)
+  );
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -249,7 +254,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {categoryOptions.map((option) => (
+                  {filteredCategoryOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

@@ -12,6 +12,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 
 import { Button } from '@/components/ui/button';
 import PaymentRequestDetailsCard from '@/components/payment-requests/PaymentRequestDetailsCard';
@@ -86,6 +87,7 @@ const editFormSchema = z.object({
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
   country: z.string().min(1, "Country is required"), // ADDED: country field to schema
+  category: z.string().min(1, "Category is required"), // ADDED: category field to schema
 }).superRefine((data, ctx) => {
   // Determine SKU prefix based on the request's country
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
@@ -305,6 +307,7 @@ const PaymentRequestDetail = () => {
       receipt_required: false,
       is_urgent: false, // Default to not urgent
       country: request?.country || "Switzerland", // ADDED: Set default country from request
+      category: "", // ADDED: Default category
     },
     // REMOVED: context property as country is now a form field
   });
@@ -331,6 +334,7 @@ const PaymentRequestDetail = () => {
         receipt_required: request.receipt_required,
         is_urgent: request.is_urgent,
         country: request.country, // Ensure form's country field is updated
+        category: request.category || "", // ADDED: Set category from request
       });
     }
   }, [request, isEditing, editForm]);
@@ -484,6 +488,7 @@ const PaymentRequestDetail = () => {
         receipt_required: values.receipt_required,
         is_urgent: values.is_urgent, // Include urgent status
         country: values.country, // Include country from form values
+        category: values.category, // ADDED: category to updated fields
       };
 
       // Conditionally add bank details to updatedFields

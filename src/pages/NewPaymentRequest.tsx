@@ -9,6 +9,7 @@ import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -86,6 +87,7 @@ const formSchema = z.object({
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
   country: z.string().min(1, "Country is required"), // ADDED: country field to schema
+  category: z.string().min(1, "Category is required"), // ADDED: category field to schema
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for validation
 
@@ -203,6 +205,7 @@ const NewPaymentRequest = () => {
       receipt_required: false,
       is_urgent: false, // Default to not urgent
       country: currentCountry, // ADDED: Set default country from context
+      category: "", // ADDED: Default category
     },
     // REMOVED: context property as country is now a form field
   });
@@ -225,6 +228,7 @@ const NewPaymentRequest = () => {
       account_number: currentCountry === 'United Kingdom' ? "" : "",
       bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
       country: currentCountry, // Ensure form's country field is updated
+      category: "", // Reset category
     }));
   }, [currentCountry, form]);
 
@@ -319,6 +323,7 @@ const NewPaymentRequest = () => {
           receipt_required: values.receipt_required,
           is_urgent: values.is_urgent, // Save urgent status
           country: values.country, // Add the current country from form values
+          category: values.category, // ADDED: category to insert
         });
 
       if (insertError) {
@@ -341,6 +346,7 @@ const NewPaymentRequest = () => {
         account_number: currentCountry === 'United Kingdom' ? "" : "",
         bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
         country: currentCountry, // Reset country to current context country
+        category: "", // Reset category
       });
       navigate('/dashboard');
     } catch (error: any) {
@@ -349,6 +355,11 @@ const NewPaymentRequest = () => {
       console.error("Error creating payment request:", error);
     }
   };
+
+  // Filter category options based on the selected country in the form
+  const filteredCategoryOptions = categoryOptions.filter(option =>
+    !option.countries || option.countries.includes(formCountry)
+  );
 
   return (
     <div className="container mx-auto py-8">
@@ -395,6 +406,30 @@ const NewPaymentRequest = () => {
                     <FormControl>
                       <Input placeholder="e.g., ABC Corp" {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <SelectTrigger id={field.name}>
+                        <FormControl>
+                          <SelectValue placeholder="Select a category" />
+                        </FormControl>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredCategoryOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}

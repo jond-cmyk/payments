@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod'; // Keep z for other Zod usage if any
 import { Download } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
+import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,6 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import { Transaction } from '@/types/supabase';
 import PrefixedInput from '@/components/PrefixedInput'; // Import PrefixedInput
 import { transactionDetailSchema, TransactionDetailSchema } from '@/schemas/transactionSchema'; // Import centralized schema
+import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 
 interface TransactionEditFormCardProps {
   transaction: Transaction;
@@ -25,7 +27,7 @@ interface TransactionEditFormCardProps {
   form: ReturnType<typeof useForm<TransactionDetailSchema>>; // Use centralized schema type
   onSubmit: (values: TransactionDetailSchema) => Promise<void>; // Use centralized schema type
   updateTransactionMutation: UseMutationResult<boolean, Error, Partial<Transaction> & { new_receipt_files?: FileList }, unknown>;
-  categoryOptions: { value: string; label: string }[];
+  // Removed categoryOptions prop as it will be filtered internally
 }
 
 const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
@@ -34,10 +36,17 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
   form,
   onSubmit,
   updateTransactionMutation,
-  categoryOptions,
+  // Removed categoryOptions from props
 }) => {
+  const { currentCountry } = useCountry(); // Get currentCountry from context
+
   // Watch the not_sku_related field to dynamically update validation and input state
   const notSkuRelated = form.watch("not_sku_related");
+
+  // Filter category options based on the transaction's country
+  const filteredCategoryOptions = categoryOptions.filter(option =>
+    !option.countries || option.countries.includes(transaction.country)
+  );
 
   return (
     <Card className="max-w-2xl mx-auto mb-8 shadow-sm">
@@ -61,7 +70,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                       </FormControl>
                     </SelectTrigger>
                     <SelectContent>
-                      {categoryOptions.map((option) => (
+                      {filteredCategoryOptions.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                           {option.label}
                         </SelectItem>

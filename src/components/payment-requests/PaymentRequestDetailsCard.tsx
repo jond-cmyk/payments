@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'; // Added missing import
 import * as z from 'zod';
 import { Download, AlertTriangle } from 'lucide-react'; // Import AlertTriangle icon
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -88,6 +89,7 @@ const editFormSchema = z.object({
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
   country: z.string().min(1, "Country is required"), // ADDED: country field to schema
+  category: z.string().min(1, "Category is required"), // ADDED: category field to schema
 }).superRefine((data, ctx) => {
   // Determine SKU prefix based on the request's country
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
@@ -221,6 +223,11 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
   const formCountry = editForm.watch("country"); // Watch the country field in the form
   const skuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for display and PrefixedInput
 
+  // Filter category options based on the selected country in the form
+  const filteredCategoryOptions = categoryOptions.filter(option =>
+    !option.countries || option.countries.includes(formCountry)
+  );
+
   return (
     <Card className="mb-8 shadow-sm">
       <CardHeader>
@@ -283,6 +290,30 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="category"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <SelectTrigger id={field.name}>
+                        <FormControl>
+                          <SelectValue placeholder="Select a category" />
+                        </FormControl>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredCategoryOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -598,6 +629,10 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
             <div>
               <p className="font-medium">Supplier Name:</p>
               <p>{request.supplier_name}</p>
+            </div>
+            <div>
+              <p className="font-medium">Category:</p>
+              <p>{categoryOptions.find(c => c.value === request.category)?.label || request.category}</p>
             </div>
             <div>
               <p className="font-medium">SKU Number:</p>
