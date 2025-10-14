@@ -22,7 +22,7 @@ type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transactio
 interface GlobalSearchResultsTableProps {
   searchResults: SearchResult[] | undefined;
   debouncedSearchTerm: string;
-  getStatusBadge: (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status']) => React.ReactNode; // Updated type
+  getStatusBadge: (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => React.ReactNode;
 }
 
 const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
@@ -71,7 +71,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
                  'N/A'}
               </TableCell>
               <TableCell>
-                {getStatusBadge(item.status)}
+                {getStatusBadge(item.status, item.type)}
               </TableCell>
               <TableCell>
                 {format(new Date(item.type === 'payment_request' ? item.date_payment_required : item.payment_date), 'PPP')} {/* Conditional date */}

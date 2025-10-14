@@ -16,13 +16,14 @@ import PendingStandingOrderTable from '@/components/dashboard/PendingStandingOrd
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
-import { PaymentRequest, Profile, Transaction, StandingOrder } from '@/types/supabase'; // Import StandingOrder
+import { PaymentRequest, Profile, Transaction, StandingOrder, DirectDebit } from '@/types/supabase'; // Import StandingOrder
 import { format } from 'date-fns';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
-interface DashboardMainContentProps {
-  debouncedSearchTerm: string;
-}
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
+import GlobalSearchSection from '@/components/dashboard/GlobalSearchSection';
+import DashboardMainContent from '@/components/dashboard/DashboardMainContent';
+
 
 const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSearchTerm }) => {
   const { session, user, userProfile } = useSession();
@@ -320,12 +321,18 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
 
   const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== 'all' || filterRequester !== 'all';
 
-  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status']) => { // Updated to include StandingOrder status
+  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
     let className = '';
 
     switch (status) {
       case 'pending':
+        if (itemType === 'standing_order' || itemType === 'direct_debit') {
+          className = 'bg-orange-500 text-orange-50';
+        } else { // Default for payment_request
+          className = 'bg-yellow-500 text-yellow-50';
+        }
+        break;
       case 'pending_input':
         className = 'bg-yellow-500 text-yellow-50';
         break;
@@ -344,10 +351,14 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       case 'queried':
         className = 'bg-gray-500 text-gray-50';
         break;
-      // NEW: Standing Order pending status
-      case 'pending':
-        displayText = 'Pending';
-        className = 'bg-orange-500 text-orange-50';
+      case 'active': // For Direct Debits and Standing Orders
+        className = 'bg-green-500 text-green-50';
+        break;
+      case 'paused': // For Direct Debits and Standing Orders
+        className = 'bg-yellow-500 text-yellow-50';
+        break;
+      case 'cancelled': // For Direct Debits and Standing Orders
+        className = 'bg-red-500 text-red-50';
         break;
       default:
         className = 'bg-gray-500 text-gray-50';
@@ -410,7 +421,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
             userRole={userRole}
             handleSort={handleSort}
             renderSortIcon={renderSortIcon}
-            getStatusBadge={getStatusBadge}
+            getStatusBadge={(status) => getStatusBadge(status, 'payment_request')}
             handleToggleUrgent={handleToggleUrgent}
             toggleUrgentMutation={toggleUrgentMutation}
           />

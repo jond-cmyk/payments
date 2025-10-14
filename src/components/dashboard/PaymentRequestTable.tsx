@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { PaymentRequest, Transaction } from '@/types/supabase';
+import { PaymentRequest, Transaction, StandingOrder, DirectDebit } from '@/types/supabase';
 import { format } from 'date-fns';
 import { ArrowUp, ArrowDown } from 'lucide-react';
 import { UseMutationResult } from '@tanstack/react-query';
@@ -25,7 +25,7 @@ interface PaymentRequestTableProps {
   userRole: string | null;
   handleSort: (column: keyof PaymentRequest) => void;
   renderSortIcon: (column: keyof PaymentRequest) => React.ReactNode;
-  getStatusBadge: (status: PaymentRequest['status'] | Transaction['status']) => React.ReactNode;
+  getStatusBadge: (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => React.ReactNode;
   handleToggleUrgent: (requestId: string, currentUrgentStatus: boolean) => Promise<void>;
   toggleUrgentMutation: UseMutationResult<boolean, Error, { id: string; is_urgent: boolean; }, unknown>;
 }
@@ -106,7 +106,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                 <TableCell>{request.sku_number}</TableCell>
                 <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
                 <TableCell>
-                  {getStatusBadge(request.status)}
+                  {getStatusBadge(request.status, 'payment_request')}
                 </TableCell>
                 <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
                 <TableCell>
