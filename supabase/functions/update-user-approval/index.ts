@@ -12,15 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const supabaseAdminClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          persistSession: false,
-        },
-      }
-    );
+    // This Edge Function is now primarily a placeholder or for future direct auth.users updates
+    // that are not related to email_confirmed_at, as that field is not directly settable
+    // via admin.updateUserById for the purpose of bypassing email verification.
+    // The actual profile approval is handled by updating public.profiles.is_approved directly.
 
     const { userId, isApproved } = await req.json();
     console.log(`[update-user-approval] Received request for userId: ${userId}, isApproved: ${isApproved}`);
@@ -33,29 +28,11 @@ serve(async (req) => {
       });
     }
 
-    const emailConfirmedAtValue = isApproved ? new Date().toISOString() : null;
-    console.log(`[update-user-approval] Attempting to set email_confirmed_at to: ${emailConfirmedAtValue} for user: ${userId}`);
+    // No direct update to auth.users.email_confirmed_at here, as it's not effective.
+    // The public.profiles.is_approved field is the source of truth for application access.
 
-    const { data, error: authError } = await supabaseAdminClient.auth.admin.updateUserById(
-      userId,
-      { email_confirmed_at: emailConfirmedAtValue }
-    );
-
-    // NEW LOGS: Log the raw data and error from the Supabase Admin API call
-    console.log(`[update-user-approval] Response from supabaseAdminClient.auth.admin.updateUserById for user ${userId}:`);
-    console.log(`[update-user-approval]   Data: ${JSON.stringify(data)}`);
-    console.log(`[update-user-approval]   Error: ${JSON.stringify(authError)}`);
-
-    if (authError) {
-      console.error('Edge Function: Error updating user email confirmation status:', authError);
-      return new Response(JSON.stringify({ error: `Failed to update user email confirmation status: ${authError.message}` }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log(`[update-user-approval] Successfully updated email_confirmed_at for user: ${userId}. Supabase response data: ${JSON.stringify(data)}`);
-    return new Response(JSON.stringify({ message: 'User email confirmation status updated successfully!' }), {
+    console.log(`[update-user-approval] No direct update to auth.users for email_confirmed_at. Profile approval is handled in client.`);
+    return new Response(JSON.stringify({ message: 'User email confirmation status (via profile) handled successfully!' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

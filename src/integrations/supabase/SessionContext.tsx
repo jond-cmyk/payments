@@ -40,10 +40,22 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
 
   // Helper to determine combined approval status
   const getCombinedApprovalStatus = (authUser: User | null, profile: Profile | null): boolean => {
-    const isEmailConfirmed = !!authUser?.email_confirmed_at;
-    const isProfileApproved = profile?.is_approved ?? false;
-    console.log(`[SessionContext] getCombinedApprovalStatus: authUser.email_confirmed_at=${authUser?.email_confirmed_at}, profile.is_approved=${profile?.is_approved}, Combined=${isEmailConfirmed && isProfileApproved}`);
-    return isEmailConfirmed && isProfileApproved;
+    if (!authUser || !profile) {
+      return false; // No user or no profile, not approved
+    }
+
+    const isProfileApproved = profile.is_approved ?? false;
+
+    // If the user's email is confirmed (e.g., self-registered), then both email and profile must be approved.
+    // If email_confirmed_at is null (e.g., admin-created user with email_confirm: false),
+    // then we rely solely on the profile's is_approved status.
+    if (authUser.email_confirmed_at) {
+      console.log(`[SessionContext] User ${authUser.id} has confirmed email. Checking profile approval: ${isProfileApproved}`);
+      return isProfileApproved;
+    } else {
+      console.log(`[SessionContext] User ${authUser.id} has NOT confirmed email. Relying on profile approval: ${isProfileApproved}`);
+      return isProfileApproved;
+    }
   };
 
   useEffect(() => {
