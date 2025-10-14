@@ -16,6 +16,8 @@ import TransactionDetail from "./pages/TransactionDetail";
 import PendingApproval from "./pages/PendingApproval";
 import CompletedReceipts from "./pages/CompletedReceipts";
 import NotificationsPage from "./pages/Notifications"; // Import the NotificationsPage
+import DirectDebits from "./pages/DirectDebits"; // Import DirectDebits
+import StandingOrders from "./pages/StandingOrders"; // Import StandingOrders
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext"; // Import CountryProvider
@@ -64,6 +66,8 @@ const App = () => {
                       <Route path="/missing-receipts" element={<MissingReceipts />} />
                       <Route path="/completed-receipts" element={<CompletedReceipts />} />
                       <Route path="/transaction/:id" element={<TransactionDetail />} />
+                      <Route path="/direct-debits" element={<DirectDebits />} /> {/* New route */}
+                      <Route path="/standing-orders" element={<StandingOrders />} /> {/* New route */}
                     </Route>
 
                     {/* Protected routes requiring approval */}

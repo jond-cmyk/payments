@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNotifications } from '@/integrations/supabase/NotificationContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings } from 'lucide-react'; // Import Settings icon for Admin Panel
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat } from 'lucide-react'; // Import Banknote and Repeat icons
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
@@ -17,7 +17,6 @@ import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
 } from "@/components/ui/accordion"; // Import Accordion components
 import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger'; // Re-import CustomAccordionTrigger
 
@@ -120,6 +119,11 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         <div className="h-px bg-dyad-blue-foreground my-4" />
         <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
         <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
+        
+        <div className="h-px bg-dyad-blue-foreground my-4" /> 
+        {/* New section for Direct Debits and Standing Orders */}
+        <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
+        <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
         
         <div className="h-px bg-dyad-blue-foreground my-4" /> 
 
