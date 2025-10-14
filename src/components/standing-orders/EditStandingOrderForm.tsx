@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Edit } from 'lucide-react'; // Corrected icon import
+import { Edit } from 'lucide-react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
-import { Textarea } from '@/components/ui/textarea'; // Import Textarea
+import { Textarea } from '@/components/ui/textarea';
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -245,7 +245,8 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
               <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a country" />
+                    {/* Replaced SelectValue with a simple span for debugging */}
+                    <span>{availableCountries.find(c => c.value === field.value)?.label || "Select a country"}</span>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -270,7 +271,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Rent Co." {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                <Input placeholder="e.g., Rent Co." {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -287,7 +288,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                   date={field.value}
                   setDate={field.onChange}
                   placeholder="Select start date"
-                  disabled={!isAdmin} // Disabled for non-admins
+                  disabled={!isAdmin}
                 />
               </FormControl>
               <FormMessage />
@@ -301,7 +302,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">SKU</FormLabel>
               <FormControl>
-                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !isAdmin} /> {/* Disabled for non-admins */}
+                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !isAdmin} />
               </FormControl>
               <FormDescription>
                 {notPropertyRelated ? "SKU field is optional as 'Not Property Related' is checked." : `SKU must start with '${formCountry === 'United Kingdom' ? 'UK' : 'CH'}' and be followed by numbers.`}
@@ -319,7 +320,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                 <Checkbox
                   checked={field.value}
                   onCheckedChange={field.onChange}
-                  disabled={!isAdmin} // Disabled for non-admins
+                  disabled={!isAdmin}
                 />
               </FormControl>
               <div className="space-y-1 leading-none">
@@ -339,10 +340,11 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
+                    {/* Replaced SelectValue with a simple span for debugging */}
+                    <span>{categoryOptions.find(c => c.value === field.value)?.label || "Select a category"}</span>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -365,7 +367,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., John Doe" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                <Input placeholder="e.g., John Doe" {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -391,7 +393,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                         else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                         field.onChange(value);
                       }}
-                      disabled={!isAdmin} // Disabled for non-admins
+                      disabled={!isAdmin}
                     />
                   </FormControl>
                   <FormDescription>
@@ -417,7 +419,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                         if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
                         field.onChange(value);
                       }}
-                      disabled={!isAdmin} // Disabled for non-admins
+                      disabled={!isAdmin}
                     />
                   </FormControl>
                   <FormDescription>
@@ -437,7 +439,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                 <FormItem>
                   <FormLabel className="font-semibold">Account Address<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
-                    <Textarea placeholder="e.g., 123 Bank St, City, Country" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                    <Textarea placeholder="e.g., 123 Bank St, City, Country" {...field} disabled={!isAdmin} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -450,7 +452,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                 <FormItem>
                   <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., CH9300762011623852957" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                    <Input placeholder="e.g., CH9300762011623852957" {...field} disabled={!isAdmin} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -466,10 +468,11 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period From Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select day" />
+                      {/* Replaced SelectValue with a simple span for debugging */}
+                      <span>{field.value || "Select day"}</span>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -490,10 +493,11 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period To Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select day" />
+                      {/* Replaced SelectValue with a simple span for debugging */}
+                      <span>{field.value || "Select day"}</span>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -517,7 +521,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Payment Reference<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., SO-RENT-001" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+                <Input placeholder="e.g., SO-RENT-001" {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -529,10 +533,11 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                    {/* Replaced SelectValue with a simple span for debugging */}
+                    <span>{field.value || "Select status"}</span>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -545,9 +550,9 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}> {/* Disabled for non-admins */}
-          <Edit className="mr-2 h-4 w-4" /> {/* Corrected icon */}
-          {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"} {/* Corrected text */}
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
+          <Edit className="mr-2 h-4 w-4" />
+          {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
         </Button>
       </form>
     </Form>
