@@ -49,7 +49,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[update-user-approval] Successfully updated email_confirmed_at for user: ${userId}. Data: ${JSON.stringify(data)}`);
+    console.log(`[update-user-approval] Successfully updated email_confirmed_at for user: ${userId}. Supabase response data: ${JSON.stringify(data)}`);
     return new Response(JSON.stringify({ message: 'User email confirmation status updated successfully!' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

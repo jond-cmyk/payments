@@ -65,6 +65,7 @@ const UserManagement = () => {
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string }) => {
       const { id, is_approved, ...fieldsToUpdate } = updatedFields;
+      console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with fields: ${JSON.stringify(fieldsToUpdate)}, is_approved: ${is_approved}`);
 
       // 1. Update the public.profiles table
       const { error: profileUpdateError } = await supabase
@@ -73,22 +74,28 @@ const UserManagement = () => {
         .eq('id', id);
       
       if (profileUpdateError) {
+        console.error(`[UserManagement] Error updating public.profiles for user ${id}:`, profileUpdateError);
         throw new Error(`Failed to update user profile: ${profileUpdateError.message}`);
       }
+      console.log(`[UserManagement] Successfully updated public.profiles for user ${id}.`);
 
       // 2. If is_approved status is being changed, update auth.users via Edge Function
       if (typeof is_approved === 'boolean') {
+        console.log(`[UserManagement] Invoking Edge Function 'update-user-approval' for user ${id} with isApproved: ${is_approved}`);
         const { data, error: invokeError } = await supabase.functions.invoke('update-user-approval', {
           body: { userId: id, isApproved: is_approved },
         });
 
         if (invokeError) {
+          console.error(`[UserManagement] Edge Function invoke error for user ${id}:`, invokeError);
           throw new Error(invokeError.message);
         }
 
         if (data?.error) {
+          console.error(`[UserManagement] Edge Function returned error for user ${id}:`, data.error);
           throw new Error(data.error);
         }
+        console.log(`[UserManagement] Edge Function 'update-user-approval' invoked successfully for user ${id}. Response: ${JSON.stringify(data)}`);
       }
       
       return true;
@@ -96,6 +103,8 @@ const UserManagement = () => {
     onSuccess: async () => {
       showSuccess("User profile updated successfully!");
       await queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
+      // Also invalidate the session to force a re-fetch of the user's auth data
+      await queryClient.invalidateQueries({ queryKey: ['session'] }); 
       setIsEditDialogOpen(false); // Close dialog on success
       setEditingUser(null);
     },
@@ -107,18 +116,21 @@ const UserManagement = () => {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
+      console.log(`[UserManagement] deleteUserMutation: Invoking Edge Function 'delete-user' for user ID: ${userId}`);
       const { data, error } = await supabase.functions.invoke('delete-user', {
         body: { userId },
       });
 
       if (error) {
+        console.error(`[UserManagement] Edge Function invoke error for deleting user ${userId}:`, error);
         throw error;
       }
 
       if (data?.error) {
+        console.error(`[UserManagement] Edge Function returned error for deleting user ${userId}:`, data.error);
         throw new Error(data.error);
       }
-
+      console.log(`[UserManagement] Edge Function 'delete-user' invoked successfully for user ${userId}. Response: ${JSON.stringify(data)}`);
       return true;
     },
     onSuccess: async () => {

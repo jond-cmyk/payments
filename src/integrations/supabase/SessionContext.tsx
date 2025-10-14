@@ -42,6 +42,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
   const getCombinedApprovalStatus = (authUser: User | null, profile: Profile | null): boolean => {
     const isEmailConfirmed = !!authUser?.email_confirmed_at;
     const isProfileApproved = profile?.is_approved ?? false;
+    console.log(`[SessionContext] getCombinedApprovalStatus: authUser.email_confirmed_at=${authUser?.email_confirmed_at}, profile.is_approved=${profile?.is_approved}, Combined=${isEmailConfirmed && isProfileApproved}`);
     return isEmailConfirmed && isProfileApproved;
   };
 
