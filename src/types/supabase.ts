@@ -74,6 +74,22 @@ export type DirectDebit = {
   country: string;
 };
 
+export type StandingOrder = { // NEW: StandingOrder type
+  id: string;
+  created_at: string;
+  updated_at: string;
+  requester_id: string;
+  payee: string;
+  payment_date: string; // YYYY-MM-DD format
+  sku: string | null;
+  not_property_related: boolean;
+  category: string;
+  account_number: string;
+  payment_reference: string;
+  status: 'active' | 'cancelled' | 'paused'; // Example statuses
+  country: string;
+};
+
 export type Profile = {
   id: string;
   first_name: string | null;

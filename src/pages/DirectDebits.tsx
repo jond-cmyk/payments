@@ -42,6 +42,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
 import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm'; // Import the new form
 import { cn } from '@/lib/utils';
+import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
 
 const DirectDebits = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -85,9 +86,9 @@ const DirectDebits = () => {
         .select('*');
 
       // Apply country filter based on user role and selected country
-      // For requesters, RLS will handle the country filter.
-      // For admins, apply client-side filter if a specific country is selected.
-      if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
 
@@ -240,6 +241,7 @@ const DirectDebits = () => {
           {/* Filters */}
           <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
             <span className="font-medium text-gray-700">Filters:</span>
+            {isAdmin && <CountrySelector className="w-[240px]" triggerClassName="w-full" />} {/* Country Selector for Admins */}
             <Input
               placeholder="Filter by Payee"
               value={filterPayee}
