@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -54,7 +54,7 @@ const StandingOrders = () => {
   const [isEditStandingOrderDialogOpen, setIsEditStandingOrderDialogOpen] = useState(false);
   const [editingStandingOrder, setEditingStandingOrder] = useState<StandingOrder | null>(null);
 
-  // Filter states
+  // Filter states (debounced for query)
   const [filterPayee, setFilterPayee] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterPaymentDate, setFilterPaymentDate] = useState<Date | undefined>(undefined);
