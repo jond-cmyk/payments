@@ -181,7 +181,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             </FormItem>
           )}
         />
-        {/*
+        
         <FormField
           control={form.control}
           name="payment_date"
@@ -338,7 +338,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             </FormItem>
           )}
         />
-        */}
+        
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}> {/* Disabled for non-admins */}
           <Edit className="mr-2 h-4 w-4" />
           {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
