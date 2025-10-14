@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { Resend } from 'https://esm.sh/resend@1.1.0';
+// Removed Resend import as email functionality is no longer needed
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,7 +38,7 @@ serve(async (req) => {
     // Fetch payment request details
     const { data: request, error: requestError } = await supabaseClient
       .from('payment_requests')
-      .select('*, requester_profile:profiles(first_name, last_name, user_email), admin_profiles:profiles!inner(id, first_name, last_name, user_email)')
+      .select('id, supplier_name, sku_number, status, requester_id') // Select only necessary fields
       .eq('id', requestId)
       .single();
 
@@ -50,96 +50,35 @@ serve(async (req) => {
       });
     }
 
-    // Fetch sender's profile for "sent by" info
-    const { data: senderProfile, error: senderProfileError } = await supabaseClient
-      .from('profile_with_email')
-      .select('first_name, last_name, user_email')
-      .eq('id', senderId)
-      .single();
-
-    if (senderProfileError || !senderProfile) {
-      console.warn('Could not fetch sender profile:', senderProfileError?.message || 'Sender profile not found');
-    }
-    const senderDisplayName = senderProfile?.first_name && senderProfile?.last_name
-      ? `${senderProfile.first_name} ${senderProfile.last_name}`
-      : senderProfile?.user_email || 'A user';
-
-    const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendApiKey) {
-      console.error('RESEND_API_KEY is not set in environment variables.');
-      return new Response(JSON.stringify({ error: 'Email service not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const resend = new Resend(resendApiKey);
-
-    const appUrl = Deno.env.get('APP_URL') || 'http://localhost:8080';
-    const senderEmail = `jon.d@khpayments.com`; // Your sender email
-
-    const recipientEmails: string[] = [];
-    const notificationUserIds: string[] = [];
-
-    // Add requester's email and ID
-    if (request.requester_profile?.user_email) {
-      recipientEmails.push(request.requester_profile.user_email);
-      notificationUserIds.push(request.requester_id);
-    }
-
-    // Add admin emails and IDs
+    // Fetch admin user IDs for notifications
     const { data: adminProfiles, error: adminProfilesError } = await supabaseClient
       .from('profile_with_email')
-      .select('id, user_email')
+      .select('id')
       .eq('role', 'admin');
 
     if (adminProfilesError) {
-      console.error('Error fetching admin profiles:', adminProfilesError);
-    } else {
-      adminProfiles?.forEach(admin => {
-        if (admin.user_email && !recipientEmails.includes(admin.user_email)) {
-          recipientEmails.push(admin.user_email);
-        }
-        if (admin.id && !notificationUserIds.includes(admin.id)) {
-          notificationUserIds.push(admin.id);
-        }
-      });
+      console.error('Error fetching admin profiles for notifications:', adminProfilesError);
+      // Continue without admin notifications if there's an error
     }
 
-    if (recipientEmails.length === 0) {
-      console.warn('No valid recipient emails found for reminder.');
-      return new Response(JSON.stringify({ message: 'No recipients for reminder email.' }), {
+    const notificationUserIds: string[] = [];
+    // Add requester's ID
+    notificationUserIds.push(request.requester_id);
+
+    // Add admin IDs, ensuring no duplicates
+    adminProfiles?.forEach(admin => {
+      if (admin.id && !notificationUserIds.includes(admin.id)) {
+        notificationUserIds.push(admin.id);
+      }
+    });
+
+    if (notificationUserIds.length === 0) {
+      console.warn('No valid user IDs found for reminder notifications.');
+      return new Response(JSON.stringify({ message: 'No recipients for reminder notifications.' }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    const subject = `Reminder: Payment Request #${request.id.substring(0, 8)} - ${request.supplier_name}`;
-    const htmlContent = `
-      <p>Hello,</p>
-      <p>This is a reminder regarding payment request <strong>#${request.id.substring(0, 8)}</strong> for <strong>${request.supplier_name}</strong> (SKU: ${request.sku_number || 'N/A'}).</p>
-      <p>The current status is: <strong>${request.status.replace(/_/g, ' ').charAt(0).toUpperCase() + request.status.replace(/_/g, ' ').slice(1)}</strong>.</p>
-      <p>This reminder was sent by ${senderDisplayName}.</p>
-      <p>You can view the request details here: <a href="${appUrl}/request/${request.id}">View Payment Request</a></p>
-      <p>Thank you,</p>
-      <p>Your Payment Team</p>
-    `;
-
-    const { data, error: resendError } = await resend.emails.send({
-      from: senderEmail,
-      to: recipientEmails,
-      subject: subject,
-      html: htmlContent,
-    });
-
-    if (resendError) {
-      console.error('Error sending reminder email via Resend:', resendError);
-      return new Response(JSON.stringify({ error: `Failed to send reminder email via Resend: ${resendError.message}` }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('Reminder email sent successfully via Resend:', data);
 
     // Update payment_requests table with reminder info
     const { error: updateError } = await supabaseClient
@@ -152,7 +91,10 @@ serve(async (req) => {
 
     if (updateError) {
       console.error('Error updating payment request with reminder info:', updateError);
-      // Don't fail the whole function, email was sent. Just log.
+      return new Response(JSON.stringify({ error: `Failed to update payment request with reminder info: ${updateError.message}` }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Insert in-app notifications
@@ -175,7 +117,9 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ message: 'Reminder email and notifications sent successfully.' }), {
+    console.log('Reminder notifications sent successfully.');
+
+    return new Response(JSON.stringify({ message: 'Reminder notifications sent successfully.' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
