@@ -43,14 +43,16 @@ const CountrySelector: React.FC<CountrySelectorProps> = ({ className, triggerCla
                 "w-max bg-dyad-blue text-dyad-blue-foreground hover:bg-dyad-blue-light transition-colors flex items-center gap-2 px-3 py-2 rounded-md shadow-md border-none",
                 triggerClassName // Apply the new triggerClassName here
               )}>
-                {selectedCountry !== 'all' ? (
-                  <>
-                    <CountryFlag countryName={selectedCountry} className="flex-shrink-0" />
-                    <span className="font-semibold text-base whitespace-nowrap">{selectedCountry}</span>
-                  </>
-                ) : (
-                  <span className="font-semibold text-base flex items-center gap-2 whitespace-nowrap">🌐 All Countries</span>
-                )}
+                <SelectValue> {/* SelectValue is now always the direct child */}
+                  {selectedCountry !== 'all' ? (
+                    <span className="flex items-center gap-2 whitespace-nowrap">
+                      <CountryFlag countryName={selectedCountry} className="flex-shrink-0" />
+                      <span className="font-semibold text-base">{selectedCountry}</span>
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-base flex items-center gap-2 whitespace-nowrap">🌐 All Countries</span>
+                  )}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent 
                 className="bg-popover text-popover-foreground w-auto min-w-[300px] max-w-none overflow-visible"
