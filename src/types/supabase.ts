@@ -69,7 +69,7 @@ export type DirectDebit = {
   not_property_related: boolean;
   category: string;
   account_number: string;
-  payment_reference: string;
+  payment_reference: string | null; // Made nullable
   status: 'active' | 'cancelled' | 'paused'; // Example statuses
   country: string;
   bank_account: string | null; // NEW: Bank Account field
@@ -93,7 +93,7 @@ export type StandingOrder = { // NEW: StandingOrder type
   from_day: number; // NEW, for accruals period (day of month)
   to_day: number; // NEW, for accruals period (day of month)
   payment_reference: string;
-  status: 'active' | 'cancelled' | 'paused'; // Example statuses
+  status: 'active' | 'cancelled' | 'paused' | 'pending'; // Added 'pending' status
   country: string;
 };
 
