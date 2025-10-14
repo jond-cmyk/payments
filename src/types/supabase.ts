@@ -72,6 +72,7 @@ export type DirectDebit = {
   payment_reference: string;
   status: 'active' | 'cancelled' | 'paused'; // Example statuses
   country: string;
+  bank_account: string | null; // NEW: Bank Account field
 };
 
 export type StandingOrder = { // NEW: StandingOrder type

@@ -34,6 +34,7 @@ const addDirectDebitFormSchema = z.object({
     required_error: "Status is required.",
   }).default('active'),
   country: z.string().min(1, "Country is required."),
+  bank_account: z.string().optional(), // NEW: Bank Account field, optional initially
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -58,6 +59,15 @@ const addDirectDebitFormSchema = z.object({
       });
     }
   }
+
+  // NEW: Conditional validation for bank_account for Switzerland
+  if (data.country === 'Switzerland' && (!data.bank_account || data.bank_account.trim() === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Bank Account is required for Switzerland.",
+      path: ['bank_account'],
+    });
+  }
 });
 
 interface AddDirectDebitFormProps {
@@ -80,6 +90,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       payment_reference: "",
       status: "active",
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
+      bank_account: undefined, // NEW: Default value for bank_account
     },
   });
 
@@ -93,6 +104,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       ...prev,
       sku: newSkuPrefix,
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry,
+      bank_account: undefined, // NEW: Reset bank_account when country changes
     }));
   }, [currentCountry, form]);
 
@@ -117,6 +129,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           payment_reference: values.payment_reference,
           status: values.status,
           country: values.country,
+          bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
         });
 
       if (insertError) {
@@ -135,6 +148,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         payment_reference: "",
         status: "active",
         country: formCountry,
+        bank_account: undefined, // NEW: Reset bank_account
       });
       onDirectDebitAdded();
     } catch (error: any) {
@@ -266,6 +280,30 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             </FormItem>
           )}
         />
+        {formCountry === 'Switzerland' && ( // NEW: Conditionally render Bank Account field
+          <FormField
+            control={form.control}
+            name="bank_account"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a bank account" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
+                    <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
+                    <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <FormField
           control={form.control}
           name="account_number"

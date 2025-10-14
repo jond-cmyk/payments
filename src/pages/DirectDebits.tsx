@@ -312,6 +312,11 @@ const DirectDebits = () => {
                     </TableHead>
                     <TableHead>Account Number</TableHead>
                     <TableHead>Payment Reference</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('bank_account')}> {/* NEW: Sortable Bank Account column */}
+                      <div className="flex items-center">
+                        Bank Account {renderSortIcon('bank_account')}
+                      </div>
+                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}
@@ -331,6 +336,7 @@ const DirectDebits = () => {
                       <TableCell>{categoryOptions.find(c => c.value === debit.category)?.label || debit.category}</TableCell>
                       <TableCell>{debit.account_number}</TableCell>
                       <TableCell>{debit.payment_reference}</TableCell>
+                      <TableCell>{debit.bank_account || 'N/A'}</TableCell> {/* NEW: Display bank_account */}
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">
                         {isAdmin && (
