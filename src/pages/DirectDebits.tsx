@@ -7,10 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { DirectDebit, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { Banknote, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye } from 'lucide-react'; // Import Eye icon
+import { Banknote, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown } from 'lucide-react'; // Import FileDown icon
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
+import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -243,6 +244,12 @@ const DirectDebits = () => {
     queryClient.invalidateQueries({ queryKey: ['directDebit', editingDirectDebit?.id] }); // Invalidate detail page query
   };
 
+  const handleDownloadDirectDebits = () => {
+    if (directDebits) {
+      exportToCsv(directDebits, `direct_debits_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+    }
+  };
+
   if (isSessionLoading || isDirectDebitsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading direct debits...</div>;
   }
@@ -265,19 +272,26 @@ const DirectDebits = () => {
             <CardTitle className="flex items-center text-2xl font-bold">
               <Banknote className="mr-2 h-6 w-6" /> Direct Debits
             </CardTitle>
-            <Dialog open={isAddDirectDebitDialogOpen} onOpenChange={setIsAddDirectDebitDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="shadow-sm">
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Direct Debit
+            <div className="flex space-x-2">
+              {isAdmin && (
+                <Button onClick={handleDownloadDirectDebits} className="shadow-sm" variant="outline">
+                  <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Add New Direct Debit</DialogTitle>
-                </DialogHeader>
-                <AddDirectDebitForm onDirectDebitAdded={handleDirectDebitAdded} />
-              </DialogContent>
-            </Dialog>
+              )}
+              <Dialog open={isAddDirectDebitDialogOpen} onOpenChange={setIsAddDirectDebitDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="shadow-sm">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Direct Debit
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Add New Direct Debit</DialogTitle>
+                  </DialogHeader>
+                  <AddDirectDebitForm onDirectDebitAdded={handleDirectDebitAdded} />
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
           <CardDescription>
             Manage your recurring direct debit payments.

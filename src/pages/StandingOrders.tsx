@@ -7,10 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { StandingOrder } from '@/types/supabase'; // Import StandingOrder type
 import { format } from 'date-fns';
-import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye } from 'lucide-react'; // Import Eye icon
+import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown } from 'lucide-react'; // Import Eye and FileDown icons
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
+import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -248,6 +249,12 @@ const StandingOrders = () => {
     queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate new dashboard table
   };
 
+  const handleDownloadStandingOrders = () => {
+    if (standingOrders) {
+      exportToCsv(standingOrders, `standing_orders_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+    }
+  };
+
   if (isSessionLoading || isStandingOrdersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading standing orders...</div>;
   }
@@ -270,19 +277,26 @@ const StandingOrders = () => {
             <CardTitle className="flex items-center text-2xl font-bold">
               <Repeat className="mr-2 h-6 w-6" /> Standing Orders
             </CardTitle>
-            <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="shadow-sm"> {/* Enabled for all authenticated users */}
-                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Standing Order
+            <div className="flex space-x-2">
+              {isAdmin && (
+                <Button onClick={handleDownloadStandingOrders} className="shadow-sm" variant="outline">
+                  <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
-                <DialogHeader>
-                  <DialogTitle>Add New Standing Order</DialogTitle>
-                </DialogHeader>
-                <AddStandingOrderForm onStandingOrderAdded={handleStandingOrderAdded} />
-              </DialogContent>
-            </Dialog>
+              )}
+              <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="shadow-sm"> {/* Enabled for all authenticated users */}
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Standing Order
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
+                  <DialogHeader>
+                    <DialogTitle>Add New Standing Order</DialogTitle>
+                  </DialogHeader>
+                  <AddStandingOrderForm onStandingOrderAdded={handleStandingOrderAdded} />
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
           <CardDescription>
             Manage your recurring standing order payments.
