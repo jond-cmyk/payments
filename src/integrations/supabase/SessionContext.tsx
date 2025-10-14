@@ -13,8 +13,6 @@ interface SessionContextType {
   userProfile: Profile | null; // Add userProfile to context
 }
 
-const SessionContext = createContext<SessionContextType | undefined>(undefined);
-
 // Function to fetch user profile
 const fetchUserProfile = async (userId: string) => {
   const { data, error } = await supabase
@@ -37,10 +35,17 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
   const [isApproved, setIsApproved] = useState<boolean | null>(null); // State for approval status
   const [userProfile, setUserProfile] = useState<Profile | null>(null); // State for full profile
 
+  // Helper to determine combined approval status
+  const getCombinedApprovalStatus = (authUser: User | null, profile: Profile | null): boolean => {
+    const isEmailConfirmed = !!authUser?.email_confirmed_at;
+    const isProfileApproved = profile?.is_approved ?? false;
+    return isEmailConfirmed && isProfileApproved;
+  };
+
   useEffect(() => {
     const loadSessionAndProfile = async () => {
       console.log("SessionContext: Starting initial session and profile load.");
-      setIsLoading(true); // Ensure loading is true at the start of this process
+      setIsLoading(true);
 
       const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
 
@@ -52,32 +57,31 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         setIsApproved(false);
       } else {
         setSession(initialSession);
-        setUser(initialSession?.user || null);
+        const authUser = initialSession?.user || null;
+        setUser(authUser);
 
-        if (initialSession?.user) {
-          const profile = await fetchUserProfile(initialSession.user.id);
+        if (authUser) {
+          const profile = await fetchUserProfile(authUser.id);
           setUserProfile(profile);
-          setIsApproved(profile?.is_approved ?? false);
-          console.log("SessionContext: Initial profile loaded - Role:", profile?.role, "Country:", profile?.country); // NEW LOG
+          setIsApproved(getCombinedApprovalStatus(authUser, profile));
+          console.log("SessionContext: Initial profile loaded - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!authUser.email_confirmed_at, "Profile Approved:", profile?.is_approved);
         } else {
           setUserProfile(null);
           setIsApproved(false);
         }
       }
-      setIsLoading(false); // Set loading to false only after all initial data is processed
+      setIsLoading(false);
       console.log("SessionContext: Initial session and profile load complete. isLoading set to false.");
     };
 
     loadSessionAndProfile();
 
-    // Set up real-time auth state listener for subsequent changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       console.log("SessionContext: Auth state changed (listener). Event:", _event, "Session:", currentSession);
-      // For subsequent changes, we'll just update session/user here.
-      // The separate useEffect below will handle profile and approval status updates.
       setSession(currentSession);
-      setUser(currentSession?.user || null);
-      if (!currentSession?.user) {
+      const authUser = currentSession?.user || null;
+      setUser(authUser); // This will trigger the next useEffect
+      if (!authUser) {
         setUserProfile(null);
         setIsApproved(false);
       }
@@ -87,7 +91,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       console.log("SessionContext: Unsubscribing from auth state listener.");
       subscription.unsubscribe();
     };
-  }, []); // Empty dependency array for this useEffect
+  }, []);
 
   // Separate useEffect to update profile and approval status when user changes
   useEffect(() => {
@@ -95,15 +99,14 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       if (user) {
         const profile = await fetchUserProfile(user.id);
         setUserProfile(profile);
-        setIsApproved(profile?.is_approved ?? false);
-        console.log("SessionContext: User changed, profile updated - Role:", profile?.role, "Country:", profile?.country); // NEW LOG
+        setIsApproved(getCombinedApprovalStatus(user, profile)); // Use combined status
+        console.log("SessionContext: User changed, profile updated - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!user.email_confirmed_at, "Profile Approved:", profile?.is_approved);
       } else {
         setUserProfile(null);
         setIsApproved(false);
       }
     };
-    // Only run this if not during the initial loading phase
-    if (!isLoading) { // Ensure initial load is complete before reacting to user changes
+    if (!isLoading) {
       updateProfileAndApproval();
     }
   }, [user, isLoading]); // Depend on user and isLoading
@@ -113,12 +116,4 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       {children}
     </SessionContext.Provider>
   );
-};
-
-export const useSession = () => {
-  const context = useContext(SessionContext);
-  if (context === undefined) {
-    throw new Error('useSession must be used within a SessionContextProvider');
-  }
-  return context;
 };

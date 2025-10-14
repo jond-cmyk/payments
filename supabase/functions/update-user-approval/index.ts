@@ -23,17 +23,22 @@ serve(async (req) => {
     );
 
     const { userId, isApproved } = await req.json();
+    console.log(`[update-user-approval] Received request for userId: ${userId}, isApproved: ${isApproved}`);
 
     if (!userId || typeof isApproved !== 'boolean') {
+      console.error('[update-user-approval] Missing userId or isApproved status.');
       return new Response(JSON.stringify({ error: 'User ID and isApproved status are required.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    const emailConfirmedAtValue = isApproved ? new Date().toISOString() : null;
+    console.log(`[update-user-approval] Attempting to set email_confirmed_at to: ${emailConfirmedAtValue} for user: ${userId}`);
+
     const { data, error: authError } = await supabaseAdminClient.auth.admin.updateUserById(
       userId,
-      { email_confirmed_at: isApproved ? new Date().toISOString() : null }
+      { email_confirmed_at: emailConfirmedAtValue }
     );
 
     if (authError) {
@@ -44,6 +49,7 @@ serve(async (req) => {
       });
     }
 
+    console.log(`[update-user-approval] Successfully updated email_confirmed_at for user: ${userId}. Data: ${JSON.stringify(data)}`);
     return new Response(JSON.stringify({ message: 'User email confirmation status updated successfully!' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
