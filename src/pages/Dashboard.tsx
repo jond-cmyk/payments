@@ -197,7 +197,8 @@ const Dashboard = () => {
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
-      let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)');
+      // Explicitly select all columns from payment_requests and the joined profile
+      let query = supabase.from('payment_requests').select('id, requester_id, supplier_name, sku_number, not_sku_related, lease_id, supplier_address, iban_number, sort_code, account_number, bank_account_name, currency, payment_amount, reason_for_payment, date_payment_required, invoice_pdf_urls, status, admin_action_by, admin_action_reason, receipt_pdf_url, created_at, updated_at, payment_setup_date, payment_approved_date, receipt_required, is_urgent, country, last_reminder_sent_at, is_reminded, requester_profile:profiles(first_name)');
 
       // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
