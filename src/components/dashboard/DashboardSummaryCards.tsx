@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { PaymentRequest } from '@/types/supabase';
-import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat } from 'lucide-react'; // Import Repeat icon
+import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote } from 'lucide-react'; // Import Banknote and Repeat icon
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 
 interface DashboardSummaryCardsProps {

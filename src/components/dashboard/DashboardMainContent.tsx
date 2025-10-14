@@ -20,10 +20,11 @@ import { PaymentRequest, Profile, Transaction, StandingOrder, DirectDebit } from
 import { format } from 'date-fns';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 
-import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import GlobalSearchSection from '@/components/dashboard/GlobalSearchSection';
-import DashboardMainContent from '@/components/dashboard/DashboardMainContent';
+// Removed: import DashboardMainContent from '@/components/dashboard/DashboardMainContent';
 
+interface DashboardMainContentProps {
+  debouncedSearchTerm: string;
+}
 
 const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSearchTerm }) => {
   const { session, user, userProfile } = useSession();
@@ -421,7 +422,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
             userRole={userRole}
             handleSort={handleSort}
             renderSortIcon={renderSortIcon}
-            getStatusBadge={(status) => getStatusBadge(status, 'payment_request')}
+            getStatusBadge={(status, itemType) => getStatusBadge(status, itemType)}
             handleToggleUrgent={handleToggleUrgent}
             toggleUrgentMutation={toggleUrgentMutation}
           />

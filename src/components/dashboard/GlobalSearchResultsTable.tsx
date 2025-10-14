@@ -74,7 +74,11 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
                 {getStatusBadge(item.status, item.type)}
               </TableCell>
               <TableCell>
-                {format(new Date(item.type === 'payment_request' ? item.date_payment_required : item.payment_date), 'PPP')} {/* Conditional date */}
+                {format(new Date(
+                  item.type === 'payment_request' ? item.date_payment_required :
+                  item.type === 'transaction' ? item.transaction_date :
+                  item.payment_date
+                ), 'PPP')} {/* Conditional date */}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-2">

@@ -39,7 +39,7 @@ export function exportToCsv<T extends Record<string, any>>(data: T[], filename: 
 
     for (const row of data) {
       const values = headers.map(header => {
-        let value = row[header];
+        let value: any = row[header]; // Use 'any' for initial value to allow reassignment
         // Check if the value is a string that looks like an ISO date
         if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/.test(value)) {
           try {

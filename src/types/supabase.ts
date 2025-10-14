@@ -28,6 +28,7 @@ export type PaymentRequest = {
   country: string; // New field for country
   last_reminder_sent_at: string | null; // NEW: Last time a reminder was sent
   is_reminded: boolean; // NEW: Flag if a reminder has been sent
+  category: string; // NEW: Category field
 };
 
 export type Transaction = {

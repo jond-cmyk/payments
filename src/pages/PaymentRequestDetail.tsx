@@ -10,7 +10,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import * as z from 'zod'; // Keep z for other Zod usage if any
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 
@@ -495,7 +495,7 @@ const PaymentRequestDetail = () => {
       if (values.country === 'United Kingdom') {
         updatedFields.iban_number = null;
         updatedFields.sort_code = values.sort_code;
-        updatedFields.account_number = values.account_number?.replace(/\s/g, '');
+        updatedFields.account_number = values.account_number?.replace(/\s/g, ''); // Remove spaces for DB storage
         updatedFields.bank_account_name = values.bank_account_name;
       } else {
         updatedFields.iban_number = values.iban_number;

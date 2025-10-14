@@ -360,7 +360,7 @@ const StandingOrders = () => {
               placeholder="Filter by Payment Date"
               className="w-full shadow-sm"
             />
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <Select value={filterStatus} onValueChange={(value: StandingOrder['status'] | 'all') => setFilterStatus(value)}>
               <SelectTrigger className="w-full shadow-sm">
                 <SelectValue placeholder="Filter by Status" />
               </SelectTrigger>
