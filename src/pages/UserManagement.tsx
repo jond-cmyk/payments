@@ -64,14 +64,33 @@ const UserManagement = () => {
 
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string }) => {
-      const { id, ...fieldsToUpdate } = updatedFields;
-      const { error } = await supabase
+      const { id, is_approved, ...fieldsToUpdate } = updatedFields;
+
+      // 1. Update the public.profiles table
+      const { error: profileUpdateError } = await supabase
         .from('profiles')
-        .update({ ...fieldsToUpdate, updated_at: new Date().toISOString() })
+        .update({ ...fieldsToUpdate, is_approved: is_approved, updated_at: new Date().toISOString() })
         .eq('id', id);
-      if (error) {
-        throw error;
+      
+      if (profileUpdateError) {
+        throw new Error(`Failed to update user profile: ${profileUpdateError.message}`);
       }
+
+      // 2. If is_approved status is being changed, update auth.users via Edge Function
+      if (typeof is_approved === 'boolean') {
+        const { data, error: invokeError } = await supabase.functions.invoke('update-user-approval', {
+          body: { userId: id, isApproved: is_approved },
+        });
+
+        if (invokeError) {
+          throw new Error(invokeError.message);
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+      }
+      
       return true;
     },
     onSuccess: async () => {
