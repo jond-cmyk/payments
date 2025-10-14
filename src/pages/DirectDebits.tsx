@@ -85,9 +85,9 @@ const DirectDebits = () => {
         .select('*');
 
       // Apply country filter based on user role and selected country
-      if (userProfile?.role === 'requester' && userProfile.country) {
-        query = query.eq('country', userProfile.country);
-      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+      // For requesters, RLS will handle the country filter.
+      // For admins, apply client-side filter if a specific country is selected.
+      if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
 
@@ -224,7 +224,7 @@ const DirectDebits = () => {
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Direct Debit
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto"> {/* Added max-h and overflow-y-auto */}
+              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add New Direct Debit</DialogTitle>
                 </DialogHeader>
@@ -331,16 +331,18 @@ const DirectDebits = () => {
                       <TableCell>{debit.payment_reference}</TableCell>
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">
-                        <Button variant="outline" size="sm" className="shadow-sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button variant="outline" size="sm" className="shadow-sm">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button
                               variant="outline"
                               size="sm"
                               className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm"
-                              disabled={deleteDirectDebitMutation.isPending}
+                              disabled={deleteDirectDebitMutation.isPending || !isAdmin}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
