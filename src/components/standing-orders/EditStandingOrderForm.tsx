@@ -541,6 +541,9 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
+              <FormDescription>
+                {isAdmin ? "Select the current status of this standing order." : "Only administrators can change the status."}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
