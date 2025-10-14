@@ -41,16 +41,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
 import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm'; // Import the new form
+import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm'; // IMPORT THE REAL EDIT FORM
 import { cn } from '@/lib/utils';
 import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
-
-// Placeholder for EditDirectDebitForm - will be created in the next step
-const EditDirectDebitForm = ({ directDebit, onDirectDebitUpdated }: { directDebit: DirectDebit, onDirectDebitUpdated: () => void }) => (
-  <div className="p-4 text-center">
-    <p className="text-muted-foreground">Edit form for Direct Debit ID: {directDebit.id.substring(0, 8)} coming soon.</p>
-    <Button onClick={onDirectDebitUpdated} className="mt-4">Close Form</Button>
-  </div>
-);
 
 const DirectDebits = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
