@@ -29,6 +29,10 @@ const Header = () => {
         return 'Missing Receipts - KH Payments';
       case '/completed-receipts':
         return 'Completed Receipts - KH Payments';
+      case '/direct-debits': // NEW: Direct Debits page title
+        return 'Direct Debits - KH Payments';
+      case '/standing-orders': // NEW: Standing Orders page title
+        return 'Standing Orders - KH Payments';
       case '/login':
         return 'Login - KH Payments';
       case '/':
