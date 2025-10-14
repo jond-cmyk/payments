@@ -28,7 +28,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import EditStandingOrderForm from '@/components/standing-orders/EditStandingOrderForm';
+import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm'; // Import the renamed form
 import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOrderAuditTrailCard'; // Import the new audit card
 import { cn } from '@/lib/utils';
 
@@ -304,11 +304,11 @@ const StandingOrderDetail = () => {
 
       {standingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
             <DialogHeader>
               <DialogTitle>Edit Standing Order: {standingOrder.payee}</DialogTitle>
             </DialogHeader>
-            <EditStandingOrderForm standingOrder={standingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
+            <UpdateStandingOrderForm standingOrder={standingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
           </DialogContent>
         </Dialog>
       )}

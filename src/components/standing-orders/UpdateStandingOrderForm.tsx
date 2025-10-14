@@ -25,7 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
 // Zod schema for editing a standing order
-const editStandingOrderFormSchema = z.object({
+const updateStandingOrderFormSchema = z.object({
   payee: z.string().min(1, "Payee is required."),
   payment_date: z.date({
     required_error: "Payment Start Date is required.",
@@ -143,17 +143,17 @@ const editStandingOrderFormSchema = z.object({
   }
 });
 
-interface EditStandingOrderFormProps {
+interface UpdateStandingOrderFormProps {
   standingOrder: StandingOrder;
   onStandingOrderUpdated: () => void;
 }
 
-const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingOrder, onStandingOrderUpdated }) => {
+const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ standingOrder, onStandingOrderUpdated }) => {
   const { user, userProfile } = useSession();
   const { availableCountries } = useCountry();
 
-  const form = useForm<z.infer<typeof editStandingOrderFormSchema>>({
-    resolver: zodResolver(editStandingOrderFormSchema),
+  const form = useForm<z.infer<typeof updateStandingOrderFormSchema>>({
+    resolver: zodResolver(updateStandingOrderFormSchema),
     defaultValues: {
       payee: standingOrder.payee,
       payment_date: new Date(standingOrder.payment_date),
@@ -177,7 +177,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
   const formCountry = form.watch("country");
   const isAdmin = userProfile?.role === 'admin';
 
-  const onSubmit = async (values: z.infer<typeof editStandingOrderFormSchema>) => {
+  const onSubmit = async (values: z.infer<typeof updateStandingOrderFormSchema>) => {
     const toastId = showLoading("Updating standing order...");
 
     try {
@@ -243,7 +243,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Country</FormLabel>
               <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                <FormControl asChild>
                   <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select a country" />
                   </SelectTrigger>
@@ -340,7 +340,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                <FormControl asChild>
                   <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
@@ -467,7 +467,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period From Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                  <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <FormControl asChild>
                     <SelectTrigger id={field.name}>
                       <SelectValue placeholder="Select day" />
                     </SelectTrigger>
@@ -491,7 +491,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
               <FormItem>
                 <FormLabel className="font-semibold">Accruals Period To Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                  <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <FormControl asChild>
                     <SelectTrigger id={field.name}>
                       <SelectValue placeholder="Select day" />
                     </SelectTrigger>
@@ -530,7 +530,7 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                <FormControl asChild>
                   <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
@@ -545,13 +545,13 @@ const EditStandingOrderForm: React.FC<EditStandingOrderFormProps> = ({ standingO
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}> {/* Disabled for non-admins */}
-          <PlusCircle className="mr-2 h-4 w-4" />
-          {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
+          <Edit className="mr-2 h-4 w-4" />
+          {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
         </Button>
       </form>
     </Form>
   );
 };
 
-export default AddStandingOrderForm;
+export default UpdateStandingOrderForm;

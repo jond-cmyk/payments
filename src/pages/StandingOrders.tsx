@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
 import AddStandingOrderForm from '@/components/standing-orders/AddStandingOrderForm'; // Import the new form
-import EditStandingOrderForm from '@/components/standing-orders/EditStandingOrderForm'; // Import the new form
+import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm'; // Import the renamed form
 import { cn } from '@/lib/utils';
 import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
 
@@ -430,7 +430,7 @@ const StandingOrders = () => {
             <DialogHeader>
               <DialogTitle>Edit Standing Order: {editingStandingOrder.payee}</DialogTitle>
             </DialogHeader>
-            <EditStandingOrderForm standingOrder={editingStandingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
+            <UpdateStandingOrderForm standingOrder={editingStandingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
           </DialogContent>
         </Dialog>
       )}
