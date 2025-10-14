@@ -10,13 +10,13 @@ import { Card } from '@/components/ui/card';
 import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { PaymentRequest, Transaction, StandingOrder } from '@/types/supabase'; // Import StandingOrder
+import { PaymentRequest, Transaction, StandingOrder, DirectDebit } from '@/types/supabase';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 
 // Define a union type for search results
-type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }); // Added StandingOrder
+type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }) | (DirectDebit & { type: 'direct_debit' });
 
 interface GlobalSearchSectionProps {
   onSearchTermChange: (term: string) => void;
@@ -121,13 +121,37 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
           }) as Promise<SearchResult[]>
       );
 
+      // NEW: Base query for direct debits
+      let directDebitQuery = supabase
+          .from('direct_debits')
+          .select('*')
+          .or(`payee.ilike.${term},sku.ilike.${term},category.ilike.${term},account_number.ilike.${term},payment_reference.ilike.${term},bank_account.ilike.${term}`);
+
+      // Apply country filter for direct debits
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        directDebitQuery = directDebitQuery.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        directDebitQuery = directDebitQuery.eq('country', currentCountry);
+      }
+
+      searchPromises.push(
+        directDebitQuery.then(({ data, error }) => {
+            if (error) {
+              console.error("Error searching direct debits:", error);
+              return [];
+            }
+            return data ? data.map(item => ({ ...item, type: 'direct_debit' })) : [];
+          }) as Promise<SearchResult[]>
+      );
+
+
       const results = await Promise.all(searchPromises);
       return results.flat();
     },
     enabled: !!debouncedSearchTerm && !!session,
   });
 
-  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status']) => { // Updated to include StandingOrder status
+  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status']) => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
     let className = '';
 
@@ -151,10 +175,14 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
       case 'queried':
         className = 'bg-gray-500 text-gray-50';
         break;
-      // NEW: Standing Order pending status
-      case 'pending':
-        displayText = 'Pending';
-        className = 'bg-orange-500 text-orange-50';
+      case 'active': // For Direct Debits and Standing Orders
+        className = 'bg-green-500 text-green-50';
+        break;
+      case 'paused': // For Direct Debits and Standing Orders
+        className = 'bg-yellow-500 text-yellow-50';
+        break;
+      case 'cancelled': // For Direct Debits and Standing Orders
+        className = 'bg-red-500 text-red-50';
         break;
       default:
         className = 'bg-gray-500 text-gray-50';
