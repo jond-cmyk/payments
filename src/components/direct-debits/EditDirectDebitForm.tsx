@@ -141,28 +141,13 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Temporarily commenting out all fields except one simple input to isolate the error */}
-        <FormField
-          control={form.control}
-          name="payee"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Electricity Company" {...field} disabled={!isAdmin} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {/*
         <FormField
           control={form.control}
           name="country"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Country</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+              <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Only admin can change country */}
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a country" />
@@ -183,6 +168,20 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             </FormItem>
           )}
         />
+        <FormField
+          control={form.control}
+          name="payee"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., Electricity Company" {...field} disabled={!isAdmin} /> {/* Disabled for non-admins */}
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        {/*
         <FormField
           control={form.control}
           name="payment_date"
@@ -340,7 +339,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           )}
         />
         */}
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}> {/* Disabled for non-admins */}
           <Edit className="mr-2 h-4 w-4" />
           {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
         </Button>
