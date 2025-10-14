@@ -23,9 +23,9 @@ serve(async (req) => {
       }
     );
 
-    const { email, password, first_name, last_name, role, is_approved, country } = await req.json(); // Added country
+    const { email, password, first_name, last_name, role, is_approved, country } = await req.json();
 
-    if (!email || !password || !role || !country) { // Country is now required
+    if (!email || !password || !role || !country) {
       return new Response(JSON.stringify({ error: 'Email, password, role, and country are required.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -59,8 +59,10 @@ serve(async (req) => {
       });
     }
 
+    console.log(`Edge Function: User created with ID: ${authData.user.id}. Initial email_confirmed_at: ${authData.user.email_confirmed_at}`);
+
     // NEW STEP: Mark the user's email as confirmed immediately
-    const { error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
+    const { data: updatedAuthData, error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
       authData.user.id,
       { email_confirmed_at: new Date().toISOString() }
     );
@@ -74,7 +76,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log(`Edge Function: User email confirmed for ${authData.user.id}.`);
+    console.log(`Edge Function: User email confirmed for ${authData.user.id}. Updated email_confirmed_at: ${updatedAuthData.user?.email_confirmed_at}`);
 
 
     // 2. Update the user's profile with the selected role, approval status, and country
