@@ -24,7 +24,6 @@ import { SessionContextProvider, useSession } from "./integrations/supabase/Sess
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext"; // Import CountryProvider
 import Layout from "./components/Layout";
-import AutoRefreshHandler from "./components/AutoRefreshHandler";
 
 const queryClient = new QueryClient();
 
@@ -57,38 +56,36 @@ const App = () => {
           <SessionContextProvider>
             <NotificationProvider>
               <CountryProvider> {/* Wrap with CountryProvider */}
-                <AutoRefreshHandler>
-                  <Routes>
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/pending-approval" element={<PendingApproval />} />
-                    <Route path="/" element={<Index />} />
+                <Routes>
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/pending-approval" element={<PendingApproval />} />
+                  <Route path="/" element={<Index />} />
 
-                    {/* Routes accessible to all logged-in users (even if not approved) */}
-                    <Route element={<Layout />}>
-                      <Route path="/missing-receipts" element={<MissingReceipts />} />
-                      <Route path="/completed-receipts" element={<CompletedReceipts />} />
-                      <Route path="/transaction/:id" element={<TransactionDetail />} />
-                      <Route path="/direct-debits" element={<DirectDebits />} />
-                      <Route path="/direct-debit/:id" element={<DirectDebitDetail />} /> {/* NEW: Direct Debit Detail Route */}
-                      <Route path="/standing-orders" element={<StandingOrders />} />
-                      <Route path="/standing-order/:id" element={<StandingOrderDetail />} /> {/* NEW: Standing Order Detail Route */}
-                    </Route>
+                  {/* Routes accessible to all logged-in users (even if not approved) */}
+                  <Route element={<Layout />}>
+                    <Route path="/missing-receipts" element={<MissingReceipts />} />
+                    <Route path="/completed-receipts" element={<CompletedReceipts />} />
+                    <Route path="/transaction/:id" element={<TransactionDetail />} />
+                    <Route path="/direct-debits" element={<DirectDebits />} />
+                    <Route path="/direct-debit/:id" element={<DirectDebitDetail />} /> {/* NEW: Direct Debit Detail Route */}
+                    <Route path="/standing-orders" element={<StandingOrders />} />
+                    <Route path="/standing-order/:id" element={<StandingOrderDetail />} /> {/* NEW: Standing Order Detail Route */}
+                  </Route>
 
-                    {/* Protected routes requiring approval */}
-                    <Route element={<ApprovedRoute><Layout /></ApprovedRoute>}>
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/new-request" element={<NewPaymentRequest />} />
-                      <Route path="/request/:id" element={<PaymentRequestDetail />} />
-                      <Route path="/admin/requests" element={<Dashboard />} />
-                      <Route path="/admin/users" element={<UserManagement />} />
-                      <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
-                      <Route path="/notifications" element={<NotificationsPage />} />
-                    </Route>
+                  {/* Protected routes requiring approval */}
+                  <Route element={<ApprovedRoute><Layout /></ApprovedRoute>}>
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/new-request" element={<NewPaymentRequest />} />
+                    <Route path="/request/:id" element={<PaymentRequestDetail />} />
+                    <Route path="/admin/requests" element={<Dashboard />} />
+                    <Route path="/admin/users" element={<UserManagement />} />
+                    <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
+                    <Route path="/notifications" element={<NotificationsPage />} />
+                  </Route>
 
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </AutoRefreshHandler>
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
               </CountryProvider>
             </NotificationProvider>
           </SessionContextProvider>
