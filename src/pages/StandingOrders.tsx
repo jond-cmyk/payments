@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import DatePicker from '@/components/DatePicker';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,7 +75,7 @@ const StandingOrders = () => {
     }
     debounceTimeoutRef.current = setTimeout(() => {
       setter(value);
-    }, 500);
+    }, 500); // 500ms debounce
   }, []);
 
   const isAdmin = userProfile?.role === 'admin';
@@ -400,7 +401,7 @@ const StandingOrders = () => {
                         )}
                       </TableCell>
                       <TableCell>Day {order.from_day} to Day {order.to_day}</TableCell>
-                      <TableCell>{order.payment_reference}</TableCell>
+                      <TableCell>{order.payment_reference || 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">
                         <Button

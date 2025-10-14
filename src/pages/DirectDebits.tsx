@@ -75,7 +75,7 @@ const DirectDebits = () => {
     }
     debounceTimeoutRef.current = setTimeout(() => {
       setter(value);
-    }, 500);
+    }, 500); // 500ms debounce
   }, []);
 
   const isAdmin = userProfile?.role === 'admin';
