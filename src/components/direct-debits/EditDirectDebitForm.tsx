@@ -150,7 +150,8 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Only admin can change country */}
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a country" />
+                    {/* Replaced SelectValue with a simple span for debugging */}
+                    <span>{availableCountries.find(c => c.value === field.value)?.label || "Select a country"}</span>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -247,7 +248,8 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
+                    {/* Replaced SelectValue with a simple span for debugging */}
+                    <span>{categoryOptions.find(c => c.value === field.value)?.label || "Select a category"}</span>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -272,7 +274,8 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
                   <FormControl>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a bank account" />
+                      {/* Replaced SelectValue with a simple span for debugging */}
+                      <span>{field.value || "Select a bank account"}</span>
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
@@ -321,7 +324,8 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}> {/* Disabled for non-admins */}
                 <FormControl>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
+                    {/* Replaced SelectValue with a simple span for debugging */}
+                    <span>{field.value || "Select status"}</span>
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
