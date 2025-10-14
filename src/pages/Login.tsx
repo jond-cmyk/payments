@@ -13,6 +13,7 @@ const Login = () => {
 
   useEffect(() => {
     console.log("Login: Current session state - isLoading:", isLoading, "session:", session, "isApproved:", isApproved);
+    console.log("Login: session?.user?.email_confirmed_at:", session?.user?.email_confirmed_at); // NEW LOG
     if (!isLoading && session) {
       if (isApproved) {
         console.log("Login: Session found and approved, redirecting to /dashboard.");

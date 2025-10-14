@@ -11,6 +11,8 @@ const PendingApproval = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("PendingApproval: Current session state - isLoading:", isLoading, "session:", session, "isApproved:", isApproved);
+    console.log("PendingApproval: session?.user?.email_confirmed_at:", session?.user?.email_confirmed_at); // NEW LOG
     if (!isLoading) {
       if (!session) {
         // If no session, redirect to login

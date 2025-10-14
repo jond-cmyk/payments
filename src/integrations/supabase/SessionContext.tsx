@@ -60,7 +60,17 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         setIsApproved(false);
       } else {
         setSession(initialSession);
-        const authUser = initialSession?.user || null;
+        let authUser = initialSession?.user || null;
+        
+        // Explicitly fetch user to ensure latest email_confirmed_at
+        if (authUser) {
+          const { data: { user: freshUser }, error: userError } = await supabase.auth.getUser();
+          if (userError) {
+            console.error("SessionContext: Error fetching fresh user data:", userError);
+          } else if (freshUser) {
+            authUser = freshUser; // Use the freshest user data
+          }
+        }
         setUser(authUser);
 
         if (authUser) {
@@ -82,9 +92,11 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       console.log("SessionContext: Auth state changed (listener). Event:", _event, "Session:", currentSession);
       setSession(currentSession);
-      const authUser = currentSession?.user || null;
-      setUser(authUser); // This will trigger the next useEffect
-      if (!authUser) {
+      // When auth state changes, the currentSession.user might not have the *absolute latest* email_confirmed_at
+      // if it was changed by an admin. We need to re-fetch the user to be sure.
+      // Setting user here will trigger the next useEffect.
+      setUser(currentSession?.user || null); 
+      if (!currentSession?.user) {
         setUserProfile(null);
         setIsApproved(false);
       }
@@ -100,16 +112,25 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
   useEffect(() => {
     const updateProfileAndApproval = async () => {
       if (user) {
-        const profile = await fetchUserProfile(user.id);
+        // Fetch the freshest user data again to ensure email_confirmed_at is up-to-date
+        const { data: { user: freshUser }, error: userError } = await supabase.auth.getUser();
+        let authUser = user;
+        if (userError) {
+          console.error("SessionContext: Error fetching fresh user data in user-change effect:", userError);
+        } else if (freshUser) {
+          authUser = freshUser; // Use the freshest user data
+        }
+
+        const profile = await fetchUserProfile(authUser.id);
         setUserProfile(profile);
-        setIsApproved(getCombinedApprovalStatus(user, profile)); // Use combined status
-        console.log("SessionContext: User changed, profile updated - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!user.email_confirmed_at, "Profile Approved:", profile?.is_approved);
+        setIsApproved(getCombinedApprovalStatus(authUser, profile)); // Use combined status with freshUser
+        console.log("SessionContext: User changed, profile updated - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!authUser.email_confirmed_at, "Profile Approved:", profile?.is_approved);
       } else {
         setUserProfile(null);
         setIsApproved(false);
       }
     };
-    if (!isLoading) {
+    if (!isLoading) { // Only run if initial loading is complete
       updateProfileAndApproval();
     }
   }, [user, isLoading]); // Depend on user and isLoading
