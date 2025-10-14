@@ -54,8 +54,8 @@ const PaymentRequestCommentsCard: React.FC<PaymentRequestCommentsCardProps> = ({
     form.reset(); // Clear the input after submission
   };
 
-  // Determine if the comment box should be visible
-  const showCommentBox = isAdmin || (isRequester && request.status === 'queried');
+  // Determine if the comment box should be visible for any authenticated user
+  const showCommentBox = !!currentUser;
 
   return (
     <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}

@@ -95,7 +95,9 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
               key={request.id}
               className={cn(
                 "transition-all duration-200 ease-in-out",
-                request.is_urgent ? "bg-red-600 text-white hover:bg-red-700" : "hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
+                request.is_urgent ? "bg-red-600 text-white hover:bg-red-700" :
+                request.is_reminded ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : // Blue for reminded requests
+                "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-dyad-blue/10"
               )}
             >
               <TableCell className="font-medium">{request.supplier_name}</TableCell>
@@ -134,7 +136,8 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                   variant="outline"
                   size="sm"
                   className={cn(
-                    request.is_urgent && "text-gray-900 hover:text-white hover:bg-red-800 border-gray-900"
+                    request.is_urgent && "text-gray-900 hover:text-white hover:bg-red-800 border-gray-900",
+                    request.is_reminded && "text-blue-800 hover:text-blue-900 hover:bg-blue-300 border-blue-800"
                   )}
                 >
                   <Link to={`/request/${request.id}`}>View Details</Link>

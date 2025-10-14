@@ -714,6 +714,12 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 <p>{request.admin_action_reason}</p>
               </div>
             )}
+            {request.last_reminder_sent_at && (
+              <div>
+                <p className="font-medium">Last Reminder Sent:</p>
+                <p>{format(new Date(request.last_reminder_sent_at), 'PPP p')}</p>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

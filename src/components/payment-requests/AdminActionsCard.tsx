@@ -4,7 +4,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2, RotateCcw } from 'lucide-react'; // Import RotateCcw icon
+import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2, RotateCcw, BellRing } from 'lucide-react'; // Import BellRing icon
 import { UseMutationResult } from '@tanstack/react-query';
 import { User } from '@supabase/supabase-js';
 
@@ -48,6 +48,8 @@ interface AdminActionsCardProps {
   handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending', reason?: string) => Promise<boolean>; // Updated return type
   handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<boolean>;
   handleAdminRevert: (values: z.infer<typeof revertFormSchema>) => Promise<boolean>; // New prop for revert handler
+  handleSendReminder: () => Promise<void>; // NEW: Prop for sending reminder
+  isSendingReminder: boolean; // NEW: Prop for reminder loading state
   user: User | null;
 }
 
@@ -59,6 +61,8 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
   handleAdminAction,
   handleAdminQuery,
   handleAdminRevert, // Destructure new prop
+  handleSendReminder, // Destructure new prop
+  isSendingReminder, // Destructure new prop
   user,
 }) => {
   const declineForm = useForm<z.infer<typeof declineFormSchema>>({
@@ -105,7 +109,10 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
     }
   };
 
-  if (!isAdmin || request.status === 'declined') {
+  // Reminder button visibility: any authenticated user, if status is pending or setup_awaiting_approval
+  const showReminderButton = !!user && (request.status === 'pending' || request.status === 'setup_awaiting_approval');
+
+  if (!isAdmin && !showReminderButton) { // Only hide if not admin AND no reminder button
     return null;
   }
 
@@ -116,7 +123,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
         <CardDescription>Manage this payment request.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-4">
-        {(request.status === 'pending' || request.status === 'queried') && (
+        {(request.status === 'pending' || request.status === 'queried') && isAdmin && ( // Only admins can setup payment
           <Button
             onClick={() => handleAdminAction('setup_awaiting_approval')}
             disabled={updateRequestMutation.isPending}
@@ -126,7 +133,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
           </Button>
         )}
 
-        {(request.status === 'pending' || request.status === 'setup_awaiting_approval') && (
+        {(request.status === 'pending' || request.status === 'setup_awaiting_approval') && isAdmin && ( // Only admins can query payment
           <AlertDialog>
             <AlertDialogTrigger
               asChild
@@ -175,7 +182,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
           </AlertDialog>
         )}
 
-        {request.status === 'setup_awaiting_approval' && (
+        {request.status === 'setup_awaiting_approval' && isAdmin && ( // Only admins can approve payment
           <Button
             onClick={() => handleAdminAction('approved')}
             disabled={updateRequestMutation.isPending}
@@ -185,7 +192,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
           </Button>
         )}
 
-        {(request.status === 'pending' || request.status === 'setup_awaiting_approval' || request.status === 'queried') && (
+        {(request.status === 'pending' || request.status === 'setup_awaiting_approval' || request.status === 'queried') && isAdmin && ( // Only admins can decline payment
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -233,7 +240,7 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
         )}
 
         {/* NEW: Revert to Pending Button */}
-        {request.status !== 'pending' && (
+        {request.status !== 'pending' && isAdmin && ( // Only admins can revert
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -280,33 +287,48 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
           </AlertDialog>
         )}
 
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm" // Added shadow-sm
-              disabled={deleteRequestMutation.isPending}
-            >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete Request
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the payment request and remove its data from our servers.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} asChild>
-                <Button variant="destructive">
-                  Delete
-                </Button>
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {/* NEW: Send Reminder Button */}
+        {showReminderButton && (
+          <Button
+            onClick={handleSendReminder}
+            disabled={isSendingReminder}
+            variant="outline"
+            className="text-blue-600 border-blue-600 hover:bg-blue-50 shadow-sm"
+          >
+            <BellRing className="mr-2 h-4 w-4" />
+            {isSendingReminder ? "Sending Reminder..." : "Send Reminder"}
+          </Button>
+        )}
+
+        {isAdmin && ( // Only admins can delete requests
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm" // Added shadow-sm
+                disabled={deleteRequestMutation.isPending}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Request
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete the payment request and remove its data from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deleteRequestMutation.mutate()} asChild>
+                  <Button variant="destructive">
+                    Delete
+                  </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </CardContent>
     </Card>
   );

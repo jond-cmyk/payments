@@ -149,6 +149,9 @@ importers:
       recharts:
         specifier: ^2.12.7
         version: 2.15.2(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      resend:
+        specifier: ^6.1.2
+        version: 6.1.2
       sonner:
         specifier: ^1.5.0
         version: 1.7.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -2253,6 +2256,15 @@ packages:
 
   regenerator-runtime@0.14.1:
     resolution: {integrity: sha512-dYnhHh0nJoMfnkZs6GmmhFknAGRrLznOu5nc9ML+EJxGvrx6H7teuevqVqCuPcPK//3eDrrjQhehXVx9cnkGdw==}
+
+  resend@6.1.2:
+    resolution: {integrity: sha512-C9Q+YkRe57P8MQlkHG3yatSR/B6sqBGA06Ri2DveJfkz9Vm16182FC/iHB0K6IAfmqZ4yRrFebFw1EPuktLtSg==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@react-email/render': '*'
+    peerDependenciesMeta:
+      '@react-email/render':
+        optional: true
 
   resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
@@ -4492,6 +4504,8 @@ snapshots:
       victory-vendor: 36.9.2
 
   regenerator-runtime@0.14.1: {}
+
+  resend@6.1.2: {}
 
   resolve-from@4.0.0: {}
 

@@ -238,8 +238,9 @@ const Dashboard = () => {
         return [];
       }
 
-      // Always sort urgent requests to the top, then by the selected column
+      // Always sort urgent requests to the top, then reminded, then by the selected column
       query = query.order('is_urgent', { ascending: false });
+      query = query.order('is_reminded', { ascending: false }); // NEW: Sort reminded requests below urgent
       if (sortColumn) {
         query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
       }
@@ -396,15 +397,15 @@ const Dashboard = () => {
   }
 
   if (requestsError) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading requests: {requestsError.message}</div>;
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading requests: ${requestsError.message}</div>;
   }
 
   if (searchError) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error during search: {searchError.message}</div>;
+    return <div className="flex items-center justify-center h-full text-red-500">Error during search: ${searchError.message}</div>;
   }
 
   if (profilesError) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading profiles for filter: {profilesError.message}</div>;
+    return <div className="flex items-center justify-center h-full text-red-500">Error loading profiles for filter: ${profilesError.message}</div>;
   }
 
   const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status']) => {

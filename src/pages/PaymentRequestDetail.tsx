@@ -426,6 +426,7 @@ const PaymentRequestDetail = () => {
       queryClient.invalidateQueries({ queryKey: ['paymentRequest', id] });
       queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
       queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Invalidate dashboard table
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] }); // Invalidate summary cards
       showSuccess("Payment request updated successfully!");
       setIsEditing(false);
     },
@@ -457,6 +458,7 @@ const PaymentRequestDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentRequests'] });
       queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Invalidate dashboard table
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] }); // Invalidate summary cards
       showSuccess("Payment request deleted successfully!");
       navigate('/admin/requests');
     },
@@ -524,6 +526,8 @@ const PaymentRequestDetail = () => {
         admin_action_by: user.id,
         admin_action_reason: reason || null,
         updated_at: new Date().toISOString(),
+        is_reminded: false, // Reset reminder status on any admin action
+        last_reminder_sent_at: null, // Reset reminder timestamp
       };
 
       if (status === 'setup_awaiting_approval') {
@@ -586,6 +590,45 @@ const PaymentRequestDetail = () => {
 
   const handleAddComment = async (commentText: string) => {
     await addCommentMutation.mutateAsync(commentText);
+  };
+
+  const sendReminderMutation = useMutation({
+    mutationFn: async () => {
+      if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
+      const { data, error: invokeError } = await supabase.functions.invoke('send-reminder-notification', {
+        body: { requestId: id, senderId: user.id },
+      });
+
+      if (invokeError) {
+        throw new Error(invokeError.message);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['paymentRequest', id] });
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Invalidate dashboard table
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] }); // Invalidate summary cards
+      showSuccess("Reminder sent successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to send reminder.");
+      console.error("Send reminder error:", error);
+    },
+  });
+
+  const handleSendReminder = async () => {
+    const toastId = showLoading("Sending reminder...");
+    try {
+      await sendReminderMutation.mutateAsync();
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
   };
 
   const handleReceiptUpload = async (values: z.infer<typeof receiptUploadSchema>) => {
@@ -690,6 +733,8 @@ const PaymentRequestDetail = () => {
         handleAdminAction={handleAdminAction}
         handleAdminQuery={handleAdminQuery}
         handleAdminRevert={handleAdminRevert}
+        handleSendReminder={handleSendReminder} // Pass new prop
+        isSendingReminder={sendReminderMutation.isPending} // Pass new prop
         user={user}
       />
 
