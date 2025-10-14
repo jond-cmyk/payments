@@ -208,10 +208,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         query = query.in('status', activeStatuses)
                      .or('is_urgent.eq.true,is_reminded.eq.true');
 
-        // For requesters, additionally filter by their own ID
-        if (userProfile?.role === 'requester') {
-          query = query.eq('requester_id', user.id);
-        }
+        // REMOVED: The requester_id filter for requesters on the main dashboard
+        // if (userProfile?.role === 'requester') {
+        //   query = query.eq('requester_id', user.id);
+        // }
       }
 
       // Always sort urgent requests to the top, then reminded, then by the selected column
@@ -349,7 +349,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         <DashboardSummaryCards counts={counts} />
       )}
 
-      {/* New title for Urgent Payment Requests, shown only if there are urgent requests */}
+      {/* New title for Priority Payment Requests, shown only if there are urgent or reminded requests */}
       {!isAllRequestsPage && (hasUrgentRequests || hasRemindedRequests) && (
         <h2 className="text-2xl font-bold mb-4 mt-8">Priority Payment Requests</h2>
       )}
