@@ -59,6 +59,24 @@ serve(async (req) => {
       });
     }
 
+    // NEW STEP: Mark the user's email as confirmed immediately
+    const { error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
+      authData.user.id,
+      { email_confirmed_at: new Date().toISOString() }
+    );
+
+    if (updateAuthError) {
+      console.error('Edge Function: Error confirming user email in auth:', updateAuthError);
+      // Attempt to delete the auth user to prevent orphaned accounts
+      await supabaseAdminClient.auth.admin.deleteUser(authData.user.id);
+      return new Response(JSON.stringify({ error: `Failed to confirm user email: ${updateAuthError.message}. User creation rolled back.` }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    console.log(`Edge Function: User email confirmed for ${authData.user.id}.`);
+
+
     // 2. Update the user's profile with the selected role, approval status, and country
     // The handle_new_user trigger creates a default profile, we then update it.
     const { error: profileError } = await supabaseAdminClient
