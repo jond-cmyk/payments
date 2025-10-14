@@ -264,29 +264,29 @@ const DirectDebits = () => {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
-            <span className="font-medium text-gray-700">Filters:</span>
-            {isAdmin && <CountrySelector className="w-[240px]" triggerClassName="w-full" />} {/* Country Selector for Admins */}
+          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
+            <span className="font-medium text-gray-700 col-span-full">Filters:</span>
+            {isAdmin && <CountrySelector className="w-full" triggerClassName="w-full" />}
             <Input
               placeholder="Filter by Payee"
               value={filterPayee}
               onChange={(e) => handleTextFilterChange(setFilterPayee, e.target.value)}
-              className="max-w-xs shadow-sm"
+              className="w-full shadow-sm"
             />
-            <Input // NEW: SKU Filter
+            <Input
               placeholder="Filter by SKU"
               value={filterSku}
               onChange={(e) => handleTextFilterChange(setFilterSku, e.target.value)}
-              className="max-w-xs shadow-sm"
+              className="w-full shadow-sm"
             />
-            <Input // NEW: Payment Reference Filter
+            <Input
               placeholder="Filter by Payment Reference"
               value={filterPaymentReference}
               onChange={(e) => handleTextFilterChange(setFilterPaymentReference, e.target.value)}
-              className="max-w-xs shadow-sm"
+              className="w-full shadow-sm"
             />
             <Select value={filterCategory} onValueChange={setFilterCategory}>
-              <SelectTrigger className="w-[180px] shadow-sm">
+              <SelectTrigger className="w-full shadow-sm">
                 <SelectValue placeholder="Filter by Category" />
               </SelectTrigger>
               <SelectContent>
@@ -302,10 +302,10 @@ const DirectDebits = () => {
               date={filterPaymentDate}
               setDate={setFilterPaymentDate}
               placeholder="Filter by Payment Date"
-              className="w-[200px] shadow-sm"
+              className="w-full shadow-sm"
             />
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[180px] shadow-sm">
+              <SelectTrigger className="w-full shadow-sm">
                 <SelectValue placeholder="Filter by Status" />
               </SelectTrigger>
               <SelectContent>
@@ -316,7 +316,7 @@ const DirectDebits = () => {
               </SelectContent>
             </Select>
             {hasActiveFilters && (
-              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm">
+              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm col-span-full sm:col-span-1">
                 <RotateCcw className="h-4 w-4" /> Clear Filters
               </Button>
             )}
