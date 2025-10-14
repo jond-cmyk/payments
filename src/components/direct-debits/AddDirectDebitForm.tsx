@@ -168,11 +168,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             <FormItem>
               <FormLabel className="font-semibold">Country</FormLabel>
               <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
-                <SelectTrigger>
-                  <FormControl> {/* Moved FormControl here */}
+                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <SelectTrigger>
                     <SelectValue placeholder="Select a country" />
-                  </FormControl>
-                </SelectTrigger>
+                  </SelectTrigger>
+                </FormControl>
                 <SelectContent>
                   {availableCountries.filter(c => c.value !== 'all').map((country) => ( // Filter out 'All Countries'
                     <SelectItem key={country.value} value={country.value}>
@@ -263,11 +263,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <FormControl> {/* Moved FormControl here */}
+                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <SelectTrigger>
                     <SelectValue placeholder="Select a category" />
-                  </FormControl>
-                </SelectTrigger>
+                  </SelectTrigger>
+                </FormControl>
                 <SelectContent>
                   {categoryOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
@@ -288,11 +288,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
               <FormItem>
                 <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger>
-                    <FormControl> {/* Moved FormControl here */}
+                  <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                    <SelectTrigger>
                       <SelectValue placeholder="Select a bank account" />
-                    </FormControl>
-                  </SelectTrigger>
+                    </SelectTrigger>
+                  </FormControl>
                   <SelectContent>
                     <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
                     <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
@@ -337,11 +337,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger>
-                  <FormControl> {/* Moved FormControl here */}
+                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <SelectTrigger>
                     <SelectValue placeholder="Select status" />
-                  </FormControl>
-                </SelectTrigger>
+                  </SelectTrigger>
+                </FormControl>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
