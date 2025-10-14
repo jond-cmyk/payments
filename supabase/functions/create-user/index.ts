@@ -34,11 +34,11 @@ serve(async (req) => {
     console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 1. Create user in Supabase Auth using admin privileges
-    // We set email_confirm: false here, and will explicitly set email_confirmed_at later.
+    // We set email_confirm: false here, and will explicitly set email_confirmed_at later if approved.
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: false, // Do not send confirmation email, we'll manually confirm
+      email_confirm: false, // Do not send confirmation email
       user_metadata: {
         first_name: first_name,
         last_name: last_name,
@@ -63,23 +63,26 @@ serve(async (req) => {
 
     console.log(`Edge Function: User created with ID: ${authData.user.id}. Initial email_confirmed_at: ${authData.user.email_confirmed_at}`);
 
-    // Explicitly set email_confirmed_at to bypass email verification for admin-created users
-    const { data: updateAuthUser, error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
-      authData.user.id,
-      { email_confirmed_at: new Date().toISOString() }
-    );
+    // If the user is approved immediately, explicitly set email_confirmed_at
+    if (is_approved) {
+      console.log(`Edge Function: User ${authData.user.id} is approved. Attempting to set email_confirmed_at.`);
+      const { data: updateAuthUser, error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
+        authData.user.id,
+        { email_confirmed_at: new Date().toISOString() }
+      );
 
-    if (updateAuthError) {
-      console.error('Edge Function: Error explicitly confirming user email in auth:', updateAuthError);
-      // Attempt to delete the auth user to prevent orphaned accounts
-      await supabaseAdminClient.auth.admin.deleteUser(authData.user.id);
-      return new Response(JSON.stringify({ error: `Failed to confirm user email: ${updateAuthError.message}. User creation rolled back.` }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      if (updateAuthError) {
+        console.error('Edge Function: Error explicitly confirming user email in auth:', updateAuthError);
+        await supabaseAdminClient.auth.admin.deleteUser(authData.user.id); // Rollback
+        return new Response(JSON.stringify({ error: `Failed to confirm user email: ${updateAuthError.message}. User creation rolled back.` }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.log(`Edge Function: User email confirmed for ${authData.user.id}. Updated auth.users.email_confirmed_at: ${updateAuthUser?.user?.email_confirmed_at}`);
+    } else {
+      console.log(`Edge Function: User ${authData.user.id} is NOT approved. Leaving email_confirmed_at as null.`);
     }
-    console.log(`Edge Function: User email confirmed for ${authData.user.id}. Updated auth.users.email_confirmed_at: ${updateAuthUser?.user?.email_confirmed_at}`);
-
 
     console.log(`Edge Function: Attempting to update public.profiles for user ${authData.user.id} with role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 

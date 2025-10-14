@@ -12,10 +12,15 @@ serve(async (req) => {
   }
 
   try {
-    // This Edge Function is now primarily a placeholder or for future direct auth.users updates
-    // that are not related to email_confirmed_at, as that field is not directly settable
-    // via admin.updateUserById for the purpose of bypassing email verification.
-    // The actual profile approval is handled by updating public.profiles.is_approved directly.
+    const supabaseAdminClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false,
+        },
+      }
+    );
 
     const { userId, isApproved } = await req.json();
     console.log(`[update-user-approval] Received request for userId: ${userId}, isApproved: ${isApproved}`);
@@ -28,10 +33,28 @@ serve(async (req) => {
       });
     }
 
-    // No direct update to auth.users.email_confirmed_at here, as it's not effective.
-    // The public.profiles.is_approved field is the source of truth for application access.
+    // If the user is being approved, explicitly set email_confirmed_at in auth.users
+    if (isApproved) {
+      console.log(`[update-user-approval] User ${userId} is being approved. Attempting to set email_confirmed_at.`);
+      const { data: updateAuthUser, error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
+        userId,
+        { email_confirmed_at: new Date().toISOString() }
+      );
 
-    console.log(`[update-user-approval] No direct update to auth.users for email_confirmed_at. Profile approval is handled in client.`);
+      if (updateAuthError) {
+        console.error(`[update-user-approval] Error setting email_confirmed_at for user ${userId}:`, updateAuthError);
+        return new Response(JSON.stringify({ error: `Failed to confirm user email: ${updateAuthError.message}` }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      console.log(`[update-user-approval] Successfully set email_confirmed_at for user ${userId}. New email_confirmed_at: ${updateAuthUser?.user?.email_confirmed_at}`);
+    } else {
+      // If the user is being unapproved, we will NOT clear email_confirmed_at in auth.users.
+      // The application's access control will rely on public.profiles.is_approved.
+      console.log(`[update-user-approval] User ${userId} is being unapproved. Not modifying email_confirmed_at in auth.users.`);
+    }
+
     return new Response(JSON.stringify({ message: 'User email confirmation status (via profile) handled successfully!' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

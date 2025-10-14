@@ -47,17 +47,12 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       return false; // No user or no profile, not approved
     }
 
+    // The application's approval status is now solely determined by public.profiles.is_approved.
+    // We assume that the Edge Functions correctly manage auth.users.email_confirmed_at
+    // to allow login via Auth UI when public.profiles.is_approved is true.
     const isProfileApproved = profile.is_approved ?? false;
-
-    // For admin-created users, the email_confirmed_at field in auth.users MUST be set.
-    // If it's not set, the Auth UI will block login, so we reflect that here.
-    if (authUser.email_confirmed_at) {
-      console.log(`[SessionContext] getCombinedApprovalStatus: User ${authUser.id} has email_confirmed_at (${authUser.email_confirmed_at}). Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
-      return isProfileApproved;
-    } else {
-      console.log(`[SessionContext] getCombinedApprovalStatus: User ${authUser.id} has NULL email_confirmed_at. Profile approved: ${isProfileApproved}. Result: false (Auth UI will likely block login)`);
-      return false; // If email_confirmed_at is null, Auth UI will block login, so we reflect that.
-    }
+    console.log(`[SessionContext] getCombinedApprovalStatus: User ${authUser.id}. Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
+    return isProfileApproved;
   };
 
   useEffect(() => {
