@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { DirectDebit } from '@/types/supabase';
+import { DirectDebit, DirectDebitAudit, Profile } from '@/types/supabase'; // Import DirectDebitAudit and Profile
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
 import { Edit, Trash2, Banknote, AlertTriangle } from 'lucide-react';
@@ -28,6 +28,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
+import DirectDebitAuditTrailCard from '@/components/direct-debits/DirectDebitAuditTrailCard'; // Import the new audit card
 
 const DirectDebitDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -60,6 +61,54 @@ const DirectDebitDetail = () => {
       return data;
     },
     enabled: !!id,
+  });
+
+  // Fetch audit trail
+  const { data: audits, isLoading: isAuditsLoading, error: auditsError } = useQuery<DirectDebitAudit[]>({
+    queryKey: ['directDebitAudits', id, currentCountry],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data, error } = await supabase
+        .from('direct_debit_audits')
+        .select('*')
+        .eq('direct_debit_id', id)
+        .order('changed_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  // Fetch user names and emails for audit trail
+  const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
+    queryKey: ['auditUsers', currentCountry],
+    queryFn: async () => {
+      let query = supabase
+        .from('profile_with_email')
+        .select('id, first_name, last_name, user_email');
+      
+      if (currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      const usersMap: Record<string, string> = {};
+      data.forEach(profile => {
+        let displayString = profile.user_email || profile.id;
+        if (profile.first_name || profile.last_name) {
+          const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+          if (profile.user_email) {
+            displayString = `${name} (${profile.user_email})`;
+          } else {
+            displayString = name;
+          }
+        }
+        usersMap[profile.id] = displayString;
+      });
+      return usersMap;
+    },
+    enabled: !!session,
   });
 
   const deleteDirectDebitMutation = useMutation({
@@ -104,7 +153,7 @@ const DirectDebitDetail = () => {
     );
   };
 
-  if (isSessionLoading || isDirectDebitLoading) {
+  if (isSessionLoading || isDirectDebitLoading || isAuditsLoading || isAuditUsersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading direct debit details...</div>;
   }
 
@@ -220,6 +269,8 @@ const DirectDebitDetail = () => {
           </div>
         </CardContent>
       </Card>
+
+      <DirectDebitAuditTrailCard audits={audits} auditUsers={auditUsers} />
     </div>
   );
 };

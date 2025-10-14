@@ -125,6 +125,22 @@ export type TransactionAudit = {
   changed_at: string;
 };
 
+export type DirectDebitAudit = { // NEW: DirectDebitAudit type
+  id: string;
+  direct_debit_id: string;
+  changed_by_user_id: string | null;
+  change_description: string;
+  changed_at: string;
+};
+
+export type StandingOrderAudit = { // NEW: StandingOrderAudit type
+  id: string;
+  standing_order_id: string;
+  changed_by_user_id: string | null;
+  change_description: string;
+  changed_at: string;
+};
+
 export type Notification = {
   id: string;
   user_id: string;

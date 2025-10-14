@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { StandingOrder } from '@/types/supabase';
+import { StandingOrder, StandingOrderAudit, Profile } from '@/types/supabase'; // Import StandingOrderAudit and Profile
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
 import { Edit, Trash2, Repeat, Eye } from 'lucide-react';
@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import EditStandingOrderForm from '@/components/standing-orders/EditStandingOrderForm';
+import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOrderAuditTrailCard'; // Import the new audit card
 import { cn } from '@/lib/utils';
 
 const StandingOrderDetail = () => {
@@ -63,6 +64,54 @@ const StandingOrderDetail = () => {
       return data;
     },
     enabled: !!id,
+  });
+
+  // Fetch audit trail
+  const { data: audits, isLoading: isAuditsLoading, error: auditsError } = useQuery<StandingOrderAudit[]>({
+    queryKey: ['standingOrderAudits', id, currentCountry],
+    queryFn: async () => {
+      if (!id) return [];
+      const { data, error } = await supabase
+        .from('standing_order_audits')
+        .select('*')
+        .eq('standing_order_id', id)
+        .order('changed_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  // Fetch user names and emails for audit trail
+  const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
+    queryKey: ['auditUsers', currentCountry],
+    queryFn: async () => {
+      let query = supabase
+        .from('profile_with_email')
+        .select('id, first_name, last_name, user_email');
+      
+      if (currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      const usersMap: Record<string, string> = {};
+      data.forEach(profile => {
+        let displayString = profile.user_email || profile.id;
+        if (profile.first_name || profile.last_name) {
+          const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+          if (profile.user_email) {
+            displayString = `${name} (${profile.user_email})`;
+          } else {
+            displayString = name;
+          }
+        }
+        usersMap[profile.id] = displayString;
+      });
+      return usersMap;
+    },
+    enabled: !!session,
   });
 
   const deleteStandingOrderMutation = useMutation({
@@ -113,7 +162,7 @@ const StandingOrderDetail = () => {
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] }); // Invalidate list page query
   };
 
-  if (isSessionLoading || isStandingOrderLoading) {
+  if (isSessionLoading || isStandingOrderLoading || isAuditsLoading || isAuditUsersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading standing order details...</div>;
   }
 
@@ -251,9 +300,11 @@ const StandingOrderDetail = () => {
         </CardContent>
       </Card>
 
+      <StandingOrderAuditTrailCard audits={audits} auditUsers={auditUsers} />
+
       {standingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Standing Order: {standingOrder.payee}</DialogTitle>
             </DialogHeader>

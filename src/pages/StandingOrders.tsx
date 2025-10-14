@@ -235,7 +235,7 @@ const StandingOrders = () => {
             </CardTitle>
             <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="shadow-sm">
+                <Button className="shadow-sm" disabled={!isAdmin}> {/* Disabled for non-admins */}
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Standing Order
                 </Button>
               </DialogTrigger>
