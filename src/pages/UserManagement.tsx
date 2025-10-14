@@ -20,7 +20,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Users, CheckCircle, XCircle, UserPlus, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -219,6 +219,9 @@ const UserManagement = () => {
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Add New User</DialogTitle>
+              <DialogDescription>
+                Fill in the details to create a new user account.
+              </DialogDescription>
             </DialogHeader>
             <AddUserForm onUserAdded={handleUserAdded} />
           </DialogContent>
@@ -332,6 +335,9 @@ const UserManagement = () => {
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Edit User: {editingUser.first_name || editingUser.user_email || 'N/A'}</DialogTitle>
+              <DialogDescription>
+                Update the profile details and approval status for this user.
+              </DialogDescription>
             </DialogHeader>
             <EditUserForm
               profile={editingUser}
