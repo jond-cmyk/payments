@@ -253,7 +253,7 @@ const StandingOrderDetail = () => {
 
       {standingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
-          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
             <DialogHeader>
               <DialogTitle>Edit Standing Order: {standingOrder.payee}</DialogTitle>
             </DialogHeader>

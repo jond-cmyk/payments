@@ -239,7 +239,7 @@ const StandingOrders = () => {
                   <PlusCircle className="mr-2 h-4 w-4" /> Add New Standing Order
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
                 <DialogHeader>
                   <DialogTitle>Add New Standing Order</DialogTitle>
                 </DialogHeader>
@@ -426,7 +426,7 @@ const StandingOrders = () => {
 
       {editingStandingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
-          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
             <DialogHeader>
               <DialogTitle>Edit Standing Order: {editingStandingOrder.payee}</DialogTitle>
             </DialogHeader>
