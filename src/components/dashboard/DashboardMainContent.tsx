@@ -175,7 +175,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
-      let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)');
+      let query = supabase.from('payment_requests').select('id, requester_id, supplier_name, sku_number, not_sku_related, lease_id, supplier_address, iban_number, sort_code, account_number, bank_account_name, currency, payment_amount, reason_for_payment, date_payment_required, invoice_pdf_urls, status, admin_action_by, admin_action_reason, receipt_pdf_url, created_at, updated_at, payment_setup_date, payment_approved_date, receipt_required, is_urgent, country, last_reminder_sent_at, is_reminded, requester_profile:profiles(first_name)');
 
       // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -185,16 +185,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       }
       // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
-      if (isRequesterPersonalDashboard) {
-        // Requester's personal dashboard: only their urgent requests
-        query = query.eq('requester_id', user.id)
-                     .eq('is_urgent', true)
-                     .in('status', ['pending', 'setup_awaiting_approval', 'queried']);
-      } else if (isAdminUrgentDashboard) {
-        // Admin's personal dashboard: all urgent requests
-        query = query.eq('is_urgent', true)
-                     .in('status', ['pending', 'setup_awaiting_approval', 'queried']);
-      } else if (isAllRequestsPage) {
+      // Define common statuses for the main dashboard and 'All Requests' page
+      const activeStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'queried'];
+
+      if (isAllRequestsPage) {
         // Admin's 'All Requests' page: apply filters
         if (filterSupplierName) {
           query = query.ilike('supplier_name', `%${filterSupplierName}%`);
@@ -204,6 +198,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         }
         if (filterStatus !== 'all') {
           query = query.eq('status', filterStatus);
+        } else {
+          // If 'All Statuses' is selected, include all active statuses
+          query = query.in('status', activeStatuses);
         }
         if (filterDatePaymentRequired) {
           query = query.gte('date_payment_required', format(filterDatePaymentRequired, 'yyyy-MM-dd'));
@@ -211,9 +208,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         if (filterRequester !== 'all') {
           query = query.eq('requester_id', filterRequester);
         }
-      } else {
-        // Fallback for other cases, e.g., if a non-admin/non-requester somehow lands here
-        return [];
+      } else { // This is the main dashboard view (for both requester and admin)
+        // For requesters, filter by their own ID
+        if (userProfile?.role === 'requester') {
+          query = query.eq('requester_id', user.id);
+        }
+        // Always include active statuses for the main dashboard
+        query = query.in('status', activeStatuses);
       }
 
       // Always sort urgent requests to the top, then reminded, then by the selected column
@@ -340,6 +341,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     return <div className="flex items-center justify-center h-full text-red-500">Error loading profiles for filter: ${profilesError.message}</div>;
   }
 
+  // Check if there are any urgent requests in the table data to conditionally show the title
+  const hasUrgentRequests = paymentRequestsForTable?.some(req => req.is_urgent);
+
   return (
     <>
       {/* Summary cards always show on /dashboard for both requester and admin */}
@@ -347,8 +351,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         <DashboardSummaryCards counts={counts} />
       )}
 
-      {/* New title for Urgent Payment Requests */}
-      {(!isAllRequestsPage && (isRequesterPersonalDashboard || isAdminUrgentDashboard)) && (
+      {/* New title for Urgent Payment Requests, shown only if there are urgent requests */}
+      {!isAllRequestsPage && hasUrgentRequests && (
         <h2 className="text-2xl font-bold mb-4 mt-8">Urgent Payment Requests</h2>
       )}
 
@@ -372,7 +376,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         />
       )}
 
-      {(isAllRequestsPage || isRequesterPersonalDashboard || isAdminUrgentDashboard) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
+      {(isAllRequestsPage || !isAllRequestsPage) && paymentRequestsForTable && paymentRequestsForTable.length > 0 ? ( // Show table on both /admin/requests and /dashboard
         <Card className="shadow-sm">
           <PaymentRequestTable
             paymentRequests={paymentRequestsForTable}
@@ -386,8 +390,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         </Card>
       ) : (
         <p className="text-center text-muted-foreground mt-8">
-          {isAdminUrgentDashboard || isRequesterPersonalDashboard
-            ? 'No urgent payment requests found.'
+          {hasUrgentRequests
+            ? 'No urgent payment requests found.' // This case should ideally not be hit if hasUrgentRequests is true
             : 'No payment requests found matching your criteria.'}
         </p>
       )}
