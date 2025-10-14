@@ -25,7 +25,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
   const { currentCountry } = useCountry(); // Get currentCountry from context
 
   // Helper to get card specific styling based on status
-  const getCardStyling = (status: PaymentRequest['status'] | 'missing_receipts' | 'pending_standing_orders') => { // Updated type
+  const getCardStyling = (status: PaymentRequest['status'] | 'missing_receipts' | 'pending_standing_orders' | 'pending_direct_debits') => { // Updated type
     switch (status) {
       case 'pending':
         return {
@@ -97,6 +97,16 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
           statusValue: 'pending_standing_orders',
           link: `/standing-orders?status=pending`,
         };
+      case 'pending_direct_debits': // NEW: Card for pending direct debits
+        return {
+          borderClass: 'border-indigo-500',
+          textClass: 'text-indigo-600',
+          icon: <Banknote className="h-4 w-4" />,
+          title: 'Pending Direct Debits',
+          description: 'Direct debits awaiting approval',
+          statusValue: 'pending_direct_debits',
+          link: `/direct-debits?status=pending`,
+        };
       default:
         return {
           borderClass: 'border-gray-300',
@@ -113,7 +123,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
       {Object.keys(counts).filter(key => key !== 'total').map((statusKey) => {
-        const status = statusKey as PaymentRequest['status'] | 'missing_receipts' | 'pending_standing_orders'; // Updated type
+        const status = statusKey as PaymentRequest['status'] | 'missing_receipts' | 'pending_standing_orders' | 'pending_direct_debits'; // Updated type
         const { borderClass, textClass, icon, title, description, link } = getCardStyling(status);
         return (
           <Link key={status} to={link} className="block">

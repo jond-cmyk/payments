@@ -148,6 +148,8 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                 <AccordionContent className="pl-6 pt-2 pb-0 space-y-2">
                   <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
                   <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
+                  <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" /> {/* NEW */}
+                  <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" /> {/* NEW */}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

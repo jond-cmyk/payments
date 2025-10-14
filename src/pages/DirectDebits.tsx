@@ -217,6 +217,9 @@ const DirectDebits = () => {
       case 'cancelled':
         className = 'bg-red-500 text-red-50';
         break;
+      case 'pending': // NEW: Style for pending status
+        className = 'bg-orange-500 text-orange-50';
+        break;
       default:
         className = 'bg-gray-500 text-gray-50';
     }
@@ -360,6 +363,7 @@ const DirectDebits = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem> {/* NEW */}
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>

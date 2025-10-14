@@ -70,7 +70,7 @@ export type DirectDebit = {
   category: string;
   account_number: string;
   payment_reference: string | null; // Made nullable
-  status: 'active' | 'cancelled' | 'paused'; // Example statuses
+  status: 'active' | 'cancelled' | 'paused' | 'pending'; // Example statuses - ADDED 'pending'
   country: string;
   bank_account: string | null; // NEW: Bank Account field
 };

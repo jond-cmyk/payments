@@ -25,14 +25,22 @@ const Header = () => {
         return 'User Management - KH Payments';
       case '/admin/upload-transactions':
         return 'Upload Transactions - KH Payments';
+      case '/admin/upload-direct-debits': // NEW: Page title for Direct Debit upload
+        return 'Upload Direct Debits - KH Payments';
+      case '/admin/upload-standing-orders': // NEW: Page title for Standing Order upload
+        return 'Upload Standing Orders - KH Payments';
       case '/missing-receipts':
         return 'Missing Receipts - KH Payments';
       case '/completed-receipts':
         return 'Completed Receipts - KH Payments';
       case '/direct-debits':
         return 'Direct Debits - KH Payments';
+      case '/direct-debit/:id':
+        return 'Direct Debit Details - KH Payments';
       case '/standing-orders':
         return 'Standing Orders - KH Payments';
+      case '/standing-order/:id': // NEW: Standing Order Detail Page Title
+        return 'Standing Order Details - KH Payments';
       case '/login':
         return 'Login - KH Payments';
       case '/':
