@@ -1,7 +1,7 @@
 // List of common categories - UPDATED with custom sort
 export const categoryOptions = [
   { value: '950_rent', label: '950 - Rent' },
-  { value: '952_utilities_el', label: '952 - Utilities - El' },
+  { value: '952_utilities_el', label: '952 - Electricity' },
   { value: '953_water', label: '953 - Water' },
   { value: '954_heating', label: '954 - Heating' },
   { value: '956_fiber_wifi', label: '956 - Fiber/Wifi' },
