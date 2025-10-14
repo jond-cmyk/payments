@@ -7,6 +7,7 @@ let supabase: SupabaseClient; // Declare supabase variable with type
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase URL or Anon Key is missing. Please check your .env.local file or Vercel environment variables.');
+  console.warn('Initializing a dummy Supabase client. Authentication and database operations will not work.'); // Added log
   // Dummy client definition
   const dummyClient = {
     auth: {
@@ -39,6 +40,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   };
   supabase = dummyClient as unknown as SupabaseClient; // Assign dummy client here, cast to unknown first
 } else {
+  console.log('Supabase URL and Anon Key found. Initializing real Supabase client.'); // Added log
   supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true, // Explicitly set to true
