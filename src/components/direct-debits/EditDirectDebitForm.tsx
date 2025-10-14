@@ -148,7 +148,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             <FormItem>
               <FormLabel className="font-semibold">Country</FormLabel>
               <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}> {/* Only admin can change country */}
-                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                <FormControl> {/* Corrected: FormControl without asChild */}
                   <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select a country" />
                   </SelectTrigger>
@@ -246,7 +246,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             <FormItem>
               <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                <FormControl> {/* Corrected: FormControl without asChild */}
                   <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
@@ -271,7 +271,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <FormItem>
                 <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                  <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                  <FormControl> {/* Corrected: FormControl without asChild */}
                     <SelectTrigger id={field.name}>
                       <SelectValue placeholder="Select a bank account" />
                     </SelectTrigger>
@@ -320,7 +320,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <FormControl asChild> {/* Corrected: FormControl wraps SelectTrigger with asChild */}
+                <FormControl> {/* Corrected: FormControl without asChild */}
                   <SelectTrigger id={field.name}>
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
