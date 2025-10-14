@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { DirectDebit, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { Banknote, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2 } from 'lucide-react';
+import { Banknote, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye } from 'lucide-react'; // Import Eye icon
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
@@ -44,12 +44,22 @@ import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm'; 
 import { cn } from '@/lib/utils';
 import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
 
+// Placeholder for EditDirectDebitForm - will be created in the next step
+const EditDirectDebitForm = ({ directDebit, onDirectDebitUpdated }: { directDebit: DirectDebit, onDirectDebitUpdated: () => void }) => (
+  <div className="p-4 text-center">
+    <p className="text-muted-foreground">Edit form for Direct Debit ID: {directDebit.id.substring(0, 8)} coming soon.</p>
+    <Button onClick={onDirectDebitUpdated} className="mt-4">Close Form</Button>
+  </div>
+);
+
 const DirectDebits = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isAddDirectDebitDialogOpen, setIsAddDirectDebitDialogOpen] = useState(false); // State for dialog
+  const [isAddDirectDebitDialogOpen, setIsAddDirectDebitDialogOpen] = useState(false); // State for add dialog
+  const [isEditDirectDebitDialogOpen, setIsEditDirectDebitDialogOpen] = useState(false); // NEW: State for edit dialog
+  const [editingDirectDebit, setEditingDirectDebit] = useState<DirectDebit | null>(null); // NEW: State for direct debit being edited
 
   // Filter states
   const [filterPayee, setFilterPayee] = useState<string>('');
@@ -197,6 +207,18 @@ const DirectDebits = () => {
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
+  const handleEditClick = (directDebit: DirectDebit) => {
+    setEditingDirectDebit(directDebit);
+    setIsEditDirectDebitDialogOpen(true);
+  };
+
+  const handleDirectDebitUpdated = () => {
+    setIsEditDirectDebitDialogOpen(false);
+    setEditingDirectDebit(null);
+    queryClient.invalidateQueries({ queryKey: ['directDebits'] });
+    queryClient.invalidateQueries({ queryKey: ['directDebit', editingDirectDebit?.id] }); // Invalidate detail page query
+  };
+
   if (isSessionLoading || isDirectDebitsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading direct debits...</div>;
   }
@@ -312,7 +334,7 @@ const DirectDebits = () => {
                     </TableHead>
                     <TableHead>Account Number</TableHead>
                     <TableHead>Payment Reference</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('bank_account')}> {/* NEW: Sortable Bank Account column */}
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('bank_account')}>
                       <div className="flex items-center">
                         Bank Account {renderSortIcon('bank_account')}
                       </div>
@@ -336,11 +358,19 @@ const DirectDebits = () => {
                       <TableCell>{categoryOptions.find(c => c.value === debit.category)?.label || debit.category}</TableCell>
                       <TableCell>{debit.account_number}</TableCell>
                       <TableCell>{debit.payment_reference}</TableCell>
-                      <TableCell>{debit.bank_account || 'N/A'}</TableCell> {/* NEW: Display bank_account */}
+                      <TableCell>{debit.bank_account || 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shadow-sm"
+                          onClick={() => navigate(`/direct-debit/${debit.id}`)}
+                        >
+                          <Eye className="h-4 w-4" /> View
+                        </Button>
                         {isAdmin && (
-                          <Button variant="outline" size="sm" className="shadow-sm">
+                          <Button variant="outline" size="sm" className="shadow-sm" onClick={() => handleEditClick(debit)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                         )}
@@ -383,6 +413,17 @@ const DirectDebits = () => {
           )}
         </CardContent>
       </Card>
+
+      {editingDirectDebit && (
+        <Dialog open={isEditDirectDebitDialogOpen} onOpenChange={setIsEditDirectDebitDialogOpen}>
+          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Direct Debit: {editingDirectDebit.payee}</DialogTitle>
+            </DialogHeader>
+            <EditDirectDebitForm directDebit={editingDirectDebit} onDirectDebitUpdated={handleDirectDebitUpdated} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

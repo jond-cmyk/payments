@@ -17,6 +17,7 @@ import PendingApproval from "./pages/PendingApproval";
 import CompletedReceipts from "./pages/CompletedReceipts";
 import NotificationsPage from "./pages/Notifications"; // Import the NotificationsPage
 import DirectDebits from "./pages/DirectDebits"; // Import DirectDebits
+import DirectDebitDetail from "./pages/DirectDebitDetail"; // NEW: Import DirectDebitDetail
 import StandingOrders from "./pages/StandingOrders"; // Import StandingOrders
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
@@ -66,8 +67,9 @@ const App = () => {
                       <Route path="/missing-receipts" element={<MissingReceipts />} />
                       <Route path="/completed-receipts" element={<CompletedReceipts />} />
                       <Route path="/transaction/:id" element={<TransactionDetail />} />
-                      <Route path="/direct-debits" element={<DirectDebits />} /> {/* New route */}
-                      <Route path="/standing-orders" element={<StandingOrders />} /> {/* New route */}
+                      <Route path="/direct-debits" element={<DirectDebits />} />
+                      <Route path="/direct-debit/:id" element={<DirectDebitDetail />} /> {/* NEW: Direct Debit Detail Route */}
+                      <Route path="/standing-orders" element={<StandingOrders />} />
                     </Route>
 
                     {/* Protected routes requiring approval */}
@@ -78,7 +80,7 @@ const App = () => {
                       <Route path="/admin/requests" element={<Dashboard />} />
                       <Route path="/admin/users" element={<UserManagement />} />
                       <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
-                      <Route path="/notifications" element={<NotificationsPage />} /> {/* New route for Notifications */}
+                      <Route path="/notifications" element={<NotificationsPage />} />
                     </Route>
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
