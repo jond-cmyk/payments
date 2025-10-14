@@ -32,9 +32,7 @@ serve(async (req) => {
       });
     }
 
-    // --- NEW LOG: Verify is_approved value received from client ---
     console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
-    // --- END NEW LOG ---
 
     // 1. Create user in Supabase Auth using admin privileges
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
@@ -65,8 +63,8 @@ serve(async (req) => {
 
     console.log(`Edge Function: User created with ID: ${authData.user.id}. Initial email_confirmed_at: ${authData.user.email_confirmed_at}`);
 
-    // NEW STEP: Mark the user's email as confirmed immediately
-    const { data: updatedAuthData, error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
+    // Mark the user's email as confirmed immediately
+    const { error: updateAuthError } = await supabaseAdminClient.auth.admin.updateUserById(
       authData.user.id,
       { email_confirmed_at: new Date().toISOString() }
     );
@@ -80,11 +78,18 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    console.log(`Edge Function: User email confirmed for ${authData.user.id}. Updated email_confirmed_at: ${updatedAuthData.user?.email_confirmed_at}`);
 
-    // --- NEW LOG: Confirm values before profile update ---
+    // --- NEW: Explicitly fetch user again to verify email_confirmed_at ---
+    const { data: verifiedAuthUser, error: verifyError } = await supabaseAdminClient.auth.admin.getUserById(authData.user.id);
+    if (verifyError) {
+      console.error('Edge Function: Error fetching user after email confirmation update:', verifyError);
+      // Continue, as the update might have happened even if fetch failed
+    } else {
+      console.log(`Edge Function: User email confirmed for ${authData.user.id}. VERIFIED email_confirmed_at: ${verifiedAuthUser?.user?.email_confirmed_at}`);
+    }
+    // --- END NEW ---
+
     console.log(`Edge Function: Attempting to update public.profiles for user ${authData.user.id} with role: ${role}, is_approved: ${is_approved}, country: ${country}`);
-    // --- END NEW LOG ---
 
     // 2. Update the user's profile with the selected role, approval status, and country
     // The handle_new_user trigger creates a default profile, we then update it.
