@@ -244,9 +244,15 @@ const DirectDebits = () => {
     queryClient.invalidateQueries({ queryKey: ['directDebit', editingDirectDebit?.id] }); // Invalidate detail page query
   };
 
+  const directDebitExportColumns: (keyof DirectDebit)[] = [
+    'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
+    'sku', 'not_property_related', 'category', 'account_number', 'payment_reference',
+    'status', 'country', 'bank_account'
+  ];
+
   const handleDownloadDirectDebits = () => {
     if (directDebits) {
-      exportToCsv(directDebits, `direct_debits_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+      exportToCsv(directDebits, `direct_debits_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, directDebitExportColumns);
     }
   };
 

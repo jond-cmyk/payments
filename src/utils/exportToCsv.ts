@@ -17,18 +17,19 @@ function escapeCsvValue(value: any): string {
   return stringValue;
 }
 
-export function exportToCsv<T extends Record<string, any>>(data: T[], filename: string) {
+export function exportToCsv<T extends Record<string, any>>(data: T[], filename: string, columnOrder?: (keyof T)[]) {
   if (!data || data.length === 0) {
     showError("No data to export.");
     return;
   }
 
   try {
-    const headers = Object.keys(data[0]);
+    // Use provided columnOrder or derive from the first data object
+    const headers = columnOrder && columnOrder.length > 0 ? columnOrder : Object.keys(data[0]);
 
     // Format headers for readability (e.g., 'payment_date' -> 'Payment Date')
     const formattedHeaders = headers.map(header =>
-      header
+      String(header) // Ensure header is a string for replace method
         .replace(/_/g, ' ')
         .replace(/\b\w/g, char => char.toUpperCase())
     );

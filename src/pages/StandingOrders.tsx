@@ -249,9 +249,16 @@ const StandingOrders = () => {
     queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate new dashboard table
   };
 
+  const standingOrderExportColumns: (keyof StandingOrder)[] = [
+    'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
+    'sku', 'not_property_related', 'category', 'account_name', 'account_address',
+    'iban_number', 'sort_code', 'account_number', 'from_day', 'to_day',
+    'payment_reference', 'status', 'country'
+  ];
+
   const handleDownloadStandingOrders = () => {
     if (standingOrders) {
-      exportToCsv(standingOrders, `standing_orders_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`);
+      exportToCsv(standingOrders, `standing_orders_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, standingOrderExportColumns);
     }
   };
 
