@@ -64,6 +64,7 @@ const UserManagement = () => {
 
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string }) => {
+      console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`); // NEW LOG
       const { id, is_approved, ...fieldsToUpdate } = updatedFields;
       console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with fields: ${JSON.stringify(fieldsToUpdate)}, is_approved: ${is_approved}`);
 

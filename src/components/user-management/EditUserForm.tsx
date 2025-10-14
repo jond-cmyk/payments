@@ -47,7 +47,14 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
     },
   });
 
+  // NEW LOG: Log initial profile.is_approved and form's default is_approved
+  React.useEffect(() => {
+    console.log(`[EditUserForm] Initial profile.is_approved: ${profile.is_approved}`);
+    console.log(`[EditUserForm] Form default is_approved: ${form.getValues('is_approved')}`);
+  }, [profile.is_approved, form]);
+
   const onSubmit = async (values: z.infer<typeof editUserFormSchema>) => {
+    console.log(`[EditUserForm] Submitting form with is_approved: ${values.is_approved}`); // NEW LOG
     await onSave(values);
   };
 
@@ -138,7 +145,10 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
               <FormControl>
                 <Checkbox
                   checked={field.value}
-                  onCheckedChange={field.onChange}
+                  onCheckedChange={(checked) => {
+                    console.log(`[EditUserForm] Checkbox onCheckedChange: ${checked}`); // NEW LOG
+                    field.onChange(checked);
+                  }}
                   disabled={isSaving || isCurrentUser}
                 />
               </FormControl>
