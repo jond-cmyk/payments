@@ -39,6 +39,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
+import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm'; // Import the new form
 import { cn } from '@/lib/utils';
 
 const DirectDebits = () => {
@@ -46,6 +48,7 @@ const DirectDebits = () => {
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [isAddDirectDebitDialogOpen, setIsAddDirectDebitDialogOpen] = useState(false); // State for dialog
 
   // Filter states
   const [filterPayee, setFilterPayee] = useState<string>('');
@@ -188,6 +191,11 @@ const DirectDebits = () => {
     );
   };
 
+  const handleDirectDebitAdded = () => {
+    setIsAddDirectDebitDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['directDebits'] });
+  };
+
   if (isSessionLoading || isDirectDebitsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading direct debits...</div>;
   }
@@ -210,9 +218,19 @@ const DirectDebits = () => {
             <CardTitle className="flex items-center text-2xl font-bold">
               <Banknote className="mr-2 h-6 w-6" /> Direct Debits
             </CardTitle>
-            <Button className="shadow-sm">
-              <PlusCircle className="mr-2 h-4 w-4" /> Add New Direct Debit
-            </Button>
+            <Dialog open={isAddDirectDebitDialogOpen} onOpenChange={setIsAddDirectDebitDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="shadow-sm">
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add New Direct Debit
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Direct Debit</DialogTitle>
+                </DialogHeader>
+                <AddDirectDebitForm onDirectDebitAdded={handleDirectDebitAdded} />
+              </DialogContent>
+            </Dialog>
           </div>
           <CardDescription>
             Manage your recurring direct debit payments.
