@@ -47,6 +47,7 @@ const addStandingOrderFormSchema = z.object({
     required_error: "Status is required.",
   }).default('pending'),
   country: z.string().min(1, "Country is required."),
+  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -175,6 +176,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       payment_reference: "",
       status: "pending", // Default to 'pending'
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
+      bank_details_verified: false, // NEW: Default to false
     },
   });
 
@@ -193,6 +195,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       iban_number: "",
       sort_code: "",
       account_number: "",
+      bank_details_verified: false, // NEW: Reset to false
     }));
   }, [currentCountry, form]);
 
@@ -253,6 +256,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     form.setValue('category', suggestion.category);
     form.setValue('not_property_related', suggestion.not_property_related);
     form.setValue('sku', suggestion.sku || (suggestion.country === 'United Kingdom' ? 'UK' : 'CH'));
+    form.setValue('bank_details_verified', false); // NEW: Reset verified status when using suggestion
     // Close the dialog
     setIsSuggestionDialogOpen(false);
   };
@@ -296,6 +300,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           payment_reference: values.payment_reference || null, // Store null if empty string
           status: values.status,
           country: values.country,
+          bank_details_verified: values.bank_details_verified, // NEW: Include bank_details_verified
         });
 
       if (insertError) {
@@ -320,6 +325,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         payment_reference: "", // Reset to empty string
         status: "pending", // Reset to 'pending'
         country: formCountry,
+        bank_details_verified: false, // NEW: Reset to false
       });
       onStandingOrderAdded();
     } catch (error: any) {
@@ -560,6 +566,30 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             />
           </>
         )}
+
+        <FormField
+          control={form.control}
+          name="bank_details_verified"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel className="text-blue-700">
+                  I have verified these bank details with the payee.
+                </FormLabel>
+                <FormDescription className="text-blue-600">
+                  Please ensure the bank details are correct to avoid payment delays or errors.
+                </FormDescription>
+                <FormMessage />
+              </div>
+            </FormItem>
+          )}
+        />
 
         <div className="grid grid-cols-2 gap-4">
           <FormField

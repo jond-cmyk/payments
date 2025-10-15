@@ -90,6 +90,7 @@ const formSchema = z.object({
   is_urgent: z.boolean().default(false), // New field
   country: z.string().min(1, "Country is required"), // ADDED: country field to schema
   category: z.string().min(1, "Category is required"), // ADDED: category field to schema
+  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for validation
 
@@ -212,6 +213,7 @@ const NewPaymentRequest = () => {
       is_urgent: false, // Default to not urgent
       country: currentCountry, // ADDED: Set default country from context
       category: "", // ADDED: Default category
+      bank_details_verified: false, // NEW: Default to false
     },
     // REMOVED: context property as country is now a form field
   });
@@ -235,6 +237,7 @@ const NewPaymentRequest = () => {
       bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
       country: currentCountry, // Ensure form's country field is updated
       category: "", // Reset category
+      bank_details_verified: false, // NEW: Reset to false
     }));
   }, [currentCountry, form]);
 
@@ -311,6 +314,7 @@ const NewPaymentRequest = () => {
     form.setValue('lease_id', suggestion.lease_id || '');
     form.setValue('receipt_required', suggestion.receipt_required);
     form.setValue('is_urgent', suggestion.is_urgent);
+    form.setValue('bank_details_verified', false); // NEW: Reset verified status when using suggestion
     // Do not set country from suggestion, as it's already set by context/user profile
     setIsSuggestionDialogOpen(false);
   };
@@ -397,6 +401,7 @@ const NewPaymentRequest = () => {
           is_urgent: values.is_urgent, // Save urgent status
           country: values.country, // Add the current country from form values
           category: values.category, // ADDED: category to insert
+          bank_details_verified: values.bank_details_verified, // NEW: Include bank_details_verified
         });
 
       if (insertError) {
@@ -424,6 +429,7 @@ const NewPaymentRequest = () => {
         supplier_address: "", // Reset supplier address
         reason_for_payment: "", // Reset reason for payment
         date_payment_required: undefined, // Reset date
+        bank_details_verified: false, // NEW: Reset to false
       });
       navigate('/dashboard');
     } catch (error: any) {
@@ -672,6 +678,30 @@ const NewPaymentRequest = () => {
                   )}
                 />
               )}
+
+              <FormField
+                control={form.control}
+                name="bank_details_verified"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-blue-700">
+                        I have verified these bank details with the payee.
+                      </FormLabel>
+                      <FormDescription className="text-blue-600">
+                        Please ensure the bank details are correct to avoid payment delays or errors.
+                      </FormDescription>
+                      <FormMessage />
+                    </div>
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

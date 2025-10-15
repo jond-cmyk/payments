@@ -29,6 +29,7 @@ export type PaymentRequest = {
   last_reminder_sent_at: string | null; // NEW: Last time a reminder was sent
   is_reminded: boolean; // NEW: Flag if a reminder has been sent
   category: string; // NEW: Category field
+  bank_details_verified: boolean; // NEW: Bank details verified checkbox
 };
 
 export type Transaction = {
@@ -96,6 +97,7 @@ export type StandingOrder = { // NEW: StandingOrder type
   payment_reference: string;
   status: 'active' | 'cancelled' | 'paused' | 'pending'; // Added 'pending' status
   country: string;
+  bank_details_verified: boolean; // NEW: Bank details verified checkbox
 };
 
 export type Profile = {
