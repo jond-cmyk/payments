@@ -5,7 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Notification } from '@/types/supabase';
+import { Notification as NotificationType, PaymentRequest } from '@/types/supabase'; // Import NotificationType and PaymentRequest
 import { format } from 'date-fns';
 import { Bell, CheckCircle, MailOpen, Trash2, XCircle, RotateCcw } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
@@ -32,23 +32,63 @@ import {
 } from "@/components/ui/alert-dialog";
 import PageTitle from '@/components/PageTitle';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils'; // Import cn for utility classes
+
+// Extend the Notification type to include the payment request status
+interface EnrichedNotification extends NotificationType {
+  paymentRequestStatus?: PaymentRequest['status'];
+}
 
 const NotificationsPage = () => {
   const { session, isLoading: isSessionLoading, user } = useSession();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data: notifications, isLoading: isNotificationsLoading, error: notificationsError } = useQuery<Notification[]>({
+  const { data: notifications, isLoading: isNotificationsLoading, error: notificationsError } = useQuery<EnrichedNotification[]>({
     queryKey: ['userNotifications', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      const { data, error } = await supabase
+      const { data: rawNotifications, error: fetchError } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      
+      if (fetchError) throw fetchError;
+
+      const paymentRequestIds: string[] = [];
+      rawNotifications.forEach(n => {
+        if (n.link?.startsWith('/request/')) {
+          const id = n.link.split('/')[2];
+          if (id) paymentRequestIds.push(id);
+        }
+      });
+
+      let paymentRequestStatuses: Record<string, PaymentRequest['status']> = {};
+      if (paymentRequestIds.length > 0) {
+        const { data: requestsData, error: requestsError } = await supabase
+          .from('payment_requests')
+          .select('id, status')
+          .in('id', paymentRequestIds);
+
+        if (requestsError) console.error("Error fetching payment request statuses:", requestsError);
+        else {
+          requestsData?.forEach(req => {
+            paymentRequestStatuses[req.id] = req.status;
+          });
+        }
+      }
+
+      const enrichedNotifications = rawNotifications.map(n => {
+        let paymentRequestStatus: PaymentRequest['status'] | undefined;
+        if (n.link?.startsWith('/request/')) {
+          const id = n.link.split('/')[2];
+          if (id) paymentRequestStatus = paymentRequestStatuses[id];
+        }
+        return { ...n, paymentRequestStatus };
+      });
+
+      return enrichedNotifications;
     },
     enabled: !!user?.id,
   });
@@ -208,9 +248,13 @@ const NotificationsPage = () => {
               {notifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`flex items-start space-x-4 p-4 rounded-md border ${
-                    notification.is_read ? 'bg-muted/50 text-muted-foreground' : 'bg-card text-foreground border-primary/20 shadow-sm'
-                  }`}
+                  className={cn(
+                    "flex items-start space-x-4 p-4 rounded-md border",
+                    notification.is_read ? 'bg-muted/50 text-muted-foreground' : 'bg-card text-foreground border-primary/20 shadow-sm',
+                    (notification.paymentRequestStatus === 'queried' || notification.paymentRequestStatus === 'declined')
+                      ? 'bg-red-100 border-red-400' // Highlight in red for queried/declined
+                      : ''
+                  )}
                 >
                   <div className="flex-shrink-0 mt-1">
                     {notification.is_read ? (
@@ -221,7 +265,7 @@ const NotificationsPage = () => {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
-                      <h3 className={`font-semibold ${notification.is_read ? 'text-muted-foreground' : 'text-primary'}`}>
+                      <h3 className={cn("font-semibold", notification.is_read ? 'text-muted-foreground' : 'text-primary')}>
                         {notification.title}
                       </h3>
                       <span className="text-xs text-muted-foreground">
