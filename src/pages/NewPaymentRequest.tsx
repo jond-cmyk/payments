@@ -305,16 +305,7 @@ const NewPaymentRequest = () => {
     form.setValue('sort_code', suggestion.sort_code || '');
     form.setValue('account_number', suggestion.account_number || '');
     form.setValue('bank_account_name', suggestion.bank_account_name || '');
-    form.setValue('currency', suggestion.currency);
-    form.setValue('payment_amount', suggestion.payment_amount);
-    form.setValue('reason_for_payment', suggestion.reason_for_payment);
-    form.setValue('category', suggestion.category);
-    form.setValue('not_sku_related', suggestion.not_sku_related);
-    form.setValue('sku_number', suggestion.sku_number || (suggestion.country === 'United Kingdom' ? 'UK' : 'CH'));
-    form.setValue('lease_id', suggestion.lease_id || '');
-    form.setValue('receipt_required', suggestion.receipt_required);
-    form.setValue('is_urgent', suggestion.is_urgent);
-    form.setValue('bank_details_verified', false); // NEW: Reset verified status when using suggestion
+    form.setValue('bank_details_verified', false); // Reset verified status when using suggestion
     // Do not set country from suggestion, as it's already set by context/user profile
     setIsSuggestionDialogOpen(false);
   };

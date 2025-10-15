@@ -253,9 +253,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     form.setValue('iban_number', suggestion.iban_number || '');
     form.setValue('sort_code', suggestion.sort_code || '');
     form.setValue('account_number', suggestion.account_number || '');
-    form.setValue('category', suggestion.category);
-    form.setValue('not_property_related', suggestion.not_property_related);
-    form.setValue('sku', suggestion.sku || (suggestion.country === 'United Kingdom' ? 'UK' : 'CH'));
     form.setValue('bank_details_verified', false); // NEW: Reset verified status when using suggestion
     // Close the dialog
     setIsSuggestionDialogOpen(false);
