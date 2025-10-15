@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import CountrySelector from '@/components/CountrySelector';
 import CountryFlag from '@/components/CountryFlag';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'; // Import Dialog components and DialogDescription
 import FeedbackForm from '@/components/feedback/FeedbackForm'; // Import FeedbackForm
 
 interface DashboardHeaderProps {
@@ -74,6 +74,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ debouncedSearchTerm }
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Provide Anonymous Feedback</DialogTitle>
+                <DialogDescription>
+                  Share your thoughts, suggestions, or report issues anonymously.
+                </DialogDescription>
               </DialogHeader>
               <FeedbackForm onFeedbackSubmitted={handleFeedbackSubmitted} />
             </DialogContent>
