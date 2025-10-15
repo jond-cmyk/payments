@@ -455,7 +455,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
             handleSort={handleSort}
             renderSortIcon={renderSortIcon}
             getStatusBadge={(status, itemType) => getStatusBadge(status, itemType)}
-            handleToggleUrgent={handleToggleUrrent}
+            handleToggleUrgent={handleToggleUrgent}
             toggleUrgentMutation={toggleUrgentMutation}
           />
         </Card>

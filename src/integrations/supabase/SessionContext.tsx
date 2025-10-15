@@ -24,7 +24,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
   const queryClient = useQueryClient(); // NEW: Initialize queryClient
 
   // Fetch user profile using useQuery
-  const { data: userProfile, isLoading: isLoadingProfile, error: profileError } = useQuery<Profile | null>({
+  const { data: userProfileData, isLoading: isLoadingProfile, error: profileError } = useQuery<Profile | null>({
     queryKey: ['userProfile', user?.id], // Query key depends on user ID
     queryFn: async () => {
       if (!user?.id) return null;
@@ -43,8 +43,11 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     },
     enabled: !!user?.id, // Only run query if user ID is available
     staleTime: 5 * 60 * 1000, // Profile data can be considered fresh for 5 minutes
-    cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes (renamed from cacheTime)
   });
+
+  // Explicitly type userProfile from the query data
+  const userProfile: Profile | null = userProfileData;
 
   // Determine combined approval status
   const isApproved = useMemo(() => {
@@ -52,7 +55,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       console.log(`[SessionContext] isApproved: No user or profile. Result: false`);
       return false;
     }
-    const isProfileApproved = userProfile.is_approved ?? false;
+    const isProfileApproved = userProfile.is_approved ?? false; // Use userProfile directly
     console.log(`[SessionContext] isApproved: User ${user.id}. Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
     return isProfileApproved;
   }, [user, userProfile]);
