@@ -10,7 +10,7 @@ export const transactionDetailSchema = z.object({
   new_receipt_files: z.any()
     .optional()
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
+    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png"), "Only .pdf, .jpg, .jpeg, .png files are accepted."),
 }).superRefine((data, ctx) => {
   // This schema is used for transactions, which are already associated with a country.
   // The country context is not directly available here, so we'll assume 'CH' as default for validation

@@ -83,9 +83,9 @@ const formSchema = z.object({
     required_error: "Date Payment Required is required",
   }),
   invoice_pdf: z.any()
-    .refine((files) => files?.length > 0, "At least one Invoice PDF is required.")
+    .refine((files) => files?.length > 0, "At least one Invoice document is required.")
     .refine((files) => Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024, "Max file size is 5MB per file.")) // 5MB limit per file
-    .refine((files) => Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
+    .refine((files) => Array.from(files as FileList).every(file => file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png"), "Only .pdf, .jpg, .jpeg, .png files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
   country: z.string().min(1, "Country is required"), // ADDED: country field to schema
@@ -766,19 +766,19 @@ const NewPaymentRequest = () => {
                 name="invoice_pdf"
                 render={({ field: { value, onChange, ...fieldProps } }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">Invoice PDF(s)<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Invoice Document(s)<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
                       <FileInput
                         {...fieldProps}
-                        label="Choose Invoice PDF(s)"
-                        accept=".pdf"
+                        label="Choose Invoice Document(s)"
+                        accept=".pdf,.jpg,.jpeg,.png"
                         value={value}
                         onChange={onChange}
                         multiple // Enable multiple file selection
                       />
                     </FormControl>
                     <FormDescription>
-                      You can upload multiple PDF invoices (max 5MB each).
+                      You can upload multiple PDF, JPG, JPEG, or PNG documents (max 5MB each).
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

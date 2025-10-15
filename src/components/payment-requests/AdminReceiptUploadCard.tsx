@@ -15,9 +15,9 @@ import { PaymentRequest } from '@/types/supabase';
 // Zod schema for admin receipt upload
 const receiptUploadSchema = z.object({
   receipt_pdf: z.any()
-    .refine((file) => file?.length > 0, "Receipt PDF is required.")
+    .refine((file) => file?.length > 0, "Receipt document is required.")
     .refine((file) => file?.[0]?.size <= 5 * 1024 * 1024, "Max file size is 5MB.") // 5MB limit
-    .refine((file) => file?.[0]?.type === "application/pdf", "Only .pdf files are accepted."),
+    .refine((file) => file?.[0]?.type === "application/pdf" || file?.[0]?.type === "image/jpeg" || file?.[0]?.type === "image/png", "Only .pdf, .jpg, .jpeg, .png files are accepted."),
 });
 
 interface AdminReceiptUploadCardProps {
@@ -58,12 +58,12 @@ const AdminReceiptUploadCard: React.FC<AdminReceiptUploadCardProps> = ({
               name="receipt_pdf"
               render={({ field: { value, onChange, ...fieldProps } }) => (
                 <FormItem>
-                  <FormLabel>Receipt PDF<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <FormLabel>Receipt Document<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
                     <FileInput
                       {...fieldProps}
-                      label="Choose Receipt PDF"
-                      accept=".pdf"
+                      label="Choose Receipt Document"
+                      accept=".pdf,.jpg,.jpeg,.png"
                       value={value}
                       onChange={onChange}
                     />

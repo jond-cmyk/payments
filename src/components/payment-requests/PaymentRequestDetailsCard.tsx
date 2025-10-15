@@ -85,7 +85,7 @@ const editFormSchema = z.object({
   invoice_pdf: z.any()
     .optional() // Make optional for editing, only required if a new file is selected
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.") // 5MB limit per file
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf"), "Only .pdf files are accepted."),
+    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png"), "Only .pdf, .jpg, .jpeg, .png files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
   country: z.string().min(1, "Country is required"), // ADDED: country field to schema
@@ -544,19 +544,19 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 name="invoice_pdf"
                 render={({ field: { value, onChange, ...fieldProps } }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">Invoice PDF(s) (Upload new if needed)</FormLabel>
+                    <FormLabel className="font-semibold">Invoice Document(s) (Upload new if needed)</FormLabel>
                     <FormControl>
                       <FileInput
                         {...fieldProps}
-                        label="Choose New Invoice PDF(s)"
-                        accept=".pdf"
+                        label="Choose New Invoice Document(s)"
+                        accept=".pdf,.jpg,.jpeg,.png"
                         value={value}
                         onChange={onChange}
                         multiple // Enable multiple file selection
                       />
                     </FormControl>
                     <FormDescription>
-                      Existing invoices will be kept. New files will be added.
+                      Existing invoices will be kept. New files will be added. You can upload multiple PDF, JPG, JPEG, or PNG documents (max 5MB each).
                     </FormDescription>
                     <FormMessage />
                     {request.invoice_pdf_urls && request.invoice_pdf_urls.length > 0 && (

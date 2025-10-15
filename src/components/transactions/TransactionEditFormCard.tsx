@@ -165,12 +165,12 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
               name="new_receipt_files"
               render={({ field: { value, onChange, ...fieldProps } }) => (
                 <FormItem>
-                  <FormLabel className="font-semibold">Receipt PDF(s)<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <FormLabel className="font-semibold">Receipt Document(s)<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
                     <FileInput
                       {...fieldProps}
-                      label={transaction.receipt_urls && transaction.receipt_urls.length > 0 ? "Add More Receipt PDF(s)" : "Upload Receipt PDF(s)"}
-                      accept=".pdf"
+                      label={transaction.receipt_urls && transaction.receipt_urls.length > 0 ? "Add More Receipt Document(s)" : "Upload Receipt Document(s)"}
+                      accept=".pdf,.jpg,.jpeg,.png"
                       value={value}
                       onChange={onChange}
                       multiple
