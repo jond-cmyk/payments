@@ -73,8 +73,8 @@ const DirectDebits = () => {
   const [filterStatus, setFilterStatus] = useState<DirectDebit['status'] | 'all'>('all');
   const [filterSku, setFilterSku] = useState<string>('');
   const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
-  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined); // NEW
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined); // NEW
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
 
   // Local states for immediate input feedback
   const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
@@ -119,7 +119,7 @@ const DirectDebits = () => {
 
   // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
-    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage], // ADDED filterStartDate, filterEndDate
+    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage],
     queryFn: async () => {
       if (!session) return [];
 
@@ -231,13 +231,13 @@ const DirectDebits = () => {
     setLocalFilterSku('');
     setFilterPaymentReference('');
     setLocalFilterPaymentReference('');
-    setFilterStartDate(undefined); // NEW
-    setFilterEndDate(undefined); // NEW
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
     setCurrentPage(1);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined; // UPDATED
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined;
 
   const getStatusBadge = (status: DirectDebit['status']) => {
     let className = '';
@@ -386,85 +386,123 @@ const DirectDebits = () => {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
-            <span className="font-medium text-gray-700 col-span-full">Filters:</span>
-            {isAdmin && <CountrySelector className="w-full" triggerClassName="w-full" />}
-            <Input
-              placeholder="Filter by Payee"
-              value={localFilterPayee}
-              onChange={(e) => {
-                setLocalFilterPayee(e.target.value);
-                handleTextFilterChange(setFilterPayee, e.target.value);
-              }}
-              className="w-full shadow-sm"
-            />
-            <Input
-              placeholder="Filter by SKU"
-              value={localFilterSku}
-              onChange={(e) => {
-                setLocalFilterSku(e.target.value);
-                handleTextFilterChange(setFilterSku, e.target.value);
-              }}
-              className="w-full shadow-sm"
-            />
-            <Input
-              placeholder="Filter by Payment Reference"
-              value={localFilterPaymentReference}
-              onChange={(e) => {
-                setLocalFilterPaymentReference(e.target.value);
-                handleTextFilterChange(setFilterPaymentReference, e.target.value);
-              }}
-              className="w-full shadow-sm"
-            />
-            <Select value={filterCategory} onValueChange={(value) => { setFilterCategory(value); setCurrentPage(1); }}>
-              <SelectTrigger className="w-full shadow-sm">
-                <SelectValue placeholder="Filter by Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categoryOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <DatePicker
-              date={filterPaymentDate}
-              setDate={(date) => { setFilterPaymentDate(date); setCurrentPage(1); }}
-              placeholder="Filter by Payment Date"
-              className="w-full shadow-sm"
-            />
-            {/* NEW: Date Range Filters */}
-            <DatePicker
-              date={filterStartDate}
-              setDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
-              placeholder="Start Date"
-              className="w-full shadow-sm"
-            />
-            <DatePicker
-              date={filterEndDate}
-              setDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
-              placeholder="End Date"
-              className="w-full shadow-sm"
-            />
-            <Select value={filterStatus} onValueChange={(value: DirectDebit['status'] | 'all') => { setFilterStatus(value); setCurrentPage(1); }}>
-              <SelectTrigger className="w-full shadow-sm">
-                <SelectValue placeholder="Filter by Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-            {hasActiveFilters && (
-              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm col-span-full sm:col-span-1">
-                <RotateCcw className="h-4 w-4" /> Clear Filters
-              </Button>
-            )}
+          <div className="mb-4 p-4 border rounded-md bg-gray-50 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">Filter Direct Debits</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {isAdmin && (
+                <div>
+                  <label htmlFor="country-selector" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <CountrySelector className="w-full" triggerClassName="w-full" />
+                </div>
+              )}
+              <div>
+                <label htmlFor="payee-filter" className="block text-sm font-medium text-gray-700 mb-1">Payee</label>
+                <Input
+                  id="payee-filter"
+                  placeholder="e.g., Utility Company"
+                  value={localFilterPayee}
+                  onChange={(e) => {
+                    setLocalFilterPayee(e.target.value);
+                    handleTextFilterChange(setFilterPayee, e.target.value);
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="sku-filter" className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
+                <Input
+                  id="sku-filter"
+                  placeholder="e.g., SKU456"
+                  value={localFilterSku}
+                  onChange={(e) => {
+                    setLocalFilterSku(e.target.value);
+                    handleTextFilterChange(setFilterSku, e.target.value);
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="payment-reference-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Reference</label>
+                <Input
+                  id="payment-reference-filter"
+                  placeholder="e.g., INV-2023-001"
+                  value={localFilterPaymentReference}
+                  onChange={(e) => {
+                    setLocalFilterPaymentReference(e.target.value);
+                    handleTextFilterChange(setFilterPaymentReference, e.target.value);
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <Select value={filterCategory} onValueChange={(value) => { setFilterCategory(value); setCurrentPage(1); }}>
+                  <SelectTrigger id="category-filter" className="w-full">
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categoryOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label htmlFor="payment-date-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
+                <DatePicker
+                  id="payment-date-filter"
+                  date={filterPaymentDate}
+                  setDate={(date) => { setFilterPaymentDate(date); setCurrentPage(1); }}
+                  placeholder="Select Date"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <DatePicker
+                  id="start-date"
+                  date={filterStartDate}
+                  setDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
+                  placeholder="Select Start Date"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <DatePicker
+                  id="end-date"
+                  date={filterEndDate}
+                  setDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
+                  placeholder="Select End Date"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <Select value={filterStatus} onValueChange={(value: DirectDebit['status'] | 'all') => { setFilterStatus(value); setCurrentPage(1); }}>
+                  <SelectTrigger id="status-filter" className="w-full">
+                    <SelectValue placeholder="All Statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {hasActiveFilters && (
+                <div className="col-span-full flex justify-end">
+                  <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
+                    <RotateCcw className="h-4 w-4" /> Clear Filters
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           {directDebits && directDebits.length > 0 ? (

@@ -62,8 +62,8 @@ const MissingReceipts = () => {
   const [filterAmount, setFilterAmount] = useState<string>('');
   const [filterAssignedUser, setFilterAssignedUser] = useState<string>('all');
   const [filterTransactionDate, setFilterTransactionDate] = useState<Date | undefined>(undefined);
-  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined); // NEW
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined); // NEW
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -91,7 +91,7 @@ const MissingReceipts = () => {
 
   // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, filterStartDate, filterEndDate, sortColumn, sortDirection, currentCountry, currentPage], // ADDED filterStartDate, filterEndDate
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, filterStartDate, filterEndDate, sortColumn, sortDirection, currentCountry, currentPage],
     queryFn: async () => {
       if (!session) return [];
 
@@ -290,13 +290,13 @@ const MissingReceipts = () => {
     setFilterAmount('');
     setFilterAssignedUser('all');
     setFilterTransactionDate(undefined);
-    setFilterStartDate(undefined); // NEW
-    setFilterEndDate(undefined); // NEW
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
     setCurrentPage(1);
     queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
   };
 
-  const hasActiveFilters = filterAmount !== '' || filterAssignedUser !== 'all' || filterTransactionDate !== undefined || filterStartDate !== undefined || filterEndDate !== undefined; // UPDATED
+  const hasActiveFilters = filterAmount !== '' || filterAssignedUser !== 'all' || filterTransactionDate !== undefined || filterStartDate !== undefined || filterEndDate !== undefined;
 
   // Define columns for Transaction export
   const transactionExportColumns: (keyof Transaction)[] = [
@@ -449,174 +449,200 @@ const MissingReceipts = () => {
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
-            <span className="font-medium text-gray-700">Filters:</span>
-            <Input
-              placeholder="Filter by Amount"
-              type="number"
-              step="0.01"
-              value={filterAmount}
-              onChange={(e) => handleAmountFilterChange(e.target.value)}
-              className="max-w-xs shadow-sm"
-            />
-            <Select value={filterAssignedUser} onValueChange={(value) => { setFilterAssignedUser(value); setCurrentPage(1); }}>
-              <SelectTrigger className="w-[180px] shadow-sm">
-                <SelectValue placeholder="Filter by Assigned User" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                {allProfiles?.map((profile) => (
-                  <SelectItem key={profile.id} value={profile.id}>
+          <div className="mb-4 p-4 border rounded-md bg-gray-50 shadow-sm">
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">Filter Missing Receipts</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div>
+                <label htmlFor="country-selector" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                <CountrySelector className="w-full" triggerClassName="w-full" />
+              </div>
+              <div>
+                <label htmlFor="amount-filter" className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <Input
+                  id="amount-filter"
+                  placeholder="e.g., 100.00"
+                  type="number"
+                  step="0.01"
+                  value={filterAmount}
+                  onChange={(e) => handleAmountFilterChange(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="assigned-user-filter" className="block text-sm font-medium text-gray-700 mb-1">Assigned User</label>
+                <Select value={filterAssignedUser} onValueChange={(value) => { setFilterAssignedUser(value); setCurrentPage(1); }}>
+                  <SelectTrigger id="assigned-user-filter" className="w-full">
+                    <SelectValue placeholder="All Users" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Users</SelectItem>
+                    {allProfiles?.map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        <span>{profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label htmlFor="transaction-date-filter" className="block text-sm font-medium text-gray-700 mb-1">Transaction Date</label>
+                <DatePicker
+                  id="transaction-date-filter"
+                  date={filterTransactionDate}
+                  setDate={(date) => { setFilterTransactionDate(date); setCurrentPage(1); }}
+                  placeholder="Select Date"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <DatePicker
+                  id="start-date"
+                  date={filterStartDate}
+                  setDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
+                  placeholder="Select Start Date"
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <DatePicker
+                  id="end-date"
+                  date={filterEndDate}
+                  setDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
+                  placeholder="Select End Date"
+                  className="w-full"
+                />
+              </div>
+              {hasActiveFilters && (
+                <div className="col-span-full flex justify-end">
+                  <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
+                    <RotateCcw className="h-4 w-4" /> Clear Filters
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {transactions && transactions.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {isAdmin && (
+                      <TableHead className="w-[50px]">
+                        <Checkbox
+                          checked={allTransactionsSelected}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Select all transactions"
+                        />
+                      </TableHead>
+                    )}
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('transaction_date')}>
+                      <div className="flex items-center">
+                        Date {renderSortIcon('transaction_date')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('description')}>
+                      <div className="flex items-center">
+                        Description {renderSortIcon('description')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('amount')}>
+                      <div className="flex items-center">
+                        Amount {renderSortIcon('amount')}
+                      </div>
+                    </TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
+                      <div className="flex items-center">
+                        SKU {renderSortIcon('sku')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('reason_for_payment')}>
+                      <div className="flex items-center">
+                        Reason for Payment {renderSortIcon('reason_for_payment')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('requester_id')}>
+                      <div className="flex items-center">
+                        Assigned To {renderSortIcon('requester_id')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((transaction) => (
+                    <TableRow key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
+                      {isAdmin && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedTransactionIds.includes(transaction.id)}
+                            onCheckedChange={(checked: boolean) => handleSelectTransaction(transaction.id, checked)}
+                            aria-label={`Select transaction ${transaction.id.substring(0, 8)}`}
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell>{format(new Date(transaction.transaction_date), 'PPP')}</TableCell>
+                      <TableCell className="font-medium">{transaction.description}</TableCell>
+                      <TableCell>{transaction.currency} {transaction.amount.toFixed(2)}</TableCell>
+                      <TableCell>{getStatusBadge(transaction.status)}</TableCell>
+                      <TableCell>{transaction.sku || 'N/A'}</TableCell>
+                      <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
+                      <TableCell>
+                        <Select
+                          value={transaction.requester_id || ''}
+                          onValueChange={(newRequesterId) => handleAssignTransaction(transaction.id, newRequesterId)}
+                          disabled={assignTransactionMutation.isPending}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Assign User" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allProfiles?.map((profile) => (
+                              <SelectItem key={profile.id} value={profile.id}>
                                 <span>{profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})</span>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <DatePicker
-                          date={filterTransactionDate}
-                          setDate={(date) => { setFilterTransactionDate(date); setCurrentPage(1); }}
-                          placeholder="Filter by Date"
-                          className="w-[200px] shadow-sm"
-                        />
-                        {/* NEW: Date Range Filters */}
-                        <DatePicker
-                          date={filterStartDate}
-                          setDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
-                          placeholder="Start Date"
-                          className="w-[200px]"
-                        />
-                        <DatePicker
-                          date={filterEndDate}
-                          setDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
-                          placeholder="End Date"
-                          className="w-[200px]"
-                        />
-                        {hasActiveFilters && (
-                          <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm">
-                            <RotateCcw className="h-4 w-4" /> Clear Filters
-                          </Button>
-                        )}
-                      </div>
-
-                      {transactions && transactions.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                {isAdmin && (
-                                  <TableHead className="w-[50px]">
-                                    <Checkbox
-                                      checked={allTransactionsSelected}
-                                      onCheckedChange={handleSelectAll}
-                                      aria-label="Select all transactions"
-                                    />
-                                  </TableHead>
-                                )}
-                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('transaction_date')}>
-                                  <div className="flex items-center">
-                                    Date {renderSortIcon('transaction_date')}
-                                  </div>
-                                </TableHead>
-                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('description')}>
-                                  <div className="flex items-center">
-                                    Description {renderSortIcon('description')}
-                                  </div>
-                                </TableHead>
-                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('amount')}>
-                                  <div className="flex items-center">
-                                    Amount {renderSortIcon('amount')}
-                                  </div>
-                                </TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
-                                  <div className="flex items-center">
-                                    SKU {renderSortIcon('sku')}
-                                  </div>
-                                </TableHead>
-                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('reason_for_payment')}>
-                                  <div className="flex items-center">
-                                    Reason for Payment {renderSortIcon('reason_for_payment')}
-                                  </div>
-                                </TableHead>
-                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('requester_id')}>
-                                  <div className="flex items-center">
-                                    Assigned To {renderSortIcon('requester_id')}
-                                  </div>
-                                </TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {transactions.map((transaction) => (
-                                <TableRow key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
-                                  {isAdmin && (
-                                    <TableCell>
-                                      <Checkbox
-                                        checked={selectedTransactionIds.includes(transaction.id)}
-                                        onCheckedChange={(checked: boolean) => handleSelectTransaction(transaction.id, checked)}
-                                        aria-label={`Select transaction ${transaction.id.substring(0, 8)}`}
-                                      />
-                                    </TableCell>
-                                  )}
-                                  <TableCell>{format(new Date(transaction.transaction_date), 'PPP')}</TableCell>
-                                  <TableCell className="font-medium">{transaction.description}</TableCell>
-                                  <TableCell>{transaction.currency} {transaction.amount.toFixed(2)}</TableCell>
-                                  <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                                  <TableCell>{transaction.sku || 'N/A'}</TableCell>
-                                  <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
-                                  <TableCell>
-                                    <Select
-                                      value={transaction.requester_id || ''}
-                                      onValueChange={(newRequesterId) => handleAssignTransaction(transaction.id, newRequesterId)}
-                                      disabled={assignTransactionMutation.isPending}
-                                    >
-                                      <SelectTrigger className="w-[180px]">
-                                        <SelectValue placeholder="Assign User" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {allProfiles?.map((profile) => (
-                                          <SelectItem key={profile.id} value={profile.id}>
-                                            <span>{profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})</span>
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      className="shadow-sm"
-                                      onClick={() => navigate(`/transaction/${transaction.id}`)}
-                                    >
-                                      <span>View/Add Receipt</span>
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-                      ) : (
-                        <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found matching your criteria.</p>
-                      )}
-                      {totalPages > 1 && (
-                        <Pagination className="mt-4">
-                          <PaginationContent>
-                            <PaginationItem>
-                              <PaginationPrevious onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} />
-                            </PaginationItem>
-                            {renderPaginationItems()}
-                            <PaginationItem>
-                              <PaginationNext onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} />
-                            </PaginationItem>
-                          </PaginationContent>
-                        </Pagination>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              );
-            };
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="shadow-sm"
+                          onClick={() => navigate(`/transaction/${transaction.id}`)}
+                        >
+                          <span>View/Add Receipt</span>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found matching your criteria.</p>
+          )}
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} />
+                </PaginationItem>
+                {renderPaginationItems()}
+                <PaginationItem>
+                  <PaginationNext onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
 
 export default MissingReceipts;

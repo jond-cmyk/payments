@@ -44,8 +44,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
   const [filterDatePaymentRequired, setFilterDatePaymentRequired] = useState<Date | undefined>(undefined);
   const [filterRequester, setFilterRequester] = useState<string>('all');
-  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined); // NEW
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined); // NEW
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -204,7 +204,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage], // ADDED filterStartDate, filterEndDate
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
@@ -322,8 +322,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     setFilterStatus('all');
     setFilterDatePaymentRequired(undefined);
     setFilterRequester('all');
-    setFilterStartDate(undefined); // NEW
-    setFilterEndDate(undefined); // NEW
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
     setSearchParams({});
     setCurrentPage(1); // Reset page on clear filters
     queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
@@ -346,7 +346,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     return null;
   };
 
-  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== 'all' || filterRequester !== 'all' || filterStartDate !== undefined || filterEndDate !== undefined; // UPDATED
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== 'all' || filterRequester !== 'all' || filterStartDate !== undefined || filterEndDate !== undefined;
 
   const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
@@ -452,10 +452,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
           setFilterDatePaymentRequired={(date) => { setFilterDatePaymentRequired(date); setCurrentPage(1); }}
           filterRequester={filterRequester}
           setFilterRequester={setFilterRequester}
-          filterStartDate={filterStartDate} // NEW
-          setFilterStartDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }} // NEW
-          filterEndDate={filterEndDate} // NEW
-          setFilterEndDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }} // NEW
+          filterStartDate={filterStartDate}
+          setFilterStartDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
+          filterEndDate={filterEndDate}
+          setFilterEndDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
           allProfiles={allProfiles}
           clearFilters={clearFilters}
           hasActiveFilters={hasActiveFilters}
