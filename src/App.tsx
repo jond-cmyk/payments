@@ -22,6 +22,7 @@ import StandingOrders from "./pages/StandingOrders"; // Import StandingOrders
 import StandingOrderDetail from "./pages/StandingOrderDetail"; // NEW: Import StandingOrderDetail
 import AdminUploadDirectDebits from "./pages/AdminUploadDirectDebits"; // NEW: Import AdminUploadDirectDebits
 import AdminUploadStandingOrders from "./pages/AdminUploadStandingOrders"; // NEW: Import AdminUploadStandingOrders
+import CustomerDepositReturns from "./pages/CustomerDepositReturns"; // NEW: Import CustomerDepositReturns
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext"; // Import CountryProvider
@@ -84,6 +85,7 @@ const App = () => {
                     <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
                     <Route path="/admin/upload-direct-debits" element={<AdminUploadDirectDebits />} /> {/* NEW: Direct Debit Upload Route */}
                     <Route path="/admin/upload-standing-orders" element={<AdminUploadStandingOrders />} /> {/* NEW: Standing Order Upload Route */}
+                    <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} /> {/* NEW: Customer Deposit Returns Route */}
                     <Route path="/notifications" element={<NotificationsPage />} />
                   </Route>
 

@@ -6,12 +6,12 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNotifications } from '@/integrations/supabase/NotificationContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat } from 'lucide-react'; // Import Banknote and Repeat icons
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign } from 'lucide-react'; // Import DollarSign icon
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import ChangePasswordForm from '@/components/auth/ChangePasswordForm';
 import {
   Accordion,
@@ -124,6 +124,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {/* New section for Direct Debits and Standing Orders */}
         <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
         <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
+        <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" /> {/* NEW: Customer Deposit Returns */}
         
         <div className="h-px bg-dyad-blue-foreground my-4" /> 
 

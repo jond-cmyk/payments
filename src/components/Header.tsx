@@ -29,6 +29,8 @@ const Header = () => {
         return 'Upload Direct Debits - KH Payments';
       case '/admin/upload-standing-orders': // NEW: Page title for Standing Order upload
         return 'Upload Standing Orders - KH Payments';
+      case '/customer-deposit-returns': // NEW: Page title for Customer Deposit Returns
+        return 'Customer Deposit Returns - KH Payments';
       case '/missing-receipts':
         return 'Missing Receipts - KH Payments';
       case '/completed-receipts':
