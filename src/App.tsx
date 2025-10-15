@@ -77,6 +77,7 @@ const App = () => {
                     <Route path="/standing-orders" element={<StandingOrders />} />
                     <Route path="/standing-order/:id" element={<StandingOrderDetail />} />
                     <Route path="/profile" element={<ProfilePage />} />
+                    <Route path="/admin/statistics" element={<Statistics />} /> {/* MOVED: Statistics Page Route */}
                   </Route>
 
                   {/* Protected routes requiring approval */}
@@ -92,7 +93,6 @@ const App = () => {
                     <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="/admin/feedback" element={<AdminFeedback />} />
-                    <Route path="/admin/statistics" element={<Statistics />} /> {/* NEW: Statistics Page Route */}
                   </Route>
 
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

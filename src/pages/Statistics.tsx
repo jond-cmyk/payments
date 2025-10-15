@@ -60,15 +60,19 @@ const Statistics = () => {
         .from('payment_requests')
         .select('*');
       
-      if (currentCountry !== 'all') {
+      // Requesters see only their country's data, admins see selected country or all
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
+      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
       const { data, error } = await query.order('created_at', { ascending: false }); // Order by created_at for 'last N' filters
       if (error) throw error;
       return data;
     },
-    enabled: !!session && isAdmin,
+    enabled: !!session, // Enabled for all authenticated users
   });
 
   const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests } = useMemo(() => {
@@ -156,11 +160,9 @@ const Statistics = () => {
     return null;
   }
 
-  if (!isAdmin) {
-    showError("You do not have permission to view this page.");
-    navigate('/dashboard');
-    return null;
-  }
+  // Removed the isAdmin check and redirect here.
+  // The page is now accessible to all logged-in users.
+  // Data fetching is already filtered by country for requesters.
 
   if (requestsError) {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading payment requests: {requestsError.message}</div>;
