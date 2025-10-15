@@ -45,6 +45,17 @@ import AddStandingOrderForm from '@/components/standing-orders/AddStandingOrderF
 import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm';
 import { cn } from '@/lib/utils';
 import CountrySelector from '@/components/CountrySelector';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination"; // Import pagination components
+
+const ITEMS_PER_PAGE = 10; // Define items per page for pagination
 
 const StandingOrders = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
@@ -67,6 +78,10 @@ const StandingOrders = () => {
   const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
   const [localFilterSku, setLocalFilterSku] = useState<string>('');
   const [localFilterPaymentReference, setLocalFilterPaymentReference] = useState<string>('');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
@@ -94,6 +109,7 @@ const StandingOrders = () => {
     }
     debounceTimeoutRef.current = setTimeout(() => {
       setter(value);
+      setCurrentPage(1); // Reset to first page on filter change
     }, 500); // 500ms debounce
   }, []);
 
@@ -101,13 +117,16 @@ const StandingOrders = () => {
 
   // Fetch Standing Orders
   const { data: standingOrders, isLoading: isStandingOrdersLoading, error: standingOrdersError } = useQuery<StandingOrder[]>({
-    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection],
+    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection, currentPage], // Add currentPage to queryKey
     queryFn: async () => {
       if (!session) return [];
 
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
       let query = supabase
         .from('standing_orders')
-        .select('*');
+        .select('*', { count: 'exact' }); // Fetch count
       
       // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -148,8 +167,11 @@ const StandingOrders = () => {
         query = query.order('id', { ascending: false });
       }
 
-      const { data, error } = await query;
+      query = query.range(from, to); // Apply pagination range
+
+      const { data, error, count } = await query;
       if (error) throw error;
+      setTotalItems(count || 0); // Set total items for pagination
       return data;
     },
     enabled: !!session,
@@ -181,6 +203,7 @@ const StandingOrders = () => {
       setSortColumn(column);
       setSortDirection('asc');
     }
+    setCurrentPage(1); // Reset to first page on sort change
   };
 
   const renderSortIcon = (column: keyof StandingOrder) => {
@@ -200,6 +223,7 @@ const StandingOrders = () => {
     setLocalFilterSku('');
     setFilterPaymentReference('');
     setLocalFilterPaymentReference('');
+    setCurrentPage(1); // Reset page on clear filters
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
   };
 
@@ -234,6 +258,7 @@ const StandingOrders = () => {
     setIsAddStandingOrderDialogOpen(false);
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
     queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] });
+    setCurrentPage(1); // Reset to first page after adding
   };
 
   const handleEditClick = (standingOrder: StandingOrder) => {
@@ -260,6 +285,49 @@ const StandingOrders = () => {
     if (standingOrders) {
       exportToCsv(standingOrders, `standing_orders_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, standingOrderExportColumns);
     }
+  };
+
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxPagesToShow = 5; // Number of page links to show directly
+    const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key="1">
+          <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+        </PaginationItem>
+      );
+      if (startPage > 2) {
+        items.push(<PaginationItem key="ellipsis-start"><PaginationEllipsis /></PaginationItem>);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink isActive={i === currentPage} onClick={() => setCurrentPage(i)}>
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<PaginationItem key="ellipsis-end"><PaginationEllipsis /></PaginationItem>);
+      }
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    return items;
   };
 
   if (isSessionLoading || isStandingOrdersLoading) {
@@ -341,7 +409,7 @@ const StandingOrders = () => {
               }}
               className="w-full shadow-sm"
             />
-            <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <Select value={filterCategory} onValueChange={(value) => { setFilterCategory(value); setCurrentPage(1); }}>
               <SelectTrigger className="w-full shadow-sm">
                 <SelectValue placeholder="Filter by Category" />
               </SelectTrigger>
@@ -356,11 +424,11 @@ const StandingOrders = () => {
             </Select>
             <DatePicker
               date={filterPaymentDate}
-              setDate={setFilterPaymentDate}
+              setDate={(date) => { setFilterPaymentDate(date); setCurrentPage(1); }}
               placeholder="Filter by Payment Date"
               className="w-full shadow-sm"
             />
-            <Select value={filterStatus} onValueChange={(value: StandingOrder['status'] | 'all') => setFilterStatus(value)}>
+            <Select value={filterStatus} onValueChange={(value: StandingOrder['status'] | 'all') => { setFilterStatus(value); setCurrentPage(1); }}>
               <SelectTrigger className="w-full shadow-sm">
                 <SelectValue placeholder="Filter by Status" />
               </SelectTrigger>
@@ -504,6 +572,19 @@ const StandingOrders = () => {
             </div>
           ) : (
             <p className="text-center text-muted-foreground mt-8">No standing orders found matching your criteria.</p>
+          )}
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} />
+                </PaginationItem>
+                {renderPaginationItems()}
+                <PaginationItem>
+                  <PaginationNext onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           )}
         </CardContent>
       </Card>

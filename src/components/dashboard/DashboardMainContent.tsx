@@ -27,12 +27,14 @@ interface DashboardMainContentProps {
   debouncedSearchTerm: string;
 }
 
+const ITEMS_PER_PAGE = 10; // Define items per page for pagination
+
 const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSearchTerm }) => {
   const { session, user, userProfile } = useSession();
   const { currentCountry } = useCountry();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = new URLSearchParams(location.search); // Use location.search for initial state
 
   const userRole = userProfile?.role || null;
 
@@ -42,6 +44,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
   const [filterDatePaymentRequired, setFilterDatePaymentRequired] = useState<Date | undefined>(undefined);
   const [filterRequester, setFilterRequester] = useState<string>('all');
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Sorting states for the table
   const [sortColumn, setSortColumn] = useState<keyof PaymentRequest | null>('created_at');
@@ -57,6 +63,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     debounceTimeoutRef.current = setTimeout(() => {
       console.log(`[DashboardMainContent] Debounced filter update for: ${value}`);
       setter(value);
+      setCurrentPage(1); // Reset to first page on filter change
     }, 500);
   }, []);
 
@@ -70,6 +77,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     } else {
       setFilterStatus('pending');
     }
+    setCurrentPage(1); // Reset page when URL params change
   }, [searchParams, location.pathname]);
 
   // Determine if we are on the 'All Requests' page
@@ -194,11 +202,14 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, sortColumn, sortDirection, currentCountry],
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage], // Add currentPage to queryKey
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
-      let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)');
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
+
+      let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)', { count: 'exact' }); // Fetch count
 
       // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -259,8 +270,11 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         query = query.order('id', { ascending: false });
       }
 
-      const { data, error } = await query;
+      query = query.range(from, to); // Apply pagination range
+
+      const { data, error, count } = await query;
       if (error) throw error;
+      setTotalItems(count || 0); // Set total items for pagination
       return data;
     },
     enabled: !!user?.id && !!userRole && !debouncedSearchTerm,
@@ -306,6 +320,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     setFilterDatePaymentRequired(undefined);
     setFilterRequester('all');
     setSearchParams({});
+    setCurrentPage(1); // Reset page on clear filters
     queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
   };
 
@@ -316,6 +331,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       setSortColumn(column);
       setSortDirection('asc');
     }
+    setCurrentPage(1); // Reset to first page on sort change
   };
 
   const renderSortIcon = (column: keyof PaymentRequest) => {
@@ -341,6 +357,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         break;
       case 'pending_input':
         className = 'bg-yellow-500 text-yellow-50';
+        displayText = 'Missing Receipt';
         break;
       case 'setup_awaiting_approval':
         displayText = 'Payment Setup';
@@ -427,7 +444,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
           filterStatus={filterStatus}
           setFilterStatus={setFilterStatus}
           filterDatePaymentRequired={filterDatePaymentRequired}
-          setFilterDatePaymentRequired={setFilterDatePaymentRequired}
+          setFilterDatePaymentRequired={(date) => { setFilterDatePaymentRequired(date); setCurrentPage(1); }} // Reset page on date change
           filterRequester={filterRequester}
           setFilterRequester={setFilterRequester}
           allProfiles={allProfiles}
@@ -457,6 +474,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
             getStatusBadge={(status, itemType) => getStatusBadge(status, itemType)}
             handleToggleUrgent={handleToggleUrgent}
             toggleUrgentMutation={toggleUrgentMutation}
+            currentPage={currentPage}
+            itemsPerPage={ITEMS_PER_PAGE}
+            totalItems={totalItems}
+            onPageChange={setCurrentPage}
           />
         </Card>
       ) : (

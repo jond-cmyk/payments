@@ -39,6 +39,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import DatePicker from '@/components/DatePicker';
 import { cn } from '@/lib/utils';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination"; // Import pagination components
+
+const ITEMS_PER_PAGE = 10; // Define items per page for pagination
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -51,6 +62,10 @@ const MissingReceipts = () => {
   const [filterAmount, setFilterAmount] = useState<string>('');
   const [filterAssignedUser, setFilterAssignedUser] = useState<string>('all');
   const [filterTransactionDate, setFilterTransactionDate] = useState<Date | undefined>(undefined);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof Transaction | null>('transaction_date');
@@ -66,6 +81,7 @@ const MissingReceipts = () => {
     debounceTimeoutRef.current = setTimeout(() => {
       console.log(`[MissingReceipts] Debounced amount filter update for: ${value}`);
       setFilterAmount(value);
+      setCurrentPage(1); // Reset to first page on filter change
     }, 500);
   }, []);
 
@@ -73,15 +89,18 @@ const MissingReceipts = () => {
 
   // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection, currentCountry],
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection, currentCountry, currentPage], // Add currentPage to queryKey
     queryFn: async () => {
       if (!session) return [];
 
-      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, sortColumn=${sortColumn}, sortDirection=${sortDirection}, country=${currentCountry}`);
+      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, sortColumn=${sortColumn}, sortDirection=${sortDirection}, country=${currentCountry}, currentPage=${currentPage}`);
+
+      const from = (currentPage - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
 
       let query = supabase
         .from('transactions')
-        .select('*')
+        .select('*', { count: 'exact' }) // Fetch count
         .eq('status', 'pending_input')
         .eq('receipt_urls', '{}');
         
@@ -121,9 +140,12 @@ const MissingReceipts = () => {
         query = query.eq('transaction_date', format(filterTransactionDate, 'yyyy-MM-dd'));
       }
 
-      const { data, error } = await query;
+      query = query.range(from, to); // Apply pagination range
+
+      const { data, error, count } = await query;
       if (error) throw error;
-      console.log(`[MissingReceipts Query] Fetched ${data?.length || 0} transactions. First transaction: ${JSON.stringify(data?.[0])}`);
+      setTotalItems(count || 0); // Set total items for pagination
+      console.log(`[MissingReceipts Query] Fetched ${data?.length || 0} transactions. Total count: ${count}. First transaction: ${JSON.stringify(data?.[0])}`);
       return data;
     },
     enabled: !!session,
@@ -252,6 +274,7 @@ const MissingReceipts = () => {
       setSortColumn(column);
       setSortDirection('asc');
     }
+    setCurrentPage(1); // Reset to first page on sort change
   };
 
   const renderSortIcon = (column: keyof Transaction) => {
@@ -265,6 +288,7 @@ const MissingReceipts = () => {
     setFilterAmount('');
     setFilterAssignedUser('all');
     setFilterTransactionDate(undefined);
+    setCurrentPage(1); // Reset page on clear filters
     queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
   };
 
@@ -283,6 +307,49 @@ const MissingReceipts = () => {
     if (transactions) {
       exportToCsv(transactions, `missing_receipts_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, transactionExportColumns);
     }
+  };
+
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxPagesToShow = 5; // Number of page links to show directly
+    const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
+
+    if (startPage > 1) {
+      items.push(
+        <PaginationItem key="1">
+          <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+        </PaginationItem>
+      );
+      if (startPage > 2) {
+        items.push(<PaginationItem key="ellipsis-start"><PaginationEllipsis /></PaginationItem>);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(
+        <PaginationItem key={i}>
+          <PaginationLink isActive={i === currentPage} onClick={() => setCurrentPage(i)}>
+            {i}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<PaginationItem key="ellipsis-end"><PaginationEllipsis /></PaginationItem>);
+      }
+      items.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    return items;
   };
 
   if (isSessionLoading || isTransactionsLoading || isProfilesLoading) {
@@ -389,7 +456,7 @@ const MissingReceipts = () => {
               onChange={(e) => handleAmountFilterChange(e.target.value)}
               className="max-w-xs shadow-sm"
             />
-            <Select value={filterAssignedUser} onValueChange={setFilterAssignedUser}>
+            <Select value={filterAssignedUser} onValueChange={(value) => { setFilterAssignedUser(value); setCurrentPage(1); }}>
               <SelectTrigger className="w-[180px] shadow-sm">
                 <SelectValue placeholder="Filter by Assigned User" />
               </SelectTrigger>
@@ -404,7 +471,7 @@ const MissingReceipts = () => {
             </Select>
             <DatePicker
               date={filterTransactionDate}
-              setDate={setFilterTransactionDate}
+              setDate={(date) => { setFilterTransactionDate(date); setCurrentPage(1); }}
               placeholder="Filter by Date"
               className="w-[200px] shadow-sm"
             />
@@ -516,6 +583,19 @@ const MissingReceipts = () => {
             </div>
           ) : (
             <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found matching your criteria.</p>
+          )}
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} />
+                </PaginationItem>
+                {renderPaginationItems()}
+                <PaginationItem>
+                  <PaginationNext onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           )}
         </CardContent>
       </Card>
