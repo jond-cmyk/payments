@@ -88,7 +88,9 @@ serve(async (req) => {
           }
           const receiptBlob = await receiptResponse.blob();
           const arrayBuffer = await receiptBlob.arrayBuffer();
-          const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const binaryString = new TextDecoder('latin1').decode(uint8Array); // More robust binary string conversion
+          const base64Content = btoa(binaryString);
 
           const urlParts = receiptUrl.split('/');
           const originalFileName = urlParts[urlParts.length - 1].split('?')[0];

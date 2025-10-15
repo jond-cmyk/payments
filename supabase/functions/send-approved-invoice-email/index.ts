@@ -67,7 +67,9 @@ serve(async (req) => {
         }
         const invoiceBlob = await invoiceResponse.blob();
         const arrayBuffer = await invoiceBlob.arrayBuffer();
-        const base64Content = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer))); // Base64 encode
+        const uint8Array = new Uint8Array(arrayBuffer);
+        const binaryString = new TextDecoder('latin1').decode(uint8Array); // More robust binary string conversion
+        const base64Content = btoa(binaryString); // Base64 encode
 
         const urlParts = invoiceUrl.split('/');
         const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
