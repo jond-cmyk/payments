@@ -7,8 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentRequest } from '@/types/supabase';
 import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter, format, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
-import { BarChart as BarChartIcon, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts'; // Removed TrendingUp from here
-import { CheckCircle, Clock, Filter, TrendingUp } from 'lucide-react'; // Corrected: Import TrendingUp from lucide-react
+import { BarChart as RechartsBarChart, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts'; // Renamed BarChart to RechartsBarChart
+import { CheckCircle, Clock, Filter, TrendingUp, BarChart as BarChartIcon } from 'lucide-react'; // Imported BarChart as BarChartIcon from lucide-react
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -298,14 +298,14 @@ const Statistics = () => {
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={statusChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <RechartsBarChart data={statusChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
                       <Tooltip />
                       <Legend />
                       <Bar dataKey="count" fill="hsl(var(--primary))" name="Number of Requests" />
-                    </BarChart>
+                    </RechartsBarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
