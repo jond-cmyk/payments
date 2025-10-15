@@ -24,7 +24,8 @@ import AdminUploadDirectDebits from "./pages/AdminUploadDirectDebits";
 import AdminUploadStandingOrders from "./pages/AdminUploadStandingOrders";
 import CustomerDepositReturns from "./pages/CustomerDepositReturns";
 import AdminFeedback from "./pages/AdminFeedback";
-import ProfilePage from "./pages/Profile"; // NEW: Import ProfilePage
+import ProfilePage from "./pages/Profile";
+import Statistics from "./pages/Statistics"; // NEW: Import Statistics page
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext";
@@ -75,7 +76,7 @@ const App = () => {
                     <Route path="/direct-debit/:id" element={<DirectDebitDetail />} />
                     <Route path="/standing-orders" element={<StandingOrders />} />
                     <Route path="/standing-order/:id" element={<StandingOrderDetail />} />
-                    <Route path="/profile" element={<ProfilePage />} /> {/* NEW: Profile Page Route */}
+                    <Route path="/profile" element={<ProfilePage />} />
                   </Route>
 
                   {/* Protected routes requiring approval */}
@@ -91,6 +92,7 @@ const App = () => {
                     <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
                     <Route path="/admin/feedback" element={<AdminFeedback />} />
+                    <Route path="/admin/statistics" element={<Statistics />} /> {/* NEW: Statistics Page Route */}
                   </Route>
 
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

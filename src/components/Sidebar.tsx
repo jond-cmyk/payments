@@ -6,19 +6,19 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNotifications } from '@/integrations/supabase/NotificationContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign, MessageSquareText } from 'lucide-react'; // Import MessageSquareText icon
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign, MessageSquareText, BarChart } from 'lucide-react'; // Import BarChart icon
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Added DialogTrigger
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import ChangePasswordForm from '@/components/auth/ChangePasswordForm';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
-} from "@/components/ui/accordion"; // Import Accordion components
-import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger'; // Re-import CustomAccordionTrigger
+} from "@/components/ui/accordion";
+import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger';
 
 interface SidebarProps {
   className?: string;
@@ -56,10 +56,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
       } else {
         totalUnread += notificationsCount || 0;
       }
-
-      // Removed the feedbackCount addition here to avoid double-counting for admins.
-      // Admins will still receive a notification in their 'notifications' table about new feedback,
-      // and the full feedback list is available on the /admin/feedback page.
       
       return totalUnread;
     },
@@ -132,11 +128,10 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
         
         <div className="h-px bg-dyad-blue-foreground my-4" /> 
-        {/* New section for Direct Debits and Standing Orders */}
         <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
         <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
-        <div className="h-px bg-dyad-blue-foreground my-4" /> {/* Added divider here */}
-        <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" /> {/* NEW: Customer Deposit Returns */}
+        <div className="h-px bg-dyad-blue-foreground my-4" />
+        <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
         
         <div className="h-px bg-dyad-blue-foreground my-4" /> 
 
@@ -147,7 +142,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
             </Badge>
           )}
         </NavLink>
-        <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" /> {/* NEW: Profile Link */}
+        <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" />
         
         {currentRole === 'admin' && (
           <>
@@ -164,7 +159,8 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                   <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
                   <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" />
                   <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
-                  <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" /> {/* NEW: Admin Feedback Link */}
+                  <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" />
+                  <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" /> {/* NEW: Statistics Link */}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
