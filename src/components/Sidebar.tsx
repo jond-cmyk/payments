@@ -147,6 +147,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
             </Badge>
           )}
         </NavLink>
+        <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" /> {/* NEW: Profile Link */}
         
         {currentRole === 'admin' && (
           <>

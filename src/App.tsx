@@ -15,18 +15,19 @@ import MissingReceipts from "./pages/MissingReceipts";
 import TransactionDetail from "./pages/TransactionDetail";
 import PendingApproval from "./pages/PendingApproval";
 import CompletedReceipts from "./pages/CompletedReceipts";
-import NotificationsPage from "./pages/Notifications"; // Import the NotificationsPage
-import DirectDebits from "./pages/DirectDebits"; // Import DirectDebits
-import DirectDebitDetail from "./pages/DirectDebitDetail"; // NEW: Import DirectDebitDetail
-import StandingOrders from "./pages/StandingOrders"; // Import StandingOrders
-import StandingOrderDetail from "./pages/StandingOrderDetail"; // NEW: Import StandingOrderDetail
-import AdminUploadDirectDebits from "./pages/AdminUploadDirectDebits"; // NEW: Import AdminUploadDirectDebits
-import AdminUploadStandingOrders from "./pages/AdminUploadStandingOrders"; // NEW: Import AdminUploadStandingOrders
-import CustomerDepositReturns from "./pages/CustomerDepositReturns"; // NEW: Import CustomerDepositReturns
-import AdminFeedback from "./pages/AdminFeedback"; // NEW: Import AdminFeedback
+import NotificationsPage from "./pages/Notifications";
+import DirectDebits from "./pages/DirectDebits";
+import DirectDebitDetail from "./pages/DirectDebitDetail";
+import StandingOrders from "./pages/StandingOrders";
+import StandingOrderDetail from "./pages/StandingOrderDetail";
+import AdminUploadDirectDebits from "./pages/AdminUploadDirectDebits";
+import AdminUploadStandingOrders from "./pages/AdminUploadStandingOrders";
+import CustomerDepositReturns from "./pages/CustomerDepositReturns";
+import AdminFeedback from "./pages/AdminFeedback";
+import ProfilePage from "./pages/Profile"; // NEW: Import ProfilePage
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
-import { CountryProvider } from "./integrations/supabase/CountryContext"; // Import CountryProvider
+import { CountryProvider } from "./integrations/supabase/CountryContext";
 import Layout from "./components/Layout";
 
 const queryClient = new QueryClient();
@@ -59,7 +60,7 @@ const App = () => {
         <BrowserRouter>
           <SessionContextProvider>
             <NotificationProvider>
-              <CountryProvider> {/* Wrap with CountryProvider */}
+              <CountryProvider>
                 <Routes>
                   <Route path="/login" element={<Login />} />
                   <Route path="/pending-approval" element={<PendingApproval />} />
@@ -71,9 +72,10 @@ const App = () => {
                     <Route path="/completed-receipts" element={<CompletedReceipts />} />
                     <Route path="/transaction/:id" element={<TransactionDetail />} />
                     <Route path="/direct-debits" element={<DirectDebits />} />
-                    <Route path="/direct-debit/:id" element={<DirectDebitDetail />} /> {/* NEW: Direct Debit Detail Route */}
+                    <Route path="/direct-debit/:id" element={<DirectDebitDetail />} />
                     <Route path="/standing-orders" element={<StandingOrders />} />
-                    <Route path="/standing-order/:id" element={<StandingOrderDetail />} /> {/* NEW: Standing Order Detail Route */}
+                    <Route path="/standing-order/:id" element={<StandingOrderDetail />} />
+                    <Route path="/profile" element={<ProfilePage />} /> {/* NEW: Profile Page Route */}
                   </Route>
 
                   {/* Protected routes requiring approval */}
@@ -84,11 +86,11 @@ const App = () => {
                     <Route path="/admin/requests" element={<Dashboard />} />
                     <Route path="/admin/users" element={<UserManagement />} />
                     <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
-                    <Route path="/admin/upload-direct-debits" element={<AdminUploadDirectDebits />} /> {/* NEW: Direct Debit Upload Route */}
-                    <Route path="/admin/upload-standing-orders" element={<AdminUploadStandingOrders />} /> {/* NEW: Standing Order Upload Route */}
-                    <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} /> {/* NEW: Customer Deposit Returns Route */}
+                    <Route path="/admin/upload-direct-debits" element={<AdminUploadDirectDebits />} />
+                    <Route path="/admin/upload-standing-orders" element={<AdminUploadStandingOrders />} />
+                    <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
                     <Route path="/notifications" element={<NotificationsPage />} />
-                    <Route path="/admin/feedback" element={<AdminFeedback />} /> {/* NEW: Admin Feedback Route */}
+                    <Route path="/admin/feedback" element={<AdminFeedback />} />
                   </Route>
 
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
