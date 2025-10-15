@@ -7,10 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown, FileDown } from 'lucide-react'; // Import FileDown
+import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown, FileDown } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
+import { exportToCsv } from '@/utils/exportToCsv';
 
 import {
   Table,
@@ -47,9 +47,9 @@ import {
   PaginationNext,
   PaginationPrevious,
   PaginationEllipsis,
-} from "@/components/ui/pagination"; // Import pagination components
+} from "@/components/ui/pagination";
 
-const ITEMS_PER_PAGE = 10; // Define items per page for pagination
+const ITEMS_PER_PAGE = 10;
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -62,6 +62,8 @@ const MissingReceipts = () => {
   const [filterAmount, setFilterAmount] = useState<string>('');
   const [filterAssignedUser, setFilterAssignedUser] = useState<string>('all');
   const [filterTransactionDate, setFilterTransactionDate] = useState<Date | undefined>(undefined);
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined); // NEW
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined); // NEW
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -81,7 +83,7 @@ const MissingReceipts = () => {
     debounceTimeoutRef.current = setTimeout(() => {
       console.log(`[MissingReceipts] Debounced amount filter update for: ${value}`);
       setFilterAmount(value);
-      setCurrentPage(1); // Reset to first page on filter change
+      setCurrentPage(1);
     }, 500);
   }, []);
 
@@ -89,34 +91,30 @@ const MissingReceipts = () => {
 
   // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection, currentCountry, currentPage], // Add currentPage to queryKey
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, filterStartDate, filterEndDate, sortColumn, sortDirection, currentCountry, currentPage], // ADDED filterStartDate, filterEndDate
     queryFn: async () => {
       if (!session) return [];
 
-      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, sortColumn=${sortColumn}, sortDirection=${sortDirection}, country=${currentCountry}, currentPage=${currentPage}`);
+      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, startDate=${filterStartDate?.toISOString().split('T')[0]}, endDate=${filterEndDate?.toISOString().split('T')[0]}, sortColumn=${sortColumn}, sortDirection=${sortDirection}, country=${currentCountry}, currentPage=${currentPage}`);
 
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
 
       let query = supabase
         .from('transactions')
-        .select('*', { count: 'exact' }) // Fetch count
+        .select('*', { count: 'exact' })
         .eq('status', 'pending_input')
         .eq('receipt_urls', '{}');
         
       // Apply country filter based on user role and selected country
-      // For requesters, RLS will handle the country filter.
-      // For admins, apply client-side filter if a specific country is selected.
       if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
-      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
       // Apply dynamic sorting
       if (sortColumn) {
         query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
       }
-      // Add secondary and tertiary sorts for stability, ensuring 'id' is always the final tie-breaker
       if (sortColumn !== 'created_at') {
         query = query.order('created_at', { ascending: false });
       }
@@ -139,12 +137,19 @@ const MissingReceipts = () => {
       if (filterTransactionDate) {
         query = query.eq('transaction_date', format(filterTransactionDate, 'yyyy-MM-dd'));
       }
+      // NEW: Apply date range filters
+      if (filterStartDate) {
+        query = query.gte('transaction_date', format(filterStartDate, 'yyyy-MM-dd'));
+      }
+      if (filterEndDate) {
+        query = query.lte('transaction_date', format(filterEndDate, 'yyyy-MM-dd'));
+      }
 
-      query = query.range(from, to); // Apply pagination range
+      query = query.range(from, to);
 
       const { data, error, count } = await query;
       if (error) throw error;
-      setTotalItems(count || 0); // Set total items for pagination
+      setTotalItems(count || 0);
       console.log(`[MissingReceipts Query] Fetched ${data?.length || 0} transactions. Total count: ${count}. First transaction: ${JSON.stringify(data?.[0])}`);
       return data;
     },
@@ -159,7 +164,6 @@ const MissingReceipts = () => {
         .from('profile_with_email')
         .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at, country');
       
-      // Filter profiles by selected country if not 'all'
       if (currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
@@ -179,7 +183,6 @@ const MissingReceipts = () => {
         .delete()
         .in('id', ids);
       
-      // Apply country filter for delete
       if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
@@ -208,7 +211,6 @@ const MissingReceipts = () => {
         .update({ requester_id: newRequesterId, updated_at: new Date().toISOString() })
         .eq('id', transactionId);
       
-      // Apply country filter for update
       if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
@@ -274,7 +276,7 @@ const MissingReceipts = () => {
       setSortColumn(column);
       setSortDirection('asc');
     }
-    setCurrentPage(1); // Reset to first page on sort change
+    setCurrentPage(1);
   };
 
   const renderSortIcon = (column: keyof Transaction) => {
@@ -288,11 +290,13 @@ const MissingReceipts = () => {
     setFilterAmount('');
     setFilterAssignedUser('all');
     setFilterTransactionDate(undefined);
-    setCurrentPage(1); // Reset page on clear filters
+    setFilterStartDate(undefined); // NEW
+    setFilterEndDate(undefined); // NEW
+    setCurrentPage(1);
     queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
   };
 
-  const hasActiveFilters = filterAmount !== '' || filterAssignedUser !== 'all' || filterTransactionDate !== undefined;
+  const hasActiveFilters = filterAmount !== '' || filterAssignedUser !== 'all' || filterTransactionDate !== undefined || filterStartDate !== undefined || filterEndDate !== undefined; // UPDATED
 
   // Define columns for Transaction export
   const transactionExportColumns: (keyof Transaction)[] = [
@@ -313,7 +317,7 @@ const MissingReceipts = () => {
 
   const renderPaginationItems = () => {
     const items = [];
-    const maxPagesToShow = 5; // Number of page links to show directly
+    const maxPagesToShow = 5;
     const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
     const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
 
@@ -400,7 +404,6 @@ const MissingReceipts = () => {
   };
 
   const allTransactionsSelected = transactions && transactions.length > 0 && selectedTransactionIds.length === transactions.length;
-  // const someTransactionsSelected = selectedTransactionIds.length > 0 && selectedTransactionIds.length < (transactions?.length || 0); // Removed as indeterminate prop is not used
 
   return (
     <div className="container mx-auto py-8">
@@ -465,142 +468,155 @@ const MissingReceipts = () => {
                 {allProfiles?.map((profile) => (
                   <SelectItem key={profile.id} value={profile.id}>
                                 <span>{profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <DatePicker
-              date={filterTransactionDate}
-              setDate={(date) => { setFilterTransactionDate(date); setCurrentPage(1); }}
-              placeholder="Filter by Date"
-              className="w-[200px] shadow-sm"
-            />
-            {hasActiveFilters && (
-              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm">
-                <RotateCcw className="h-4 w-4" /> Clear Filters
-              </Button>
-            )}
-          </div>
-
-          {transactions && transactions.length > 0 ? (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    {isAdmin && (
-                      <TableHead className="w-[50px]">
-                        <Checkbox
-                          checked={allTransactionsSelected}
-                          onCheckedChange={handleSelectAll}
-                          aria-label="Select all transactions"
-                        />
-                      </TableHead>
-                    )}
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('transaction_date')}>
-                      <div className="flex items-center">
-                        Date {renderSortIcon('transaction_date')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('description')}>
-                      <div className="flex items-center">
-                        Description {renderSortIcon('description')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('amount')}>
-                      <div className="flex items-center">
-                        Amount {renderSortIcon('amount')}
-                      </div>
-                    </TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
-                      <div className="flex items-center">
-                        SKU {renderSortIcon('sku')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('reason_for_payment')}>
-                      <div className="flex items-center">
-                        Reason for Payment {renderSortIcon('reason_for_payment')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('requester_id')}>
-                      <div className="flex items-center">
-                        Assigned To {renderSortIcon('requester_id')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map((transaction) => (
-                    <TableRow key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
-                      {isAdmin && (
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedTransactionIds.includes(transaction.id)}
-                            onCheckedChange={(checked: boolean) => handleSelectTransaction(transaction.id, checked)}
-                            aria-label={`Select transaction ${transaction.id.substring(0, 8)}`}
-                          />
-                        </TableCell>
-                      )}
-                      <TableCell>{format(new Date(transaction.transaction_date), 'PPP')}</TableCell>
-                      <TableCell className="font-medium">{transaction.description}</TableCell>
-                      <TableCell>{transaction.currency} {transaction.amount.toFixed(2)}</TableCell>
-                      <TableCell>{getStatusBadge(transaction.status)}</TableCell>
-                      <TableCell>{transaction.sku || 'N/A'}</TableCell>
-                      <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={transaction.requester_id || ''}
-                          onValueChange={(newRequesterId) => handleAssignTransaction(transaction.id, newRequesterId)}
-                          disabled={assignTransactionMutation.isPending}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Assign User" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allProfiles?.map((profile) => (
-                              <SelectItem key={profile.id} value={profile.id}>
-                                <span>{profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})</span>
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shadow-sm"
-                          onClick={() => navigate(`/transaction/${transaction.id}`)}
-                        >
-                          <span>View/Add Receipt</span>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          ) : (
-            <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found matching your criteria.</p>
-          )}
-          {totalPages > 1 && (
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} />
-                </PaginationItem>
-                {renderPaginationItems()}
-                <PaginationItem>
-                  <PaginationNext onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-};
+                        <DatePicker
+                          date={filterTransactionDate}
+                          setDate={(date) => { setFilterTransactionDate(date); setCurrentPage(1); }}
+                          placeholder="Filter by Date"
+                          className="w-[200px] shadow-sm"
+                        />
+                        {/* NEW: Date Range Filters */}
+                        <DatePicker
+                          date={filterStartDate}
+                          setDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
+                          placeholder="Start Date"
+                          className="w-[200px]"
+                        />
+                        <DatePicker
+                          date={filterEndDate}
+                          setDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
+                          placeholder="End Date"
+                          className="w-[200px]"
+                        />
+                        {hasActiveFilters && (
+                          <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm">
+                            <RotateCcw className="h-4 w-4" /> Clear Filters
+                          </Button>
+                        )}
+                      </div>
+
+                      {transactions && transactions.length > 0 ? (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                {isAdmin && (
+                                  <TableHead className="w-[50px]">
+                                    <Checkbox
+                                      checked={allTransactionsSelected}
+                                      onCheckedChange={handleSelectAll}
+                                      aria-label="Select all transactions"
+                                    />
+                                  </TableHead>
+                                )}
+                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('transaction_date')}>
+                                  <div className="flex items-center">
+                                    Date {renderSortIcon('transaction_date')}
+                                  </div>
+                                </TableHead>
+                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('description')}>
+                                  <div className="flex items-center">
+                                    Description {renderSortIcon('description')}
+                                  </div>
+                                </TableHead>
+                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('amount')}>
+                                  <div className="flex items-center">
+                                    Amount {renderSortIcon('amount')}
+                                  </div>
+                                </TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
+                                  <div className="flex items-center">
+                                    SKU {renderSortIcon('sku')}
+                                  </div>
+                                </TableHead>
+                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('reason_for_payment')}>
+                                  <div className="flex items-center">
+                                    Reason for Payment {renderSortIcon('reason_for_payment')}
+                                  </div>
+                                </TableHead>
+                                <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('requester_id')}>
+                                  <div className="flex items-center">
+                                    Assigned To {renderSortIcon('requester_id')}
+                                  </div>
+                                </TableHead>
+                                <TableHead className="text-right">Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {transactions.map((transaction) => (
+                                <TableRow key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
+                                  {isAdmin && (
+                                    <TableCell>
+                                      <Checkbox
+                                        checked={selectedTransactionIds.includes(transaction.id)}
+                                        onCheckedChange={(checked: boolean) => handleSelectTransaction(transaction.id, checked)}
+                                        aria-label={`Select transaction ${transaction.id.substring(0, 8)}`}
+                                      />
+                                    </TableCell>
+                                  )}
+                                  <TableCell>{format(new Date(transaction.transaction_date), 'PPP')}</TableCell>
+                                  <TableCell className="font-medium">{transaction.description}</TableCell>
+                                  <TableCell>{transaction.currency} {transaction.amount.toFixed(2)}</TableCell>
+                                  <TableCell>{getStatusBadge(transaction.status)}</TableCell>
+                                  <TableCell>{transaction.sku || 'N/A'}</TableCell>
+                                  <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
+                                  <TableCell>
+                                    <Select
+                                      value={transaction.requester_id || ''}
+                                      onValueChange={(newRequesterId) => handleAssignTransaction(transaction.id, newRequesterId)}
+                                      disabled={assignTransactionMutation.isPending}
+                                    >
+                                      <SelectTrigger className="w-[180px]">
+                                        <SelectValue placeholder="Assign User" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {allProfiles?.map((profile) => (
+                                          <SelectItem key={profile.id} value={profile.id}>
+                                            <span>{profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})</span>
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="shadow-sm"
+                                      onClick={() => navigate(`/transaction/${transaction.id}`)}
+                                    >
+                                      <span>View/Add Receipt</span>
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      ) : (
+                        <p className="text-center text-muted-foreground mt-8">No transactions with missing receipts found matching your criteria.</p>
+                      )}
+                      {totalPages > 1 && (
+                        <Pagination className="mt-4">
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} />
+                            </PaginationItem>
+                            {renderPaginationItems()}
+                            <PaginationItem>
+                              <PaginationNext onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            };
 
 export default MissingReceipts;

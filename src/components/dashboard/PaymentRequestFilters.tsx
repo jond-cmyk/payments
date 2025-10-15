@@ -7,7 +7,7 @@ import DatePicker from '@/components/DatePicker';
 import { Button } from '@/components/ui/button';
 import { XCircle, RotateCcw } from 'lucide-react';
 import { PaymentRequest, Profile } from '@/types/supabase';
-import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
+import CountrySelector from '@/components/CountrySelector';
 
 interface PaymentRequestFiltersProps {
   filterSupplierName: string;
@@ -20,6 +20,10 @@ interface PaymentRequestFiltersProps {
   setFilterDatePaymentRequired: (date: Date | undefined) => void;
   filterRequester: string;
   setFilterRequester: (value: string) => void;
+  filterStartDate: Date | undefined; // NEW: Start date for range filter
+  setFilterStartDate: (date: Date | undefined) => void; // NEW: Setter for start date
+  filterEndDate: Date | undefined; // NEW: End date for range filter
+  setFilterEndDate: (date: Date | undefined) => void; // NEW: Setter for end date
   allProfiles: Profile[] | undefined;
   clearFilters: () => void;
   hasActiveFilters: boolean;
@@ -37,6 +41,10 @@ const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({
   setFilterDatePaymentRequired,
   filterRequester,
   setFilterRequester,
+  filterStartDate, // NEW
+  setFilterStartDate, // NEW
+  filterEndDate, // NEW
+  setFilterEndDate, // NEW
   allProfiles,
   clearFilters,
   hasActiveFilters,
@@ -45,7 +53,7 @@ const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({
   return (
     <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50">
       <span className="font-medium text-gray-700">Filters:</span>
-      <CountrySelector className="w-[240px]" triggerClassName="w-full" /> {/* Add CountrySelector here, with triggerClassName */}
+      <CountrySelector className="w-[240px]" triggerClassName="w-full" />
       <Input
         placeholder="Filter by Supplier Name"
         value={filterSupplierName}
@@ -75,6 +83,19 @@ const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({
         date={filterDatePaymentRequired}
         setDate={setFilterDatePaymentRequired}
         placeholder="Filter by Payment Date"
+        className="w-[200px]"
+      />
+      {/* NEW: Date Range Filters */}
+      <DatePicker
+        date={filterStartDate}
+        setDate={setFilterStartDate}
+        placeholder="Start Date"
+        className="w-[200px]"
+      />
+      <DatePicker
+        date={filterEndDate}
+        setDate={setFilterEndDate}
+        placeholder="End Date"
         className="w-[200px]"
       />
       <Select value={filterRequester} onValueChange={setFilterRequester}>

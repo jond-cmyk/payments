@@ -7,11 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { DirectDebit, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { Banknote, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown } from 'lucide-react'; // Import FileDown icon
+import { Banknote, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
-import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
+import { exportToCsv } from '@/utils/exportToCsv';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -40,9 +40,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
-import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm'; // Import the new form
-import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm'; // IMPORT THE REAL EDIT FORM
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm';
+import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm';
 import { cn } from '@/lib/utils';
 import CountrySelector from '@/components/CountrySelector';
 import {
@@ -53,18 +53,18 @@ import {
   PaginationNext,
   PaginationPrevious,
   PaginationEllipsis,
-} from "@/components/ui/pagination"; // Import pagination components
+} from "@/components/ui/pagination";
 
-const ITEMS_PER_PAGE = 10; // Define items per page for pagination
+const ITEMS_PER_PAGE = 10;
 
 const DirectDebits = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isAddDirectDebitDialogOpen, setIsAddDirectDebitDialogOpen] = useState(false); // State for add dialog
-  const [isEditDirectDebitDialogOpen, setIsEditDirectDebitDialogOpen] = useState(false); // NEW: State for edit dialog
-  const [editingDirectDebit, setEditingDirectDebit] = useState<DirectDebit | null>(null); // NEW: State for direct debit being edited
+  const [isAddDirectDebitDialogOpen, setIsAddDirectDebitDialogOpen] = useState(false);
+  const [isEditDirectDebitDialogOpen, setIsEditDirectDebitDialogOpen] = useState(false);
+  const [editingDirectDebit, setEditingDirectDebit] = useState<DirectDebit | null>(null);
 
   // Filter states (debounced for query)
   const [filterPayee, setFilterPayee] = useState<string>('');
@@ -73,6 +73,8 @@ const DirectDebits = () => {
   const [filterStatus, setFilterStatus] = useState<DirectDebit['status'] | 'all'>('all');
   const [filterSku, setFilterSku] = useState<string>('');
   const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined); // NEW
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined); // NEW
 
   // Local states for immediate input feedback
   const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
@@ -109,15 +111,15 @@ const DirectDebits = () => {
     }
     debounceTimeoutRef.current = setTimeout(() => {
       setter(value);
-      setCurrentPage(1); // Reset to first page on filter change
-    }, 500); // 500ms debounce
+      setCurrentPage(1);
+    }, 500);
   }, []);
 
   const isAdmin = userProfile?.role === 'admin';
 
   // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
-    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection, currentPage], // Add currentPage to queryKey
+    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage], // ADDED filterStartDate, filterEndDate
     queryFn: async () => {
       if (!session) return [];
 
@@ -126,7 +128,7 @@ const DirectDebits = () => {
 
       let query = supabase
         .from('direct_debits')
-        .select('*', { count: 'exact' }); // Fetch count
+        .select('*', { count: 'exact' });
 
       // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -145,6 +147,13 @@ const DirectDebits = () => {
       if (filterPaymentDate) {
         query = query.eq('payment_date', format(filterPaymentDate, 'yyyy-MM-dd'));
       }
+      // NEW: Apply date range filters
+      if (filterStartDate) {
+        query = query.gte('payment_date', format(filterStartDate, 'yyyy-MM-dd'));
+      }
+      if (filterEndDate) {
+        query = query.lte('payment_date', format(filterEndDate, 'yyyy-MM-dd'));
+      }
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus);
       }
@@ -159,7 +168,6 @@ const DirectDebits = () => {
       if (sortColumn) {
         query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
       }
-      // Add secondary and tertiary sorts for stability
       if (sortColumn !== 'created_at') {
         query = query.order('created_at', { ascending: false });
       }
@@ -167,11 +175,11 @@ const DirectDebits = () => {
         query = query.order('id', { ascending: false });
       }
 
-      query = query.range(from, to); // Apply pagination range
+      query = query.range(from, to);
 
       const { data, error, count } = await query;
       if (error) throw error;
-      setTotalItems(count || 0); // Set total items for pagination
+      setTotalItems(count || 0);
       return data;
     },
     enabled: !!session,
@@ -203,7 +211,7 @@ const DirectDebits = () => {
       setSortColumn(column);
       setSortDirection('asc');
     }
-    setCurrentPage(1); // Reset to first page on sort change
+    setCurrentPage(1);
   };
 
   const renderSortIcon = (column: keyof DirectDebit) => {
@@ -223,11 +231,13 @@ const DirectDebits = () => {
     setLocalFilterSku('');
     setFilterPaymentReference('');
     setLocalFilterPaymentReference('');
-    setCurrentPage(1); // Reset page on clear filters
+    setFilterStartDate(undefined); // NEW
+    setFilterEndDate(undefined); // NEW
+    setCurrentPage(1);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '';
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined; // UPDATED
 
   const getStatusBadge = (status: DirectDebit['status']) => {
     let className = '';
@@ -257,7 +267,7 @@ const DirectDebits = () => {
   const handleDirectDebitAdded = () => {
     setIsAddDirectDebitDialogOpen(false);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
-    setCurrentPage(1); // Reset to first page after adding
+    setCurrentPage(1);
   };
 
   const handleEditClick = (directDebit: DirectDebit) => {
@@ -288,7 +298,7 @@ const DirectDebits = () => {
 
   const renderPaginationItems = () => {
     const items = [];
-    const maxPagesToShow = 5; // Number of page links to show directly
+    const maxPagesToShow = 5;
     const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
     const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
 
@@ -423,6 +433,19 @@ const DirectDebits = () => {
               date={filterPaymentDate}
               setDate={(date) => { setFilterPaymentDate(date); setCurrentPage(1); }}
               placeholder="Filter by Payment Date"
+              className="w-full shadow-sm"
+            />
+            {/* NEW: Date Range Filters */}
+            <DatePicker
+              date={filterStartDate}
+              setDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
+              placeholder="Start Date"
+              className="w-full shadow-sm"
+            />
+            <DatePicker
+              date={filterEndDate}
+              setDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
+              placeholder="End Date"
               className="w-full shadow-sm"
             />
             <Select value={filterStatus} onValueChange={(value: DirectDebit['status'] | 'all') => { setFilterStatus(value); setCurrentPage(1); }}>

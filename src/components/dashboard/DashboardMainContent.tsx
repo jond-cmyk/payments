@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom'; // Import useSearchParams
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { ArrowUp, ArrowDown, FileDown } from 'lucide-react';
 
@@ -34,7 +34,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const { currentCountry } = useCountry();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = useSearchParams(); // Use useSearchParams hook
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const userRole = userProfile?.role || null;
 
@@ -44,6 +44,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
   const [filterDatePaymentRequired, setFilterDatePaymentRequired] = useState<Date | undefined>(undefined);
   const [filterRequester, setFilterRequester] = useState<string>('all');
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined); // NEW
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined); // NEW
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -78,7 +80,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       setFilterStatus('pending');
     }
     setCurrentPage(1); // Reset page when URL params change
-  }, [searchParams, location.pathname]); // Dependency array includes searchParams
+  }, [searchParams, location.pathname]);
 
   // Determine if we are on the 'All Requests' page
   const isAllRequestsPage = location.pathname === '/admin/requests';
@@ -202,7 +204,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage],
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage], // ADDED filterStartDate, filterEndDate
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
@@ -240,6 +242,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         }
         if (filterDatePaymentRequired) {
           query = query.gte('date_payment_required', format(filterDatePaymentRequired, 'yyyy-MM-dd'));
+        }
+        // NEW: Apply date range filters
+        if (filterStartDate) {
+          query = query.gte('date_payment_required', format(filterStartDate, 'yyyy-MM-dd'));
+        }
+        if (filterEndDate) {
+          query = query.lte('date_payment_required', format(filterEndDate, 'yyyy-MM-dd'));
         }
         if (filterRequester !== 'all') {
           query = query.eq('requester_id', filterRequester);
@@ -313,7 +322,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     setFilterStatus('all');
     setFilterDatePaymentRequired(undefined);
     setFilterRequester('all');
-    setSearchParams({}); // Correctly clear URL search parameters
+    setFilterStartDate(undefined); // NEW
+    setFilterEndDate(undefined); // NEW
+    setSearchParams({});
     setCurrentPage(1); // Reset page on clear filters
     queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
   };
@@ -335,7 +346,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     return null;
   };
 
-  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== 'all' || filterRequester !== 'all';
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== 'all' || filterRequester !== 'all' || filterStartDate !== undefined || filterEndDate !== undefined; // UPDATED
 
   const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
@@ -441,6 +452,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
           setFilterDatePaymentRequired={(date) => { setFilterDatePaymentRequired(date); setCurrentPage(1); }}
           filterRequester={filterRequester}
           setFilterRequester={setFilterRequester}
+          filterStartDate={filterStartDate} // NEW
+          setFilterStartDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }} // NEW
+          filterEndDate={filterEndDate} // NEW
+          setFilterEndDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }} // NEW
           allProfiles={allProfiles}
           clearFilters={clearFilters}
           hasActiveFilters={hasActiveFilters}
