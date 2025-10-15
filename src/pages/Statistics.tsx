@@ -6,13 +6,38 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentRequest } from '@/types/supabase';
-import { differenceInDays, parseISO, intervalToDuration } from 'date-fns';
-import { BarChart, Clock, CheckCircle, DollarSign, TrendingUp } from 'lucide-react';
+import { differenceInMilliseconds, parseISO, intervalToDuration } from 'date-fns'; // Changed to differenceInMilliseconds
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { showError } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
+import { BarChart, Clock, CheckCircle, TrendingUp } from 'lucide-react';
+
+// Helper function to format duration
+const formatDuration = (milliseconds: number | null): string => {
+  if (milliseconds === null || isNaN(milliseconds) || milliseconds < 0) {
+    return 'N/A';
+  }
+
+  const duration = intervalToDuration({ start: 0, end: milliseconds });
+
+  const parts = [];
+  if (duration.days && duration.days > 0) {
+    parts.push(`${duration.days} day${duration.days > 1 ? 's' : ''}`);
+  }
+  if (duration.hours && duration.hours > 0) {
+    parts.push(`${duration.hours} hour${duration.hours > 1 ? 's' : ''}`);
+  }
+  if (duration.minutes && duration.minutes > 0) {
+    parts.push(`${duration.minutes} minute${duration.minutes > 1 ? 's' : ''}`);
+  }
+
+  if (parts.length === 0) {
+    return '0 minutes'; // If duration is less than a minute
+  }
+  return parts.join(', ');
+};
 
 const Statistics = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
@@ -54,29 +79,29 @@ const Statistics = () => {
       };
     }
 
-    let totalSetupDays = 0;
+    let totalSetupMilliseconds = 0;
     let setupCount = 0;
-    let totalApprovedDays = 0;
+    let totalApprovedMilliseconds = 0;
     let approvedCount = 0;
 
     paymentRequests.forEach(request => {
       if (request.created_at && request.payment_setup_date) {
         const createdDate = parseISO(request.created_at);
         const setupDate = parseISO(request.payment_setup_date);
-        totalSetupDays += differenceInDays(setupDate, createdDate);
+        totalSetupMilliseconds += differenceInMilliseconds(setupDate, createdDate);
         setupCount++;
       }
 
       if (request.payment_setup_date && request.payment_approved_date) {
         const setupDate = parseISO(request.payment_setup_date);
         const approvedDate = parseISO(request.payment_approved_date);
-        totalApprovedDays += differenceInDays(approvedDate, setupDate);
+        totalApprovedMilliseconds += differenceInMilliseconds(approvedDate, setupDate);
         approvedCount++;
       }
     });
 
-    const avgTimeToSetup = setupCount > 0 ? (totalSetupDays / setupCount) : null;
-    const avgTimeToApprove = approvedCount > 0 ? (totalApprovedDays / approvedCount) : null;
+    const avgTimeToSetup = setupCount > 0 ? (totalSetupMilliseconds / setupCount) : null;
+    const avgTimeToApprove = approvedCount > 0 ? (totalApprovedMilliseconds / approvedCount) : null;
 
     return {
       avgTimeToSetup,
@@ -138,7 +163,7 @@ const Statistics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {avgTimeToSetup !== null ? `${avgTimeToSetup.toFixed(1)} days` : 'N/A'}
+                  {formatDuration(avgTimeToSetup)}
                 </div>
                 <p className="text-xs text-muted-foreground">From submission to payment setup ({setupRequests} requests)</p>
               </CardContent>
@@ -151,7 +176,7 @@ const Statistics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {avgTimeToApprove !== null ? `${avgTimeToApprove.toFixed(1)} days` : 'N/A'}
+                  {formatDuration(avgTimeToApprove)}
                 </div>
                 <p className="text-xs text-muted-foreground">From payment setup to approval ({approvedRequests} requests)</p>
               </CardContent>
