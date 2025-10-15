@@ -306,7 +306,7 @@ const NotificationsPage = () => {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-red-500 hover:bg-red-50"
+                          className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm"
                           disabled={deleteNotificationMutation.isPending}
                           title="Delete Notification"
                         >

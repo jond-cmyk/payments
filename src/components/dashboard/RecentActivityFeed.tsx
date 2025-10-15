@@ -178,7 +178,7 @@ const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5 }) =>
       default:
         className = 'bg-gray-500 text-gray-50';
     }
-    return <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>{displayText}</Badge>;
+    return <Badge className={cn(className)}>{displayText}</Badge>;
   };
 
   if (isLoading) {

@@ -391,7 +391,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       default:
         className = 'bg-gray-500 text-gray-50';
     }
-    return <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>{displayText}</Badge>;
+    return <Badge className={cn(className)}>{displayText}</Badge>;
   };
 
   // Define columns for Payment Request export
