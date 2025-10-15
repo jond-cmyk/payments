@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -92,6 +92,11 @@ const NotificationsPage = () => {
     },
     enabled: !!user?.id,
   });
+
+  // ADDED: Console log to inspect notifications data
+  useEffect(() => {
+    console.log("[NotificationsPage] Notifications data loaded:", notifications);
+  }, [notifications]);
 
   const markAsReadMutation = useMutation({
     mutationFn: async (notificationId: string) => {
