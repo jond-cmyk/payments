@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { Resend } from 'https://esm.sh/resend@1.1.0';
+import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"; // Import encodeBase64
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,7 +41,7 @@ serve(async (req) => {
     }
 
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    console.log(`[send-missing-receipt-notification] RESEND_API_KEY loaded: ${!!resendApiKey}`); // ADDED LOG
+    console.log(`[send-missing-receipt-notification] RESEND_API_KEY loaded: ${!!resendApiKey}`);
     if (!resendApiKey) {
       console.error('[send-missing-receipt-notification] RESEND_API_KEY is not set in environment variables.');
       return new Response(JSON.stringify({ error: 'Email service not configured' }), {
@@ -60,7 +61,7 @@ serve(async (req) => {
     }
     console.log(`[send-missing-receipt-notification] Sending to: ${recipientEmail} for country: ${newRecord.country}`);
 
-    const subject = `Receipt Added for Transaction - ${newRecord.entry}`; // Updated subject
+    const subject = `Receipt Added for Transaction - ${newRecord.entry}`;
     const htmlContent = `
       <p>Hello,</p>
       <p>A receipt has been successfully added for transaction <strong>#${newRecord.id.substring(0, 8)}</strong> (Entry: ${newRecord.entry}).</p>
@@ -86,11 +87,9 @@ serve(async (req) => {
             console.warn(`[send-missing-receipt-notification] Failed to fetch receipt PDF from ${receiptUrl}: ${receiptResponse.statusText}. Skipping this attachment.`);
             continue;
           }
-          const receiptBlob = await receiptResponse.blob();
-          const arrayBuffer = await receiptBlob.arrayBuffer();
+          const arrayBuffer = await receiptResponse.arrayBuffer();
           const uint8Array = new Uint8Array(arrayBuffer);
-          const binaryString = String.fromCharCode(...uint8Array); // Changed to String.fromCharCode
-          const base64Content = btoa(binaryString);
+          const base64Content = encodeBase64(uint8Array); // Use Deno's encodeBase64
 
           const urlParts = receiptUrl.split('/');
           const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
@@ -135,7 +134,7 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    console.error('[send-missing-receipt-notification] Edge Function unhandled error:', error);
+    console.error('Edge Function unhandled error:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
-import { Resend } from 'https://esm.sh/resend@1.1.0'; // Import Resend
+import { Resend } from 'https://esm.sh/resend@1.1.0';
+import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"; // Import encodeBase64
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -29,14 +30,14 @@ serve(async (req) => {
     // Check for invoice_pdf_urls
     if (!newRecord || !newRecord.id || !newRecord.sku_number || !newRecord.invoice_pdf_urls || newRecord.invoice_pdf_urls.length === 0) {
       const errorMessage = 'Missing required payment request data (id, sku_number, or invoice_pdf_urls) in payload. This function expects invoice_pdf_urls to be present.';
-      console.error('Edge Function Error (400):', errorMessage, 'Payload:', JSON.stringify(payload)); // Log the error
+      console.error('Edge Function Error (400):', errorMessage, 'Payload:', JSON.stringify(payload));
       return new Response(JSON.stringify({ error: errorMessage }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const resendApiKey = Deno.env.get('RESEND_API_KEY'); // Use Resend API Key
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
 
     if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set in environment variables.');
@@ -46,7 +47,7 @@ serve(async (req) => {
       });
     }
 
-    const resend = new Resend(resendApiKey); // Initialize Resend client
+    const resend = new Resend(resendApiKey);
 
     const senderEmail = `jon.d@khpayments.com`;
     
@@ -63,13 +64,11 @@ serve(async (req) => {
         const invoiceResponse = await fetch(invoiceUrl);
         if (!invoiceResponse.ok) {
           console.warn(`Failed to fetch invoice PDF from ${invoiceUrl}: ${invoiceResponse.statusText}. Skipping this attachment.`);
-          continue; // Skip this invoice but try others
+          continue;
         }
-        const invoiceBlob = await invoiceResponse.blob();
-        const arrayBuffer = await invoiceBlob.arrayBuffer();
+        const arrayBuffer = await invoiceResponse.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
-        const binaryString = String.fromCharCode(...uint8Array); // Changed to String.fromCharCode
-        const base64Content = btoa(binaryString); // Base64 encode
+        const base64Content = encodeBase64(uint8Array); // Use Deno's encodeBase64
 
         const urlParts = invoiceUrl.split('/');
         const originalFileName = urlParts[urlParts.length - 1].split('?')[0];
