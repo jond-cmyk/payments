@@ -60,14 +60,13 @@ serve(async (req) => {
     console.log(`[upload-transactions] Received file: ${fileName} from uploader: ${uploaderId} for country: ${country}`);
     console.log(`[upload-transactions] File content length: ${fileContent.length}`);
 
-    // Removed fetching uploader's country, as it's now provided in the payload
-
     let parsedRows: string[][];
     try {
       parsedRows = await parse(fileContent, {
         header: false,
         separator: ',',
         trimLeadingWhitespace: true,
+        skipFirstNLines: 3, // Skip the first 3 rows
       }) as string[][];
       console.log(`[upload-transactions] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
       if (parsedRows.length > 0) {
@@ -96,6 +95,22 @@ serve(async (req) => {
 
     const transactionsToInsert = [];
     const errors: string[] = [];
+
+    // Define the mapping from CSV headers to database column names
+    const headerMap: Record<string, string> = {
+      'Date': 'transaction_date',
+      'Text': 'description',
+      'Amount': 'amount',
+      'Currency': 'currency',
+      'Type': 'type',
+      'Entry': 'entry',
+      'Account': 'bank',
+      'Contra account': 'contra_account',
+      'Exchange rate': 'exchange_rate',
+      'Payment identifier/Message': 'comment',
+      'Supplier identifier/Account': 'sku',
+      // 'user_email' is no longer expected in the CSV
+    };
 
     const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
     const missingCriticalHeaders = criticalHeaders.filter(h => !headers.includes(h));
@@ -127,7 +142,8 @@ serve(async (req) => {
     const existingEntries = new Set(existingEntriesData?.map(row => row.entry).filter(Boolean) || []);
     console.log(`[upload-transactions] Fetched ${existingEntries.size} existing unique entries for country ${country}.`);
 
-    const userEmailToIdCache = new Map<string, string | null>();
+    // No longer need userEmailToIdCache as user_email is not in CSV
+    // const userEmailToIdCache = new Map<string, string | null>();
 
     for (const row of dataRows) {
       if (row.length !== headers.length) {
@@ -144,21 +160,19 @@ serve(async (req) => {
 
       console.log(`[upload-transactions] Processing record: ${JSON.stringify(record)}`);
 
-      let {
-        'Date': transaction_date_str,
-        'Text': description,
-        'Amount': amount_str,
-        'Currency': currency,
-        'Type': type,
-        'Entry': entry,
-        'Bank': bank,
-        'Contra account': contra_account,
-        'Exchange rate': exchange_rate_str,
-        'Comment': comment,
-        'SKU': sku,
-        'Reason for Payment': reason_for_payment,
-        'user_email': user_email_from_csv,
-      } = record;
+      // Extract values using the headerMap
+      const transaction_date_str = record['Date'];
+      const description = record['Text'];
+      const amount_str = record['Amount'];
+      const currency = record['Currency'];
+      const type = record['Type'];
+      const entry = record['Entry'];
+      const bank = record['Account'];
+      const contra_account = record['Contra account'];
+      const exchange_rate_str = record['Exchange rate'];
+      const comment = record['Payment identifier/Message'];
+      const sku = record['Supplier identifier/Account'];
+      // const user_email_from_csv = record['user_email']; // No longer expected
 
       if (!transaction_date_str || !description || !amount_str || !currency) {
         const msg = `Missing required fields (Date, Text, Amount, or Currency). Skipping record: ${JSON.stringify(record)}`;
@@ -202,37 +216,13 @@ serve(async (req) => {
         }
       }
 
-      let requesterIdForTransaction = uploaderId;
-
-      if (user_email_from_csv) {
-        if (userEmailToIdCache.has(user_email_from_csv)) {
-          requesterIdForTransaction = userEmailToIdCache.get(user_email_from_csv) || uploaderId;
-          console.log(`[upload-transactions] Found user_id for ${user_email_from_csv} in cache: ${requesterIdForTransaction}`);
-        } else {
-          const { data: profileData, error: profileError } = await supabaseClient
-            .from('profile_with_email')
-            .select('id')
-            .eq('user_email', user_email_from_csv)
-            .eq('country', country) // Filter by the provided country for user lookup
-            .single();
-
-          if (profileError || !profileData) {
-            const msg = `User with email '${user_email_from_csv}' not found in country ${country}. Assigning transaction to uploader.`;
-            errors.push(msg);
-            console.warn(`[upload-transactions] ${msg}`);
-            userEmailToIdCache.set(user_email_from_csv, null);
-          } else {
-            requesterIdForTransaction = profileData.id;
-            userEmailToIdCache.set(user_email_from_csv, profileData.id);
-            console.log(`[upload-transactions] Found user_id for ${user_email_from_csv}: ${requesterIdForTransaction}`);
-          }
-        }
-      }
+      // requesterIdForTransaction now defaults to uploaderId as user_email is not in CSV
+      const requesterIdForTransaction = uploaderId;
 
       transactionsToInsert.push({
         requester_id: requesterIdForTransaction,
         uploaded_by_user_id: uploaderId,
-        original_transaction_id: null,
+        original_transaction_id: null, // Not in CSV
         status: 'pending_input',
         type: type || null,
         transaction_date: transaction_date,
@@ -245,8 +235,12 @@ serve(async (req) => {
         exchange_rate: parsedExchangeRate,
         comment: comment || null,
         sku: sku || null,
-        reason_for_payment: reason_for_payment || null,
+        reason_for_payment: null, // Not in CSV
         receipt_urls: [],
+        category: null, // Not in CSV
+        merchant_name: null, // Not in CSV
+        notes: null, // Not in CSV
+        not_sku_related: false, // Not in CSV
         country: country, // Assign the provided country
       });
     }
