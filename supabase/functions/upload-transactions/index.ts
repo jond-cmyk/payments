@@ -12,6 +12,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log('[upload-transactions] Edge Function invoked.');
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -49,9 +51,12 @@ serve(async (req) => {
     const payload = await req.json();
     const { fileName, fileContent, uploaderId, country } = payload; // Extract country from payload
 
+    console.log(`[upload-transactions] Received payload: fileName=${fileName}, uploaderId=${uploaderId}, country=${country}, fileContentLength=${fileContent?.length || 0}`);
+
     if (!fileName || !fileContent || !uploaderId || !country) { // Country is now required
-      console.error('[upload-transactions] Missing file data, uploader ID, or country in payload.');
-      return new Response(JSON.stringify({ error: 'Missing file data, uploader ID, or country in payload' }), {
+      const msg = 'Missing file data, uploader ID, or country in payload.';
+      console.error(`[upload-transactions] Error: ${msg}`);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -81,7 +86,9 @@ serve(async (req) => {
     }
 
     if (parsedRows.length === 0) {
-      return new Response(JSON.stringify({ error: 'CSV file is empty or contains no data rows.' }), {
+      const msg = 'CSV file is empty or contains no data rows.';
+      console.error(`[upload-transactions] Error: ${msg}`);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
