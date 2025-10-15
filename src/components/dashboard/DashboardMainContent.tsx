@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom'; // Import useSearchParams
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { ArrowUp, ArrowDown, FileDown } from 'lucide-react'; // Import FileDown
+import { ArrowUp, ArrowDown, FileDown } from 'lucide-react';
 
-import { Card, CardHeader, CardTitle } from '@/components/ui/card'; // Import CardHeader and CardTitle
+import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -13,28 +13,28 @@ import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards'
 import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
 import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
 import PendingStandingOrderTable from '@/components/dashboard/PendingStandingOrderTable';
-import RecentActivityFeed from '@/components/dashboard/RecentActivityFeed'; // NEW: Import RecentActivityFeed
+import RecentActivityFeed from '@/components/dashboard/RecentActivityFeed';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PaymentRequest, Profile, Transaction, StandingOrder, DirectDebit } from '@/types/supabase';
 import { format } from 'date-fns';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Button } from '@/components/ui/button'; // Import Button
-import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
+import { Button } from '@/components/ui/button';
+import { exportToCsv } from '@/utils/exportToCsv';
 
 interface DashboardMainContentProps {
   debouncedSearchTerm: string;
 }
 
-const ITEMS_PER_PAGE = 10; // Define items per page for pagination
+const ITEMS_PER_PAGE = 10;
 
 const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSearchTerm }) => {
   const { session, user, userProfile } = useSession();
   const { currentCountry } = useCountry();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const [searchParams, setSearchParams] = new URLSearchParams(location.search); // Use location.search for initial state
+  const [searchParams, setSearchParams] = useSearchParams(); // Use useSearchParams hook
 
   const userRole = userProfile?.role || null;
 
@@ -78,7 +78,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       setFilterStatus('pending');
     }
     setCurrentPage(1); // Reset page when URL params change
-  }, [searchParams, location.pathname]);
+  }, [searchParams, location.pathname]); // Dependency array includes searchParams
 
   // Determine if we are on the 'All Requests' page
   const isAllRequestsPage = location.pathname === '/admin/requests';
@@ -163,7 +163,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       declined: 0,
       queried: 0,
       missing_receipts: allMissingReceiptsCountForSummaryQuery.data || 0,
-      pending_standing_orders: allPendingStandingOrdersCountForSummaryQuery.data || 0, // NEW: Add pending standing orders count
+      pending_standing_orders: allPendingStandingOrdersCountForSummaryQuery.data || 0,
       total: 0,
     };
 
@@ -176,7 +176,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       });
     }
     return initialCounts;
-  }, [allPaymentRequestsForSummaryQuery.data, allMissingReceiptsCountForSummaryQuery.data, allPendingStandingOrdersCountForSummaryQuery.data]); // Added new dependency
+  }, [allPaymentRequestsForSummaryQuery.data, allMissingReceiptsCountForSummaryQuery.data, allPendingStandingOrdersCountForSummaryQuery.data]);
 
   // Fetch all user profiles for the requester dropdown filter
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
@@ -184,7 +184,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     queryFn: async () => {
       let query = supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at, country'); // ADDED 'country'
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at, country');
       
       // Filter profiles by selected country if not 'all'
       if (currentCountry !== 'all') {
@@ -202,14 +202,14 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage], // Add currentPage to queryKey
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
 
-      let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)', { count: 'exact' }); // Fetch count
+      let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)', { count: 'exact' });
 
       // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -217,7 +217,6 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
-      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
       // Define all possible statuses for the 'All Requests' page when filterStatus is 'all'
       const allPossibleStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'approved', 'declined', 'queried'];
@@ -249,16 +248,11 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         // Filter by active statuses AND (is_urgent OR is_reminded)
         query = query.in('status', activeDashboardStatuses)
                      .or('is_urgent.eq.true,is_reminded.eq.true');
-
-        // REMOVED: The requester_id filter for requesters on the main dashboard
-        // if (userProfile?.role === 'requester') {
-        //   query = query.eq('requester_id', user.id);
-        // }
       }
 
       // Always sort urgent requests to the top, then reminded, then by the selected column
       query = query.order('is_urgent', { ascending: false });
-      query = query.order('is_reminded', { ascending: false }); // NEW: Sort reminded requests below urgent
+      query = query.order('is_reminded', { ascending: false });
       if (sortColumn) {
         query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
       }
@@ -288,7 +282,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         .from('payment_requests')
         .update({ is_urgent: is_urgent, updated_at: new Date().toISOString() })
         .eq('id', id)
-        .eq('country', currentCountry); // Ensure country filter for update
+        .eq('country', currentCountry);
       if (error) throw error;
       return true;
     },
@@ -319,7 +313,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     setFilterStatus('all');
     setFilterDatePaymentRequired(undefined);
     setFilterRequester('all');
-    setSearchParams({});
+    setSearchParams({}); // Correctly clear URL search parameters
     setCurrentPage(1); // Reset page on clear filters
     queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
   };
@@ -444,7 +438,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
           filterStatus={filterStatus}
           setFilterStatus={setFilterStatus}
           filterDatePaymentRequired={filterDatePaymentRequired}
-          setFilterDatePaymentRequired={(date) => { setFilterDatePaymentRequired(date); setCurrentPage(1); }} // Reset page on date change
+          setFilterDatePaymentRequired={(date) => { setFilterDatePaymentRequired(date); setCurrentPage(1); }}
           filterRequester={filterRequester}
           setFilterRequester={setFilterRequester}
           allProfiles={allProfiles}
