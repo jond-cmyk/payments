@@ -699,7 +699,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   {suggestion.country === 'United Kingdom' ? (
                     <>
                       <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
-                      <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
                     </>
                   ) : (
                     <>
@@ -707,8 +707,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                       <p className="text-sm text-muted-foreground">Address: {suggestion.account_address || 'N/A'}</p>
                     </>
                   )}
-                  <p className="text-sm text-muted-foreground">Category: {categoryOptions.find(c => c.value === suggestion.category)?.label || suggestion.category}</p>
-                  <p className="text-sm text-muted-foreground">SKU: {suggestion.not_property_related ? 'N/A (Not Property Related)' : (suggestion.sku || 'N/A')}</p>
                   <Button
                     onClick={() => handleUseSuggestion(suggestion)}
                     className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
