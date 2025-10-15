@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Menu } from 'lucide-react';
 import Sidebar from './Sidebar';
 import PageTitle from './PageTitle';
-// Removed import for CountrySelector as it's moving
+import { ThemeToggle } from './ThemeToggle'; // NEW: Import ThemeToggle
 
 const Header = () => {
   const location = useLocation();
@@ -25,11 +25,11 @@ const Header = () => {
         return 'User Management - KH Payments';
       case '/admin/upload-transactions':
         return 'Upload Transactions - KH Payments';
-      case '/admin/upload-direct-debits': // NEW: Page title for Direct Debit upload
+      case '/admin/upload-direct-debits':
         return 'Upload Direct Debits - KH Payments';
-      case '/admin/upload-standing-orders': // NEW: Page title for Standing Order upload
+      case '/admin/upload-standing-orders':
         return 'Upload Standing Orders - KH Payments';
-      case '/customer-deposit-returns': // NEW: Page title for Customer Deposit Returns
+      case '/customer-deposit-returns':
         return 'Customer Deposit Returns - KH Payments';
       case '/missing-receipts':
         return 'Missing Receipts - KH Payments';
@@ -41,7 +41,7 @@ const Header = () => {
         return 'Direct Debit Details - KH Payments';
       case '/standing-orders':
         return 'Standing Orders - KH Payments';
-      case '/standing-order/:id': // NEW: Standing Order Detail Page Title
+      case '/standing-order/:id':
         return 'Standing Order Details - KH Payments';
       case '/login':
         return 'Login - KH Payments';
@@ -49,10 +49,12 @@ const Header = () => {
         return 'Welcome - KH Payments';
       case '/notifications':
         return 'Notifications - KH Payments';
-      case '/admin/feedback': // NEW: Admin Feedback Page Title
+      case '/admin/feedback':
         return 'Admin Feedback - KH Payments';
-      case '/profile': // NEW: Profile Page Title
+      case '/profile':
         return 'My Profile - KH Payments';
+      case '/admin/statistics':
+        return 'Statistics - KH Payments';
       default:
         if (pathname.startsWith('/request/')) {
           return 'Payment Request Details - KH Payments';
@@ -63,7 +65,7 @@ const Header = () => {
         if (pathname.startsWith('/direct-debit/')) {
           return 'Direct Debit Details - KH Payments';
         }
-        if (pathname.startsWith('/standing-order/')) { // NEW: Standing Order Detail Page Title
+        if (pathname.startsWith('/standing-order/')) {
           return 'Standing Order Details - KH Payments';
         }
         return 'KH Payments'; // Default title for unknown routes
@@ -90,8 +92,8 @@ const Header = () => {
       </Sheet>
 
       <h2 className="text-xl font-semibold">{title.replace(' - KH Payments', '')}</h2>
-      <div className="ml-auto flex items-center gap-4"> {/* Added flex and gap for spacing */}
-        {/* CountrySelector removed from here */}
+      <div className="ml-auto flex items-center gap-4">
+        <ThemeToggle /> {/* NEW: Add ThemeToggle here */}
       </div>
     </header>
   );
