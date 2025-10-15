@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { showError } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select components
+import CountrySelector from '@/components/CountrySelector'; // NEW: Import CountrySelector
 
 // Helper function to format duration
 const formatDuration = (milliseconds: number | null): string => {
@@ -42,7 +43,7 @@ const formatDuration = (milliseconds: number | null): string => {
 
 const Statistics = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
-  const { currentCountry } = useCountry();
+  const { currentCountry, setCurrentCountry, availableCountries, isCountryLocked } = useCountry(); // NEW: Destructure setCurrentCountry, availableCountries, isCountryLocked
   const navigate = useNavigate();
 
   const isAdmin = userProfile?.role === 'admin';
@@ -182,10 +183,18 @@ const Statistics = () => {
         </CardHeader>
         <CardContent>
           {/* NEW: Filter controls */}
-          <div className="mb-6 flex items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
+          <div className="mb-6 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
             <span className="font-medium text-gray-700 flex items-center">
               <Filter className="mr-2 h-4 w-4" /> Filter by:
             </span>
+            <CountrySelector
+              className="w-[200px]"
+              triggerClassName="w-full"
+              value={currentCountry}
+              onValueChange={setCurrentCountry}
+              disabled={isCountryLocked}
+              availableCountries={isAdmin ? availableCountries : availableCountries.filter(c => c.value === userProfile?.country)}
+            />
             <Select value={timeframeFilter} onValueChange={(value: typeof timeframeFilter) => setTimeframeFilter(value)}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue placeholder="Select timeframe" />
