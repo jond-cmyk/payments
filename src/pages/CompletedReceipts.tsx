@@ -126,6 +126,10 @@ const CompletedReceipts = () => {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading completed receipts: {transactionsError.message}</div>;
   }
 
+  if (!completedTransactions) {
+    return <div className="flex items-center justify-center h-full text-muted-foreground">No completed transactions with receipts found.</div>;
+  }
+
   const getStatusBadge = (status: Transaction['status']) => {
     let className = '';
     switch (status) {
@@ -136,7 +140,7 @@ const CompletedReceipts = () => {
         className = 'bg-gray-500 text-gray-50';
     }
     return (
-      <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>
+      <Badge className={cn(className)}>
         {status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1)}
       </Badge>
     );

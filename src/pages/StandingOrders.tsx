@@ -258,7 +258,7 @@ const StandingOrders = () => {
         className = 'bg-gray-500 text-gray-50';
     }
     return (
-      <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>
+      <Badge className={cn(className)}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );
