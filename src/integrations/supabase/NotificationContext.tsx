@@ -156,9 +156,39 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             schema: 'public',
             table: 'feedback',
           },
-          (payload) => {
+          async (payload) => { // Made async to allow await for profile fetching
             const newFeedback = payload.new as FeedbackType;
             console.log("[NotificationProvider] New feedback received via Realtime:", newFeedback);
+
+            // Fetch all admin profiles to send in-app notifications
+            const { data: adminProfiles, error: adminProfilesError } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('role', 'admin');
+
+            if (adminProfilesError) {
+              console.error("Error fetching admin profiles for feedback notification:", adminProfilesError);
+            } else {
+              const notificationTitle = "New User Feedback Received!";
+              const notificationMessage = `Type(s): ${newFeedback.feedback_types.join(', ')}\nMessage: ${newFeedback.message.substring(0, 100)}${newFeedback.message.length > 100 ? '...' : ''}`;
+              const notificationLink = `/admin/feedback`;
+
+              for (const adminProfile of adminProfiles) {
+                const { error: insertNotificationError } = await supabase
+                  .from('notifications')
+                  .insert({
+                    user_id: adminProfile.id,
+                    title: notificationTitle,
+                    message: notificationMessage,
+                    link: notificationLink,
+                    is_read: false,
+                    type: 'feedback_notification', // Set the new type
+                  });
+                if (insertNotificationError) {
+                  console.error(`Error inserting feedback notification for admin ${adminProfile.id}:`, insertNotificationError);
+                }
+              }
+            }
 
             // Only show desktop notification if notifications are enabled
             if (!newFeedback.is_read && notificationsEnabled && Notification.permission === 'granted') {

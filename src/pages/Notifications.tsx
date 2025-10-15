@@ -252,8 +252,10 @@ const NotificationsPage = () => {
                     "flex items-start space-x-4 p-4 rounded-md border",
                     notification.is_read ? 'bg-muted/50 text-muted-foreground' : 'bg-card text-foreground border-primary/20 shadow-sm',
                     (notification.paymentRequestStatus === 'queried' || notification.paymentRequestStatus === 'declined')
-                      ? 'bg-red-100 border-red-400' // Highlight in red for queried/declined
-                      : ''
+                      ? 'bg-red-100 border-red-400' // Highlight in red for queried/declined payment requests
+                      : notification.type === 'feedback_notification' // NEW: Highlight feedback notifications in yellow
+                        ? 'bg-yellow-100 border-yellow-400'
+                        : ''
                   )}
                 >
                   <div className="flex-shrink-0 mt-1">

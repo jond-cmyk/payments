@@ -152,6 +152,7 @@ export type Notification = {
   link: string | null;
   is_read: boolean;
   created_at: string;
+  type?: 'general' | 'feedback_notification'; // NEW: Added type field
 };
 
 export type Feedback = { // NEW: Feedback type
