@@ -108,7 +108,7 @@ serve(async (req) => {
       'Contra account': 'contra_account',
       'Exchange rate': 'exchange_rate',
       'Payment identifier/Message': 'comment',
-      'Supplier identifier/Account': 'sku',
+      'Department': 'sku', // Mapped 'Department' to 'sku'
       // 'user_email' is no longer expected in the CSV
     };
 
@@ -171,7 +171,7 @@ serve(async (req) => {
       const contra_account = record['Contra account'];
       const exchange_rate_str = record['Exchange rate'];
       const comment = record['Payment identifier/Message'];
-      const sku = record['Supplier identifier/Account'];
+      const sku = record['Department']; // Now extracting 'Department' for sku
       // const user_email_from_csv = record['user_email']; // No longer expected
 
       if (!transaction_date_str || !description || !amount_str || !currency) {
