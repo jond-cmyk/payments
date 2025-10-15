@@ -147,7 +147,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     // --- Subscribe to new feedback for admins ---
     let feedbackChannel: any;
     if (userProfile?.role === 'admin') {
-      console.log("[NotificationProvider] Admin user detected. Subscribing to new feedback via Realtime.");
+      console.log("[NotificationProvider] Admin user detected. Attempting to subscribe to new feedback via Realtime."); // NEW LOG
       feedbackChannel = supabase
         .channel(`admin_feedback`)
         .on(
@@ -158,6 +158,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             table: 'feedback',
           },
           async (payload) => { // Made async to allow await for profile fetching
+            console.log("[NotificationProvider] !!! FEEDBACK REALTIME TRIGGERED !!! Payload:", payload); // CRITICAL NEW LOG
             const newFeedback = payload.new as FeedbackType;
             console.log("[NotificationProvider] New feedback received via Realtime:", newFeedback);
 
