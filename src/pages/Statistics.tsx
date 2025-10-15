@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useMemo, useState } from 'react'; // Import useState
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentRequest } from '@/types/supabase';
-import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter } from 'date-fns'; // Added date-fns functions
-import { BarChart, Clock, CheckCircle, TrendingUp, Filter } from 'lucide-react'; // Added Filter icon
+import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter, format, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns'; // Added date-fns functions
+import { BarChart as BarChartIcon, Clock, CheckCircle, TrendingUp, Filter, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts'; // Added Recharts components and Filter icon
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { showError } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select components
-import CountrySelector from '@/components/CountrySelector'; // NEW: Import CountrySelector
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import CountrySelector from '@/components/CountrySelector';
 
 // Helper function to format duration
 const formatDuration = (milliseconds: number | null): string => {
@@ -43,17 +43,15 @@ const formatDuration = (milliseconds: number | null): string => {
 
 const Statistics = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
-  const { currentCountry, setCurrentCountry, availableCountries, isCountryLocked } = useCountry(); // NEW: Destructure setCurrentCountry, availableCountries, isCountryLocked
+  const { currentCountry, setCurrentCountry, availableCountries, isCountryLocked } = useCountry();
   const navigate = useNavigate();
 
   const isAdmin = userProfile?.role === 'admin';
 
-  // NEW: State for timeframe filter
   const [timeframeFilter, setTimeframeFilter] = useState<'all' | 'last5' | 'last10' | 'last15' | 'lastDay' | 'lastWeek' | 'lastMonth'>('all');
 
-  // Fetch all payment requests for statistics
-  const { data: allPaymentRequests, isLoading: isRequestsLoading, error: requestsError } = useQuery<PaymentRequest[]>({ // Renamed to allPaymentRequests
-    queryKey: ['paymentRequestStatistics', currentCountry], // timeframeFilter will be applied client-side
+  const { data: allPaymentRequests, isLoading: isRequestsLoading, error: requestsError } = useQuery<PaymentRequest[]>({
+    queryKey: ['paymentRequestStatistics', currentCountry],
     queryFn: async () => {
       if (!session) return [];
 
@@ -61,22 +59,20 @@ const Statistics = () => {
         .from('payment_requests')
         .select('*');
       
-      // Requesters see only their country's data, admins see selected country or all
       if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
-      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
-      const { data, error } = await query.order('created_at', { ascending: false }); // Order by created_at for 'last N' filters
+      const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!session, // Enabled for all authenticated users
+    enabled: !!session,
   });
 
-  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests } = useMemo(() => {
+  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData } = useMemo(() => {
     if (!allPaymentRequests) {
       return {
         avgTimeToSetup: null,
@@ -84,12 +80,13 @@ const Statistics = () => {
         totalRequests: 0,
         setupRequests: 0,
         approvedRequests: 0,
+        statusChartData: [],
+        trendChartData: [],
       };
     }
 
-    let filteredRequests = [...allPaymentRequests]; // Create a mutable copy
+    let filteredRequests = [...allPaymentRequests];
 
-    // Apply timeframe filter
     const now = new Date();
     switch (timeframeFilter) {
       case 'last5':
@@ -115,7 +112,6 @@ const Statistics = () => {
         break;
       case 'all':
       default:
-        // No filter applied, use all requests
         break;
     }
 
@@ -123,6 +119,16 @@ const Statistics = () => {
     let setupCount = 0;
     let totalApprovedMilliseconds = 0;
     let approvedCount = 0;
+
+    const statusCounts: Record<PaymentRequest['status'], number> = {
+      pending: 0,
+      setup_awaiting_approval: 0,
+      approved: 0,
+      declined: 0,
+      queried: 0,
+    };
+
+    const monthlyRequests: Record<string, number> = {}; // YYYY-MM -> count
 
     filteredRequests.forEach(request => {
       if (request.created_at && request.payment_setup_date) {
@@ -138,19 +144,52 @@ const Statistics = () => {
         totalApprovedMilliseconds += differenceInMilliseconds(approvedDate, setupDate);
         approvedCount++;
       }
+
+      // For status chart
+      if (request.status in statusCounts) {
+        statusCounts[request.status]++;
+      }
+
+      // For trend chart
+      const monthKey = format(parseISO(request.created_at), 'yyyy-MM');
+      monthlyRequests[monthKey] = (monthlyRequests[monthKey] || 0) + 1;
     });
 
     const avgTimeToSetup = setupCount > 0 ? (totalSetupMilliseconds / setupCount) : null;
     const avgTimeToApprove = approvedCount > 0 ? (totalApprovedMilliseconds / approvedCount) : null;
 
+    const statusChartData = Object.entries(statusCounts).map(([status, count]) => ({
+      name: status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      count,
+    }));
+
+    // Generate trend data for the last 6 months, even if no requests
+    const today = new Date();
+    const sixMonthsAgo = subMonths(today, 5); // Start 5 months before current month
+    const months = eachMonthOfInterval({
+      start: startOfMonth(sixMonthsAgo),
+      end: endOfMonth(today),
+    });
+
+    const trendChartData = months.map(month => {
+      const monthKey = format(month, 'yyyy-MM');
+      return {
+        name: format(month, 'MMM yyyy'),
+        requests: monthlyRequests[monthKey] || 0,
+      };
+    });
+
+
     return {
       avgTimeToSetup,
       avgTimeToApprove,
-      totalRequests: filteredRequests.length, // Use filteredRequests.length for total
+      totalRequests: filteredRequests.length,
       setupRequests: setupCount,
       approvedRequests: approvedCount,
+      statusChartData,
+      trendChartData,
     };
-  }, [allPaymentRequests, timeframeFilter]); // Added timeframeFilter to dependencies
+  }, [allPaymentRequests, timeframeFilter]);
 
   if (isSessionLoading || isRequestsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading statistics...</div>;
@@ -160,10 +199,6 @@ const Statistics = () => {
     navigate('/login');
     return null;
   }
-
-  // Removed the isAdmin check and redirect here.
-  // The page is now accessible to all logged-in users.
-  // Data fetching is already filtered by country for requesters.
 
   if (requestsError) {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading payment requests: {requestsError.message}</div>;
@@ -175,14 +210,13 @@ const Statistics = () => {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
-            <BarChart className="mr-2 h-6 w-6" /> Payment Request Statistics
+            <BarChartIcon className="mr-2 h-6 w-6" /> Payment Request Statistics
           </CardTitle>
           <CardDescription>
-            Insights into the payment request processing times.
+            Insights into the payment request processing times and trends.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* NEW: Filter controls */}
           <div className="mb-6 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
             <span className="font-medium text-gray-700 flex items-center">
               <Filter className="mr-2 h-4 w-4" /> Filter by:
@@ -249,8 +283,51 @@ const Statistics = () => {
               </CardContent>
             </Card>
           </div>
+
           {totalRequests === 0 && (
             <p className="text-center text-muted-foreground mt-8">No payment requests found to generate statistics for the selected timeframe.</p>
+          )}
+
+          {totalRequests > 0 && (
+            <div className="grid gap-8 md:grid-cols-2 mt-8">
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Requests by Status</CardTitle>
+                  <CardDescription>Distribution of payment requests by their current status.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={statusChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="count" fill="hsl(var(--primary))" name="Number of Requests" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Monthly Request Trend</CardTitle>
+                  <CardDescription>Number of new payment requests over the last 6 months.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={trendChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="requests" stroke="hsl(var(--dyad-blue))" activeDot={{ r: 8 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
           )}
         </CardContent>
       </Card>
