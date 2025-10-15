@@ -7,8 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { Transaction } from '@/types/supabase';
 import { format, parseISO } from 'date-fns';
-import { Folder, FileText, CalendarDays, ChevronDown } from 'lucide-react';
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { Folder, FileText, CalendarDays, ChevronDown, FileDown } from 'lucide-react'; // Import FileDown
+import { useCountry } from '@/integrations/supabase/CountryContext';
+import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
 
 import {
   Card,
@@ -26,18 +27,18 @@ import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import PageTitle from '@/components/PageTitle';
-import { cn } from '@/lib/utils'; // Import cn for utility classes
+import { cn } from '@/lib/utils';
 
 const CompletedReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
-  const { currentCountry } = useCountry(); // Get currentCountry from context
+  const { currentCountry } = useCountry();
   const navigate = useNavigate();
 
   const isAdmin = userProfile?.role === 'admin';
 
   // Fetch completed transactions with receipts
   const { data: completedTransactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['completedReceipts', user?.id, currentCountry], // Add currentCountry to queryKey
+    queryKey: ['completedReceipts', user?.id, currentCountry],
     queryFn: async () => {
       if (!user?.id) return [];
       let query = supabase
@@ -97,6 +98,21 @@ const CompletedReceipts = () => {
     return sortedGroups;
   }, [completedTransactions]);
 
+  // Define columns for Transaction export
+  const transactionExportColumns: (keyof Transaction)[] = [
+    'id', 'created_at', 'updated_at', 'requester_id', 'uploaded_by_user_id',
+    'original_transaction_id', 'status', 'type', 'transaction_date', 'entry',
+    'description', 'amount', 'bank', 'contra_account', 'currency',
+    'exchange_rate', 'comment', 'sku', 'reason_for_payment', 'receipt_urls',
+    'category', 'merchant_name', 'notes', 'not_sku_related', 'country'
+  ];
+
+  const handleDownloadTransactions = () => {
+    if (completedTransactions) {
+      exportToCsv(completedTransactions, `completed_receipts_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, transactionExportColumns);
+    }
+  };
+
   if (isSessionLoading || isTransactionsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading completed receipts...</div>;
   }
@@ -131,9 +147,16 @@ const CompletedReceipts = () => {
       <PageTitle title="Completed Receipts - KH Payments" />
       <Card className="mb-8 shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center text-2xl font-bold">
-            <CalendarDays className="mr-2 h-6 w-6" /> Completed Receipts
-          </CardTitle>
+          <div className="flex justify-between items-center mb-4">
+            <CardTitle className="flex items-center text-2xl font-bold">
+              <CalendarDays className="mr-2 h-6 w-6" /> Completed Receipts
+            </CardTitle>
+            {isAdmin && (
+              <Button onClick={handleDownloadTransactions} className="shadow-sm" variant="outline">
+                <FileDown className="mr-2 h-4 w-4" /> Download to Excel
+              </Button>
+            )}
+          </div>
           <CardDescription>
             View transactions that have been completed and have associated receipts, organized by month and year.
           </CardDescription>
@@ -188,7 +211,7 @@ const CompletedReceipts = () => {
                                   <td className="px-4 py-4 whitespace-nowrap text-sm text-foreground">
                                     {format(parseISO(transaction.transaction_date), 'PPP')}
                                   </td>
-                                  <td className="px-4 py-4 text-sm font-medium text-foreground max-w-xs"> {/* Removed whitespace-nowrap and added max-w-xs */}
+                                  <td className="px-4 py-4 text-sm font-medium text-foreground max-w-xs">
                                     {transaction.description}
                                   </td>
                                   <td className="px-4 py-4 text-sm text-foreground">

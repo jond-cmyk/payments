@@ -3,24 +3,24 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUp, ArrowDown, FileDown } from 'lucide-react'; // Import FileDown
 
-import { Card } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'; // Import CardHeader and CardTitle
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
 import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
 import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
-import PendingStandingOrderTable from '@/components/dashboard/PendingStandingOrderTable'; // NEW: Import PendingStandingOrderTable
+import PendingStandingOrderTable from '@/components/dashboard/PendingStandingOrderTable';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
-import { PaymentRequest, Profile, Transaction, StandingOrder, DirectDebit } from '@/types/supabase'; // Import StandingOrder
+import { PaymentRequest, Profile, Transaction, StandingOrder, DirectDebit } from '@/types/supabase';
 import { format } from 'date-fns';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-
-// Removed: import DashboardMainContent from '@/components/dashboard/DashboardMainContent';
+import { Button } from '@/components/ui/button'; // Import Button
+import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
 
 interface DashboardMainContentProps {
   debouncedSearchTerm: string;
@@ -371,7 +371,24 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     return <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>{displayText}</Badge>;
   };
 
-  if (allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || allPendingStandingOrdersCountForSummaryQuery.isLoading || isRequestsTableLoading || (isAllRequestsPage && isProfilesLoading)) { // Added new query to loading check
+  // Define columns for Payment Request export
+  const paymentRequestExportColumns: (keyof PaymentRequest)[] = [
+    'id', 'created_at', 'updated_at', 'requester_id', 'supplier_name', 'sku_number',
+    'not_sku_related', 'lease_id', 'supplier_address', 'iban_number', 'sort_code',
+    'account_number', 'bank_account_name', 'currency', 'payment_amount',
+    'reason_for_payment', 'date_payment_required', 'invoice_pdf_urls', 'status',
+    'admin_action_by', 'admin_action_reason', 'receipt_pdf_url', 'payment_setup_date',
+    'payment_approved_date', 'receipt_required', 'is_urgent', 'country',
+    'last_reminder_sent_at', 'is_reminded', 'category', 'bank_details_verified'
+  ];
+
+  const handleDownloadPaymentRequests = () => {
+    if (paymentRequestsForTable) {
+      exportToCsv(paymentRequestsForTable, `payment_requests_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, paymentRequestExportColumns);
+    }
+  };
+
+  if (allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || allPendingStandingOrdersCountForSummaryQuery.isLoading || isRequestsTableLoading || (isAllRequestsPage && isProfilesLoading)) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard content...</div>;
   }
 
@@ -421,6 +438,16 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
 
       {paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
         <Card className="shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-2xl font-bold">
+              {isAllRequestsPage ? 'All Payment Requests' : 'Priority Payment Requests'}
+            </CardTitle>
+            {userRole === 'admin' && (
+              <Button onClick={handleDownloadPaymentRequests} className="shadow-sm" variant="outline">
+                <FileDown className="mr-2 h-4 w-4" /> Download to Excel
+              </Button>
+            )}
+          </CardHeader>
           <PaymentRequestTable
             paymentRequests={paymentRequestsForTable}
             userRole={userRole}

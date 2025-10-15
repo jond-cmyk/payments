@@ -44,7 +44,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm'; // Import the new form
 import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm'; // IMPORT THE REAL EDIT FORM
 import { cn } from '@/lib/utils';
-import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
+import CountrySelector from '@/components/CountrySelector';
 
 const DirectDebits = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -101,7 +101,7 @@ const DirectDebits = () => {
 
   // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
-    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection], // Added new filters to queryKey
+    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection],
     queryFn: async () => {
       if (!session) return [];
 
@@ -129,10 +129,10 @@ const DirectDebits = () => {
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus);
       }
-      if (filterSku) { // NEW: Apply SKU filter
+      if (filterSku) {
         query = query.ilike('sku', `%${filterSku}%`);
       }
-      if (filterPaymentReference) { // NEW: Apply Payment Reference filter
+      if (filterPaymentReference) {
         query = query.ilike('payment_reference', `%${filterPaymentReference}%`);
       }
 
@@ -203,7 +203,7 @@ const DirectDebits = () => {
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== ''; // Updated hasActiveFilters
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '';
 
   const getStatusBadge = (status: DirectDebit['status']) => {
     let className = '';
@@ -217,7 +217,7 @@ const DirectDebits = () => {
       case 'cancelled':
         className = 'bg-red-500 text-red-50';
         break;
-      case 'pending': // NEW: Style for pending status
+      case 'pending':
         className = 'bg-orange-500 text-orange-50';
         break;
       default:
@@ -244,7 +244,7 @@ const DirectDebits = () => {
     setIsEditDirectDebitDialogOpen(false);
     setEditingDirectDebit(null);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
-    queryClient.invalidateQueries({ queryKey: ['directDebit', editingDirectDebit?.id] }); // Invalidate detail page query
+    queryClient.invalidateQueries({ queryKey: ['directDebit', editingDirectDebit?.id] });
   };
 
   const directDebitExportColumns: (keyof DirectDebit)[] = [
@@ -363,7 +363,7 @@ const DirectDebits = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem> {/* NEW */}
+                <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="paused">Paused</SelectItem>
                 <SelectItem value="cancelled">Cancelled</SelectItem>

@@ -7,9 +7,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown, FileDown } from 'lucide-react'; // Import FileDown
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { useCountry } from '@/integrations/supabase/CountryContext';
+import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
 
 import {
   Table,
@@ -41,7 +42,7 @@ import { cn } from '@/lib/utils';
 
 const MissingReceipts = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
-  const { currentCountry } = useCountry(); // Get currentCountry from context
+  const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
@@ -72,7 +73,7 @@ const MissingReceipts = () => {
 
   // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection, currentCountry], // Add currentCountry to queryKey
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, sortColumn, sortDirection, currentCountry],
     queryFn: async () => {
       if (!session) return [];
 
@@ -130,11 +131,11 @@ const MissingReceipts = () => {
 
   // Fetch all user profiles for the assignee dropdown
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
-    queryKey: ['allProfilesForAssignment', currentCountry], // Add currentCountry to queryKey
+    queryKey: ['allProfilesForAssignment', currentCountry],
     queryFn: async () => {
       let query = supabase
         .from('profile_with_email')
-        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at, country'); // Select all fields required by Profile type, ADDED 'country'
+        .select('id, first_name, last_name, user_email, role, is_approved, avatar_url, updated_at, country');
       
       // Filter profiles by selected country if not 'all'
       if (currentCountry !== 'all') {
@@ -269,6 +270,21 @@ const MissingReceipts = () => {
 
   const hasActiveFilters = filterAmount !== '' || filterAssignedUser !== 'all' || filterTransactionDate !== undefined;
 
+  // Define columns for Transaction export
+  const transactionExportColumns: (keyof Transaction)[] = [
+    'id', 'created_at', 'updated_at', 'requester_id', 'uploaded_by_user_id',
+    'original_transaction_id', 'status', 'type', 'transaction_date', 'entry',
+    'description', 'amount', 'bank', 'contra_account', 'currency',
+    'exchange_rate', 'comment', 'sku', 'reason_for_payment', 'receipt_urls',
+    'category', 'merchant_name', 'notes', 'not_sku_related', 'country'
+  ];
+
+  const handleDownloadTransactions = () => {
+    if (transactions) {
+      exportToCsv(transactions, `missing_receipts_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, transactionExportColumns);
+    }
+  };
+
   if (isSessionLoading || isTransactionsLoading || isProfilesLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading missing receipts...</div>;
   }
@@ -321,42 +337,49 @@ const MissingReceipts = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="shadow-sm"> {/* Added shadow-sm */}
+      <Card className="shadow-sm">
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex items-center text-2xl font-bold">
               <FileX className="mr-2 h-6 w-6" /> Missing Receipts
             </CardTitle>
-            {isAdmin && selectedTransactionIds.length > 0 && (
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" disabled={bulkDeleteMutation.isPending} className="shadow-sm"> {/* Added shadow-sm */}
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedTransactionIds.length})
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete {selectedTransactionIds.length} selected transactions and all associated data.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteSelected} asChild>
-                      <Button variant="destructive">
-                        Delete
-                      </Button>
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
+            <div className="flex space-x-2">
+              {isAdmin && (
+                <Button onClick={handleDownloadTransactions} className="shadow-sm" variant="outline">
+                  <FileDown className="mr-2 h-4 w-4" /> Download to Excel
+                </Button>
+              )}
+              {isAdmin && selectedTransactionIds.length > 0 && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={bulkDeleteMutation.isPending} className="shadow-sm">
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedTransactionIds.length})
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. This will permanently delete {selectedTransactionIds.length} selected transactions and all associated data.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteSelected} asChild>
+                        <Button variant="destructive">
+                          Delete
+                        </Button>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
           {/* Filters */}
-          <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm"> {/* Added shadow-sm */}
+          <div className="mb-4 flex flex-wrap items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
             <span className="font-medium text-gray-700">Filters:</span>
             <Input
               placeholder="Filter by Amount"
@@ -364,10 +387,10 @@ const MissingReceipts = () => {
               step="0.01"
               value={filterAmount}
               onChange={(e) => handleAmountFilterChange(e.target.value)}
-              className="max-w-xs shadow-sm" // Added shadow-sm
+              className="max-w-xs shadow-sm"
             />
             <Select value={filterAssignedUser} onValueChange={setFilterAssignedUser}>
-              <SelectTrigger className="w-[180px] shadow-sm"> {/* Added shadow-sm */}
+              <SelectTrigger className="w-[180px] shadow-sm">
                 <SelectValue placeholder="Filter by Assigned User" />
               </SelectTrigger>
               <SelectContent>
@@ -383,10 +406,10 @@ const MissingReceipts = () => {
               date={filterTransactionDate}
               setDate={setFilterTransactionDate}
               placeholder="Filter by Date"
-              className="w-[200px] shadow-sm" // Added shadow-sm
+              className="w-[200px] shadow-sm"
             />
             {hasActiveFilters && (
-              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm"> {/* Added shadow-sm */}
+              <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1 shadow-sm">
                 <RotateCcw className="h-4 w-4" /> Clear Filters
               </Button>
             )}
@@ -442,7 +465,7 @@ const MissingReceipts = () => {
                 </TableHeader>
                 <TableBody>
                   {transactions.map((transaction) => (
-                    <TableRow key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background"> {/* Added hover effect */}
+                    <TableRow key={transaction.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
                       {isAdmin && (
                         <TableCell>
                           <Checkbox
@@ -481,7 +504,7 @@ const MissingReceipts = () => {
                           variant="outline"
                           size="sm"
                           className="shadow-sm"
-                          onClick={() => navigate(`/transaction/${transaction.id}`)} // Changed from asChild Link to onClick navigate
+                          onClick={() => navigate(`/transaction/${transaction.id}`)}
                         >
                           <span>View/Add Receipt</span>
                         </Button>

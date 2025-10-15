@@ -5,7 +5,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { StandingOrder } from '@/types/supabase'; // Import StandingOrder type
+import { StandingOrder } from '@/types/supabase';
 import { format } from 'date-fns';
 import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown } from 'lucide-react'; // Import Eye and FileDown icons
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
@@ -41,10 +41,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
-import AddStandingOrderForm from '@/components/standing-orders/AddStandingOrderForm'; // Import the new form
-import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm'; // Import the renamed form
+import AddStandingOrderForm from '@/components/standing-orders/AddStandingOrderForm';
+import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm';
 import { cn } from '@/lib/utils';
-import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
+import CountrySelector from '@/components/CountrySelector';
 
 const StandingOrders = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
@@ -101,7 +101,7 @@ const StandingOrders = () => {
 
   // Fetch Standing Orders
   const { data: standingOrders, isLoading: isStandingOrdersLoading, error: standingOrdersError } = useQuery<StandingOrder[]>({
-    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection], // Added new filters to queryKey
+    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, sortColumn, sortDirection],
     queryFn: async () => {
       if (!session) return [];
 
@@ -129,10 +129,10 @@ const StandingOrders = () => {
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus);
       }
-      if (filterSku) { // NEW: Apply SKU filter
+      if (filterSku) {
         query = query.ilike('sku', `%${filterSku}%`);
       }
-      if (filterPaymentReference) { // NEW: Apply Payment Reference filter
+      if (filterPaymentReference) {
         query = query.ilike('payment_reference', `%${filterPaymentReference}%`);
       }
 
@@ -203,7 +203,7 @@ const StandingOrders = () => {
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== ''; // Updated hasActiveFilters
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '';
 
   const getStatusBadge = (status: StandingOrder['status']) => {
     let className = '';
@@ -217,7 +217,7 @@ const StandingOrders = () => {
       case 'cancelled':
         className = 'bg-red-500 text-red-50';
         break;
-      case 'pending': // NEW: Style for pending status
+      case 'pending':
         className = 'bg-orange-500 text-orange-50';
         break;
       default:
@@ -233,7 +233,7 @@ const StandingOrders = () => {
   const handleStandingOrderAdded = () => {
     setIsAddStandingOrderDialogOpen(false);
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
-    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate new dashboard table
+    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] });
   };
 
   const handleEditClick = (standingOrder: StandingOrder) => {
@@ -245,15 +245,15 @@ const StandingOrders = () => {
     setIsEditStandingOrderDialogOpen(false);
     setEditingStandingOrder(null);
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
-    queryClient.invalidateQueries({ queryKey: ['standingOrder', editingStandingOrder?.id] }); // Invalidate detail page query
-    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate new dashboard table
+    queryClient.invalidateQueries({ queryKey: ['standingOrder', editingStandingOrder?.id] });
+    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] });
   };
 
   const standingOrderExportColumns: (keyof StandingOrder)[] = [
     'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
     'sku', 'not_property_related', 'category', 'account_name', 'account_address',
     'iban_number', 'sort_code', 'account_number', 'from_day', 'to_day',
-    'payment_reference', 'status', 'country'
+    'payment_reference', 'status', 'country', 'bank_details_verified'
   ];
 
   const handleDownloadStandingOrders = () => {
@@ -292,11 +292,11 @@ const StandingOrders = () => {
               )}
               <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="shadow-sm"> {/* Enabled for all authenticated users */}
+                  <Button className="shadow-sm">
                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Standing Order
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add New Standing Order</DialogTitle>
                   </DialogHeader>
@@ -510,7 +510,7 @@ const StandingOrders = () => {
 
       {editingStandingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Standing Order: {editingStandingOrder.payee}</DialogTitle>
             </DialogHeader>
