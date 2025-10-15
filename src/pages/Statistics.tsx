@@ -6,9 +6,9 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentRequest } from '@/types/supabase';
-import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter, format, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
-import { BarChart as RechartsBarChart, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts'; // Renamed BarChart to RechartsBarChart
-import { CheckCircle, Clock, Filter, TrendingUp, BarChart as BarChartIcon } from 'lucide-react'; // Imported BarChart as BarChartIcon from lucide-react
+import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter, format, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval } from 'date-fns'; // Added eachDayOfInterval
+import { BarChart as RechartsBarChart, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts';
+import { CheckCircle, Clock, Filter, TrendingUp, BarChart as BarChartIcon } from 'lucide-react';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -129,7 +129,7 @@ const Statistics = () => {
       queried: 0,
     };
 
-    const monthlyRequests: Record<string, number> = {}; // YYYY-MM -> count
+    const dailyRequests: Record<string, number> = {}; // YYYY-MM-DD -> count
 
     filteredRequests.forEach(request => {
       if (request.created_at && request.payment_setup_date) {
@@ -151,9 +151,9 @@ const Statistics = () => {
         statusCounts[request.status]++;
       }
 
-      // For trend chart
-      const monthKey = format(parseISO(request.created_at), 'yyyy-MM');
-      monthlyRequests[monthKey] = (monthlyRequests[monthKey] || 0) + 1;
+      // For daily trend chart
+      const dayKey = format(parseISO(request.created_at), 'yyyy-MM-dd');
+      dailyRequests[dayKey] = (dailyRequests[dayKey] || 0) + 1;
     });
 
     const avgTimeToSetup = setupCount > 0 ? (totalSetupMilliseconds / setupCount) : null;
@@ -164,19 +164,19 @@ const Statistics = () => {
       count,
     }));
 
-    // Generate trend data for the last 6 months, even if no requests
+    // Generate trend data for the last 30 days, even if no requests
     const today = new Date();
-    const sixMonthsAgo = subMonths(today, 5); // Start 5 months before current month
-    const months = eachMonthOfInterval({
-      start: startOfMonth(sixMonthsAgo),
-      end: endOfMonth(today),
+    const thirtyDaysAgo = subDays(today, 29); // Get 30 days including today
+    const days = eachDayOfInterval({
+      start: thirtyDaysAgo,
+      end: today,
     });
 
-    const trendChartData = months.map(month => {
-      const monthKey = format(month, 'yyyy-MM');
+    const trendChartData = days.map(day => {
+      const dayKey = format(day, 'yyyy-MM-dd');
       return {
-        name: format(month, 'MMM yyyy'),
-        requests: monthlyRequests[monthKey] || 0,
+        name: format(day, 'MMM dd'), // Format for X-axis label
+        requests: dailyRequests[dayKey] || 0,
       };
     });
 
@@ -312,8 +312,8 @@ const Statistics = () => {
 
               <Card className="shadow-sm">
                 <CardHeader>
-                  <CardTitle>Monthly Request Trend</CardTitle>
-                  <CardDescription>Number of new payment requests over the last 6 months.</CardDescription>
+                  <CardTitle>Daily Request Trend (Last 30 Days)</CardTitle>
+                  <CardDescription>Number of new payment requests over the last 30 days.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
