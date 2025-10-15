@@ -48,6 +48,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
+import CountrySelector from '@/components/CountrySelector'; // <--- ADDED THIS IMPORT
 
 const ITEMS_PER_PAGE = 10;
 
