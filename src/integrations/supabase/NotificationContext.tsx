@@ -108,6 +108,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
           const newNotification = payload.new as NotificationType;
           console.log("[NotificationProvider] New user notification received via Realtime:", newNotification);
 
+          console.log(`[NotificationProvider] Desktop alert conditions: is_read=${newNotification.is_read}, notificationsEnabled=${notificationsEnabled}, browserPermission=${Notification.permission}`);
+
           // Only show desktop notification if it's not marked as read and notifications are enabled
           if (!newNotification.is_read && notificationsEnabled && Notification.permission === 'granted') {
             console.log("[NotificationProvider] Attempting to display desktop notification. Current browser permission:", Notification.permission);
@@ -136,6 +138,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
               });
               browserNotification.close();
             };
+          } else {
+            console.log("[NotificationProvider] Desktop notification NOT displayed. Reasons:");
+            if (newNotification.is_read) console.log("- Notification is already marked as read.");
+            if (!notificationsEnabled) console.log("- Desktop notifications are disabled in app settings.");
+            if (Notification.permission !== 'granted') console.log(`- Browser permission is '${Notification.permission}' (not 'granted').`);
           }
           // Invalidate the unread count query to update the sidebar badge
           queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
@@ -192,6 +199,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
               }
             }
 
+            console.log(`[NotificationProvider] Desktop alert conditions for feedback: is_read=${newFeedback.is_read}, notificationsEnabled=${notificationsEnabled}, browserPermission=${Notification.permission}`);
+
             // Only show desktop notification if notifications are enabled
             if (!newFeedback.is_read && notificationsEnabled && Notification.permission === 'granted') {
               console.log("[NotificationProvider] Attempting to display desktop notification for new feedback.");
@@ -220,6 +229,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 });
                 browserNotification.close();
               };
+            } else {
+              console.log("[NotificationProvider] Desktop notification for feedback NOT displayed. Reasons:");
+              if (newFeedback.is_read) console.log("- Feedback notification is already marked as read.");
+              if (!notificationsEnabled) console.log("- Desktop notifications are disabled in app settings.");
+              if (Notification.permission !== 'granted') console.log(`- Browser permission is '${Notification.permission}' (not 'granted').`);
             }
             // Invalidate the unread count query to update the sidebar badge
             queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
