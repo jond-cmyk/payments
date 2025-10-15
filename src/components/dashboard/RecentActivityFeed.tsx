@@ -20,6 +20,7 @@ import { useCountry } from '@/integrations/supabase/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { PaymentRequest, Transaction, StandingOrder, DirectDebit } from '@/types/supabase';
 import { cn } from '@/lib/utils';
+import CountryFlag from '@/components/CountryFlag'; // NEW: Import CountryFlag
 
 // Define a union type for all possible activity items
 type ActivityItem =
@@ -212,9 +213,12 @@ const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5 }) =>
                     {item.type === 'standing_order' && `Standing Order: ${item.payee}`}
                     {item.type === 'direct_debit' && `Direct Debit: ${item.payee}`}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {format(item.createdAtDate, 'MMM dd, yyyy HH:mm')}
-                  </p>
+                  <div className="flex items-center text-sm text-muted-foreground gap-2"> {/* Added flex and gap */}
+                    <CountryFlag countryName={item.country} className="h-4 w-4" /> {/* Display country flag */}
+                    <span>{item.country}</span> {/* Display country name */}
+                    <span>•</span>
+                    <span>{format(item.createdAtDate, 'MMM dd, yyyy HH:mm')}</span>
+                  </div>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
