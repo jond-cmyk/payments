@@ -13,6 +13,7 @@ import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards'
 import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
 import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
 import PendingStandingOrderTable from '@/components/dashboard/PendingStandingOrderTable';
+import RecentActivityFeed from '@/components/dashboard/RecentActivityFeed'; // NEW: Import RecentActivityFeed
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -454,7 +455,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
             handleSort={handleSort}
             renderSortIcon={renderSortIcon}
             getStatusBadge={(status, itemType) => getStatusBadge(status, itemType)}
-            handleToggleUrgent={handleToggleUrgent}
+            handleToggleUrgent={handleToggleUrrent}
             toggleUrgentMutation={toggleUrgentMutation}
           />
         </Card>
@@ -466,6 +467,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
 
       {/* NEW: Pending Standing Orders Table, shown only on dashboard and if there are pending orders */}
       {!isAllRequestsPage && <PendingStandingOrderTable />}
+
+      {/* NEW: Recent Activity Feed, shown only on dashboard and if no search term */}
+      {!isAllRequestsPage && !debouncedSearchTerm && <RecentActivityFeed />}
     </>
   );
 };
