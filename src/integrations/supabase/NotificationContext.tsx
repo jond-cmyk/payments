@@ -139,6 +139,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
           }
           // Invalidate the unread count query to update the sidebar badge
           queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
+          queryClient.invalidateQueries({ queryKey: ['userNotifications'] }); // NEW: Invalidate userNotifications query
         }
       )
       .subscribe();
@@ -222,6 +223,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             // Invalidate the unread count query to update the sidebar badge
             queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
             queryClient.invalidateQueries({ queryKey: ['allFeedback'] }); // Invalidate feedback list
+            queryClient.invalidateQueries({ queryKey: ['userNotifications'] }); // NEW: Invalidate userNotifications query
           }
         )
         .subscribe();
