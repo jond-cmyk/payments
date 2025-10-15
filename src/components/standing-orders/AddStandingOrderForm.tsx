@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,6 +10,7 @@ import { PlusCircle } from 'lucide-react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
+import { StandingOrder } from '@/types/supabase'; // Import StandingOrder type for suggestions
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,6 +20,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
+import { Card } from '@/components/ui/card'; // Import Card for suggestions
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -150,6 +153,10 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const { user, userProfile } = useSession();
   const { currentCountry, availableCountries, isCountryLocked } = useCountry();
 
+  const [payeeSuggestions, setPayeeSuggestions] = useState<StandingOrder[]>([]);
+  const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
+  const [isSearchingPayee, setIsSearchingPayee] = useState(false);
+
   const form = useForm<z.infer<typeof addStandingOrderFormSchema>>({
     resolver: zodResolver(addStandingOrderFormSchema),
     defaultValues: {
@@ -188,6 +195,67 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       account_number: "",
     }));
   }, [currentCountry, form]);
+
+  const handlePayeeBlur = async () => {
+    const payeeName = form.getValues('payee');
+    const currentFormCountry = form.getValues('country');
+
+    if (!payeeName || payeeName.trim() === '') {
+      setPayeeSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+      return;
+    }
+
+    setIsSearchingPayee(true);
+    const toastId = showLoading("Searching for existing payees...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('search-payees', {
+        body: { searchTerm: payeeName, country: currentFormCountry },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data && data.suggestions && data.suggestions.length > 0) {
+        setPayeeSuggestions(data.suggestions);
+        setIsSuggestionDialogOpen(true);
+        dismissToast(toastId);
+        showSuccess("Found existing payee suggestions!");
+      } else {
+        setPayeeSuggestions([]);
+        setIsSuggestionDialogOpen(false);
+        dismissToast(toastId);
+        showSuccess("No existing payee found with similar name. Please enter details manually.");
+      }
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to search for existing payees.");
+      console.error("Payee search error:", error);
+      setPayeeSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+    } finally {
+      setIsSearchingPayee(false);
+    }
+  };
+
+  const handleUseSuggestion = (suggestion: StandingOrder) => {
+    form.setValue('payee', suggestion.payee);
+    form.setValue('account_name', suggestion.account_name);
+    form.setValue('account_address', suggestion.account_address || '');
+    form.setValue('iban_number', suggestion.iban_number || '');
+    form.setValue('sort_code', suggestion.sort_code || '');
+    form.setValue('account_number', suggestion.account_number || '');
+    form.setValue('category', suggestion.category);
+    form.setValue('not_property_related', suggestion.not_property_related);
+    form.setValue('sku', suggestion.sku || (suggestion.country === 'United Kingdom' ? 'UK' : 'CH'));
+    // Close the dialog
+    setIsSuggestionDialogOpen(false);
+  };
 
   const onSubmit = async (values: z.infer<typeof addStandingOrderFormSchema>) => {
     const toastId = showLoading("Adding new standing order...");
@@ -303,7 +371,15 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Rent Co." {...field} />
+                <Input
+                  placeholder="e.g., Rent Co."
+                  {...field}
+                  onBlur={(e) => {
+                    field.onBlur(); // Call original onBlur
+                    handlePayeeBlur(); // Call our custom blur handler
+                  }}
+                  disabled={form.formState.isSubmitting || isSearchingPayee}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -580,6 +656,46 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
         </Button>
       </form>
+
+      {/* Payee Suggestions Dialog */}
+      <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Existing Payee Suggestions</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {payeeSuggestions.length > 0 ? (
+              payeeSuggestions.map((suggestion, index) => (
+                <Card key={index} className="p-4 border shadow-sm">
+                  <h3 className="font-bold text-lg mb-2">{suggestion.payee}</h3>
+                  <p className="text-sm text-muted-foreground">Account Name: {suggestion.account_name}</p>
+                  {suggestion.country === 'United Kingdom' ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number || 'N/A'}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Address: {suggestion.account_address || 'N/A'}</p>
+                    </>
+                  )}
+                  <p className="text-sm text-muted-foreground">Category: {categoryOptions.find(c => c.value === suggestion.category)?.label || suggestion.category}</p>
+                  <p className="text-sm text-muted-foreground">SKU: {suggestion.not_property_related ? 'N/A (Not Property Related)' : (suggestion.sku || 'N/A')}</p>
+                  <Button
+                    onClick={() => handleUseSuggestion(suggestion)}
+                    className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
+                  >
+                    Use This Information
+                  </Button>
+                </Card>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">No suggestions found.</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 };
