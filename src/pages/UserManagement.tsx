@@ -7,6 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Profile } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
+import { format } from 'date-fns'; // Import format for filename
 
 import {
   Table,
@@ -18,7 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, CheckCircle, XCircle, UserPlus, Trash2, Edit } from 'lucide-react';
+import { Users, CheckCircle, XCircle, UserPlus, Trash2, Edit, FileDown } from 'lucide-react'; // Import FileDown
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import {
@@ -34,8 +36,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import AddUserForm from '@/components/user-management/AddUserForm';
 import EditUserForm from '@/components/user-management/EditUserForm';
-import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
-import { cn } from '@/lib/utils'; // Import cn for utility classes
+import CountryFlag from '@/components/CountryFlag';
+import { cn } from '@/lib/utils';
 
 const UserManagement = () => {
   const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession();
@@ -64,7 +66,7 @@ const UserManagement = () => {
 
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string }) => {
-      console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`); // NEW LOG
+      console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`);
       const { id, is_approved, ...fieldsToUpdate } = updatedFields;
       console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with fields: ${JSON.stringify(fieldsToUpdate)}, is_approved: ${is_approved}`);
 
@@ -104,9 +106,8 @@ const UserManagement = () => {
     onSuccess: async () => {
       showSuccess("User profile updated successfully!");
       await queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
-      // Also invalidate the session to force a re-fetch of the user's auth data
       await queryClient.invalidateQueries({ queryKey: ['session'] }); 
-      setIsEditDialogOpen(false); // Close dialog on success
+      setIsEditDialogOpen(false);
       setEditingUser(null);
     },
     onError: (error: any) => {
@@ -175,6 +176,17 @@ const UserManagement = () => {
     }
   };
 
+  // Define columns for Profile export
+  const profileExportColumns: (keyof Profile)[] = [
+    'id', 'first_name', 'last_name', 'user_email', 'role', 'is_approved', 'country', 'updated_at', 'avatar_url'
+  ];
+
+  const handleDownloadUsers = () => {
+    if (profiles) {
+      exportToCsv(profiles, `user_profiles_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, profileExportColumns);
+    }
+  };
+
   if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading user management...</div>;
   }
@@ -210,22 +222,27 @@ const UserManagement = () => {
         <CardTitle className="flex items-center text-2xl font-bold">
           <Users className="mr-2 h-6 w-6" /> User Management
         </CardTitle>
-        <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="shadow-sm">
-              <UserPlus className="mr-2 h-4 w-4" /> Add New User
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Add New User</DialogTitle>
-              <DialogDescription>
-                Fill in the details to create a new user account.
-              </DialogDescription>
-            </DialogHeader>
-            <AddUserForm onUserAdded={handleUserAdded} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex space-x-2">
+          <Button onClick={handleDownloadUsers} className="shadow-sm" variant="outline">
+            <FileDown className="mr-2 h-4 w-4" /> Download to Excel
+          </Button>
+          <Dialog open={isAddUserDialogOpen} onOpenChange={setIsAddUserDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="shadow-sm">
+                <UserPlus className="mr-2 h-4 w-4" /> Add New User
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Add New User</DialogTitle>
+                <DialogDescription>
+                  Fill in the details to create a new user account.
+                </DialogDescription>
+              </DialogHeader>
+              <AddUserForm onUserAdded={handleUserAdded} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       <Card className="shadow-sm">
         <CardContent className="pt-6">
@@ -255,7 +272,7 @@ const UserManagement = () => {
                             profile.role === 'admin'
                               ? 'bg-purple-500 text-purple-50'
                               : 'bg-gray-500 text-gray-50',
-                            "transform translate-x-0 translate-y-0" // Added transform
+                            "transform translate-x-0 translate-y-0"
                           )}
                         >
                           {profile.role?.charAt(0).toUpperCase() + profile.role?.slice(1)}

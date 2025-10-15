@@ -7,8 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Feedback } from '@/types/supabase';
 import { format } from 'date-fns';
-import { MessageSquareText, CheckCircle, MailOpen, Trash2, XCircle } from 'lucide-react';
+import { MessageSquareText, CheckCircle, MailOpen, Trash2, XCircle, FileDown } from 'lucide-react'; // Import FileDown
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -114,6 +115,17 @@ const AdminFeedback = () => {
     },
   });
 
+  // Define columns for Feedback export
+  const feedbackExportColumns: (keyof Feedback)[] = [
+    'id', 'created_at', 'feedback_types', 'message', 'is_read', 'user_id'
+  ];
+
+  const handleDownloadFeedback = () => {
+    if (feedback) {
+      exportToCsv(feedback, `user_feedback_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, feedbackExportColumns);
+    }
+  };
+
   if (isSessionLoading || isFeedbackLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading feedback...</div>;
   }
@@ -138,9 +150,14 @@ const AdminFeedback = () => {
       <PageTitle title="Admin Feedback - KH Payments" />
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center text-2xl font-bold">
-            <MessageSquareText className="mr-2 h-6 w-6" /> User Feedback
-          </CardTitle>
+          <div className="flex justify-between items-center mb-4">
+            <CardTitle className="flex items-center text-2xl font-bold">
+              <MessageSquareText className="mr-2 h-6 w-6" /> User Feedback
+            </CardTitle>
+            <Button onClick={handleDownloadFeedback} className="shadow-sm" variant="outline">
+              <FileDown className="mr-2 h-4 w-4" /> Download to Excel
+            </Button>
+          </div>
           <CardDescription>
             Review anonymous feedback submitted by users.
           </CardDescription>
