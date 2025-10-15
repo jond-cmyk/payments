@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useForm } from 'react-hook-form';
@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
+import { PaymentRequest } from '@/types/supabase'; // Import PaymentRequest type for suggestions
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
 
 // List of major currencies, expanded and sorted alphabetically
 const majorCurrencies = [
@@ -182,6 +184,10 @@ const NewPaymentRequest = () => {
   const { currentCountry, availableCountries, isCountryLocked } = useCountry(); // Get isCountryLocked and availableCountries
   const navigate = useNavigate();
 
+  const [supplierSuggestions, setSupplierSuggestions] = useState<PaymentRequest[]>([]);
+  const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
+  const [isSearchingSupplier, setIsSearchingSupplier] = useState(false);
+
   const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
   const defaultCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
 
@@ -241,6 +247,73 @@ const NewPaymentRequest = () => {
     navigate('/login');
     return null;
   }
+
+  const handleSupplierNameBlur = async () => {
+    const supplierName = form.getValues('supplier_name');
+    const currentFormCountry = form.getValues('country');
+
+    if (!supplierName || supplierName.trim() === '') {
+      setSupplierSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+      return;
+    }
+
+    setIsSearchingSupplier(true);
+    const toastId = showLoading("Searching for existing suppliers...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('search-suppliers', {
+        body: { searchTerm: supplierName, country: currentFormCountry },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data && data.suggestions && data.suggestions.length > 0) {
+        setSupplierSuggestions(data.suggestions);
+        setIsSuggestionDialogOpen(true);
+        dismissToast(toastId);
+        showSuccess("Found existing supplier suggestions!");
+      } else {
+        setSupplierSuggestions([]);
+        setIsSuggestionDialogOpen(false);
+        dismissToast(toastId);
+        showSuccess("No existing supplier found with similar name. Please enter details manually.");
+      }
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to search for existing suppliers.");
+      console.error("Supplier search error:", error);
+      setSupplierSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+    } finally {
+      setIsSearchingSupplier(false);
+    }
+  };
+
+  const handleUseSuggestion = (suggestion: PaymentRequest) => {
+    form.setValue('supplier_name', suggestion.supplier_name);
+    form.setValue('supplier_address', suggestion.supplier_address);
+    form.setValue('iban_number', suggestion.iban_number || '');
+    form.setValue('sort_code', suggestion.sort_code || '');
+    form.setValue('account_number', suggestion.account_number || '');
+    form.setValue('bank_account_name', suggestion.bank_account_name || '');
+    form.setValue('currency', suggestion.currency);
+    form.setValue('payment_amount', suggestion.payment_amount);
+    form.setValue('reason_for_payment', suggestion.reason_for_payment);
+    form.setValue('category', suggestion.category);
+    form.setValue('not_sku_related', suggestion.not_sku_related);
+    form.setValue('sku_number', suggestion.sku_number || (suggestion.country === 'United Kingdom' ? 'UK' : 'CH'));
+    form.setValue('lease_id', suggestion.lease_id || '');
+    form.setValue('receipt_required', suggestion.receipt_required);
+    form.setValue('is_urgent', suggestion.is_urgent);
+    // Do not set country from suggestion, as it's already set by context/user profile
+    setIsSuggestionDialogOpen(false);
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     // --- START DEBUG LOGS ---
@@ -333,6 +406,7 @@ const NewPaymentRequest = () => {
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
       form.reset({
+        supplier_name: "", // Reset supplier name
         sku_number: defaultSkuPrefix,
         currency: defaultCurrency,
         payment_amount: 0.00,
@@ -347,6 +421,9 @@ const NewPaymentRequest = () => {
         bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
         country: currentCountry, // Reset country to current context country
         category: "", // Reset category
+        supplier_address: "", // Reset supplier address
+        reason_for_payment: "", // Reset reason for payment
+        date_payment_required: undefined, // Reset date
       });
       navigate('/dashboard');
     } catch (error: any) {
@@ -377,7 +454,7 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <FormLabel className="font-semibold">Country</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
-                      <SelectTrigger>
+                      <SelectTrigger id={field.name}>
                         <FormControl>
                           <SelectValue placeholder="Select a country" />
                         </FormControl>
@@ -404,7 +481,15 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <FormLabel className="font-semibold">Supplier Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., ABC Corp" {...field} />
+                      <Input
+                        placeholder="e.g., ABC Corp"
+                        {...field}
+                        onBlur={(e) => {
+                          field.onBlur(); // Call original onBlur
+                          handleSupplierNameBlur(); // Call our custom blur handler
+                        }}
+                        disabled={form.formState.isSubmitting || isSearchingSupplier}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -727,6 +812,48 @@ const NewPaymentRequest = () => {
               </Button>
             </form>
           </Form>
+
+          {/* Supplier Suggestions Dialog */}
+          <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Existing Supplier Suggestions</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                {supplierSuggestions.length > 0 ? (
+                  supplierSuggestions.map((suggestion, index) => (
+                    <Card key={index} className="p-4 border shadow-sm">
+                      <h3 className="font-bold text-lg mb-2">{suggestion.supplier_name}</h3>
+                      <p className="text-sm text-muted-foreground">Address: {suggestion.supplier_address}</p>
+                      {suggestion.country === 'United Kingdom' ? (
+                        <>
+                          <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
+                          <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number || 'N/A'}</p>
+                          <p className="text-sm text-muted-foreground">Bank Account Name: {suggestion.bank_account_name || 'N/A'}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
+                      )}
+                      <p className="text-sm text-muted-foreground">Currency: {suggestion.currency}</p>
+                      <p className="text-sm text-muted-foreground">Payment Amount: {suggestion.payment_amount?.toFixed(2) || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Reason: {suggestion.reason_for_payment}</p>
+                      <p className="text-sm text-muted-foreground">Category: {categoryOptions.find(c => c.value === suggestion.category)?.label || suggestion.category}</p>
+                      <p className="text-sm text-muted-foreground">SKU: {suggestion.not_sku_related ? 'N/A (Not SKU Related)' : (suggestion.sku_number || 'N/A')}</p>
+                      <p className="text-sm text-muted-foreground">Lease ID: {suggestion.lease_id || 'N/A'}</p>
+                      <Button
+                        onClick={() => handleUseSuggestion(suggestion)}
+                        className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
+                      >
+                        Use This Information
+                      </Button>
+                    </Card>
+                  ))
+                ) : (
+                  <p className="text-center text-muted-foreground">No suggestions found.</p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     </div>
