@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { PaymentRequest, Transaction, StandingOrder, DirectDebit } from '@/types/supabase'; // Import DirectDebit
 import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
+import { cn } from '@/lib/utils'; // Import cn for utility classes
 
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }) | (DirectDebit & { type: 'direct_debit' }); // Added DirectDebit
@@ -57,7 +58,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
               className="transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
             >
               <TableCell>
-                <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                <Badge variant="outline" className={cn("bg-gray-100 text-gray-800", "border border-white")}> {/* Added white border */}
                   {item.type === 'payment_request' ? 'Payment Request' : item.type === 'transaction' ? 'Missing Receipt' : item.type === 'standing_order' ? 'Standing Order' : 'Direct Debit'} {/* Updated display */}
                 </Badge>
               </TableCell>

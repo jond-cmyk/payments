@@ -28,7 +28,7 @@ const CountryFlag: React.FC<CountryFlagProps> = ({ countryName, className }) => 
       src={flagUrl}
       alt={`${countryName} flag`}
       className={cn(
-        `w-6 h-6 rounded-full object-cover border border-gray-200`, // Fixed size, rounded, and Tailwind border
+        `w-6 h-6 rounded-full object-cover border border-white`, // Added white border
         className
       )}
     />

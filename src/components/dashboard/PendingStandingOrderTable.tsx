@@ -30,7 +30,7 @@ const PendingStandingOrderTable: React.FC = () => {
 
   const isAdmin = userProfile?.role === 'admin';
 
-  const { data: pendingStandingOrders, isLoading, error } = useQuery<StandingOrder[]>({
+  const { data: pendingStandingOrders = [], isLoading, error } = useQuery<StandingOrder[]>({
     queryKey: ['pendingStandingOrders', currentCountry],
     queryFn: async () => {
       if (!session) return [];
@@ -65,7 +65,7 @@ const PendingStandingOrderTable: React.FC = () => {
         className = 'bg-gray-500 text-gray-50';
     }
     return (
-      <Badge className={cn(className)}>
+      <Badge className={cn(className, "border border-white")}> {/* Added white border */}
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     );

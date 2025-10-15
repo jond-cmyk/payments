@@ -271,7 +271,8 @@ const UserManagement = () => {
                           className={cn(
                             profile.role === 'admin'
                               ? 'bg-purple-500 text-purple-50'
-                              : 'bg-gray-500 text-gray-50'
+                              : 'bg-gray-500 text-gray-50',
+                            "border border-white" // Added white border
                           )}
                         >
                           {profile.role?.charAt(0).toUpperCase() + profile.role?.slice(1)}
@@ -287,11 +288,11 @@ const UserManagement = () => {
                       </TableCell>
                       <TableCell>
                         {profile.is_approved ? (
-                          <Badge className={cn("bg-green-500 text-green-50")}>
+                          <Badge className={cn("bg-green-500 text-green-50", "border border-white")}> {/* Added white border */}
                             <CheckCircle className="mr-1 h-3 w-3" /> Approved
                           </Badge>
                         ) : (
-                          <Badge className={cn("bg-red-500 text-red-50")}>
+                          <Badge className={cn("bg-red-500 text-red-50", "border border-white")}> {/* Added white border */}
                             <XCircle className="mr-1 h-3 w-3" /> Pending
                           </Badge>
                         )}

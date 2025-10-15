@@ -234,7 +234,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
         <CardTitle className="flex items-center">
           Request Details
           {request.is_urgent && (
-            <Badge variant="destructive" className={cn("ml-3 bg-red-600 text-white flex items-center")}>
+            <Badge variant="destructive" className={cn("ml-3 bg-red-600 text-white flex items-center", "border border-white")}> {/* Added white border */}
               <AlertTriangle className="h-4 w-4 mr-1" /> Urgent
             </Badge>
           )}

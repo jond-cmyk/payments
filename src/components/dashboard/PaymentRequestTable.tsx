@@ -160,7 +160,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                     "transition-all duration-200 ease-in-out",
                     request.is_urgent ? "bg-red-600 text-white hover:bg-red-700" :
                     request.is_reminded ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : // Blue for reminded requests
-                    "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-dyad-blue/10"
+                    "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
                   )}
                 >
                   <TableCell className="font-medium">{request.supplier_name}</TableCell>
