@@ -714,8 +714,8 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
               </div>
             )}
             <div className={cn(
-              "space-y-1 p-4 rounded-md",
-              request.receipt_required ? "bg-dyad-blue text-white" : "bg-dyad-blue/10 border border-dyad-blue" // Apply solid dyad blue with white text
+              "space-y-1",
+              request.receipt_required && "bg-dyad-blue text-white p-4 rounded-md" // Apply solid dyad blue with white text only if receipt_required is true
             )}>
               <p className="font-medium">Payment Receipt Required:</p>
               <p>{request.receipt_required ? 'Yes' : 'No'}</p>
