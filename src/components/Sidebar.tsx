@@ -124,6 +124,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         {/* New section for Direct Debits and Standing Orders */}
         <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
         <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
+        <div className="h-px bg-dyad-blue-foreground my-4" /> {/* Added divider here */}
         <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" /> {/* NEW: Customer Deposit Returns */}
         
         <div className="h-px bg-dyad-blue-foreground my-4" /> 
