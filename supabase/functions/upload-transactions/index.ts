@@ -49,12 +49,12 @@ serve(async (req) => {
     }
 
     const payload = await req.json();
-    const { fileName, fileContent, uploaderId, country } = payload; // Extract country from payload
+    const { fileName, fileContent, uploaderId, country } = payload;
 
     console.log(`[upload-transactions] Received payload: fileName=${fileName}, uploaderId=${uploaderId}, country=${country}, fileContentLength=${fileContent?.length || 0}`);
-    console.log(`[upload-transactions] Raw file content (first 500 chars): ${fileContent.substring(0, 500)}`); // Log raw content
+    // Removed: console.log(`[upload-transactions] Raw file content (first 500 chars): ${fileContent.substring(0, 500)}`);
 
-    if (!fileName || !fileContent || !uploaderId || !country) { // Country is now required
+    if (!fileName || !fileContent || !uploaderId || !country) {
       const msg = 'Missing file data, uploader ID, or country in payload.';
       console.error(`[upload-transactions] Error: ${msg}`);
       return new Response(JSON.stringify({ error: msg }), {
@@ -70,14 +70,14 @@ serve(async (req) => {
     try {
       parsedRows = await parse(fileContent, {
         header: false,
-        separator: '\t', // <--- CHANGED: Using tab as separator
+        separator: ',', // <--- CORRECTED: Using comma as separator
         trimLeadingWhitespace: true,
         skipFirstNLines: 3, // Headers are on row 4, so skip 3 lines
       }) as string[][];
       console.log(`[upload-transactions] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
       if (parsedRows.length > 0) {
         console.log(`[upload-transactions] First parsed row (potential headers): ${JSON.stringify(parsedRows[0])}`);
-        console.log(`[upload-transactions] Second parsed row (potential data): ${JSON.stringify(parsedRows[1])}`); // Log second row for verification
+        console.log(`[upload-transactions] Second parsed row (potential data): ${JSON.stringify(parsedRows[1])}`);
       }
     } catch (csvParseError) {
       console.error('[upload-transactions] CSV parsing error:', csvParseError);
@@ -105,7 +105,6 @@ serve(async (req) => {
     const transactionsToInsert = [];
     const errors: string[] = [];
 
-    // Define the mapping from CSV headers to database column names
     const headerMap: Record<string, string> = {
       'Date': 'transaction_date',
       'Text': 'description',
@@ -117,8 +116,7 @@ serve(async (req) => {
       'Contra account': 'contra_account',
       'Exchange rate': 'exchange_rate',
       'Payment identifier/Message': 'comment',
-      'Department': 'sku', // Mapped 'Department' to 'sku'
-      // 'user_email' is no longer expected in the CSV
+      'Department': 'sku',
     };
 
     const criticalHeaders = ['Date', 'Text', 'Amount', 'Currency'];
@@ -134,11 +132,10 @@ serve(async (req) => {
       });
     }
 
-    // Fetch existing 'entry' values from the database for uniqueness check, filtered by the provided country
     const { data: existingEntriesData, error: fetchEntriesError } = await supabaseClient
       .from('transactions')
       .select('entry')
-      .eq('country', country); // Filter existing entries by the provided country
+      .eq('country', country);
 
     if (fetchEntriesError) {
       console.error('[upload-transactions] Error fetching existing entries:', fetchEntriesError);
@@ -151,12 +148,9 @@ serve(async (req) => {
     const existingEntries = new Set(existingEntriesData?.map(row => row.entry).filter(Boolean) || []);
     console.log(`[upload-transactions] Fetched ${existingEntries.size} existing unique entries for country ${country}.`);
 
-    // No longer need userEmailToIdCache as user_email is not in CSV
-    // const userEmailToIdCache = new Map<string, string | null>();
-
     for (const row of dataRows) {
       if (row.length !== headers.length) {
-        const msg = `Row has a different number of columns than headers. Skipping row: ${JSON.JSON.stringify(row)}`;
+        const msg = `Row has a different number of columns than headers. Skipping row: ${JSON.stringify(row)}`;
         errors.push(msg);
         console.warn(`[upload-transactions] ${msg}`);
         continue;
@@ -169,7 +163,6 @@ serve(async (req) => {
 
       console.log(`[upload-transactions] Processing record: ${JSON.stringify(record)}`);
 
-      // Extract values using the headerMap
       const transaction_date_str = record['Date'];
       const description = record['Text'];
       const amount_str = record['Amount'];
@@ -180,8 +173,7 @@ serve(async (req) => {
       const contra_account = record['Contra account'];
       const exchange_rate_str = record['Exchange rate'];
       const comment = record['Payment identifier/Message'];
-      const sku = record['Department']; // Now extracting 'Department' for sku
-      // const user_email_from_csv = record['user_email']; // No longer expected
+      const sku = record['Department'];
 
       if (!transaction_date_str || !description || !amount_str || !currency) {
         const msg = `Missing required fields (Date, Text, Amount, or Currency). Skipping record: ${JSON.stringify(record)}`;
@@ -225,13 +217,12 @@ serve(async (req) => {
         }
       }
 
-      // requesterIdForTransaction now defaults to uploaderId as user_email is not in CSV
       const requesterIdForTransaction = uploaderId;
 
       transactionsToInsert.push({
         requester_id: requesterIdForTransaction,
         uploaded_by_user_id: uploaderId,
-        original_transaction_id: null, // Not in CSV
+        original_transaction_id: null,
         status: 'pending_input',
         type: type || null,
         transaction_date: transaction_date,
@@ -244,13 +235,13 @@ serve(async (req) => {
         exchange_rate: parsedExchangeRate,
         comment: comment || null,
         sku: sku || null,
-        reason_for_payment: null, // Not in CSV
+        reason_for_payment: null,
         receipt_urls: [],
-        category: null, // Not in CSV
-        merchant_name: null, // Not in CSV
-        notes: null, // Not in CSV
-        not_sku_related: false, // Not in CSV
-        country: country, // Assign the provided country
+        category: null,
+        merchant_name: null,
+        notes: null,
+        not_sku_related: false,
+        country: country,
       });
     }
 
