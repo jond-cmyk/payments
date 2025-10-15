@@ -1,18 +1,19 @@
 "use client";
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react'; // Import useState
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentRequest } from '@/types/supabase';
-import { differenceInMilliseconds, parseISO, intervalToDuration } from 'date-fns'; // Changed to differenceInMilliseconds
+import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter } from 'date-fns'; // Added date-fns functions
+import { BarChart, Clock, CheckCircle, TrendingUp, Filter } from 'lucide-react'; // Added Filter icon
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { showError } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { BarChart, Clock, CheckCircle, TrendingUp } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // Added Select components
 
 // Helper function to format duration
 const formatDuration = (milliseconds: number | null): string => {
@@ -46,9 +47,12 @@ const Statistics = () => {
 
   const isAdmin = userProfile?.role === 'admin';
 
+  // NEW: State for timeframe filter
+  const [timeframeFilter, setTimeframeFilter] = useState<'all' | 'last5' | 'last10' | 'last15' | 'lastDay' | 'lastWeek' | 'lastMonth'>('all');
+
   // Fetch all payment requests for statistics
-  const { data: paymentRequests, isLoading: isRequestsLoading, error: requestsError } = useQuery<PaymentRequest[]>({
-    queryKey: ['paymentRequestStatistics', currentCountry],
+  const { data: allPaymentRequests, isLoading: isRequestsLoading, error: requestsError } = useQuery<PaymentRequest[]>({ // Renamed to allPaymentRequests
+    queryKey: ['paymentRequestStatistics', currentCountry], // timeframeFilter will be applied client-side
     queryFn: async () => {
       if (!session) return [];
 
@@ -56,12 +60,11 @@ const Statistics = () => {
         .from('payment_requests')
         .select('*');
       
-      // Admins see all countries in statistics, requesters cannot access this page
       if (currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.order('created_at', { ascending: false }); // Order by created_at for 'last N' filters
       if (error) throw error;
       return data;
     },
@@ -69,7 +72,7 @@ const Statistics = () => {
   });
 
   const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests } = useMemo(() => {
-    if (!paymentRequests) {
+    if (!allPaymentRequests) {
       return {
         avgTimeToSetup: null,
         avgTimeToApprove: null,
@@ -79,12 +82,44 @@ const Statistics = () => {
       };
     }
 
+    let filteredRequests = [...allPaymentRequests]; // Create a mutable copy
+
+    // Apply timeframe filter
+    const now = new Date();
+    switch (timeframeFilter) {
+      case 'last5':
+        filteredRequests = filteredRequests.slice(0, 5);
+        break;
+      case 'last10':
+        filteredRequests = filteredRequests.slice(0, 10);
+        break;
+      case 'last15':
+        filteredRequests = filteredRequests.slice(0, 15);
+        break;
+      case 'lastDay':
+        const oneDayAgo = subDays(now, 1);
+        filteredRequests = filteredRequests.filter(req => isAfter(parseISO(req.created_at), oneDayAgo));
+        break;
+      case 'lastWeek':
+        const oneWeekAgo = subWeeks(now, 1);
+        filteredRequests = filteredRequests.filter(req => isAfter(parseISO(req.created_at), oneWeekAgo));
+        break;
+      case 'lastMonth':
+        const oneMonthAgo = subMonths(now, 1);
+        filteredRequests = filteredRequests.filter(req => isAfter(parseISO(req.created_at), oneMonthAgo));
+        break;
+      case 'all':
+      default:
+        // No filter applied, use all requests
+        break;
+    }
+
     let totalSetupMilliseconds = 0;
     let setupCount = 0;
     let totalApprovedMilliseconds = 0;
     let approvedCount = 0;
 
-    paymentRequests.forEach(request => {
+    filteredRequests.forEach(request => {
       if (request.created_at && request.payment_setup_date) {
         const createdDate = parseISO(request.created_at);
         const setupDate = parseISO(request.payment_setup_date);
@@ -106,11 +141,11 @@ const Statistics = () => {
     return {
       avgTimeToSetup,
       avgTimeToApprove,
-      totalRequests: paymentRequests.length,
+      totalRequests: filteredRequests.length, // Use filteredRequests.length for total
       setupRequests: setupCount,
       approvedRequests: approvedCount,
     };
-  }, [paymentRequests]);
+  }, [allPaymentRequests, timeframeFilter]); // Added timeframeFilter to dependencies
 
   if (isSessionLoading || isRequestsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading statistics...</div>;
@@ -144,6 +179,27 @@ const Statistics = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* NEW: Filter controls */}
+          <div className="mb-6 flex items-center gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
+            <span className="font-medium text-gray-700 flex items-center">
+              <Filter className="mr-2 h-4 w-4" /> Filter by:
+            </span>
+            <Select value={timeframeFilter} onValueChange={(value: typeof timeframeFilter) => setTimeframeFilter(value)}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select timeframe" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Time</SelectItem>
+                <SelectItem value="last5">Last 5 Requests</SelectItem>
+                <SelectItem value="last10">Last 10 Requests</SelectItem>
+                <SelectItem value="last15">Last 15 Requests</SelectItem>
+                <SelectItem value="lastDay">Last 24 Hours</SelectItem>
+                <SelectItem value="lastWeek">Last 7 Days</SelectItem>
+                <SelectItem value="lastMonth">Last 30 Days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card className="border-l-4 border-dyad-blue shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -152,7 +208,7 @@ const Statistics = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{totalRequests}</div>
-                <p className="text-xs text-muted-foreground">All payment requests submitted</p>
+                <p className="text-xs text-muted-foreground">Payment requests in selected timeframe</p>
               </CardContent>
             </Card>
 
@@ -183,7 +239,7 @@ const Statistics = () => {
             </Card>
           </div>
           {totalRequests === 0 && (
-            <p className="text-center text-muted-foreground mt-8">No payment requests found to generate statistics.</p>
+            <p className="text-center text-muted-foreground mt-8">No payment requests found to generate statistics for the selected timeframe.</p>
           )}
         </CardContent>
       </Card>
