@@ -46,13 +46,16 @@ serve(async (req) => {
       });
     }
 
-    // Process results to get unique suggestions based on payee name and bank details
+    // Process results to get unique suggestions based on bank details only
     const uniqueSuggestionsMap = new Map<string, any>();
     data.forEach(item => {
-      // Create a unique key for each combination of payee and bank details
-      const key = `${item.payee}-${item.account_name}-${item.account_address || ''}-${item.iban_number || ''}-${item.sort_code || ''}-${item.account_number || ''}-${item.category || ''}-${item.not_property_related || false}-${item.sku || ''}`;
-      if (!uniqueSuggestionsMap.has(key)) {
-        uniqueSuggestionsMap.set(key, item);
+      // Create a unique key based on bank details (and account name)
+      // Exclude payee name, category, sku, not_property_related from the uniqueness key
+      // to ensure that different payee names for the same bank account are treated as duplicates.
+      const bankDetailsKey = `${item.account_name || ''}-${item.account_address || ''}-${item.iban_number || ''}-${item.sort_code || ''}-${item.account_number || ''}`;
+      
+      if (!uniqueSuggestionsMap.has(bankDetailsKey)) {
+        uniqueSuggestionsMap.set(bankDetailsKey, item);
       }
     });
 

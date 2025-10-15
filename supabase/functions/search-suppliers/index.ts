@@ -46,13 +46,16 @@ serve(async (req) => {
       });
     }
 
-    // Process results to get unique suggestions based on supplier name and bank details
+    // Process results to get unique suggestions based on bank details only
     const uniqueSuggestionsMap = new Map<string, any>();
     data.forEach(item => {
-      // Create a unique key for each combination of supplier and bank details
-      const key = `${item.supplier_name}-${item.supplier_address}-${item.iban_number || ''}-${item.sort_code || ''}-${item.account_number || ''}-${item.bank_account_name || ''}-${item.currency || ''}-${item.payment_amount || ''}-${item.reason_for_payment || ''}-${item.category || ''}-${item.not_sku_related || false}-${item.sku_number || ''}-${item.lease_id || ''}`;
-      if (!uniqueSuggestionsMap.has(key)) {
-        uniqueSuggestionsMap.set(key, item);
+      // Create a unique key based on bank details (and bank account name)
+      // Exclude supplier name, currency, payment_amount, reason_for_payment, category,
+      // not_sku_related, sku_number, lease_id from the uniqueness key
+      // to ensure that different supplier names for the same bank account are treated as duplicates.
+      const bankDetailsKey = `${item.supplier_address || ''}-${item.iban_number || ''}-${item.sort_code || ''}-${item.account_number || ''}-${item.bank_account_name || ''}`;
+      if (!uniqueSuggestionsMap.has(bankDetailsKey)) {
+        uniqueSuggestionsMap.set(bankDetailsKey, item);
       }
     });
 
