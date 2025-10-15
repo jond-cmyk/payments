@@ -57,19 +57,9 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         totalUnread += notificationsCount || 0;
       }
 
-      // If user is admin, also count unread feedback
-      if (userProfile?.role === 'admin') {
-        const { count: feedbackCount, error: feedbackError } = await supabase
-          .from('feedback')
-          .select('id', { count: 'exact' })
-          .eq('is_read', false);
-        
-        if (feedbackError) {
-          console.error("Error fetching unread feedback count:", feedbackError);
-        } else {
-          totalUnread += feedbackCount || 0;
-        }
-      }
+      // Removed the feedbackCount addition here to avoid double-counting for admins.
+      // Admins will still receive a notification in their 'notifications' table about new feedback,
+      // and the full feedback list is available on the /admin/feedback page.
       
       return totalUnread;
     },
