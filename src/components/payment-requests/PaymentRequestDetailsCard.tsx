@@ -110,7 +110,7 @@ const editFormSchema = z.object({
     } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku_number)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
+        message: `SKU Number must be '${skuPrefix}' followed by numbers.` ,
         path: ['sku_number'],
       });
     }
@@ -713,7 +713,10 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                 </Button>
               </div>
             )}
-            <div>
+            <div className={cn(
+              "space-y-1",
+              request.receipt_required && "bg-dyad-blue/10 border border-dyad-blue p-4 rounded-md" // Apply dyad blue box
+            )}>
               <p className="font-medium">Payment Receipt Required:</p>
               <p>{request.receipt_required ? 'Yes' : 'No'}</p>
             </div>
