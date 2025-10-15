@@ -71,7 +71,7 @@ serve(async (req) => {
         header: false,
         separator: ',',
         trimLeadingWhitespace: true,
-        skipFirstNLines: 4, // <--- I've changed this to 4 as a guess, but please confirm the correct number!
+        skipFirstNLines: 3, // Keeping this at 3, as headers are on row 4
       }) as string[][];
       console.log(`[upload-transactions] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
       if (parsedRows.length > 0) {
