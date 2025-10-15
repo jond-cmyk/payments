@@ -52,6 +52,7 @@ serve(async (req) => {
     const { fileName, fileContent, uploaderId, country } = payload; // Extract country from payload
 
     console.log(`[upload-transactions] Received payload: fileName=${fileName}, uploaderId=${uploaderId}, country=${country}, fileContentLength=${fileContent?.length || 0}`);
+    console.log(`[upload-transactions] Raw file content (first 500 chars): ${fileContent.substring(0, 500)}`); // Log raw content
 
     if (!fileName || !fileContent || !uploaderId || !country) { // Country is now required
       const msg = 'Missing file data, uploader ID, or country in payload.';
@@ -69,13 +70,14 @@ serve(async (req) => {
     try {
       parsedRows = await parse(fileContent, {
         header: false,
-        separator: ',',
+        separator: '\t', // <--- CHANGED: Using tab as separator
         trimLeadingWhitespace: true,
-        skipFirstNLines: 3, // Keeping this at 3, as headers are on row 4
+        skipFirstNLines: 3, // Headers are on row 4, so skip 3 lines
       }) as string[][];
       console.log(`[upload-transactions] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
       if (parsedRows.length > 0) {
         console.log(`[upload-transactions] First parsed row (potential headers): ${JSON.stringify(parsedRows[0])}`);
+        console.log(`[upload-transactions] Second parsed row (potential data): ${JSON.stringify(parsedRows[1])}`); // Log second row for verification
       }
     } catch (csvParseError) {
       console.error('[upload-transactions] CSV parsing error:', csvParseError);
@@ -154,7 +156,7 @@ serve(async (req) => {
 
     for (const row of dataRows) {
       if (row.length !== headers.length) {
-        const msg = `Row has a different number of columns than headers. Skipping row: ${JSON.stringify(row)}`;
+        const msg = `Row has a different number of columns than headers. Skipping row: ${JSON.JSON.stringify(row)}`;
         errors.push(msg);
         console.warn(`[upload-transactions] ${msg}`);
         continue;
