@@ -143,6 +143,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
           )}
         </NavLink>
         <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" />
+        <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" /> {/* MOVED: Statistics Link */}
         
         {currentRole === 'admin' && (
           <>
@@ -160,7 +161,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                   <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" />
                   <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
                   <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" />
-                  <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" /> {/* NEW: Statistics Link */}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
