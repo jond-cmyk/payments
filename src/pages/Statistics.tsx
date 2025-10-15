@@ -7,8 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { PaymentRequest } from '@/types/supabase';
 import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter, format, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
-import { BarChart as BarChartIcon, TrendingUp, Filter, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts'; // Removed Clock from here
-import { CheckCircle, Clock } from 'lucide-react'; // Corrected: Import Clock from lucide-react
+import { BarChart as BarChartIcon, TrendingUp, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts'; // Removed Filter from here
+import { CheckCircle, Clock, Filter } from 'lucide-react'; // Corrected: Import Filter from lucide-react
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
