@@ -692,7 +692,7 @@ const NewPaymentRequest = () => {
                     </FormControl>
                     <div className="space-y-1 leading-none">
                       <FormLabel className="text-blue-700">
-                        I have verified these bank details with the payee.
+                        I have verified these bank details with the payee.<span className="text-red-600 ml-1 text-lg font-bold">*</span>
                       </FormLabel>
                       <FormDescription className="text-blue-600">
                         Please ensure the bank details are correct to avoid payment delays or errors.
