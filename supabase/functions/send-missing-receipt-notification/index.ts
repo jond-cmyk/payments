@@ -89,7 +89,7 @@ serve(async (req) => {
           const receiptBlob = await receiptResponse.blob();
           const arrayBuffer = await receiptBlob.arrayBuffer();
           const uint8Array = new Uint8Array(arrayBuffer);
-          const binaryString = new TextDecoder('latin1').decode(uint8Array); // More robust binary string conversion
+          const binaryString = String.fromCharCode(...uint8Array); // Changed to String.fromCharCode
           const base64Content = btoa(binaryString);
 
           const urlParts = receiptUrl.split('/');
