@@ -23,6 +23,7 @@ import StandingOrderDetail from "./pages/StandingOrderDetail"; // NEW: Import St
 import AdminUploadDirectDebits from "./pages/AdminUploadDirectDebits"; // NEW: Import AdminUploadDirectDebits
 import AdminUploadStandingOrders from "./pages/AdminUploadStandingOrders"; // NEW: Import AdminUploadStandingOrders
 import CustomerDepositReturns from "./pages/CustomerDepositReturns"; // NEW: Import CustomerDepositReturns
+import AdminFeedback from "./pages/AdminFeedback"; // NEW: Import AdminFeedback
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext"; // Import CountryProvider
@@ -87,6 +88,7 @@ const App = () => {
                     <Route path="/admin/upload-standing-orders" element={<AdminUploadStandingOrders />} /> {/* NEW: Standing Order Upload Route */}
                     <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} /> {/* NEW: Customer Deposit Returns Route */}
                     <Route path="/notifications" element={<NotificationsPage />} />
+                    <Route path="/admin/feedback" element={<AdminFeedback />} /> {/* NEW: Admin Feedback Route */}
                   </Route>
 
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

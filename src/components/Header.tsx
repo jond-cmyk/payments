@@ -49,6 +49,8 @@ const Header = () => {
         return 'Welcome - KH Payments';
       case '/notifications':
         return 'Notifications - KH Payments';
+      case '/admin/feedback': // NEW: Admin Feedback Page Title
+        return 'Admin Feedback - KH Payments';
       default:
         if (pathname.startsWith('/request/')) {
           return 'Payment Request Details - KH Payments';

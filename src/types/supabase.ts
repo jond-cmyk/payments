@@ -153,3 +153,12 @@ export type Notification = {
   is_read: boolean;
   created_at: string;
 };
+
+export type Feedback = { // NEW: Feedback type
+  id: string;
+  feedback_types: string[];
+  message: string;
+  created_at: string;
+  is_read: boolean;
+  user_id: string | null; // User who submitted, but displayed anonymously
+};

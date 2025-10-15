@@ -3,9 +3,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { supabase } from './client';
 import { useSession } from './SessionContext';
-import { Notification as NotificationType } from '@/types/supabase'; // Import Notification type
+import { Notification as NotificationType, Feedback as FeedbackType } from '@/types/supabase'; // Import Notification and Feedback types
 import { showSuccess, showError } from '@/utils/toast';
-import { useQueryClient } from '@tanstack/react-query'; // Import useQueryClient
+import { useQueryClient, useQuery } from '@tanstack/react-query'; // Import useQueryClient and useQuery
 
 interface NotificationContextType {
   notificationPermission: NotificationPermission;
@@ -17,7 +17,7 @@ interface NotificationContextType {
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading: isSessionLoading } = useSession();
+  const { user, isLoading: isSessionLoading, userProfile } = useSession(); // Get userProfile
   const queryClient = useQueryClient(); // Initialize useQueryClient
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
@@ -85,15 +85,15 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (isSessionLoading || !user) return; // Only proceed if session is loaded and user exists
 
-    console.log(`[NotificationProvider] Realtime useEffect: notificationPermission=${notificationPermission}, notificationsEnabled=${notificationsEnabled}`);
+    console.log(`[NotificationProvider] Realtime useEffect: notificationPermission=${notificationPermission}, notificationsEnabled=${notificationsEnabled}, userRole=${userProfile?.role}`);
 
     if (notificationPermission !== 'granted' || !notificationsEnabled) {
-      console.log("[NotificationProvider] Not subscribing to Realtime for notifications table: Permission not granted, or notifications disabled.");
+      console.log("[NotificationProvider] Not subscribing to Realtime for notifications/feedback tables: Permission not granted, or notifications disabled.");
       return;
     }
 
+    // --- Subscribe to user-specific notifications ---
     console.log("[NotificationProvider] Subscribing to user-specific notifications via Realtime for user:", user.id);
-
     const notificationsChannel = supabase
       .channel(`user_notifications_${user.id}`)
       .on(
@@ -143,11 +143,68 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
       )
       .subscribe();
 
+    // --- Subscribe to new feedback for admins ---
+    let feedbackChannel: any;
+    if (userProfile?.role === 'admin') {
+      console.log("[NotificationProvider] Admin user detected. Subscribing to new feedback via Realtime.");
+      feedbackChannel = supabase
+        .channel(`admin_feedback`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'feedback',
+          },
+          (payload) => {
+            const newFeedback = payload.new as FeedbackType;
+            console.log("[NotificationProvider] New feedback received via Realtime:", newFeedback);
+
+            // Only show desktop notification if notifications are enabled
+            if (!newFeedback.is_read && notificationsEnabled && Notification.permission === 'granted') {
+              console.log("[NotificationProvider] Attempting to display desktop notification for new feedback.");
+              const notificationTitle = "New User Feedback Received!";
+              const notificationOptions: NotificationOptions = {
+                body: `Type(s): ${newFeedback.feedback_types.join(', ')}\nMessage: ${newFeedback.message.substring(0, 100)}...`,
+                icon: '/favicon.svg',
+                data: {
+                  url: `${window.location.origin}/admin/feedback`,
+                  feedbackId: newFeedback.id,
+                },
+              };
+
+              const browserNotification = new Notification(notificationTitle, notificationOptions);
+
+              browserNotification.onclick = (event) => {
+                event.preventDefault();
+                if (browserNotification.data && browserNotification.data.url) {
+                  window.focus();
+                  window.open(browserNotification.data.url, '_blank');
+                }
+                // Mark feedback as read in the database when clicked
+                supabase.from('feedback').update({ is_read: true }).eq('id', newFeedback.id).then(({ error }) => {
+                  if (error) console.error("Failed to mark feedback as read:", error);
+                  else queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] }); // Invalidate count
+                });
+                browserNotification.close();
+              };
+            }
+            // Invalidate the unread count query to update the sidebar badge
+            queryClient.invalidateQueries({ queryKey: ['unreadNotificationsCount'] });
+            queryClient.invalidateQueries({ queryKey: ['allFeedback'] }); // Invalidate feedback list
+          }
+        )
+        .subscribe();
+    }
+
     return () => {
-      console.log("[NotificationProvider] Unsubscribing from user_notifications channel.");
+      console.log("[NotificationProvider] Unsubscribing from channels.");
       notificationsChannel.unsubscribe();
+      if (feedbackChannel) {
+        feedbackChannel.unsubscribe();
+      }
     };
-  }, [user, isSessionLoading, notificationPermission, notificationsEnabled, queryClient]);
+  }, [user, isSessionLoading, notificationPermission, notificationsEnabled, userProfile?.role, queryClient]);
 
   return (
     <NotificationContext.Provider value={{ notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications }}>

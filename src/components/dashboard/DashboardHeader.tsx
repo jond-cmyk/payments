@@ -2,12 +2,14 @@
 
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, MessageSquarePlus } from 'lucide-react'; // Import MessageSquarePlus
 
 import { Button } from '@/components/ui/button';
 import CountrySelector from '@/components/CountrySelector';
 import CountryFlag from '@/components/CountryFlag';
 import { useSession } from '@/integrations/supabase/SessionContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'; // Import Dialog components
+import FeedbackForm from '@/components/feedback/FeedbackForm'; // Import FeedbackForm
 
 interface DashboardHeaderProps {
   debouncedSearchTerm: string;
@@ -17,6 +19,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ debouncedSearchTerm }
   const { userProfile } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
+  const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = React.useState(false); // State for feedback dialog
 
   const userRole = userProfile?.role || null;
   const isAllRequestsPage = location.pathname === '/admin/requests';
@@ -29,6 +32,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ debouncedSearchTerm }
       return 'All Payment Requests';
     }
     return 'Summary of Payment Requests';
+  };
+
+  const handleFeedbackSubmitted = () => {
+    setIsFeedbackDialogOpen(false); // Close dialog on submission
   };
 
   return (
@@ -50,12 +57,28 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ debouncedSearchTerm }
             )}
           </>
         )}
-        {(userRole === 'requester' || userRole === 'admin') && (
-          <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground w-full" size="lg">
-            <PlusCircle className="mr-2 h-5 w-5" />
-            Create New Request
-          </Button>
-        )}
+        <div className="flex gap-2 w-full"> {/* Group buttons */}
+          {(userRole === 'requester' || userRole === 'admin') && (
+            <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground flex-1" size="lg">
+              <PlusCircle className="mr-2 h-5 w-5" />
+              Create New Request
+            </Button>
+          )}
+          <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex-1" size="lg">
+                <MessageSquarePlus className="mr-2 h-5 w-5" />
+                Provide Anonymous Feedback
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Provide Anonymous Feedback</DialogTitle>
+              </DialogHeader>
+              <FeedbackForm onFeedbackSubmitted={handleFeedbackSubmitted} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </div>
   );

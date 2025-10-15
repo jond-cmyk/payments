@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNotifications } from '@/integrations/supabase/NotificationContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign } from 'lucide-react'; // Import DollarSign icon
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign, MessageSquareText } from 'lucide-react'; // Import MessageSquareText icon
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
@@ -37,20 +37,41 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
     : user?.email || 'Guest';
 
   // Fetch unread notifications count
-  const { data: unreadCount = 0 } = useQuery<number>({
+  const { data: unreadNotificationsCount = 0 } = useQuery<number>({
     queryKey: ['unreadNotificationsCount', user?.id],
     queryFn: async () => {
       if (!user?.id) return 0;
-      const { count, error } = await supabase
+
+      let totalUnread = 0;
+
+      // Count unread user-specific notifications
+      const { count: notificationsCount, error: notificationsError } = await supabase
         .from('notifications')
         .select('id', { count: 'exact' })
         .eq('user_id', user.id)
         .eq('is_read', false);
-      if (error) {
-        console.error("Error fetching unread notifications count:", error);
-        return 0;
+      
+      if (notificationsError) {
+        console.error("Error fetching unread user notifications count:", notificationsError);
+      } else {
+        totalUnread += notificationsCount || 0;
       }
-      return count || 0;
+
+      // If user is admin, also count unread feedback
+      if (userProfile?.role === 'admin') {
+        const { count: feedbackCount, error: feedbackError } = await supabase
+          .from('feedback')
+          .select('id', { count: 'exact' })
+          .eq('is_read', false);
+        
+        if (feedbackError) {
+          console.error("Error fetching unread feedback count:", feedbackError);
+        } else {
+          totalUnread += feedbackCount || 0;
+        }
+      }
+      
+      return totalUnread;
     },
     enabled: !!user?.id,
   });
@@ -130,9 +151,9 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         <div className="h-px bg-dyad-blue-foreground my-4" /> 
 
         <NavLink to="/notifications" icon={<Bell className="h-5 w-5" />} label="Notifications">
-          {unreadCount > 0 && (
+          {unreadNotificationsCount > 0 && (
             <Badge className="ml-auto bg-red-500 text-white transform translate-x-0 translate-y-0">
-              {unreadCount}
+              {unreadNotificationsCount}
             </Badge>
           )}
         </NavLink>
@@ -152,6 +173,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                   <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
                   <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" />
                   <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
+                  <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" /> {/* NEW: Admin Feedback Link */}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
