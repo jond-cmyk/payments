@@ -1,25 +1,24 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react'; // Import useState
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PaymentRequest, Profile, PaymentRequestAudit } from '@/types/supabase';
+import { PaymentRequest, PaymentRequestAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { format } from 'date-fns';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod'; // Keep z for other Zod usage if any
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
-import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
+import { categoryOptions } from '@/lib/constants'; // Import categoryOptions from constants
 
-import { Button } from '@/components/ui/button';
 import PaymentRequestDetailsCard from '@/components/payment-requests/PaymentRequestDetailsCard';
 import AdminActionsCard from '@/components/payment-requests/AdminActionsCard';
 import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUploadCard';
 import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentRequestAuditTrailCard';
 import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard';
+import { Button } from '@/components/ui/button'; // Import Button
 import { Card } from '@/components/ui/card'; // Import Card
 
 // List of major currencies, expanded and sorted alphabetically
@@ -108,7 +107,7 @@ const editFormSchema = z.object({
     } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku_number)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
+        message: `SKU Number must be '${skuPrefix}' followed by numbers.` ,
         path: ['sku_number'],
       });
     }
@@ -422,8 +421,23 @@ const PaymentRequestDetail = () => {
         query = query.eq('country', currentCountry);
       }
 
-      const { error } = await query;
-      if (error) throw error;
+      // IMPORTANT: Add .select() to the update query to get the affected rows
+      const { data, error } = await query.select(); 
+      
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw error;
+      }
+      
+      // Log the data returned by Supabase
+      console.log("Supabase update data:", data);
+      
+      if (!data || data.length === 0) {
+        // If no data is returned, it means no rows were updated, likely due to RLS
+        console.warn("Supabase update returned no data. This might be due to RLS preventing the update.");
+        throw new Error("Update failed: No matching record found or insufficient permissions (RLS).");
+      }
+
       return true;
     },
     onSuccess: () => {
@@ -475,6 +489,12 @@ const PaymentRequestDetail = () => {
   const handleRequesterEditSubmit = async (values: z.infer<typeof editFormSchema>) => {
     const toastId = showLoading("Updating payment request...");
     try {
+      if (!user?.id) {
+        throw new Error("User not authenticated.");
+      }
+
+      const invoiceFiles: FileList = values.invoice_pdf; // This is the new files, not existing ones
+      
       const updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList } = {
         supplier_name: values.supplier_name,
         sku_number: values.not_sku_related ? null : values.sku_number, // Set to null if not SKU related
