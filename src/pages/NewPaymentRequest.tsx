@@ -852,6 +852,13 @@ const NewPaymentRequest = () => {
                   <p className="text-center text-muted-foreground">No suggestions found.</p>
                 )}
               </div>
+              <Button
+                variant="destructive"
+                onClick={() => setIsSuggestionDialogOpen(false)}
+                className="mt-4 w-full"
+              >
+                Enter New Details
+              </Button>
             </DialogContent>
           </Dialog>
         </CardContent>
