@@ -1,64 +1,67 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './client';
 import { Profile } from '@/types/supabase'; // Import Profile type
+import { useQuery, useQueryClient } from '@tanstack/react-query'; // NEW IMPORT
 
 interface SessionContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
-  isApproved: boolean | null; // Add isApproved to context
-  userProfile: Profile | null; // Add userProfile to context
+  isApproved: boolean | null;
+  userProfile: Profile | null;
 }
 
 // Create the context
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
-// Function to fetch user profile
-const fetchUserProfile = async (userId: string) => {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (error) {
-    console.error("SessionContext: Error fetching user profile:", error);
-    return null;
-  }
-  console.log(`[SessionContext] Fetched profile for user ${userId}:`, data);
-  console.log(`[SessionContext] Profile is_approved for user ${userId}: ${data?.is_approved}`);
-  return data;
-};
-
 export const SessionContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start as true
-  const [isApproved, setIsApproved] = useState<boolean | null>(null); // State for approval status
-  const [userProfile, setUserProfile] = useState<Profile | null>(null); // State for full profile
+  const [isLoadingSession, setIsLoadingSession] = useState(true); // Renamed to avoid conflict with useQuery's isLoading
+  const queryClient = useQueryClient(); // NEW: Initialize queryClient
 
-  // Helper to determine combined approval status
-  const getCombinedApprovalStatus = (authUser: User | null, profile: Profile | null): boolean => {
-    if (!authUser || !profile) {
-      console.log(`[SessionContext] getCombinedApprovalStatus: No authUser or profile. Result: false`);
-      return false; // No user or no profile, not approved
+  // Fetch user profile using useQuery
+  const { data: userProfile, isLoading: isLoadingProfile, error: profileError } = useQuery<Profile | null>({
+    queryKey: ['userProfile', user?.id], // Query key depends on user ID
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        console.error("SessionContext: Error fetching user profile:", error);
+        return null;
+      }
+      console.log(`[SessionContext] Fetched profile for user ${user.id}:`, data);
+      return data;
+    },
+    enabled: !!user?.id, // Only run query if user ID is available
+    staleTime: 5 * 60 * 1000, // Profile data can be considered fresh for 5 minutes
+    cacheTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+  });
+
+  // Determine combined approval status
+  const isApproved = useMemo(() => {
+    if (!user || !userProfile) {
+      console.log(`[SessionContext] isApproved: No user or profile. Result: false`);
+      return false;
     }
-
-    // The application's approval status is now solely determined by public.profiles.is_approved.
-    // We assume that the Edge Functions correctly manage auth.users.email_confirmed_at
-    // to allow login via Auth UI when public.profiles.is_approved is true.
-    const isProfileApproved = profile.is_approved ?? false;
-    console.log(`[SessionContext] getCombinedApprovalStatus: User ${authUser.id}. Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
+    const isProfileApproved = userProfile.is_approved ?? false;
+    console.log(`[SessionContext] isApproved: User ${user.id}. Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
     return isProfileApproved;
-  };
+  }, [user, userProfile]);
 
+  // Effect for initial session load and auth state changes
   useEffect(() => {
-    const loadSessionAndProfile = async () => {
-      console.log("SessionContext: Starting initial session and profile load.");
-      setIsLoading(true);
+    const loadInitialSession = async () => {
+      console.log("SessionContext: Starting initial session load.");
+      setIsLoadingSession(true);
 
       const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
 
@@ -66,50 +69,25 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         console.error("SessionContext: Error getting initial session:", sessionError);
         setSession(null);
         setUser(null);
-        setUserProfile(null);
-        setIsApproved(false);
       } else {
         setSession(initialSession);
-        let authUser = initialSession?.user || null;
-        
-        // Explicitly fetch user to ensure latest email_confirmed_at
-        if (authUser) {
-          const { data: { user: freshUser }, error: userError } = await supabase.auth.getUser();
-          if (userError) {
-            console.error("SessionContext: Error fetching fresh user data:", userError);
-          } else if (freshUser) {
-            authUser = freshUser; // Use the freshest user data
-          }
-          console.log(`[SessionContext] loadSessionAndProfile: authUser.email_confirmed_at: ${authUser.email_confirmed_at}`);
-        }
-        setUser(authUser);
-
-        if (authUser) {
-          const profile = await fetchUserProfile(authUser.id);
-          setUserProfile(profile);
-          const approvedStatus = getCombinedApprovalStatus(authUser, profile);
-          setIsApproved(approvedStatus);
-          console.log("SessionContext: Initial profile loaded - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!authUser.email_confirmed_at, "Profile Approved:", profile?.is_approved, "Final isApproved:", approvedStatus);
-        } else {
-          setUserProfile(null);
-          setIsApproved(false);
-          console.log("SessionContext: No authUser found. Setting isApproved to false.");
-        }
+        setUser(initialSession?.user || null);
       }
-      setIsLoading(false);
-      console.log("SessionContext: Initial session and profile load complete. isLoading set to false.");
+      setIsLoadingSession(false);
+      console.log("SessionContext: Initial session load complete. isLoadingSession set to false.");
     };
 
-    loadSessionAndProfile();
+    loadInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       console.log("SessionContext: Auth state changed (listener). Event:", _event, "Session:", currentSession);
       setSession(currentSession);
-      setUser(currentSession?.user || null); 
-      if (!currentSession?.user) {
-        setUserProfile(null);
-        setIsApproved(false);
-        console.log("SessionContext: Auth state change - No currentSession.user. Setting isApproved to false.");
+      setUser(currentSession?.user || null);
+      // When auth state changes, invalidate the userProfile query to ensure it refetches
+      if (currentSession?.user) {
+        queryClient.invalidateQueries({ queryKey: ['userProfile', currentSession.user.id] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] }); // Invalidate all profiles if user logs out
       }
     });
 
@@ -117,36 +95,9 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       console.log("SessionContext: Unsubscribing from auth state listener.");
       subscription.unsubscribe();
     };
-  }, []);
+  }, [queryClient]); // Add queryClient to dependencies
 
-  // Separate useEffect to update profile and approval status when user changes
-  useEffect(() => {
-    const updateProfileAndApproval = async () => {
-      if (user) {
-        const { data: { user: freshUser }, error: userError } = await supabase.auth.getUser();
-        let authUser = user;
-        if (userError) {
-          console.error("SessionContext: Error fetching fresh user data in user-change effect:", userError);
-        } else if (freshUser) {
-          authUser = freshUser;
-        }
-        console.log(`[SessionContext] user-change effect: authUser.email_confirmed_at: ${authUser.email_confirmed_at}`);
-
-        const profile = await fetchUserProfile(authUser.id);
-        setUserProfile(profile);
-        const approvedStatus = getCombinedApprovalStatus(authUser, profile);
-        setIsApproved(approvedStatus);
-        console.log("SessionContext: User changed, profile updated - Role:", profile?.role, "Country:", profile?.country, "Email Confirmed:", !!authUser.email_confirmed_at, "Profile Approved:", profile?.is_approved, "Final isApproved:", approvedStatus);
-      } else {
-        setUserProfile(null);
-        setIsApproved(false);
-        console.log("SessionContext: user-change effect - No user. Setting isApproved to false.");
-      }
-    };
-    if (!isLoading) { // Only run if initial loading is complete
-      updateProfileAndApproval();
-    }
-  }, [user, isLoading]); // Depend on user and isLoading
+  const isLoading = isLoadingSession || isLoadingProfile; // Combined loading state
 
   return (
     <SessionContext.Provider value={{ session, user, isLoading, isApproved, userProfile }}>

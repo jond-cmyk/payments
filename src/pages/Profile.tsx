@@ -42,8 +42,8 @@ const ProfilePage = () => {
     },
     onSuccess: async () => {
       showSuccess("Profile updated successfully!");
-      // Invalidate the session query to refetch the updated user profile
-      await queryClient.invalidateQueries({ queryKey: ['session'] });
+      // Invalidate the userProfile query to refetch the updated user profile
+      await queryClient.invalidateQueries({ queryKey: ['userProfile', user?.id] }); // CHANGED HERE
     },
     onError: (error: any) => {
       showError(error.message || "Failed to update profile.");
