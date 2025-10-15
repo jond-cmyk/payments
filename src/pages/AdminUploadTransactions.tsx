@@ -78,10 +78,19 @@ const AdminUploadTransactions = () => {
 
       if (invokeError) {
         console.error("Supabase Function Invoke Error:", invokeError);
-        if (data?.error) {
-          throw new Error(data.error);
+        // Attempt to extract a more specific error message from the invokeError context
+        let errorMessage = invokeError.message;
+        if (invokeError.context && typeof invokeError.context.data === 'object' && invokeError.context.data !== null) {
+          const errorData = invokeError.context.data as { error?: string; message?: string; errors?: string[] };
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          } else if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.errors && errorData.errors.length > 0) {
+            errorMessage = errorData.errors.join('; ');
+          }
         }
-        throw new Error(invokeError.message);
+        throw new Error(errorMessage);
       }
 
       if (data?.error) {
@@ -91,6 +100,7 @@ const AdminUploadTransactions = () => {
       showSuccess(data?.message || "Spreadsheet uploaded and processed successfully!");
       setSelectedFile(null);
     } catch (error: any) {
+      dismissToast(toastId);
       showError(error.message || "Failed to upload and process spreadsheet.");
       console.error("Spreadsheet upload error:", error);
     } finally {
