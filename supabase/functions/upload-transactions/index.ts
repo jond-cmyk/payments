@@ -52,7 +52,6 @@ serve(async (req) => {
     const { fileName, fileContent, uploaderId, country } = payload;
 
     console.log(`[upload-transactions] Received payload: fileName=${fileName}, uploaderId=${uploaderId}, country=${country}, fileContentLength=${fileContent?.length || 0}`);
-    // Removed: console.log(`[upload-transactions] Raw file content (first 500 chars): ${fileContent.substring(0, 500)}`);
 
     if (!fileName || !fileContent || !uploaderId || !country) {
       const msg = 'Missing file data, uploader ID, or country in payload.';
@@ -69,16 +68,18 @@ serve(async (req) => {
     let parsedRows: string[][];
     try {
       parsedRows = await parse(fileContent, {
-        header: false,
-        separator: ',', // <--- CORRECTED: Using comma as separator
+        header: false, // We will manually extract headers
+        separator: ',',
         trimLeadingWhitespace: true,
-        skipFirstNLines: 3, // Headers are on row 4, so skip 3 lines
+        // Removed skipFirstNLines to manually handle row indexing
       }) as string[][];
-      console.log(`[upload-transactions] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
-      if (parsedRows.length > 0) {
-        console.log(`[upload-transactions] First parsed row (potential headers): ${JSON.stringify(parsedRows[0])}`);
-        console.log(`[upload-transactions] Second parsed row (potential data): ${JSON.stringify(parsedRows[1])}`);
+      console.log(`[upload-transactions] CSV parsed successfully. Total raw rows: ${parsedRows.length}`);
+      
+      // Log the first few raw parsed rows for debugging
+      for (let i = 0; i < Math.min(parsedRows.length, 5); i++) {
+        console.log(`[upload-transactions] Raw parsed row ${i}: ${JSON.stringify(parsedRows[i])}`);
       }
+
     } catch (csvParseError) {
       console.error('[upload-transactions] CSV parsing error:', csvParseError);
       return new Response(JSON.stringify({ error: `Failed to parse CSV file: ${csvParseError.message}` }), {
@@ -87,17 +88,19 @@ serve(async (req) => {
       });
     }
 
-    if (parsedRows.length === 0) {
-      const msg = 'CSV file is empty or contains no data rows.';
+    // Ensure there are enough rows for metadata + headers + at least one data row
+    if (parsedRows.length < 4) { 
+      const msg = 'CSV file is too short to contain expected metadata and headers.';
+      errors.push(msg);
       console.error(`[upload-transactions] Error: ${msg}`);
-      return new Response(JSON.stringify({ error: msg }), {
+      return new Response(JSON.stringify({ message: msg, errors: errors }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const headers = parsedRows[0].map(h => h.trim());
-    const dataRows = parsedRows.slice(1);
+    const headers = parsedRows[3].map(h => h.trim()); // Actual headers are at index 3 (4th row)
+    const dataRows = parsedRows.slice(4); // Data starts from index 4 (5th row)
 
     console.log(`[upload-transactions] Extracted headers: ${JSON.stringify(headers)}`);
     console.log(`[upload-transactions] Number of data rows: ${dataRows.length}`);
