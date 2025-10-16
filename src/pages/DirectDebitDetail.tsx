@@ -247,10 +247,6 @@ const DirectDebitDetail = () => {
               <p>{directDebit.payee}</p>
             </div>
             <div>
-              <p className="font-medium">Payment Date:</p>
-              <p>{format(new Date(directDebit.payment_date), 'PPP')}</p>
-            </div>
-            <div>
               <p className="font-medium">Payment Day:</p>
               <p>{directDebit.payment_date ? new Date(directDebit.payment_date).getDate() : '—'}</p>
             </div>
