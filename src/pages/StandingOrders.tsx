@@ -284,7 +284,7 @@ const StandingOrders = () => {
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined;
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined || filterPaymentDay !== undefined;
 
   const getStatusBadge = (status: StandingOrder['status']) => {
     let className = '';
