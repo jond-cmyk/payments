@@ -200,9 +200,8 @@ serve(async (req) => {
           requester_id: uploaderId,
           payee,
           payment_date,              // Start date (YYYY-MM-DD)
-          payment_end_date,          // NEW: End date (YYYY-MM-DD)
+          payment_end_date,          // End date (YYYY-MM-DD)
           payment_day,               // New field for the day of month
-          // payment_end_date: null,    // REMOVED: This was duplicate
           sku: not_property_related ? null : sku,
           not_property_related,
           categories,
@@ -215,8 +214,8 @@ serve(async (req) => {
           from_day,
           to_day,
           payment_reference: comment || null,
-          comments,                  // NEW: Comments from CSV
-          status: 'pending',
+          comments,                  // Comments from CSV
+          status: 'awaiting_info',   // CHANGED: Set to awaiting_info instead of pending
           country,
           bank_details_verified: false,
         };
@@ -252,7 +251,7 @@ serve(async (req) => {
       console.log('Insert result count:', insertedCount);
     }
 
-    let message = `${insertedCount} standing orders inserted successfully with status 'Pending'.`;
+    let message = `${insertedCount} standing orders inserted successfully with status 'Awaiting Info'.`;
     const body: Record<string, unknown> = { message };
     if (errors.length > 0) {
       body.errors = errors;
