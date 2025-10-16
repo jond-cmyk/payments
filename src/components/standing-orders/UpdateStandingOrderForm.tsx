@@ -190,25 +190,25 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const formCountry = form.watch("country");
   const isAdmin = userProfile?.role === 'admin';
   
-  // Use useWatch for categories to ensure deep reactivity
-  const watchedCategories = useWatch({
+  // Use useWatch for individual category amounts to ensure deep reactivity
+  const watchedCategoryAmounts = useWatch({
     control: form.control,
-    name: "categories",
-    defaultValue: form.getValues("categories"), // Ensure initial value is set
+    name: fields.map((field, index) => `categories.${index}.amount`),
+    defaultValue: fields.map((field, index) => form.getValues(`categories.${index}.amount`)),
   });
 
-  // Calculate total amount whenever categories change
+  // Calculate total amount whenever category amounts change
   React.useEffect(() => {
-    console.log("[UpdateStandingOrderForm] useEffect triggered for categories change.");
-    console.log("[UpdateStandingOrderForm] watchedCategories:", JSON.stringify(watchedCategories));
-    const newTotal = watchedCategories.reduce((sum, item, index) => {
-      const amount = item.amount || 0;
-      console.log(`[UpdateStandingOrderForm] Reducing item ${index}: sum=${sum}, item=${JSON.stringify(item)}, amount=${amount}`);
-      return sum + amount;
+    console.log("[UpdateStandingOrderForm] useEffect triggered for category amounts change.");
+    console.log("[UpdateStandingOrderForm] watchedCategoryAmounts:", JSON.stringify(watchedCategoryAmounts));
+    const newTotal = watchedCategoryAmounts.reduce((sum, amount, index) => {
+      const parsedAmount = parseFloat(amount as any) || 0; // Ensure it's a number
+      console.log(`[UpdateStandingOrderForm] Reducing item ${index}: sum=${sum}, amount=${parsedAmount}`);
+      return sum + parsedAmount;
     }, 0);
     console.log("[UpdateStandingOrderForm] Calculated newTotal:", newTotal);
     form.setValue("total_amount", newTotal);
-  }, [watchedCategories, form]); // Dependency on watchedCategories (from useWatch)
+  }, [watchedCategoryAmounts, form]); // Dependency on watchedCategoryAmounts
 
   const onSubmit = async (values: z.infer<typeof updateStandingOrderFormSchema>) => {
     const toastId = showLoading("Updating standing order...");
@@ -575,7 +575,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   Please ensure the bank details are correct to avoid payment delays or errors.
                 </FormDescription>
               </div>
-              <FormMessage />
             </FormItem>
           )}
         />
