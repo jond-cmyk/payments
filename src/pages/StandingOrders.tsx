@@ -597,6 +597,20 @@ const StandingOrders = () => {
                 </Select>
               </div>
               <div>
+                <label htmlFor="payment-date-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
+                <Input
+                  id="payment-date-filter"
+                  type="date"
+                  value={filterPaymentDate ? format(filterPaymentDate, 'yyyy-MM-dd') : ''}
+                  onChange={(e) => {
+                    const dateValue = e.target.value ? new Date(e.target.value) : undefined;
+                    setFilterPaymentDate(dateValue);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
                 <label htmlFor="payment-day-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Day</label>
                 <Input
                   id="payment-day-filter"
