@@ -85,6 +85,14 @@ const StandingOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  // NEW: Bulk selection state
+  const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
+
+  // Clear selection when data or page changes
+  useEffect(() => {
+    setSelectedStandingOrderIds([]);
+  }, [standingOrders, currentPage]);
+
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
     setLocalFilterPayee(filterPayee);
@@ -184,6 +192,25 @@ const StandingOrders = () => {
       return data;
     },
     enabled: !!session,
+  });
+
+  // NEW: Bulk delete mutation
+  const deleteMultipleStandingOrdersMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.from('standing_orders').delete().in('id', ids);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      setSelectedStandingOrderIds([]);
+      queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] });
+      showSuccess("Selected standing orders deleted successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to bulk delete standing orders.");
+      console.error("Bulk delete Standing Orders error:", error);
+    },
   });
 
   const deleteStandingOrderMutation = useMutation({
@@ -407,6 +434,40 @@ const StandingOrders = () => {
                   <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
               )}
+              {/* NEW: Bulk Delete Selected */}
+              {isAdmin && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      className="shadow-sm"
+                      variant="destructive"
+                      disabled={selectedStandingOrderIds.length === 0 || deleteMultipleStandingOrdersMutation.isPending}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete Selected ({selectedStandingOrderIds.length})
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete selected standing orders?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. You are about to delete {selectedStandingOrderIds.length} standing order(s).
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => deleteMultipleStandingOrdersMutation.mutate(selectedStandingOrderIds)}
+                        asChild
+                      >
+                        <Button variant="destructive">
+                          Confirm Delete
+                        </Button>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
               <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="shadow-sm">
@@ -552,6 +613,15 @@ const StandingOrders = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {/* NEW: Select-all checkbox column */}
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={(checked) => handleToggleSelectAll(!!checked)}
+                        aria-label="Select all standing orders on this page"
+                        disabled={!isAdmin}
+                      />
+                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payee')}>
                       <div className="flex items-center">
                         Payee {renderSortIcon('payee')}
@@ -600,6 +670,15 @@ const StandingOrders = () => {
                 <TableBody>
                   {standingOrders.map((order) => (
                     <TableRow key={order.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
+                      {/* NEW: Row selection checkbox */}
+                      <TableCell className="w-12">
+                        <Checkbox
+                          checked={selectedStandingOrderIds.includes(order.id)}
+                          onCheckedChange={(checked) => handleToggleSelect(order.id, !!checked)}
+                          aria-label={`Select ${order.payee}`}
+                          disabled={!isAdmin}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{order.payee}</TableCell>
                       <TableCell>{format(new Date(order.payment_date), 'PPP')}</TableCell>
                       <TableCell>
