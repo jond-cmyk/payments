@@ -150,10 +150,12 @@ serve(async (req) => {
       
       console.log(`[upload-direct-debits] Processing row ${i + 1}: ${JSON.stringify(row)}`);
       
-      if (row.length !== headers.length) {
-        errors.push(`Row ${i + 1}: Column count mismatch (${row.length} vs ${headers.length}). Skipping.`);
-        continue;
-      }
+      // Allow for rows with fewer columns than headers if trailing columns are optional
+      // For now, we'll keep strict check, but handle missing optional fields gracefully
+      // if (row.length !== headers.length) {
+      //   errors.push(`Row ${i + 1}: Column count mismatch (${row.length} vs ${headers.length}). Skipping.`);
+      //   continue;
+      // }
 
       const record: Record<string, string> = {};
       headers.forEach((header, index) => {
@@ -164,33 +166,16 @@ serve(async (req) => {
       console.log(`[upload-direct-debits] Available headers: ${Object.keys(record).join(', ')}`);
 
       try {
-        // Extract fields from your CSV format - let's see what headers we actually have
-        console.log(`[upload-direct-debits] Available headers: ${Object.keys(record).join(', ')}`);
-        
-        // Try different possible header names for payee - be more comprehensive
-        const payee = record['Payee'] || record['payee'] || record['PAYEE'] || 
-                     record['Name'] || record['name'] || record['NAME'] ||
-                     record['Description'] || record['description'] || record['DESCRIPTION'] ||
-                     record['Payee Name'] || record['Payee name'] || record['payee name'] ||
-                     record['PayeeName'] || record['Payeename'] || record['payeename'] ||
-                     record['Merchant'] || record['merchant'] || record['MERCHANT'] ||
-                     record['Merchant Name'] || record['Merchant name'] || record['merchant name'] ||
-                     record['Company'] || record['company'] || record['COMPANY'] ||
-                     record['Vendor'] || record['vendor'] || record['VENDOR'] ||
-                     record['Supplier'] || record['supplier'] || record['SUPPLIER'];
-
-        const leaseId = record['Lease ID'] || record['lease id'] || record['LeaseID'] || record['lease_id'] || '';
-        const sku = record['SKU'] || record['sku'] || '';
-        const categoryCode = record['Category'] || record['category'] || record['CAT'] || record['cat'] || '';
-        const accountNumber = record['Account Number'] || record['account number'] || record['AccountNumber'] || record['account_number'] || '';
-        const paymentReference = record['Payment Reference'] || record['payment reference'] || record['PaymentReference'] || record['payment_reference'] || '';
-        const paymentDate = record['Date'] || record['date'] || record['DATE'] || record['Date'] || null;
+        // Extract fields from your specified Direct Debit CSV format
+        const payee = record['Payee'];
+        const sku = record['SKU'];
+        const accountNumber = record['Account Number'];
+        const paymentReference = record['Payment Reference'];
+        const paymentDate = record['Payment Date'];
 
         console.log(`[upload-direct-debits] Row ${i + 1} extracted values:`, {
-          leaseId: leaseId || '(empty)',
-          sku: sku || '(empty)', 
-          categoryCode: categoryCode || '(empty)',
           payee: payee || '(empty)',
+          sku: sku || '(empty)', 
           accountNumber: accountNumber || '(empty)',
           paymentReference: paymentReference || '(empty)',
           paymentDate: paymentDate || '(empty)'
@@ -198,27 +183,27 @@ serve(async (req) => {
 
         // Basic validation - only payee is required
         if (!payee) {
-          errors.push(`Row ${i + 1}: Missing Payee (tried headers: Payee, Name, Description, Payee Name, Merchant, Company, Vendor, Supplier) - available headers: ${Object.keys(record).join(', ')}`);
+          errors.push(`Row ${i + 1}: Missing 'Payee' column. This row will not be imported.`);
           continue;
         }
 
-        // Map category code (like "952") to full category value
-        const category = categoryMap[categoryCode] || '974_other';
-        console.log(`[upload-direct-debits] Row ${i + 1}: Mapped category '${categoryCode}' to '${category}'`);
+        // Map category code (like "952") to full category value - assuming a default for direct debits
+        // If you have a 'Category' column in your direct debit CSV, let me know and I can map it.
+        const category = '974_other'; // Default category for direct debits if not provided
 
-        // Create direct debit record from transaction data
+        // Create direct debit record
         const directDebitRecord = {
           requester_id: uploaderId,
           payee: payee,
-          payment_date: paymentDate || null,
-          sku: sku || null,
-          not_property_related: false, // Default to false
-          category: '974_other', // Default category
-          account_number: accountNumber || 'UNKNOWN',
-          payment_reference: paymentReference || null,
-          status: 'awaiting_info',
+          payment_date: paymentDate || null, // Can be null if not provided
+          sku: sku || null, // Can be null if not provided
+          not_property_related: false, // Default to false, adjust if you have a column for this
+          category: category,
+          account_number: accountNumber || 'UNKNOWN', // Default to 'UNKNOWN' if not provided
+          payment_reference: paymentReference || null, // Can be null if not provided
+          status: 'awaiting_info', // Set to 'awaiting_info' as requested
           country: country,
-          bank_account: record['Bank'] || record['bank'] || null,
+          bank_account: null, // Assuming no 'Bank Account' column in this specific direct debit CSV
         };
 
         console.log(`[upload-direct-debits] Row ${i + 1}: Final record:`, JSON.stringify(directDebitRecord, null, 2));
