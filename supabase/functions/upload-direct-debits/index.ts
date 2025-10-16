@@ -161,17 +161,23 @@ serve(async (req) => {
       });
 
       console.log(`[upload-direct-debits] Row ${i + 1} as object: ${JSON.stringify(record)}`);
+      console.log(`[upload-direct-debits] Available headers: ${Object.keys(record).join(', ')}`);
 
       try {
         // Extract fields from your CSV format - let's see what headers we actually have
         console.log(`[upload-direct-debits] Available headers: ${Object.keys(record).join(', ')}`);
         
-        // Try different possible header names for payee
+        // Try different possible header names for payee - be more comprehensive
         const payee = record['Payee'] || record['payee'] || record['PAYEE'] || 
                      record['Name'] || record['name'] || record['NAME'] ||
                      record['Description'] || record['description'] || record['DESCRIPTION'] ||
                      record['Payee Name'] || record['Payee name'] || record['payee name'] ||
-                     record['PayeeName'] || record['Payeename'] || record['payeename'];
+                     record['PayeeName'] || record['Payeename'] || record['payeename'] ||
+                     record['Merchant'] || record['merchant'] || record['MERCHANT'] ||
+                     record['Merchant Name'] || record['Merchant name'] || record['merchant name'] ||
+                     record['Company'] || record['company'] || record['COMPANY'] ||
+                     record['Vendor'] || record['vendor'] || record['VENDOR'] ||
+                     record['Supplier'] || record['supplier'] || record['SUPPLIER'];
 
         const leaseId = record['Lease ID'] || record['lease id'] || record['LeaseID'] || record['lease_id'] || '';
         const sku = record['SKU'] || record['sku'] || '';
@@ -190,7 +196,7 @@ serve(async (req) => {
 
         // Basic validation - only payee is required
         if (!payee) {
-          errors.push(`Row ${i + 1}: Missing Payee (tried headers: Payee, Name, Description, Payee Name) - skipping row`);
+          errors.push(`Row ${i + 1}: Missing Payee (tried headers: Payee, Name, Description, Payee Name, Merchant, Company, Vendor, Supplier) - available headers: ${Object.keys(record).join(', ')}`);
           continue;
         }
 
