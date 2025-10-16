@@ -193,7 +193,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
 
   // Calculate total amount whenever categories change
   React.useEffect(() => {
-    const newTotal = watchedCategories.reduce((sum, item) => sum + (item.amount || 0), 0);
+    console.log("[UpdateStandingOrderForm] watchedCategories changed:", watchedCategories);
+    const newTotal = watchedCategories.reduce((sum, item) => {
+      const amount = item.amount || 0;
+      console.log(`[UpdateStandingOrderForm] Reducing: current sum=${sum}, item.amount=${amount}`);
+      return sum + amount;
+    }, 0);
+    console.log("[UpdateStandingOrderForm] Calculated newTotal:", newTotal);
     form.setValue("total_amount", newTotal);
   }, [watchedCategories, form]);
 
@@ -303,6 +309,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </FormItem>
           )}
         />
+        
         <FormField
           control={form.control}
           name="payment_date"
