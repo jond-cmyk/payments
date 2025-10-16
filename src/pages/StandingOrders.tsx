@@ -85,6 +85,13 @@ const StandingOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
+  // NEW: Bulk selection state
+  const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
+
+  // Sorting states
+  const [sortColumn, setSortColumn] = useState<keyof StandingOrder>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
     setLocalFilterPayee(filterPayee);
@@ -181,9 +188,6 @@ const StandingOrders = () => {
     },
     enabled: !!session,
   });
-
-  // NEW: Bulk selection state
-  const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
 
   // Clear selection when data or page changes
   useEffect(() => {
