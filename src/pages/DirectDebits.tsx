@@ -84,6 +84,21 @@ const DirectDebits = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  // NEW: Page size selector with 'all' option
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(ITEMS_PER_PAGE);
+
+  // NEW: Row selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const toggleRowSelection = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => checked ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id));
+  }, []);
+  const toggleSelectAllVisible = (checked: boolean) => {
+    if (!directDebits) return;
+    const visibleIds = directDebits.map(d => d.id);
+    setSelectedIds((prev) => checked ? Array.from(new Set([...prev, ...visibleIds])) : prev.filter((id) => !visibleIds.includes(id)));
+  };
+  const visibleIds = (directDebits ?? []).map(d => d.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
 
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
@@ -119,12 +134,14 @@ const DirectDebits = () => {
 
   // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
-    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage],
+    // NEW: include itemsPerPage in query key
+    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage, itemsPerPage],
     queryFn: async () => {
       if (!session) return [];
 
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+      // NEW: Compute range only when not 'all'
+      const from = itemsPerPage === 'all' ? 0 : (currentPage - 1) * (itemsPerPage as number);
+      const to = itemsPerPage === 'all' ? null : from + (itemsPerPage as number) - 1;
 
       let query = supabase
         .from('direct_debits')
@@ -175,7 +192,10 @@ const DirectDebits = () => {
         query = query.order('id', { ascending: false });
       }
 
-      query = query.range(from, to);
+      // NEW: Apply range only when not 'all'
+      if (to !== null) {
+        query = query.range(from, to);
+      }
 
       const { data, error, count } = await query;
       if (error) throw error;
@@ -183,6 +203,26 @@ const DirectDebits = () => {
       return data;
     },
     enabled: !!session,
+  });
+
+  // NEW: Bulk delete mutation (admins only)
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from('direct_debits')
+        .delete()
+        .in('id', ids);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      showSuccess(`Deleted ${selectedIds.length} direct debit(s) successfully!`);
+      setSelectedIds([]);
+      queryClient.invalidateQueries({ queryKey: ['directDebits'] });
+    },
+    onError: (error: any) => {
+      showError(error?.message || "Failed to delete selected direct debits.");
+    },
   });
 
   const deleteDirectDebitMutation = useMutation({
@@ -234,6 +274,8 @@ const DirectDebits = () => {
     setFilterStartDate(undefined);
     setFilterEndDate(undefined);
     setCurrentPage(1);
+    // Optional: clear selection when filters are cleared
+    setSelectedIds([]);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
@@ -294,7 +336,7 @@ const DirectDebits = () => {
     }
   };
 
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(totalItems / (itemsPerPage === 'all' ? 1000000000 : itemsPerPage as number));
 
   const renderPaginationItems = () => {
     const items = [];
@@ -359,12 +401,35 @@ const DirectDebits = () => {
             <CardTitle className="flex items-center text-2xl font-bold">
               <Banknote className="mr-2 h-6 w-6" /> Direct Debits
             </CardTitle>
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-2">
               {isAdmin && (
                 <Button onClick={handleDownloadDirectDebits} className="shadow-sm" variant="outline">
                   <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
               )}
+              {/* NEW: Rows per page selector */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="rows-per-page" className="text-sm text-gray-600">Rows per page</label>
+                <Select
+                  value={String(itemsPerPage)}
+                  onValueChange={(value) => {
+                    const next = value === 'all' ? 'all' : Number(value);
+                    setItemsPerPage(next);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger id="rows-per-page" className="w-[140px]">
+                    <SelectValue placeholder={String(itemsPerPage)} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Dialog open={isAddDirectDebitDialogOpen} onOpenChange={setIsAddDirectDebitDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="shadow-sm">
@@ -378,6 +443,34 @@ const DirectDebits = () => {
                   <AddDirectDebitForm onDirectDebitAdded={handleDirectDebitAdded} />
                 </DialogContent>
               </Dialog>
+              {/* NEW: Admin-only bulk delete */}
+              {isAdmin && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="text-red-600 border-red-600 hover:bg-red-50 shadow-sm"
+                      disabled={selectedIds.length === 0 || bulkDeleteMutation.isPending}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Bulk Delete
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {selectedIds.length} selected item(s)?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. Selected direct debits will be permanently deleted.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => bulkDeleteMutation.mutate(selectedIds)} asChild>
+                        <Button variant="destructive">Delete</Button>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           </div>
           <CardDescription>
@@ -510,6 +603,14 @@ const DirectDebits = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {/* NEW: Select all checkbox */}
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={allVisibleSelected}
+                        onCheckedChange={(checked) => toggleSelectAllVisible(Boolean(checked))}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payee')}>
                       <div className="flex items-center">
                         Payee {renderSortIcon('payee')}
@@ -552,6 +653,14 @@ const DirectDebits = () => {
                 <TableBody>
                   {directDebits.map((debit) => (
                     <TableRow key={debit.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
+                      {/* NEW: Row selection checkbox */}
+                      <TableCell className="w-12">
+                        <Checkbox
+                          checked={selectedIds.includes(debit.id)}
+                          onCheckedChange={(checked) => toggleRowSelection(debit.id, Boolean(checked))}
+                          aria-label={`Select ${debit.payee}`}
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{debit.payee}</TableCell>
                       <TableCell>{format(new Date(debit.payment_date), 'PPP')}</TableCell>
                       <TableCell>
@@ -618,7 +727,8 @@ const DirectDebits = () => {
           ) : (
             <p className="text-center text-muted-foreground mt-8">No direct debits found matching your criteria.</p>
           )}
-          {totalPages > 1 && (
+          {/* NEW: Hide pagination when viewing all */}
+          {itemsPerPage !== 'all' && totalPages > 1 && (
             <Pagination className="mt-4">
               <PaginationContent>
                 <PaginationItem>
