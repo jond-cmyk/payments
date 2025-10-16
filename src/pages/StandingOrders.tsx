@@ -93,6 +93,16 @@ const StandingOrders = () => {
     setSelectedStandingOrderIds([]);
   }, [standingOrders, currentPage]);
 
+  // NEW: Selection helpers
+  const isAllSelected = (standingOrders?.length || 0) > 0 && selectedStandingOrderIds.length === (standingOrders?.length || 0);
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (!standingOrders) return;
+    setSelectedStandingOrderIds(checked ? standingOrders.map(o => o.id) : []);
+  };
+  const handleToggleSelect = (id: string, checked: boolean) => {
+    setSelectedStandingOrderIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id));
+  };
+
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
     setLocalFilterPayee(filterPayee);
