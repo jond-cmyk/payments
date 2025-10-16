@@ -644,12 +644,7 @@ const DirectDebits = () => {
                     <TableHead>Categories</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
                       <div className="flex items-center">
-                        Start Date {renderSortIcon('payment_date')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_end_date')}>
-                      <div className="flex items-center">
-                        End Date {renderSortIcon('payment_end_date')}
+                        Payment Date {renderSortIcon('payment_date')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
@@ -657,6 +652,7 @@ const DirectDebits = () => {
                         Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
+                    <TableHead>Payment Reference</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}
@@ -694,8 +690,8 @@ const DirectDebits = () => {
                         ) : 'N/A'}
                       </TableCell>
                       <TableCell>{debit.payment_date ? format(new Date(debit.payment_date), 'PPP') : 'N/A'}</TableCell>
-                      <TableCell>N/A</TableCell>
                       <TableCell>{debit.payment_date ? new Date(debit.payment_date).getDate() : 'N/A'}</TableCell>
+                      <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
                       <TableCell>{debit.country}</TableCell>
                       <TableCell>{debit.account_number}</TableCell>
