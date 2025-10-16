@@ -572,7 +572,12 @@ const DirectDebits = () => {
                           <Eye className="h-4 w-4" /> View
                         </Button>
                         {isAdmin && (
-                          <Button variant="outline" size="sm" className="shadow-sm" onClick={() => handleEditClick(debit)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shadow-sm"
+                            onClick={() => handleEditClick(debit)}
+                          >
                             <Edit className="h-4 w-4" />
                           </Button>
                         )}
