@@ -93,42 +93,6 @@ const DirectDebits = () => {
     setSelectedIds((prev) => checked ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id));
   }, []);
 
-  // Move this function after directDebits is defined
-  const visibleIds = directDebits?.map(d => d.id) ?? [];
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
-
-  // Effect to sync local filter states with actual filter states when they are cleared externally
-  useEffect(() => {
-    setLocalFilterPayee(filterPayee);
-  }, [filterPayee]);
-
-  useEffect(() => {
-    setLocalFilterSku(filterSku);
-  }, [filterSku]);
-
-  useEffect(() => {
-    setLocalFilterPaymentReference(filterPaymentReference);
-  }, [filterPaymentReference]);
-
-  // Sorting states
-  const [sortColumn, setSortColumn] = useState<keyof DirectDebit | null>('payment_date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
-
-  // Debounce for text inputs
-  const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-    debounceTimeoutRef.current = setTimeout(() => {
-      setter(value);
-      setCurrentPage(1);
-    }, 500);
-  }, []);
-
-  const isAdmin = userProfile?.role === 'admin';
-
   // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
     // NEW: include itemsPerPage in query key
@@ -202,12 +166,48 @@ const DirectDebits = () => {
     enabled: !!session,
   });
 
-  // Define toggleSelectAllVisible after directDebits is available
+  // Define functions after directDebits is available
   const toggleSelectAllVisible = (checked: boolean) => {
     if (!directDebits) return;
     const visibleIds = directDebits.map(d => d.id);
     setSelectedIds((prev) => checked ? Array.from(new Set([...prev, ...visibleIds])) : prev.filter((id) => !visibleIds.includes(id)));
   };
+
+  // Calculate these values safely
+  const visibleIds = directDebits?.map(d => d.id) ?? [];
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
+
+  // Effect to sync local filter states with actual filter states when they are cleared externally
+  useEffect(() => {
+    setLocalFilterPayee(filterPayee);
+  }, [filterPayee]);
+
+  useEffect(() => {
+    setLocalFilterSku(filterSku);
+  }, [filterSku]);
+
+  useEffect(() => {
+    setLocalFilterPaymentReference(filterPaymentReference);
+  }, [filterPaymentReference]);
+
+  // Sorting states
+  const [sortColumn, setSortColumn] = useState<keyof DirectDebit | null>('payment_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Debounce for text inputs
+  const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      setter(value);
+      setCurrentPage(1);
+    }, 500);
+  }, []);
+
+  const isAdmin = userProfile?.role === 'admin';
 
   // NEW: Bulk delete mutation (admins only)
   const bulkDeleteMutation = useMutation({
