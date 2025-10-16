@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector';
-import CsvStructureViewer from '@/components/CsvStructureViewer';
 
 const AdminUploadDirectDebits = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -140,7 +139,6 @@ const AdminUploadDirectDebits = () => {
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        <CsvStructureViewer onFileAnalyzed={(structure) => console.log('CSV analyzed:', structure)} />
         
         <Card className="shadow-sm">
           <CardHeader>
