@@ -252,7 +252,7 @@ const DirectDebitDetail = () => {
             </div>
             <div>
               <p className="font-medium">Payment Day:</p>
-              <p>{new Date(directDebit.payment_date).getDate()}</p>
+              <p>{directDebit.payment_date ? new Date(directDebit.payment_date).getDate() : '—'}</p>
             </div>
             <div>
               <p className="font-medium">SKU:</p>
