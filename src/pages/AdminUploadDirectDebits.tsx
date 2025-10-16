@@ -60,12 +60,20 @@ const AdminUploadDirectDebits = () => {
     }
 
     const file = selectedFile[0];
+    console.log(`[Client] Starting upload of file: ${file.name}`);
+    console.log(`[Client] File size: ${file.size} bytes`);
+    console.log(`[Client] Selected country: ${selectedUploadCountry}`);
+    
     const toastId = showLoading("Uploading and processing direct debits spreadsheet...");
     setIsUploading(true);
 
     try {
+      console.log(`[Client] Reading file content...`);
       const fileContent = await file.text();
+      console.log(`[Client] File content length: ${fileContent.length} characters`);
+      console.log(`[Client] First 200 chars of file: ${fileContent.substring(0, 200)}`);
 
+      console.log(`[Client] Calling upload-direct-debits function...`);
       const { data, error: invokeError } = await supabase.functions.invoke('upload-direct-debits', {
         body: {
           fileName: file.name,
@@ -75,8 +83,11 @@ const AdminUploadDirectDebits = () => {
         },
       });
 
+      console.log(`[Client] Function response:`, { data, invokeError });
+
       if (invokeError) {
-        console.error("Supabase Function Invoke Error:", invokeError);
+        console.error("[Client] Supabase Function Invoke Error:", invokeError);
+        console.error("[Client] Full error details:", JSON.stringify(invokeError, null, 2));
         if (data?.error) {
           throw new Error(data.error);
         }
@@ -84,14 +95,21 @@ const AdminUploadDirectDebits = () => {
       }
 
       if (data?.error) {
+        console.error("[Client] Function returned error:", data.error);
         throw new Error(data.error);
       }
 
+      console.log(`[Client] Upload successful! Message: ${data?.message}`);
+      if (data.errors && data.errors.length > 0) {
+        console.warn(`[Client] Upload completed with ${data.errors.length} warnings/errors:`, data.errors);
+      }
+      
       showSuccess(data?.message || "Direct debits spreadsheet uploaded and processed successfully!");
       setSelectedFile(null);
     } catch (error: any) {
+      console.error("[Client] Direct debits upload error:", error);
+      console.error("[Client] Error stack:", error.stack);
       showError(error.message || "Failed to upload and process direct debits spreadsheet.");
-      console.error("Direct debits upload error:", error);
     } finally {
       dismissToast(toastId);
       setIsUploading(false);
