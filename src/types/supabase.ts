@@ -66,7 +66,7 @@ export type DirectDebit = {
   updated_at: string;
   requester_id: string;
   payee: string;
-  payment_date: string; // YYYY-MM-DD format
+  payment_date: string | null; // YYYY-MM-DD format - Made nullable
   sku: string | null;
   not_property_related: boolean;
   category: string;

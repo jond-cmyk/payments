@@ -666,7 +666,7 @@ const DirectDebits = () => {
                         />
                       </TableCell>
                       <TableCell className="font-medium">{debit.payee}</TableCell>
-                      <TableCell>{format(new Date(debit.payment_date), 'PPP')}</TableCell>
+                      <TableCell>{debit.payment_date ? new Date(debit.payment_date).getDate() : '—'}</TableCell>
                       <TableCell>
                         {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
                       </TableCell>
