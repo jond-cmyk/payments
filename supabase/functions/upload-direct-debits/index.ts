@@ -131,10 +131,14 @@ serve(async (req) => {
     console.log(`[upload-direct-debits] Headers found: ${JSON.stringify(headers)}`);
     console.log(`[upload-direct-debits] Number of data rows: ${dataRows.length}`);
 
-    // DEBUG: Show first few rows of actual data
-    console.log(`[upload-direct-debits] First 3 data rows:`);
+    // DEBUG: Show first few rows of actual data with headers
+    console.log(`[upload-direct-debits] First 3 data rows with headers:`);
     dataRows.slice(0, 3).forEach((row, i) => {
-      console.log(`Row ${i + 1}: ${JSON.stringify(row)}`);
+      const rowObj: Record<string, string> = {};
+      headers.forEach((header, index) => {
+        rowObj[header] = row[index]?.trim() || '';
+      });
+      console.log(`Row ${i + 1}: ${JSON.stringify(rowObj)}`);
     });
 
     const directDebitsToInsert = [];
@@ -159,13 +163,21 @@ serve(async (req) => {
       console.log(`[upload-direct-debits] Row ${i + 1} as object: ${JSON.stringify(record)}`);
 
       try {
-        // Extract fields from your CSV format
-        const leaseId = record['Lease ID'] || '';
-        const sku = record['SKU'] || '';
-        const categoryCode = record['Category'] || '';
-        const payee = record['Payee'] || '';
-        const accountNumber = record['Account Number'] || '';
-        const paymentReference = record['Payment Reference'] || '';
+        // Extract fields from your CSV format - let's see what headers we actually have
+        console.log(`[upload-direct-debits] Available headers: ${Object.keys(record).join(', ')}`);
+        
+        // Try different possible header names for payee
+        const payee = record['Payee'] || record['payee'] || record['PAYEE'] || 
+                     record['Name'] || record['name'] || record['NAME'] ||
+                     record['Description'] || record['description'] || record['DESCRIPTION'] ||
+                     record['Payee Name'] || record['Payee name'] || record['payee name'] ||
+                     record['PayeeName'] || record['Payeename'] || record['payeename'];
+
+        const leaseId = record['Lease ID'] || record['lease id'] || record['LeaseID'] || record['lease_id'] || '';
+        const sku = record['SKU'] || record['sku'] || '';
+        const categoryCode = record['Category'] || record['category'] || record['CAT'] || record['cat'] || '';
+        const accountNumber = record['Account Number'] || record['account number'] || record['AccountNumber'] || record['account_number'] || '';
+        const paymentReference = record['Payment Reference'] || record['payment reference'] || record['PaymentReference'] || record['payment_reference'] || '';
 
         console.log(`[upload-direct-debits] Row ${i + 1} extracted values:`, {
           leaseId: leaseId || '(empty)',
@@ -178,7 +190,7 @@ serve(async (req) => {
 
         // Basic validation - only payee is required
         if (!payee) {
-          errors.push(`Row ${i + 1}: Missing Payee - skipping row`);
+          errors.push(`Row ${i + 1}: Missing Payee (tried headers: Payee, Name, Description, Payee Name) - skipping row`);
           continue;
         }
 
