@@ -84,6 +84,7 @@ const StandingOrders = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE);
 
   // NEW: Bulk selection state
   const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
@@ -500,7 +501,34 @@ const StandingOrders = () => {
         <CardContent>
           {/* Filters */}
           <div className="mb-4 p-4 border rounded-md bg-gray-50 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4 text-gray-800">Filter Standing Orders</h3>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Filter Standing Orders</h3>
+              {/* NEW: Records per page selector */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="items-per-page" className="text-sm font-medium text-gray-700">
+                  Records per page:
+                </label>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={(value) => {
+                    const newItemsPerPage = parseInt(value);
+                    setItemsPerPage(newItemsPerPage);
+                    setCurrentPage(1); // Reset to first page when changing items per page
+                  }}
+                >
+                  <SelectTrigger id="items-per-page" className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="-1">Show All</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {isAdmin && (
                 <div>
