@@ -193,10 +193,11 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
 
   // Calculate total amount whenever categories change
   React.useEffect(() => {
-    console.log("[UpdateStandingOrderForm] watchedCategories changed:", watchedCategories);
-    const newTotal = watchedCategories.reduce((sum, item) => {
+    console.log("[UpdateStandingOrderForm] useEffect triggered for categories change.");
+    console.log("[UpdateStandingOrderForm] watchedCategories:", JSON.stringify(watchedCategories));
+    const newTotal = watchedCategories.reduce((sum, item, index) => {
       const amount = item.amount || 0;
-      console.log(`[UpdateStandingOrderForm] Reducing: current sum=${sum}, item.amount=${amount}`);
+      console.log(`[UpdateStandingOrderForm] Reducing item ${index}: sum=${sum}, item=${JSON.stringify(item)}, amount=${amount}`);
       return sum + amount;
     }, 0);
     console.log("[UpdateStandingOrderForm] Calculated newTotal:", newTotal);
