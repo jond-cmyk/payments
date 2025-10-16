@@ -622,7 +622,7 @@ const DirectDebits = () => {
                     </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
                       <div className="flex items-center">
-                        Payment Date {renderSortIcon('payment_date')}
+                        Payment Day {renderSortIcon('payment_date')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
