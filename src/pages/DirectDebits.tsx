@@ -642,11 +642,6 @@ const DirectDebits = () => {
                       </div>
                     </TableHead>
                     <TableHead>Categories</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
-                      <div className="flex items-center">
-                        Payment Date {renderSortIcon('payment_date')}
-                      </div>
-                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
                         Payment Day {renderSortIcon('payment_day')}
@@ -689,7 +684,6 @@ const DirectDebits = () => {
                           </Badge>
                         ) : 'N/A'}
                       </TableCell>
-                      <TableCell>{debit.payment_date ? format(new Date(debit.payment_date), 'PPP') : 'N/A'}</TableCell>
                       <TableCell>{debit.payment_date ? new Date(debit.payment_date).getDate() : 'N/A'}</TableCell>
                       <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
