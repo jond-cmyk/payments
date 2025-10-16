@@ -88,6 +88,19 @@ const StandingOrders = () => {
   // NEW: Bulk selection state
   const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
 
+  // Effect to sync local filter states with actual filter states when they are cleared externally
+  useEffect(() => {
+    setLocalFilterPayee(filterPayee);
+  }, [filterPayee]);
+
+  useEffect(() => {
+    setLocalFilterSku(filterSku);
+  }, [filterSku]);
+
+  useEffect(() => {
+    setLocalFilterPaymentReference(filterPaymentReference);
+  }, [filterPaymentReference]);
+
   // Clear selection when data or page changes
   useEffect(() => {
     setSelectedStandingOrderIds([]);
@@ -102,23 +115,6 @@ const StandingOrders = () => {
   const handleToggleSelect = (id: string, checked: boolean) => {
     setSelectedStandingOrderIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id));
   };
-
-  // Effect to sync local filter states with actual filter states when they are cleared externally
-  useEffect(() => {
-    setLocalFilterPayee(filterPayee);
-  }, [filterPayee]);
-
-  useEffect(() => {
-    setLocalFilterSku(filterSku);
-  }, [filterSku]);
-
-  useEffect(() => {
-    setLocalFilterPaymentReference(filterPaymentReference);
-  }, [filterPaymentReference]);
-
-  // Sorting states
-  const [sortColumn, setSortColumn] = useState<keyof StandingOrder | null>('payment_date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Debounce for text inputs
   const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
