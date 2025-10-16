@@ -184,6 +184,7 @@ serve(async (req) => {
         const categoryCode = record['Category'] || record['category'] || record['CAT'] || record['cat'] || '';
         const accountNumber = record['Account Number'] || record['account number'] || record['AccountNumber'] || record['account_number'] || '';
         const paymentReference = record['Payment Reference'] || record['payment reference'] || record['PaymentReference'] || record['payment_reference'] || '';
+        const paymentDate = record['Date'] || record['date'] || record['DATE'] || record['Date'] || null;
 
         console.log(`[upload-direct-debits] Row ${i + 1} extracted values:`, {
           leaseId: leaseId || '(empty)',
@@ -191,7 +192,8 @@ serve(async (req) => {
           categoryCode: categoryCode || '(empty)',
           payee: payee || '(empty)',
           accountNumber: accountNumber || '(empty)',
-          paymentReference: paymentReference || '(empty)'
+          paymentReference: paymentReference || '(empty)',
+          paymentDate: paymentDate || '(empty)'
         });
 
         // Basic validation - only payee is required
@@ -204,19 +206,19 @@ serve(async (req) => {
         const category = categoryMap[categoryCode] || '974_other';
         console.log(`[upload-direct-debits] Row ${i + 1}: Mapped category '${categoryCode}' to '${category}'`);
 
-        // Create direct debit record
+        // Create direct debit record from transaction data
         const directDebitRecord = {
-          requester_id: uploaderId, // Always use uploader ID
+          requester_id: uploaderId,
           payee: payee,
-          payment_date: null, // Payment date is blank as you mentioned
+          payment_date: paymentDate || null,
           sku: sku || null,
           not_property_related: false, // Default to false
-          category: category,
+          category: '974_other', // Default category
           account_number: accountNumber || 'UNKNOWN',
           payment_reference: paymentReference || null,
-          status: 'awaiting_info', // This will be 'Waiting Further Information' in the UI
+          status: 'awaiting_info',
           country: country,
-          bank_account: null,
+          bank_account: record['Bank'] || record['bank'] || null,
         };
 
         console.log(`[upload-direct-debits] Row ${i + 1}: Final record:`, JSON.stringify(directDebitRecord, null, 2));
