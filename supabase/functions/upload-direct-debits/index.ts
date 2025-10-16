@@ -31,6 +31,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('[upload-direct-debits] Starting function execution');
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -64,18 +66,35 @@ serve(async (req) => {
       });
     }
 
-    const payload = await req.json();
+    let payload;
+    try {
+      payload = await req.json();
+      console.log('[upload-direct-debits] Payload received successfully');
+      console.log(`[upload-direct-debits] Payload keys: ${Object.keys(payload).join(', ')}`);
+    } catch (jsonError) {
+      console.error('[upload-direct-debits] Failed to parse JSON payload:', jsonError);
+      return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { fileName, fileContent, uploaderId, country } = payload;
 
     if (!fileName || !fileContent || !uploaderId || !country) {
-      console.error('[upload-direct-debits] Missing file data, uploader ID, or country in payload.');
+      console.error('[upload-direct-debits] Missing required fields:', { 
+        fileName: !!fileName, 
+        fileContent: !!fileContent, 
+        uploaderId: !!uploaderId, 
+        country: !!country 
+      });
       return new Response(JSON.stringify({ error: 'Missing file data, uploader ID, or country in payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`[upload-direct-debits] Received file: ${fileName} from uploader: ${uploaderId} for country: ${country}`);
+    console.log(`[upload-direct-debits] Processing file: ${fileName} from uploader: ${uploaderId} for country: ${country}`);
     console.log(`[upload-direct-debits] File content length: ${fileContent.length}`);
 
     let parsedRows: string[][];
@@ -113,19 +132,12 @@ serve(async (req) => {
     const directDebitsToInsert = [];
     const errors: string[] = [];
 
-    const expectedHeaders = ['Payee', 'Payment Date', 'SKU', 'Not Property Related', 'Category', 'Account Number', 'Payment Reference', 'Bank Account', 'User Email'];
-    const missingExpectedHeaders = expectedHeaders.filter(h => !headers.includes(h));
-
-    if (missingExpectedHeaders.length > 0) {
-      errors.push(`Warning: Missing some expected CSV headers: ${missingExpectedHeaders.join(', ')}. Data for these columns will be null.`);
-      console.warn('[upload-direct-debits] Missing expected CSV headers:', missingExpectedHeaders);
-    }
-
-    const userEmailToIdCache = new Map<string, string | null>();
-
-    for (const row of dataRows) {
+    // Process each data row with individual error handling
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      
       if (row.length !== headers.length) {
-        const msg = `Row has a different number of columns than headers. Skipping row: ${JSON.stringify(row)}`;
+        const msg = `Row ${i + 1} has ${row.length} columns but headers have ${headers.length}. Skipping.`;
         errors.push(msg);
         console.warn(`[upload-direct-debits] ${msg}`);
         continue;
@@ -136,57 +148,80 @@ serve(async (req) => {
         record[header] = row[index];
       });
 
-      console.log(`[upload-direct-debits] Processing record: ${JSON.stringify(record)}`);
+      console.log(`[upload-direct-debits] Processing row ${i + 1}: ${JSON.stringify(record)}`);
 
-      let {
-        'Payee': payee,
-        'Payment Date': payment_date_str,
-        'SKU': sku,
-        'Not Property Related': not_property_related_str,
-        'Category': categoryRaw,
-        'Account Number': account_number,
-        'Payment Reference': payment_reference,
-        'Bank Account': bank_account,
-        'User Email': user_email_from_csv,
-      } = record;
+      try {
+        // Extract fields with safe defaults
+        const payee = record['Payee']?.trim() || '';
+        const payment_date_str = record['Payment Date']?.trim() || '';
+        const sku = record['SKU']?.trim() || '';
+        const not_property_related_str = record['Not Property Related']?.trim() || '';
+        const categoryRaw = record['Category']?.trim() || '';
+        const account_number = record['Account Number']?.trim() || '';
+        const payment_reference = record['Payment Reference']?.trim() || '';
+        const bank_account = record['Bank Account']?.trim() || '';
+        const user_email_from_csv = record['User Email']?.trim() || '';
 
-      // Map numeric category to full label
-      let category = categoryRaw || null;
-      if (category && /^\d{3}$/.test(category.trim())) {
-        const found = categoryOptions.find(opt => opt.value.startsWith(category.trim()));
-        if (found) {
-          category = found.value;
-        } else {
-          errors.push(`Unknown category code "${category}" for row: ${JSON.stringify(record)}`);
+        console.log(`[upload-direct-debits] Row ${i + 1} extracted fields:`, {
+          payee: !!payee,
+          payment_date: !!payment_date_str,
+          category: !!categoryRaw,
+          account_number: !!account_number,
+          user_email: !!user_email_from_csv
+        });
+
+        // Map numeric category to full label
+        let category = categoryRaw || null;
+        if (category && /^\d{3}$/.test(category)) {
+          const found = categoryOptions.find(opt => opt.value.startsWith(category));
+          if (found) {
+            category = found.value;
+            console.log(`[upload-direct-debits] Row ${i + 1}: Mapped category '${categoryRaw}' to '${category}'`);
+          } else {
+            errors.push(`Row ${i + 1}: Unknown category code "${category}"`);
+            console.warn(`[upload-direct-debits] Row ${i + 1}: Unknown category code "${category}"`);
+          }
         }
-      }
 
-      // Relaxed validation: if critical fields are missing, set to null and add a warning
-      if (!payee) errors.push(`Missing Payee for row: ${JSON.stringify(record)}`);
-      if (!payment_date_str) errors.push(`Missing Payment Date for row: ${JSON.stringify(record)}`);
-      if (!category) errors.push(`Missing Category for row: ${JSON.stringify(record)}`);
-      if (!account_number) errors.push(`Missing Account Number for row: ${JSON.stringify(record)}`);
-      if (!user_email_from_csv) errors.push(`Missing User Email for row: ${JSON.stringify(record)}`);
-
-      let payment_date = null;
-      if (payment_date_str) {
-        const dateParts = payment_date_str.split('.');
-        if (dateParts.length === 3) {
-          payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
-        } else {
-          errors.push(`Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY. Setting Payment Date to null.`);
+        // Basic validation
+        if (!payee) {
+          errors.push(`Row ${i + 1}: Missing Payee`);
+          continue;
         }
-      }
+        if (!category) {
+          errors.push(`Row ${i + 1}: Missing or invalid Category`);
+          continue;
+        }
+        if (!account_number) {
+          errors.push(`Row ${i + 1}: Missing Account Number`);
+          continue;
+        }
+        if (!user_email_from_csv) {
+          errors.push(`Row ${i + 1}: Missing User Email`);
+          continue;
+        }
 
-      const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
+        // Parse payment date
+        let payment_date = null;
+        if (payment_date_str) {
+          const dateParts = payment_date_str.split('.');
+          if (dateParts.length === 3) {
+            payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+            console.log(`[upload-direct-debits] Row ${i + 1}: Parsed date '${payment_date_str}' to '${payment_date}'`);
+          } else {
+            errors.push(`Row ${i + 1}: Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY.`);
+            continue;
+          }
+        }
 
-      let requesterIdForDirectDebit = uploaderId;
+        const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
 
-      if (user_email_from_csv) {
-        if (userEmailToIdCache.has(user_email_from_csv)) {
-          requesterIdForDirectDebit = userEmailToIdCache.get(user_email_from_csv) || uploaderId;
-          console.log(`[upload-direct-debits] Found user_id for ${user_email_from_csv} in cache: ${requesterIdForDirectDebit}`);
-        } else {
+        // Find user ID from email
+        let requesterIdForDirectDebit = uploaderId;
+        
+        console.log(`[upload-direct-debits] Row ${i + 1}: Looking up user for email '${user_email_from_csv}' in country '${country}'`);
+        
+        try {
           const { data: profileData, error: profileError } = await supabaseClient
             .from('profile_with_email')
             .select('id')
@@ -195,42 +230,49 @@ serve(async (req) => {
             .single();
 
           if (profileError || !profileData) {
-            const msg = `User with email '${user_email_from_csv}' not found in country ${country}. Assigning direct debit to uploader.`;
-            errors.push(msg);
-            console.warn(`[upload-direct-debits] ${msg}`);
-            userEmailToIdCache.set(user_email_from_csv, null);
+            console.warn(`[upload-direct-debits] Row ${i + 1}: User lookup failed - ${profileError?.message || 'User not found'}`);
+            errors.push(`Row ${i + 1}: User with email '${user_email_from_csv}' not found in country ${country}. Using uploader ID.`);
           } else {
             requesterIdForDirectDebit = profileData.id;
-            userEmailToIdCache.set(user_email_from_csv, profileData.id);
-            console.log(`[upload-direct-debits] Found user_id for ${user_email_from_csv}: ${requesterIdForDirectDebit}`);
+            console.log(`[upload-direct-debits] Row ${i + 1}: Found user ID '${requesterIdForDirectDebit}'`);
           }
+        } catch (userError) {
+          console.error(`[upload-direct-debits] Row ${i + 1}: Error finding user for email ${user_email_from_csv}:`, userError);
+          errors.push(`Row ${i + 1}: Error finding user. Using uploader ID.`);
         }
-      } else {
-        errors.push(`User Email missing for row. Assigning direct debit to uploader.`);
-      }
 
-      directDebitsToInsert.push({
-        requester_id: requesterIdForDirectDebit,
-        payee: payee || null,
-        payment_date: payment_date,
-        sku: sku || null,
-        not_property_related: not_property_related,
-        category: category,
-        account_number: account_number || null,
-        payment_reference: payment_reference || null,
-        status: 'awaiting_info',
-        country: country,
-        bank_account: bank_account || null,
-      });
+        // Create direct debit record
+        const directDebitRecord = {
+          requester_id: requesterIdForDirectDebit,
+          payee: payee,
+          payment_date: payment_date,
+          sku: sku || null,
+          not_property_related: not_property_related,
+          category: category,
+          account_number: account_number,
+          payment_reference: payment_reference || null,
+          status: 'awaiting_info',
+          country: country,
+          bank_account: bank_account || null,
+        };
+
+        console.log(`[upload-direct-debits] Row ${i + 1}: Created record:`, JSON.stringify(directDebitRecord, null, 2));
+        directDebitsToInsert.push(directDebitRecord);
+
+      } catch (rowError) {
+        console.error(`[upload-direct-debits] Error processing row ${i + 1}:`, rowError);
+        errors.push(`Row ${i + 1}: ${rowError.message}`);
+        continue;
+      }
     }
 
     console.log(`[upload-direct-debits] Direct Debits prepared for insertion: ${directDebitsToInsert.length}`);
-    if (directDebitsToInsert.length > 0) {
-      console.log(`[upload-direct-debits] First direct debit to insert: ${JSON.stringify(directDebitsToInsert[0])}`);
-    }
 
     let insertedCount = 0;
     if (directDebitsToInsert.length > 0) {
+      console.log('[upload-direct-debits] Inserting direct debits into database...');
+      console.log(`[upload-direct-debits] First record to insert:`, JSON.stringify(directDebitsToInsert[0], null, 2));
+      
       const { data: insertData, error: insertError } = await supabaseClient
         .from('direct_debits')
         .insert(directDebitsToInsert)
@@ -238,13 +280,21 @@ serve(async (req) => {
 
       if (insertError) {
         console.error('[upload-direct-debits] Failed to insert direct debits into database:', insertError);
-        return new Response(JSON.stringify({ error: `Failed to insert direct debits into database: ${insertError.message}` }), {
+        console.error('[upload-direct-debits] Insert error details:', {
+          message: insertError.message,
+          code: insertError.code,
+          details: insertError.details,
+          hint: insertError.hint
+        });
+        return new Response(JSON.stringify({ error: `Failed to insert direct debits: ${insertError.message}` }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      
       insertedCount = insertData?.length || 0;
       console.log(`[upload-direct-debits] Successfully inserted ${insertedCount} direct debits.`);
+      console.log(`[upload-direct-debits] Insert response data:`, JSON.stringify(insertData, null, 2));
     } else {
       console.warn('[upload-direct-debits] No direct debits to insert after processing.');
     }
@@ -252,13 +302,14 @@ serve(async (req) => {
     let message = `${insertedCount} direct debits inserted successfully with status 'Awaiting Info'.`;
     if (errors.length > 0) {
       message += ` ${errors.length} warnings/errors encountered during processing.`;
-      console.error('[upload-direct-debits] Direct Debit processing errors summary:', errors);
+      console.log('[upload-direct-debits] Processing completed with errors:', errors);
       return new Response(JSON.stringify({ message: message, errors: errors }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
+    console.log('[upload-direct-debits] Processing completed successfully');
     return new Response(JSON.stringify({ message: message }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -266,7 +317,14 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[upload-direct-debits] Edge Function unhandled error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred in the Edge Function.' }), {
+    console.error('[upload-direct-debits] Error stack:', error.stack);
+    console.error('[upload-direct-debits] Error name:', error.name);
+    console.error('[upload-direct-debits] Error message:', error.message);
+    return new Response(JSON.stringify({ 
+      error: 'An unexpected error occurred in the Edge Function.',
+      details: error.message,
+      type: error.name 
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
