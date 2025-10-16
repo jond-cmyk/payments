@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { parse } from 'https://deno.land/std@0.224.0/csv/mod.ts';
+import { categoryOptions } from '../../../src/lib/constants.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -125,8 +126,7 @@ serve(async (req) => {
         'Payment Date': payment_date_str,
         'SKU': sku,
         'Not Property Related': not_property_related_str,
-        'Category': category, // Now represents the first category
-        'Amount': amount_str, // Amount for the first category
+        'Category': categoryRaw,
         'Account Name': account_name,
         'Account Address': account_address,
         'IBAN Number': iban_number,
@@ -135,15 +135,26 @@ serve(async (req) => {
         'From Day': from_day_str,
         'To Day': to_day_str,
         'Payment Reference': payment_reference,
+        'Total Amount': total_amount_str,
         'User Email': user_email_from_csv,
-        'Bank Details Verified': bank_details_verified_str, // NEW: Bank Details Verified
       } = record;
+
+      // Map numeric category to full label
+      let category = categoryRaw || null;
+      if (category && /^\d{3}$/.test(category.trim())) {
+        const found = categoryOptions.find(opt => opt.value.startsWith(category.trim()));
+        if (found) {
+          category = found.value;
+        } else {
+          errors.push(`Unknown category code "${category}" for row: ${JSON.stringify(record)}`);
+        }
+      }
 
       // Relaxed validation: if critical fields are missing, set to null/default and add a warning
       if (!payee) errors.push(`Missing Payee for row: ${JSON.stringify(record)}`);
       if (!payment_date_str) errors.push(`Missing Payment Date for row: ${JSON.stringify(record)}`);
       if (!category) errors.push(`Missing Category for row: ${JSON.stringify(record)}`);
-      if (!amount_str) errors.push(`Missing Amount for row: ${JSON.stringify(record)}`);
+      if (!total_amount_str) errors.push(`Missing Total Amount for row: ${JSON.stringify(record)}`);
       if (!account_name) errors.push(`Missing Account Name for row: ${JSON.stringify(record)}`);
       if (!from_day_str) errors.push(`Missing From Day for row: ${JSON.stringify(record)}`);
       if (!to_day_str) errors.push(`Missing To Day for row: ${JSON.stringify(record)}`);
@@ -187,12 +198,12 @@ serve(async (req) => {
       }
 
       let parsedAmount: number | null = null;
-      if (amount_str) {
-        const parsed = parseFloat(amount_str.replace(/,/g, ''));
+      if (total_amount_str) {
+        const parsed = parseFloat(total_amount_str.replace(/,/g, ''));
         if (!isNaN(parsed) && parsed > 0) {
           parsedAmount = parsed;
         } else {
-          errors.push(`Invalid or non-positive amount '${amount_str}'. Setting to null.`);
+          errors.push(`Invalid or non-positive amount '${total_amount_str}'. Setting to null.`);
         }
       }
 
@@ -260,8 +271,7 @@ serve(async (req) => {
         payment_date: payment_date,
         sku: sku || null,
         not_property_related: not_property_related,
-        categories: categories.length > 0 ? categories : [{ category: '974_other', amount: 0 }], // Default if no valid categories
-        total_amount: total_amount,
+        category: category,
         account_name: account_name || null,
         account_address: account_address || null,
         iban_number: iban_number || null,
@@ -270,9 +280,11 @@ serve(async (req) => {
         from_day: from_day || 1, // Default to 1 if null
         to_day: to_day || 31, // Default to 31 if null
         payment_reference: payment_reference || null,
-        status: 'awaiting_info', // Set status to 'awaiting_info'
+        total_amount: total_amount,
+        status: 'pending',
         country: country,
-        bank_details_verified: bank_details_verified,
+        categories: [],
+        bank_details_verified: false,
       });
     }
 
@@ -301,7 +313,7 @@ serve(async (req) => {
       console.warn('[upload-standing-orders] No standing orders to insert after processing.');
     }
 
-    let message = `${insertedCount} standing orders inserted successfully with status 'Awaiting Info'.`;
+    let message = `${insertedCount} standing orders inserted successfully with status 'Pending'.`;
     if (errors.length > 0) {
       message += ` ${errors.length} warnings/errors encountered during processing.`;
       console.error('[upload-standing-orders] Standing Order processing errors summary:', errors);

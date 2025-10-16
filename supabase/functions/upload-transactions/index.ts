@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { parse } from 'https://deno.land/std@0.224.0/csv/mod.ts';
+import { categoryOptions } from '../../../src/lib/constants.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -166,6 +167,33 @@ serve(async (req) => {
 
       console.log(`[upload-transactions] Processing record: ${JSON.stringify(record)}`);
 
+      let {
+        'Transaction Date': transaction_date_str,
+        'Entry': entry,
+        'Description': description,
+        'Amount': amount_str,
+        'Currency': currency,
+        'Bank': bank,
+        'Contra Account': contra_account,
+        'SKU': sku,
+        'Not SKU Related': not_sku_related_str,
+        'Category': categoryRaw,
+        'Merchant Name': merchant_name,
+        'Reason for Payment': reason_for_payment,
+        'User Email': user_email_from_csv,
+      } = record;
+
+      // Map numeric category to full label
+      let category = categoryRaw || null;
+      if (category && /^\d{3}$/.test(category.trim())) {
+        const found = categoryOptions.find(opt => opt.value.startsWith(category.trim()));
+        if (found) {
+          category = found.value;
+        } else {
+          errors.push(`Unknown category code "${category}" for row: ${JSON.stringify(record)}`);
+        }
+      }
+
       const transaction_date_str = record['Date'];
       const description = record['Text'];
       const amount_str = record['Amount'];
@@ -224,26 +252,25 @@ serve(async (req) => {
 
       transactionsToInsert.push({
         requester_id: requesterIdForTransaction,
-        uploaded_by_user_id: uploaderId,
-        original_transaction_id: null,
+        original_transaction_id: original_transaction_id || null,
         status: 'pending_input',
-        type: type || null,
-        transaction_date: transaction_date,
+        type: null,
+        transaction_date: transactionDate,
         entry: entry || null,
         description: description,
-        amount: parsedAmount,
+        amount: amount,
         bank: bank || null,
         contra_account: contra_account || null,
         currency: currency,
-        exchange_rate: parsedExchangeRate,
-        comment: comment || null,
-        sku: sku || null,
-        reason_for_payment: null,
+        exchange_rate: null,
+        comment: null,
+        sku: not_sku_related ? null : sku,
+        reason_for_payment: reason_for_payment || null,
         receipt_urls: [],
-        category: null,
-        merchant_name: null,
+        category: category,
+        merchant_name: merchant_name || null,
         notes: null,
-        not_sku_related: false,
+        not_sku_related: not_sku_related,
         country: country,
       });
     }

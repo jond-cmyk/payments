@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 import { parse } from 'https://deno.land/std@0.224.0/csv/mod.ts';
+import { categoryOptions } from '../../../src/lib/constants.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -125,12 +126,23 @@ serve(async (req) => {
         'Payment Date': payment_date_str,
         'SKU': sku,
         'Not Property Related': not_property_related_str,
-        'Category': category,
+        'Category': categoryRaw,
         'Account Number': account_number,
         'Payment Reference': payment_reference,
         'Bank Account': bank_account,
         'User Email': user_email_from_csv,
       } = record;
+
+      // Map numeric category to full label
+      let category = categoryRaw || null;
+      if (category && /^\d{3}$/.test(category.trim())) {
+        const found = categoryOptions.find(opt => opt.value.startsWith(category.trim()));
+        if (found) {
+          category = found.value;
+        } else {
+          errors.push(`Unknown category code "${category}" for row: ${JSON.stringify(record)}`);
+        }
+      }
 
       // Relaxed validation: if critical fields are missing, set to null and add a warning
       if (!payee) errors.push(`Missing Payee for row: ${JSON.stringify(record)}`);
@@ -186,7 +198,7 @@ serve(async (req) => {
         payment_date: payment_date,
         sku: sku || null,
         not_property_related: not_property_related,
-        category: category || null,
+        category: category,
         account_number: account_number || null,
         payment_reference: payment_reference || null,
         status: 'awaiting_info', // Set status to 'awaiting_info'
