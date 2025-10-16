@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector';
+import CsvStructureViewer from '@/components/CsvStructureViewer';
 
 const AdminUploadDirectDebits = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -73,7 +74,17 @@ const AdminUploadDirectDebits = () => {
       console.log(`[Client] Reading file content...`);
       const fileContent = await file.text();
       console.log(`[Client] File content length: ${fileContent.length} characters`);
-      console.log(`[Client] First 200 chars of file: ${fileContent.substring(0, 200)}`);
+      
+      // Show first 500 characters to see the CSV structure
+      console.log(`[Client] First 500 chars of file: ${fileContent.substring(0, 500)}`);
+      
+      // Try to parse and show the first few lines
+      const lines = fileContent.split('\n');
+      console.log(`[Client] Total lines in file: ${lines.length}`);
+      console.log(`[Client] First 5 lines:`);
+      lines.slice(0, 5).forEach((line, index) => {
+        console.log(`Line ${index + 1}: "${line}"`);
+      });
 
       console.log(`[Client] Calling upload-direct-debits function...`);
       const { data, error: invokeError } = await supabase.functions.invoke('upload-direct-debits', {
@@ -109,6 +120,9 @@ const AdminUploadDirectDebits = () => {
       // Store server debug info
       if (data?.serverDebugInfo) {
         setServerDebugInfo(data.serverDebugInfo);
+        console.log(`[Client] Server debug info received:`, data.serverDebugInfo);
+      } else {
+        console.log(`[Client] No server debug info received`);
       }
       
       showSuccess(data?.message || "Direct debits spreadsheet uploaded and processed successfully!");
@@ -125,57 +139,61 @@ const AdminUploadDirectDebits = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Card className="max-w-2xl mx-auto shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-center">Upload Direct Debits Spreadsheet</CardTitle>
-          <CardDescription className="text-center">
-            Upload a CSV file containing direct debit data. New direct debits will be set to 'Pending' status.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex flex-col space-y-2">
-            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-              Select Country for Upload
-            </label>
-            <CountrySelector
-              className="w-full"
-              value={selectedUploadCountry}
-              onValueChange={setSelectedUploadCountry}
-              disabled={isUploading}
-              availableCountries={availableCountries.filter(c => c.value !== 'all')}
-            />
-          </div>
-          <FileInput
-            label="Choose CSV File"
-            accept=".csv"
-            value={selectedFile}
-            onChange={setSelectedFile}
-            disabled={isUploading}
-          />
-          <Button
-            onClick={handleFileUpload}
-            disabled={!selectedFile || selectedFile.length === 0 || isUploading || selectedUploadCountry === 'all'}
-            className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
-          >
-            <UploadCloud className="mr-2 h-4 w-4" />
-            {isUploading ? "Uploading..." : "Upload and Process"}
-          </Button>
-          <p className="text-sm text-muted-foreground text-center">
-            Accepted format: CSV. Max file size: 5MB.
-            <br />
-            Expected columns: `Payee`, `Payment Date` (DD.MM.YYYY), `Category`, `Account Number`, `User Email`.
-            <br />
-            Optional columns: `SKU`, `Not Property Related` (Yes/No), `Payment Reference`, `Bank Account` (for Switzerland).
-          </p>
-          
-          {serverDebugInfo && (
-            <div className="mt-4 p-4 bg-gray-100 rounded-md">
-              <h4 className="font-semibold mb-2">Server Debug Information:</h4>
-              <pre className="text-xs overflow-auto max-h-40">{serverDebugInfo}</pre>
+      <div className="max-w-2xl mx-auto space-y-6">
+        <CsvStructureViewer onFileAnalyzed={(structure) => console.log('CSV analyzed:', structure)} />
+        
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-2xl font-bold text-center">Upload Direct Debits Spreadsheet</CardTitle>
+            <CardDescription className="text-center">
+              Upload a CSV file containing direct debit data. New direct debits will be set to 'Pending' status.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex flex-col space-y-2">
+              <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Select Country for Upload
+              </label>
+              <CountrySelector
+                className="w-full"
+                value={selectedUploadCountry}
+                onValueChange={setSelectedUploadCountry}
+                disabled={isUploading}
+                availableCountries={availableCountries.filter(c => c.value !== 'all')}
+              />
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <FileInput
+              label="Choose CSV File"
+              accept=".csv"
+              value={selectedFile}
+              onChange={setSelectedFile}
+              disabled={isUploading}
+            />
+            <Button
+              onClick={handleFileUpload}
+              disabled={!selectedFile || selectedFile.length === 0 || isUploading || selectedUploadCountry === 'all'}
+              className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              {isUploading ? "Uploading..." : "Upload and Process"}
+            </Button>
+            <p className="text-sm text-muted-foreground text-center">
+              Accepted format: CSV. Max file size: 5MB.
+              <br />
+              Expected columns: `Payee`, `Payment Date` (DD.MM.YYYY), `Category`, `Account Number`, `User Email`.
+              <br />
+              Optional columns: `SKU`, `Not Property Related` (Yes/No), `Payment Reference`, `Bank Account` (for Switzerland).
+            </p>
+            
+            {serverDebugInfo && (
+              <div className="mt-4 p-4 bg-gray-100 rounded-md">
+                <h4 className="font-semibold mb-2">Server Debug Information:</h4>
+                <pre className="text-xs overflow-auto max-h-40">{serverDebugInfo}</pre>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
