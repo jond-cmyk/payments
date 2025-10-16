@@ -21,7 +21,7 @@ import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
-import { Card } from '@/components/ui/card'; // Import Card for suggestions
+import { Card, CardTitle } from '@/components/ui/card'; // Import Card and CardTitle for suggestions
 import { Separator } from '@/components/ui/separator'; // Import Separator
 
 // Helper for days of the month
