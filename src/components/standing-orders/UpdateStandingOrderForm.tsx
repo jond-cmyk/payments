@@ -1,12 +1,12 @@
 "use client";
 
 import React from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form'; // Import useWatch
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Edit, PlusCircle, MinusCircle, DollarSign } from 'lucide-react'; // Import DollarSign
+import { Edit, PlusCircle, MinusCircle, DollarSign } from 'lucide-react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -20,7 +20,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Separator } from '@/components/ui/separator';
+import { Card, CardTitle } from '@/components/ui/card';
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -36,7 +37,7 @@ const updateStandingOrderFormSchema = z.object({
   categories: z.array(z.object({
     category: z.string().min(1, "Category is required."),
     amount: z.coerce.number().min(0.01, "Amount must be positive."),
-  })).min(1, "At least one category with an amount is required."), // Ensure at least one category
+  })).min(1, "At least one category with an amount is required."),
   account_name: z.string().min(1, "Account Name is required."),
   account_address: z.string().optional(),
   iban_number: z.string().optional(),
@@ -45,12 +46,12 @@ const updateStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().optional(),
-  status: z.enum(['active', 'cancelled', 'paused', 'pending'], {
+  status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], {
     required_error: "Status is required.",
   }).default('active'),
   country: z.string().min(1, "Country is required."),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
-  total_amount: z.coerce.number().min(0.01, "Total amount must be positive."), // Added total_amount to schema
+  total_amount: z.coerce.number().min(0.01, "Total amount must be positive."),
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -92,7 +93,6 @@ const updateStandingOrderFormSchema = z.object({
         path: ['account_number'],
       });
     }
-    // Ensure IBAN and Account Address are not provided for UK
     if (data.iban_number && data.iban_number.trim() !== '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -122,7 +122,6 @@ const updateStandingOrderFormSchema = z.object({
         path: ['account_address'],
       });
     }
-    // Ensure UK bank details are not provided for non-UK countries
     if (data.sort_code && data.sort_code.trim() !== '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -165,7 +164,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       payment_date: new Date(standingOrder.payment_date),
       sku: standingOrder.sku || (standingOrder.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: standingOrder.not_property_related,
-      categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }], // Initialize with existing or one mandatory
+      categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }],
       total_amount: standingOrder.total_amount,
       account_name: standingOrder.account_name,
       account_address: standingOrder.account_address || "",
@@ -189,26 +188,21 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
   const isAdmin = userProfile?.role === 'admin';
-  
-  // Watch the entire categories array for changes
+
   const watchedCategories = useWatch({
     control: form.control,
     name: "categories",
-    defaultValue: form.getValues("categories"), // Ensure initial value is set
+    defaultValue: form.getValues("categories"),
   });
 
   // Calculate total amount whenever categories array changes
   React.useEffect(() => {
-    console.log("[UpdateStandingOrderForm] useEffect triggered for watchedCategories change.");
-    console.log("[UpdateStandingOrderForm] watchedCategories:", JSON.stringify(watchedCategories));
-    const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
-      const parsedAmount = parseFloat(categoryItem?.amount as any) || 0; // Ensure it's a number
-      console.log(`[UpdateStandingOrderForm] Reducing item: sum=${sum}, amount=${parsedAmount}`);
+    const newTotal = (watchedCategories || []).reduce((sum, item) => {
+      const parsedAmount = parseFloat((item as any)?.amount) || 0;
       return sum + parsedAmount;
     }, 0);
-    console.log("[UpdateStandingOrderForm] Calculated newTotal:", newTotal);
-    form.setValue("total_amount", newTotal, { shouldValidate: true }); // Also validate on change
-  }, [watchedCategories, form]); // Dependency on watchedCategories
+    form.setValue("total_amount", newTotal, { shouldValidate: true });
+  }, [watchedCategories, form]);
 
   const onSubmit = async (values: z.infer<typeof updateStandingOrderFormSchema>) => {
     const toastId = showLoading("Updating standing order...");
@@ -240,8 +234,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           payment_date: values.payment_date.toISOString().split('T')[0],
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
-          categories: values.categories, // Use the new categories array
-          total_amount: values.total_amount, // Use the new total_amount
+          categories: values.categories,
+          total_amount: values.total_amount,
           account_name: values.account_name,
           ...bankDetails,
           from_day: parseInt(values.from_day),
@@ -316,7 +310,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="payment_date"
@@ -335,6 +329,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="sku"
@@ -348,6 +343,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="not_property_related"
@@ -411,8 +407,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     <FormItem className="flex-1 w-full">
                       <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="Amount" {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value))} disabled={!isAdmin} />
+                        <Input type="number" step="0.01" placeholder="Amount" {...field} onChange={(e) => field.onChange(parseFloat(e.target.value))} disabled={!isAdmin} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -443,7 +438,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               control={form.control}
               name="total_amount"
               render={({ field }) => (
-                <FormItem className="hidden"> {/* Hidden field for Zod validation */}
+                <FormItem className="hidden">
                   <FormControl>
                     <Input type="hidden" {...field} />
                   </FormControl>
@@ -579,7 +574,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           )}
         />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
             control={form.control}
             name="from_day"
@@ -643,6 +638,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </FormItem>
           )}
         />
+
         <FormField
           control={form.control}
           name="status"
@@ -656,6 +652,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
@@ -663,12 +660,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 </SelectContent>
               </Select>
               <FormDescription>
-                {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Pending' by default and can only be changed by an administrator."}
+                {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Awaiting Info' by default and can only be changed by an administrator."}
               </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
+
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
           <Edit className="mr-2 h-4 w-4" />
           {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
