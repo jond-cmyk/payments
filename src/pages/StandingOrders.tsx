@@ -614,36 +614,6 @@ const StandingOrders = () => {
                 />
               </div>
               <div>
-                <label htmlFor="payment-date-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
-                <DatePicker
-                  id="payment-date-filter"
-                  date={filterPaymentDate}
-                  setDate={(date) => { setFilterPaymentDate(date); setCurrentPage(1); }}
-                  placeholder="Select Date"
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <DatePicker
-                  id="start-date"
-                  date={filterStartDate}
-                  setDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
-                  placeholder="Select Start Date"
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <DatePicker
-                  id="end-date"
-                  date={filterEndDate}
-                  setDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
-                  placeholder="Select End Date"
-                  className="w-full"
-                />
-              </div>
-              <div>
                 <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <Select value={filterStatus} onValueChange={(value: StandingOrder['status'] | 'all') => { setFilterStatus(value); setCurrentPage(1); }}>
                   <SelectTrigger id="status-filter" className="w-full">
