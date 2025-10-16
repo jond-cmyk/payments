@@ -112,7 +112,8 @@ const AdminUploadDirectDebits = () => {
         else if (invokeError.context && typeof invokeError.context === 'object' && invokeError.context.body) {
           try {
             // invokeError.context.body is a Response object, not a plain string
-            const errorBody = await invokeError.context.body.json();
+            const errorBodyText = await invokeError.context.body.text();
+            const errorBody = JSON.parse(errorBodyText);
             if (errorBody.error) {
               errorMessage = errorBody.error;
             } else if (errorBody.message) {
