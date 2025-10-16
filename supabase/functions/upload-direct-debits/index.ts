@@ -158,13 +158,14 @@ serve(async (req) => {
     // Determine mode: direct debit or transaction fallback
     const isDirectDebitHeaders = headerSet.has('payee') && headerSet.has('payment date');
     const isTransactionHeaders = headerSet.has('approval') && headerSet.has('date') && headerSet.has('text');
+    const isUKMinimalHeaders = headerSet.has('payee') && headerSet.has('payment reference');
 
-    if (!isDirectDebitHeaders && !isTransactionHeaders) {
+    if (!isDirectDebitHeaders && !isTransactionHeaders && !isUKMinimalHeaders) {
       const serverDebugInfo =
         `Header row index guessed: ${headerRowIndex}\n` +
         `Headers found: ${JSON.stringify(headers, null, 2)}\n\n` +
         `First 5 rows:\n${JSON.stringify(parsedRows.slice(0, 5), null, 2)}`;
-      const msg = 'CSV headers not recognized. Expected either direct-debit headers (e.g. "Payee", "Payment Date") or transaction-style headers (e.g. "Approval", "Date", "Text").';
+      const msg = 'CSV headers not recognised. Expected: direct-debit headers (e.g. "Payee", "Payment Date"), transaction-style headers (e.g. "Approval", "Date", "Text"), or UK-minimal headers ("Payee", "Payment Reference").';
       console.error(`[upload-direct-debits] Error: ${msg}`);
       return new Response(JSON.stringify({ success: false, error: msg, serverDebugInfo }), {
         status: 200,
@@ -238,7 +239,6 @@ serve(async (req) => {
         let bankAccount = '';
 
         if (isDirectDebitHeaders) {
-          // Direct-debit CSV mapping
           payee = pick(row, 'Payee');
           paymentDateRaw = pick(row, 'Payment Date');
           categoryRaw = pick(row, 'Category');
@@ -248,18 +248,27 @@ serve(async (req) => {
           notPropertyRelatedRaw = pick(row, 'Not Property Related');
           paymentReference = pick(row, 'Payment Reference');
           bankAccount = pick(row, 'Bank Account');
+        } else if (isUKMinimalHeaders) {
+          payee = pick(row, 'Payee');
+          paymentDateRaw = '';
+          categoryRaw = pick(row, 'Category');
+          accountNumber = pick(row, 'Account Numbe');
+          userEmail = '';
+          sku = pick(row, 'SKU');
+          notPropertyRelatedRaw = '';
+          paymentReference = pick(row, 'Payment Reference');
+          bankAccount = '';
         } else {
           // Transaction CSV fallback mapping to direct debits
-          payee = pick(row, 'Text'); // merchant/payee
+          payee = pick(row, 'Text');
           paymentDateRaw = pick(row, 'Date');
-          // prefer Reason for Payment, else Comment
           categoryRaw = pick(row, 'Reason for Payment') || pick(row, 'Comment');
-          accountNumber = pick(row, 'Contra account'); // map to account number
-          userEmail = ''; // not present in transaction export → fallback to uploaderId
+          accountNumber = pick(row, 'Contra account');
+          userEmail = '';
           sku = pick(row, 'SKU');
-          notPropertyRelatedRaw = ''; // default false
-          paymentReference = pick(row, 'Entry'); // use numeric entry as reference
-          bankAccount = pick(row, 'Bank'); // keep for context
+          notPropertyRelatedRaw = '';
+          paymentReference = pick(row, 'Entry');
+          bankAccount = pick(row, 'Bank');
         }
 
         if (!payee) {
@@ -284,7 +293,7 @@ serve(async (req) => {
           }
         }
 
-        const payment_date = toISODate(paymentDateRaw);
+        const payment_date = toISODate(paymentDateRaw) || new Date().toISOString().split('T')[0];
         const category = mapCategory(categoryRaw);
         const not_property_related = parseBoolean(notPropertyRelatedRaw);
 
