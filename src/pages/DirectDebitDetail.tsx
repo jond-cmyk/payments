@@ -27,8 +27,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
 import { cn } from '@/lib/utils';
 import DirectDebitAuditTrailCard from '@/components/direct-debits/DirectDebitAuditTrailCard'; // Import the new audit card
+import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm'; // Import the EditDirectDebitForm
 
 const DirectDebitDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -38,6 +40,10 @@ const DirectDebitDetail = () => {
   const queryClient = useQueryClient();
 
   const isAdmin = userProfile?.role === 'admin';
+
+  // Add state for the edit dialog
+  const [isEditDirectDebitDialogOpen, setIsEditDirectDebitDialogOpen] = React.useState(false);
+  const [editingDirectDebit, setEditingDirectDebit] = React.useState<DirectDebit | null>(null);
 
   // Fetch Direct Debit details
   const { data: directDebit, isLoading: isDirectDebitLoading, error: directDebitError } = useQuery<DirectDebit | null>({
@@ -153,6 +159,18 @@ const DirectDebitDetail = () => {
     );
   };
 
+  const handleEditClick = (debit: DirectDebit) => {
+    setEditingDirectDebit(debit);
+    setIsEditDirectDebitDialogOpen(true);
+  };
+
+  const handleDirectDebitUpdated = () => {
+    setIsEditDirectDebitDialogOpen(false);
+    setEditingDirectDebit(null);
+    queryClient.invalidateQueries({ queryKey: ['directDebits'] }); // Invalidate list
+    queryClient.invalidateQueries({ queryKey: ['directDebit', id] }); // Invalidate detail view
+  };
+
   if (isSessionLoading || isDirectDebitLoading || isAuditsLoading || isAuditUsersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading direct debit details...</div>;
   }
@@ -177,7 +195,11 @@ const DirectDebitDetail = () => {
         <h1 className="text-3xl font-bold">Direct Debit #{directDebit.id.substring(0, 8)}</h1>
         {isAdmin && (
           <div className="flex space-x-2">
-            <Button variant="outline" className="shadow-sm" onClick={() => navigate(`/direct-debits/edit/${directDebit.id}`)}> {/* Placeholder for edit */}
+            <Button
+              variant="outline"
+              className="shadow-sm"
+              onClick={() => handleEditClick(directDebit)}
+            >
               <Edit className="mr-2 h-4 w-4" /> Edit Direct Debit
             </Button>
             <AlertDialog>
@@ -271,6 +293,18 @@ const DirectDebitDetail = () => {
       </Card>
 
       <DirectDebitAuditTrailCard audits={audits} auditUsers={auditUsers} />
+
+      {/* Add the Edit Direct Debit Dialog */}
+      {editingDirectDebit && (
+        <Dialog open={isEditDirectDebitDialogOpen} onOpenChange={setIsEditDirectDebitDialogOpen}>
+          <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Direct Debit: {editingDirectDebit.payee}</DialogTitle>
+            </DialogHeader>
+            <EditDirectDebitForm directDebit={editingDirectDebit} onDirectDebitUpdated={handleDirectDebitUpdated} />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
