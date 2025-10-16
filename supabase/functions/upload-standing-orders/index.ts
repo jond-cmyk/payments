@@ -200,8 +200,9 @@ serve(async (req) => {
           requester_id: uploaderId,
           payee,
           payment_date,              // Start date (YYYY-MM-DD)
+          payment_end_date,          // NEW: End date (YYYY-MM-DD)
           payment_day,               // New field for the day of month
-          payment_end_date: null,    // Optional, not provided
+          // payment_end_date: null,    // REMOVED: This was duplicate
           sku: not_property_related ? null : sku,
           not_property_related,
           categories,
@@ -214,6 +215,7 @@ serve(async (req) => {
           from_day,
           to_day,
           payment_reference: comment || null,
+          comments,                  // NEW: Comments from CSV
           status: 'pending',
           country,
           bank_details_verified: false,
