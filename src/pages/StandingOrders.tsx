@@ -662,41 +662,35 @@ const StandingOrders = () => {
                         Payee {renderSortIcon('payee')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
-                      <div className="flex items-center">
-                        Start Date {renderSortIcon('payment_date')}
-                      </div>
-                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
                       <div className="flex items-center">
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead>Categories</TableHead> {/* Updated header */}
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('total_amount')}>
+                    <TableHead>Categories</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
                       <div className="flex items-center">
-                        Total Amount {renderSortIcon('total_amount')}
+                        Start Date {renderSortIcon('payment_date')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('account_name')}>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_end_date')}>
                       <div className="flex items-center">
-                        Account Name {renderSortIcon('account_name')}
+                        End Date {renderSortIcon('payment_end_date')}
                       </div>
                     </TableHead>
-                    <TableHead>Bank Details</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('from_day')}>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
-                        Accruals Period {renderSortIcon('from_day')}
-                      </div>
-                    </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_reference')}>
-                      <div className="flex items-center">
-                        Payment Reference {renderSortIcon('payment_reference')}
+                        Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}
+                      </div>
+                    </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('country')}>
+                      <div className="flex items-center">
+                        Country {renderSortIcon('country')}
                       </div>
                     </TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -715,7 +709,6 @@ const StandingOrders = () => {
                         />
                       </TableCell>
                       <TableCell className="font-medium">{order.payee}</TableCell>
-                      <TableCell>{format(new Date(order.payment_date), 'PPP')}</TableCell>
                       <TableCell>
                         {order.not_property_related ? 'N/A (Not Property Related)' : (order.sku || 'N/A')}
                       </TableCell>
@@ -730,24 +723,11 @@ const StandingOrders = () => {
                           </div>
                         ) : 'N/A'}
                       </TableCell>
-                      <TableCell>{order.total_amount.toFixed(2)}</TableCell>
-                      <TableCell>{order.account_name}</TableCell>
-                      <TableCell>
-                        {order.country === 'United Kingdom' ? (
-                          <>
-                            Sort: {order.sort_code || 'N/A'}<br />
-                            Acc: {order.account_number ? order.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}
-                          </>
-                        ) : (
-                          <>
-                            IBAN: {order.iban_number || 'N/A'}<br />
-                            Addr: {order.account_address || 'N/A'}
-                          </>
-                        )}
-                      </TableCell>
-                      <TableCell>Day {order.from_day} to Day {order.to_day}</TableCell>
-                      <TableCell>{order.payment_reference || 'N/A'}</TableCell>
+                      <TableCell>{format(new Date(order.payment_date), 'PPP')}</TableCell>
+                      <TableCell>{order.payment_end_date ? format(new Date(order.payment_end_date), 'PPP') : 'No end date'}</TableCell>
+                      <TableCell>{order.payment_day ? `Day ${order.payment_day}` : 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
+                      <TableCell>{order.country}</TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">
                         <Button
                           variant="outline"
