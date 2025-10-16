@@ -116,12 +116,20 @@ serve(async (req) => {
     console.log(`[upload-direct-debits] Headers found: ${JSON.stringify(headers)}`);
     console.log(`[upload-direct-debits] Number of data rows: ${dataRows.length}`);
 
+    // DEBUG: Show first few rows of actual data
+    console.log(`[upload-direct-debits] First 3 data rows:`);
+    dataRows.slice(0, 3).forEach((row, i) => {
+      console.log(`Row ${i + 1}: ${JSON.stringify(row)}`);
+    });
+
     const directDebitsToInsert = [];
     const errors: string[] = [];
 
     // Process each data row
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
+      
+      console.log(`[upload-direct-debits] Processing row ${i + 1}: ${JSON.stringify(row)}`);
       
       if (row.length !== headers.length) {
         errors.push(`Row ${i + 1}: Column count mismatch (${row.length} vs ${headers.length}). Skipping.`);
@@ -133,7 +141,7 @@ serve(async (req) => {
         record[header] = row[index]?.trim() || '';
       });
 
-      console.log(`[upload-direct-debits] Processing row ${i + 1}: ${JSON.stringify(record)}`);
+      console.log(`[upload-direct-debits] Row ${i + 1} as object: ${JSON.stringify(record)}`);
 
       try {
         // Extract fields from your CSV format
@@ -144,6 +152,15 @@ serve(async (req) => {
         const accountNumber = record['Account Number'] || '';
         const paymentReference = record['Payment Reference'] || '';
 
+        console.log(`[upload-direct-debits] Row ${i + 1} extracted values:`, {
+          leaseId: leaseId || '(empty)',
+          sku: sku || '(empty)', 
+          categoryCode: categoryCode || '(empty)',
+          payee: payee || '(empty)',
+          accountNumber: accountNumber || '(empty)',
+          paymentReference: paymentReference || '(empty)'
+        });
+
         // Basic validation - only payee is required
         if (!payee) {
           errors.push(`Row ${i + 1}: Missing Payee - skipping row`);
@@ -152,6 +169,7 @@ serve(async (req) => {
 
         // Map category code (like "952") to full category value
         const category = categoryMap[categoryCode] || '974_other';
+        console.log(`[upload-direct-debits] Row ${i + 1}: Mapped category '${categoryCode}' to '${category}'`);
 
         // Create direct debit record
         const directDebitRecord = {
@@ -168,7 +186,7 @@ serve(async (req) => {
           bank_account: null,
         };
 
-        console.log(`[upload-direct-debits] Row ${i + 1}: Created record:`, JSON.stringify(directDebitRecord, null, 2));
+        console.log(`[upload-direct-debits] Row ${i + 1}: Final record:`, JSON.stringify(directDebitRecord, null, 2));
         directDebitsToInsert.push(directDebitRecord);
 
       } catch (rowError) {
@@ -178,7 +196,9 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[upload-direct-debits] Direct Debits prepared for insertion: ${directDebitsToInsert.length}`);
+    console.log(`[upload-direct-debits] Total records to insert: ${directDebitsToInsert.length}`);
+    console.log(`[upload-direct-debits] Total errors: ${errors.length}`);
+    console.log(`[upload-direct-debits] Errors:`, errors);
 
     let insertedCount = 0;
     if (directDebitsToInsert.length > 0) {
