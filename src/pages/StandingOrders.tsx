@@ -68,7 +68,6 @@ const StandingOrders = () => {
   // Filter states (debounced for query)
   const [filterPayee, setFilterPayee] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterPaymentDate, setFilterPaymentDate] = useState<Date | undefined>(undefined);
   const [filterStatus, setFilterStatus] = useState<StandingOrder['status'] | 'all'>('all');
   const [filterSku, setFilterSku] = useState<string>('');
   const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
@@ -123,7 +122,7 @@ const StandingOrders = () => {
 
   // Fetch Standing Orders
   const { data: standingOrders, isLoading: isStandingOrdersLoading, error: standingOrdersError } = useQuery<StandingOrder[]>({
-    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage, itemsPerPage],
+    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, filterPaymentDay, sortColumn, sortDirection, currentPage, itemsPerPage],
     queryFn: async () => {
       if (!session) return [];
 
@@ -148,9 +147,6 @@ const StandingOrders = () => {
       if (filterCategory !== 'all') {
         // Filter by category within the JSONB array
         query = query.contains('categories', [{ category: filterCategory }]);
-      }
-      if (filterPaymentDate) {
-        query = query.eq('payment_date', format(filterPaymentDate, 'yyyy-MM-dd'));
       }
       // NEW: Apply date range filters
       if (filterStartDate) {
@@ -271,7 +267,6 @@ const StandingOrders = () => {
     setFilterPayee('');
     setLocalFilterPayee('');
     setFilterCategory('all');
-    setFilterPaymentDate(undefined);
     setFilterStatus('all');
     setFilterSku('');
     setLocalFilterSku('');
@@ -621,20 +616,6 @@ const StandingOrders = () => {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <label htmlFor="payment-date-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
-                <Input
-                  id="payment-date-filter"
-                  type="date"
-                  value={filterPaymentDate ? format(filterPaymentDate, 'yyyy-MM-dd') : ''}
-                  onChange={(e) => {
-                    const dateValue = e.target.value ? new Date(e.target.value) : undefined;
-                    setFilterPaymentDate(dateValue);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full"
-                />
               </div>
               <div>
                 <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
