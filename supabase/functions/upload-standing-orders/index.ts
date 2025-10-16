@@ -84,7 +84,37 @@ serve(async (req) => {
     const { fileName, fileContent, uploaderId, country } = payload;
 
     if (!fileName || !fileContent || !uploaderId || !country) {
-      return new Response(JSON.stringify({ error: 'Missing file data, uploader ID, or country in payload' }), {
+      return new Response(JSON.stringify({ 
+        error: 'Missing required fields in payload', 
+        received: { 
+          fileName: !!fileName, 
+          fileContent: !!fileContent, 
+          fileContentType: typeof fileContent,
+          fileContentLength: typeof fileContent === 'string' ? fileContent.length : 'N/A',
+          uploaderId: !!uploaderId, 
+          country: !!country 
+        }
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate file content
+    if (typeof fileContent !== 'string') {
+      return new Response(JSON.stringify({ 
+        error: 'File content must be a string', 
+        receivedType: typeof fileContent
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (fileContent.length === 0) {
+      return new Response(JSON.stringify({ 
+        error: 'File content is empty'
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

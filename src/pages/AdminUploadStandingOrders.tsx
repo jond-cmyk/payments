@@ -100,8 +100,23 @@ const AdminUploadStandingOrders = () => {
 
       setSelectedFile(null);
     } catch (error: any) {
-      showError(error.message || "Failed to upload and process standing orders spreadsheet.");
       console.error("Standing orders upload error:", error);
+      console.error("Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        fullError: error
+      });
+      
+      // Try to extract more detailed error information
+      let errorMessage = "Failed to upload and process standing orders spreadsheet.";
+      if (error.message) {
+        errorMessage = error.message;
+      } else if (error.details) {
+        errorMessage = error.details;
+      }
+      
+      showError(errorMessage);
     } finally {
       dismissToast(toastId);
       setIsUploading(false);
