@@ -149,7 +149,7 @@ serve(async (req) => {
     if (!headers.includes('Payee')) {
       const serverDebugInfo = `Header row index guessed: ${headerRowIndex}\nHeaders found: ${JSON.stringify(headers, null, 2)}\n\nFirst 5 rows:\n${JSON.stringify(parsedRows.slice(0, 5), null, 2)}`;
       const msg = 'The CSV does not contain a "Payee" column. Please upload the Direct Debits CSV with the correct headers.';
-      return new Response(JSON.stringify({ message: msg, errors: [msg], serverDebugInfo }), {
+      return new Response(JSON.stringify({ message: msg, errors: [msg], error: msg, serverDebugInfo }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

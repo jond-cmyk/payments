@@ -100,10 +100,15 @@ const AdminUploadDirectDebits = () => {
       if (invokeError) {
         console.error("[Client] Supabase Function Invoke Error:", invokeError);
         console.error("[Client] Full error details:", JSON.stringify(invokeError, null, 2));
+        
+        let errorMessage = invokeError.message;
         if (data?.error) {
-          throw new Error(data.error);
+          errorMessage = data.error;
+        } else if (data?.message) {
+          errorMessage = data.message;
         }
-        throw new Error(invokeError.message);
+        
+        throw new Error(errorMessage);
       }
 
       if (data?.error) {
