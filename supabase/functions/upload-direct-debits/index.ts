@@ -214,7 +214,7 @@ serve(async (req) => {
           category: category,
           account_number: accountNumber || 'UNKNOWN',
           payment_reference: paymentReference || null,
-          status: 'awaiting_info',
+          status: 'awaiting_info', // This will be 'Waiting Further Information' in the UI
           country: country,
           bank_account: null,
         };
