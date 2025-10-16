@@ -34,7 +34,7 @@ serve(async (req) => {
     // Search for payees in the standing_orders table
     const { data, error } = await supabaseClient
       .from('standing_orders')
-      .select('payee, account_name, account_address, iban_number, sort_code, account_number, category, not_property_related, sku, country')
+      .select('payee, account_name, account_address, iban_number, sort_code, account_number, category, not_property_related, sku, country, currency, bank_account')
       .ilike('payee', `%${searchTerm}%`) // Dynamic search for variations
       .eq('country', country); // Filter by country
 
@@ -52,7 +52,7 @@ serve(async (req) => {
       // Create a unique key based on bank details (and account name)
       // Exclude payee name, category, sku, not_property_related from the uniqueness key
       // to ensure that different payee names for the same bank account are treated as duplicates.
-      const bankDetailsKey = `${item.account_name || ''}-${item.account_address || ''}-${item.iban_number || ''}-${item.sort_code || ''}-${item.account_number || ''}`;
+      const bankDetailsKey = `${item.account_name || ''}-${item.account_address || ''}-${item.iban_number || ''}-${item.sort_code || ''}-${item.account_number || ''}-${item.currency || ''}-${item.bank_account || ''}`;
       
       if (!uniqueSuggestionsMap.has(bankDetailsKey)) {
         uniqueSuggestionsMap.set(bankDetailsKey, item);

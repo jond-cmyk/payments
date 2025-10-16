@@ -882,6 +882,12 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                     <>
                       <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
                       <p className="text-sm text-muted-foreground">Address: {suggestion.account_address || 'N/A'}</p>
+                      {suggestion.country === 'Switzerland' && (
+                        <>
+                          <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
+                          <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>
+                        </>
+                      )}
                     </>
                   )}
                   <div className="mt-2">
