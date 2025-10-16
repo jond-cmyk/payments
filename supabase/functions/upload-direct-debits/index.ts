@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple category mapping
+// List of common categories - UPDATED with custom sort from src/lib/constants.ts
 const categoryOptions = [
   { value: '950_rent', label: '950 - Rent' },
   { value: '952_utilities_el', label: '952 - Electricity' },
@@ -22,7 +22,27 @@ const categoryOptions = [
   { value: '972_maintenance_move_out', label: '972 - Maintenance, at move-out' },
   { value: '974_other', label: '974 - Other' },
   { value: '975_small_furniture', label: '975 - Small Furniture' },
-  { value: '976_council_tax', label: '976 - Council Tax', countries: ['United Kingdom'] },
+  { value: '976_council_tax', label: '976 - Council Tax', countries: ['United Kingdom'] }, // NEW: Council Tax for UK
+  { value: '3055_subcontractors', label: '3055 - Subcontractors' },
+  { value: '3056_otg_service_team_costs', label: '3056 - OTG - Service Team Costs' },
+  { value: '3057_storage_units_facilities', label: '3057 - Storage Units & Facilities' },
+  { value: '3075_software', label: '3075 - Software' },
+  { value: '3079_fines', label: '3079 - Fines' },
+  { value: '3089_car_fuel', label: '3089 - Car fuel' },
+  { value: '3090_car_taxes', label: '3090 - Car taxes' },
+  { value: '3091_car_insurance', label: '3091 - Car Insurance' },
+  { value: '3092_bridge_ferry_tolls', label: '3092 - Bridge, ferry and tolls' },
+  { value: '3102_office_rent', label: '3102 - Office rent' },
+  { value: '3115_office_phone_internet', label: '3115 - Office Phone and internet' },
+  { value: '3122_accountant', label: '3122 - Accountant' },
+  { value: '3125_lawyer', label: '3125 - Lawyer' },
+  { value: '3147_company_insurance', label: '3147 - Company insurance' },
+  { value: '3157_postage', label: '3157 - Postage' },
+  { value: '3444_restaurant_visits', label: '3444 - Restaurant visits' },
+  { value: '3469_gifts_flowers', label: '3469 - Gifts and flowers' },
+  { value: '3476_travel_hotels', label: '3476 - Travel and hotels' },
+  { value: '3480_marketing', label: '3480 – Marketing' },
+  { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
 ];
 
 serve(async (req) => {
@@ -133,7 +153,7 @@ serve(async (req) => {
     const errors: string[] = [];
 
     // Show what headers we found vs what we expect
-    const expectedHeaders = ['Payee', 'Payment Date', 'Category', 'Account Number', 'User Email'];
+    const expectedHeaders = ['Payee', 'Payment Date', 'Category', 'Account Number', 'User Email', 'SKU', 'Payment Reference', 'Bank Account', 'Not Property Related'];
     const foundHeaders = headers.filter(h => expectedHeaders.includes(h));
     const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
     
@@ -199,13 +219,13 @@ serve(async (req) => {
           category = '974_other';
         }
 
-        // More lenient validation - only require payee and user email
+        // Basic validation - only payee and account_number are strictly required for direct debits
         if (!payee) {
           errors.push(`Row ${i + 1}: Missing Payee - skipping row`);
           continue;
         }
-        if (!user_email_from_csv) {
-          errors.push(`Row ${i + 1}: Missing User Email - skipping row`);
+        if (!account_number) {
+          errors.push(`Row ${i + 1}: Missing Account Number - skipping row`);
           continue;
         }
 
@@ -223,29 +243,33 @@ serve(async (req) => {
 
         const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
 
-        // Find user ID from email
-        let requesterIdForDirectDebit = uploaderId;
+        // Determine requester_id
+        let requesterIdForDirectDebit = uploaderId; // Default to uploader's ID
         
-        console.log(`[upload-direct-debits] Row ${i + 1}: Looking up user for email '${user_email_from_csv}' in country '${country}'`);
-        
-        try {
-          const { data: profileData, error: profileError } = await supabaseClient
-            .from('profile_with_email')
-            .select('id')
-            .eq('user_email', user_email_from_csv)
-            .eq('country', country)
-            .single();
+        if (user_email_from_csv) {
+          console.log(`[upload-direct-debits] Row ${i + 1}: Looking up user for email '${user_email_from_csv}' in country '${country}'`);
+          try {
+            const { data: profileData, error: profileError } = await supabaseClient
+              .from('profile_with_email')
+              .select('id')
+              .eq('user_email', user_email_from_csv)
+              .eq('country', country)
+              .single();
 
-          if (profileError || !profileData) {
-            console.warn(`[upload-direct-debits] Row ${i + 1}: User lookup failed - ${profileError?.message || 'User not found'}`);
-            errors.push(`Row ${i + 1}: User with email '${user_email_from_csv}' not found in country ${country}. Using uploader ID.`);
-          } else {
-            requesterIdForDirectDebit = profileData.id;
-            console.log(`[upload-direct-debits] Row ${i + 1}: Found user ID '${requesterIdForDirectDebit}'`);
+            if (profileError || !profileData) {
+              console.warn(`[upload-direct-debits] Row ${i + 1}: User lookup failed for email '${user_email_from_csv}' - ${profileError?.message || 'User not found'}. Using uploader ID.`);
+              errors.push(`Row ${i + 1}: User with email '${user_email_from_csv}' not found in country ${country}. Using uploader ID.`);
+            } else {
+              requesterIdForDirectDebit = profileData.id;
+              console.log(`[upload-direct-debits] Row ${i + 1}: Found user ID '${requesterIdForDirectDebit}' for email '${user_email_from_csv}'`);
+            }
+          } catch (userError) {
+            console.error(`[upload-direct-debits] Row ${i + 1}: Error finding user for email ${user_email_from_csv}:`, userError);
+            errors.push(`Row ${i + 1}: Error finding user. Using uploader ID.`);
           }
-        } catch (userError) {
-          console.error(`[upload-direct-debits] Row ${i + 1}: Error finding user for email ${user_email_from_csv}:`, userError);
-          errors.push(`Row ${i + 1}: Error finding user. Using uploader ID.`);
+        } else {
+          errors.push(`Row ${i + 1}: Missing User Email. Using uploader ID as requester.`);
+          console.warn(`[upload-direct-debits] Row ${i + 1}: Missing User Email. Using uploader ID (${uploaderId}) as requester.`);
         }
 
         // Create direct debit record - use defaults for missing fields
@@ -256,7 +280,7 @@ serve(async (req) => {
           sku: sku || null,
           not_property_related: not_property_related,
           category: category,
-          account_number: account_number || 'UNKNOWN', // Default if missing
+          account_number: account_number,
           payment_reference: payment_reference || null,
           status: 'awaiting_info',
           country: country,
