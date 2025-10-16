@@ -100,14 +100,33 @@ const AdminUploadDirectDebits = () => {
       if (invokeError) {
         console.error("[Client] Supabase Function Invoke Error:", invokeError);
         console.error("[Client] Full error details:", JSON.stringify(invokeError, null, 2));
+        console.error("[Client] Data object during invokeError:", data); 
         
-        let errorMessage = invokeError.message;
-        if (data?.error) {
-          errorMessage = data.error;
-        } else if (data?.message) {
-          errorMessage = data.message;
+        let errorMessage = "Failed to upload and process direct debits spreadsheet."; // Default generic message
+
+        // Try to get error from data object first (if data is populated)
+        if (data && (data.error || data.message)) {
+          errorMessage = data.error || data.message;
+        } 
+        // If data is not helpful, try to extract from invokeError context (raw response body)
+        else if (invokeError.context && typeof invokeError.context === 'object' && invokeError.context.body) {
+          try {
+            const errorBody = JSON.parse(invokeError.context.body);
+            if (errorBody.error) {
+              errorMessage = errorBody.error;
+            } else if (errorBody.message) {
+              errorMessage = errorBody.message;
+            }
+          } catch (parseError) {
+            console.warn("[Client] Could not parse error body from invokeError context:", parseError);
+          }
+        }
+        // Fallback to invokeError message if no specific error found
+        else if (invokeError.message) {
+          errorMessage = invokeError.message;
         }
         
+        console.error("[Client] Final error message to be thrown:", errorMessage);
         throw new Error(errorMessage);
       }
 

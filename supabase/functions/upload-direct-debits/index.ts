@@ -92,8 +92,9 @@ serve(async (req) => {
       if (!uploaderId) missing.push('uploaderId');
       if (!country) missing.push('country');
       
-      console.error(`[upload-direct-debits] Missing required fields: ${missing.join(', ')}`);
-      return new Response(JSON.stringify({ error: `Missing required fields: ${missing.join(', ')}` }), {
+      const msg = `Missing required fields: ${missing.join(', ')}`;
+      console.error(`[upload-direct-debits] Error: ${msg}`);
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -110,16 +111,18 @@ serve(async (req) => {
       }) as string[][];
       console.log(`[upload-direct-debits] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
     } catch (csvParseError) {
+      const msg = `Failed to parse CSV file: ${csvParseError.message}`;
       console.error('[upload-direct-debits] CSV parsing error:', csvParseError);
-      return new Response(JSON.stringify({ error: `Failed to parse CSV file: ${csvParseError.message}` }), {
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (parsedRows.length === 0) {
+      const msg = 'CSV file is empty or contains no data rows.';
       console.error('[upload-direct-debits] CSV file is empty');
-      return new Response(JSON.stringify({ error: 'CSV file is empty or contains no data rows.' }), {
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -149,6 +152,7 @@ serve(async (req) => {
     if (!headers.includes('Payee')) {
       const serverDebugInfo = `Header row index guessed: ${headerRowIndex}\nHeaders found: ${JSON.stringify(headers, null, 2)}\n\nFirst 5 rows:\n${JSON.stringify(parsedRows.slice(0, 5), null, 2)}`;
       const msg = 'The CSV does not contain a "Payee" column. Please upload the Direct Debits CSV with the correct headers.';
+      console.error(`[upload-direct-debits] Error: ${msg}`);
       return new Response(JSON.stringify({ message: msg, errors: [msg], error: msg, serverDebugInfo }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -281,8 +285,9 @@ serve(async (req) => {
         .select();
 
       if (insertError) {
+        const msg = `Failed to insert direct debits: ${insertError.message}`;
         console.error('[upload-direct-debits] Failed to insert direct debits:', insertError);
-        return new Response(JSON.stringify({ error: `Failed to insert direct debits: ${insertError.message}` }), {
+        return new Response(JSON.stringify({ error: msg }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
@@ -323,9 +328,10 @@ serve(async (req) => {
     });
 
   } catch (error) {
+    const msg = 'An unexpected error occurred in the Edge Function.';
     console.error('[upload-direct-debits] Edge Function unhandled error:', error);
     return new Response(JSON.stringify({ 
-      error: 'An unexpected error occurred in the Edge Function.',
+      error: msg,
       details: error.message 
     }), {
       status: 500,
