@@ -141,6 +141,8 @@ serve(async (req) => {
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
+      console.log(`Processing row ${i + 1}:`, row);
+      
       if (row.length !== headers.length) {
         errors.push(`Row ${i + 1}: Column count mismatch, expected ${headers.length} found ${row.length}. Skipping.`);
         continue;
@@ -151,11 +153,14 @@ serve(async (req) => {
         record[header] = row[index];
       });
 
+      console.log(`Row ${i + 1} record:`, record);
+
       try {
         // Switzerland-only row validation
         if (country === 'Switzerland') {
           const currency = (record['Currency'] || '').trim();
           const bankAccount = (record['Bank Account'] || '').trim();
+          console.log(`Row ${i + 1} Switzerland validation:`, { currency, bankAccount });
           const missingFields: string[] = [];
           if (!currency) missingFields.push('Currency');
           if (!bankAccount) missingFields.push('Bank Account');
