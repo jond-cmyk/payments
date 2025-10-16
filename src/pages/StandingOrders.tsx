@@ -85,9 +85,6 @@ const StandingOrders = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
-  // NEW: Bulk selection state
-  const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
-
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
     setLocalFilterPayee(filterPayee);
@@ -100,21 +97,6 @@ const StandingOrders = () => {
   useEffect(() => {
     setLocalFilterPaymentReference(filterPaymentReference);
   }, [filterPaymentReference]);
-
-  // Clear selection when data or page changes
-  useEffect(() => {
-    setSelectedStandingOrderIds([]);
-  }, [standingOrders, currentPage]);
-
-  // NEW: Selection helpers
-  const isAllSelected = (standingOrders?.length || 0) > 0 && selectedStandingOrderIds.length === (standingOrders?.length || 0);
-  const handleToggleSelectAll = (checked: boolean) => {
-    if (!standingOrders) return;
-    setSelectedStandingOrderIds(checked ? standingOrders.map(o => o.id) : []);
-  };
-  const handleToggleSelect = (id: string, checked: boolean) => {
-    setSelectedStandingOrderIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id));
-  };
 
   // Debounce for text inputs
   const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -199,6 +181,24 @@ const StandingOrders = () => {
     },
     enabled: !!session,
   });
+
+  // NEW: Bulk selection state
+  const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
+
+  // Clear selection when data or page changes
+  useEffect(() => {
+    setSelectedStandingOrderIds([]);
+  }, [standingOrders, currentPage]);
+
+  // NEW: Selection helpers
+  const isAllSelected = (standingOrders?.length || 0) > 0 && selectedStandingOrderIds.length === (standingOrders?.length || 0);
+  const handleToggleSelectAll = (checked: boolean) => {
+    if (!standingOrders) return;
+    setSelectedStandingOrderIds(checked ? standingOrders.map(o => o.id) : []);
+  };
+  const handleToggleSelect = (id: string, checked: boolean) => {
+    setSelectedStandingOrderIds(prev => checked ? Array.from(new Set([...prev, id])) : prev.filter(x => x !== id));
+  };
 
   // NEW: Bulk delete mutation
   const deleteMultipleStandingOrdersMutation = useMutation({
