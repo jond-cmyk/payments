@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form'; // Import useWatch
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -189,7 +189,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
   const isAdmin = userProfile?.role === 'admin';
-  const watchedCategories = form.watch("categories");
+  
+  // Use useWatch for categories to ensure deep reactivity
+  const watchedCategories = useWatch({
+    control: form.control,
+    name: "categories",
+    defaultValue: form.getValues("categories"), // Ensure initial value is set
+  });
 
   // Calculate total amount whenever categories change
   React.useEffect(() => {
@@ -202,7 +208,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     }, 0);
     console.log("[UpdateStandingOrderForm] Calculated newTotal:", newTotal);
     form.setValue("total_amount", newTotal);
-  }, [watchedCategories, form]);
+  }, [watchedCategories, form]); // Dependency on watchedCategories (from useWatch)
 
   const onSubmit = async (values: z.infer<typeof updateStandingOrderFormSchema>) => {
     const toastId = showLoading("Updating standing order...");
