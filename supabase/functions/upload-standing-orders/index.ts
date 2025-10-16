@@ -53,6 +53,25 @@ function mapPrefixToCategory(prefix: string | null): string | null {
   return found ? found.value : null;
 }
 
+// Helper: auto-detect CSV separator (comma vs semicolon)
+function detectSeparator(text: string): string {
+  const firstLine = (text.split(/\r?\n/)[0] || '');
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semicolonCount = (firstLine.match(/;/g) || []).length;
+  return semicolonCount > commaCount ? ';' : ',';
+}
+
+// Helper: get value by trying multiple header variants (case-insensitive)
+function getVal(record: Record<string, string>, keys: string[]): string {
+  for (const k of keys) {
+    if (record[k] !== undefined) return record[k];
+    // try case-insensitive lookup
+    const foundKey = Object.keys(record).find(h => h.toLowerCase() === k.toLowerCase());
+    if (foundKey) return record[foundKey];
+  }
+  return '';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -120,47 +139,65 @@ serve(async (req) => {
       });
     }
 
-    // Ensure uploader is admin (simplified upload is only for admins)
-    const { data: uploaderProfile, error: uploaderErr } = await supabaseClient
-      .from('profiles')
-      .select('role')
-      .eq('id', uploaderId)
-      .single();
-
-    if (uploaderErr || !uploaderProfile || uploaderProfile.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Forbidden: simplified standing order upload is restricted to admins.' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const parsedRows = await parse(fileContent, {
-      header: false,
-      separator: ',',
-      trimLeadingWhitespace: true,
-    }) as string[][];
-
-    if (!parsedRows || parsedRows.length < 2) {
-      return new Response(JSON.stringify({ error: 'CSV file is empty or contains no data rows.' }), {
+    // Parse CSV with auto-detected delimiter
+    let parsedRows;
+    try {
+      const separator = detectSeparator(fileContent);
+      parsedRows = await parse(fileContent, {
+        header: false,
+        separator,
+        trimLeadingWhitespace: true,
+      }) as string[][];
+    } catch (parseError) {
+      console.error('CSV parsing error:', parseError);
+      return new Response(JSON.stringify({ 
+        error: 'Failed to parse CSV file', 
+        details: parseError instanceof Error ? parseError.message : 'Unknown parsing error'
+      }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const headers = parsedRows[0].map(h => h.trim());
+    if (!parsedRows || !Array.isArray(parsedRows) || parsedRows.length < 2) {
+      return new Response(JSON.stringify({ 
+        error: 'CSV file is empty or contains no data rows.', 
+        parsedRowsCount: parsedRows?.length || 0,
+        isArray: Array.isArray(parsedRows)
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const headers = parsedRows[0].map(h => (h ?? '').trim());
     const dataRows = parsedRows.slice(1);
 
-    // Switzerland-only required columns
+    console.log('Parsed headers:', headers);
+    console.log('Total data rows:', dataRows.length);
+
+    // Switzerland-only required columns (case-insensitive & flexible)
     if (country === 'Switzerland') {
       const lower = headers.map(h => h.toLowerCase());
       const hasCurrency = lower.includes('currency');
-      const hasBankAccount = lower.includes('bank account');
+      const hasBankAccount = lower.includes('bank account') || lower.includes('bankaccount');
+
+      console.log('Switzerland validation - headers found:', { hasCurrency, hasBankAccount, headers: lower });
+
+      // Friendlier behavior: return 200 with errors so UI can show details
       if (!hasCurrency || !hasBankAccount) {
+        const errs = [];
+        if (!hasCurrency) errs.push('Missing required header: Currency');
+        if (!hasBankAccount) errs.push('Missing required header: Bank Account');
         return new Response(JSON.stringify({
-          error: 'For Switzerland, the CSV must include the following columns: Currency, Bank Account.',
-          details: { headers }
+          message: '0 standing orders inserted.',
+          errors: [
+            'For Switzerland, the CSV must include headers: Currency and Bank Account.',
+            ...errs,
+            'Tip: If your CSV uses semicolons, this function now auto-detects the delimiter.'
+          ]
         }), {
-          status: 400,
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -172,7 +209,7 @@ serve(async (req) => {
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       console.log(`Processing row ${i + 1}:`, row);
-      
+
       if (row.length !== headers.length) {
         errors.push(`Row ${i + 1}: Column count mismatch, expected ${headers.length} found ${row.length}. Skipping.`);
         continue;
@@ -183,37 +220,33 @@ serve(async (req) => {
         record[header] = row[index];
       });
 
-      console.log(`Row ${i + 1} record:`, record);
-
       try {
-        // Switzerland-only row validation
+        // Switzerland-only row validation (case-insensitive)
         if (country === 'Switzerland') {
-          const currency = (record['Currency'] || '').trim();
-          const bankAccount = (record['Bank Account'] || '').trim();
-          console.log(`Row ${i + 1} Switzerland validation:`, { currency, bankAccount });
-          const missingFields: string[] = [];
-          if (!currency) missingFields.push('Currency');
-          if (!bankAccount) missingFields.push('Bank Account');
-          if (missingFields.length > 0) {
-            errors.push(`Row ${i + 1}: Missing required field(s) for Switzerland: ${missingFields.join(', ')}. Skipping.`);
+          const currency = (getVal(record, ['Currency', 'currency']) || '').trim();
+          const bankAccount = (getVal(record, ['Bank Account', 'Bank account', 'bank account', 'BankAccount', 'bankaccount']) || '').trim();
+          if (!currency || !bankAccount) {
+            const missing: string[] = [];
+            if (!currency) missing.push('Currency');
+            if (!bankAccount) missing.push('Bank Account');
+            errors.push(`Row ${i + 1}: Missing required field(s) for Switzerland: ${missing.join(', ')}. Skipping.`);
             continue;
           }
         }
 
-        // Expected headers (all optional except SKU):
-        // SKU, Payee, Category, Amount, Payment Day, Payment Start Date/Payments Start Date, Payment End Date/Payments End Date, Payment Reference, Comment/Comments
-        const rawSku = (record['SKU'] || '').trim();
+        // Expected headers (SKU required)
+        const rawSku = (getVal(record, ['SKU', 'sku']) || '').trim();
         if (!rawSku) {
           errors.push(`Row ${i + 1}: Missing SKU`);
           continue;
         }
 
-        const payee = (record['Payee'] || '').trim() || null;
+        const payee = (getVal(record, ['Payee', 'payee']) || '').trim() || null;
 
-        const categoryPrefix = (record['Category'] || '').trim();
+        const categoryPrefix = (getVal(record, ['Category', 'category']) || '').trim();
         const mappedCategory = mapPrefixToCategory(categoryPrefix);
 
-        const amountStr = (record['Amount'] || record['Total Amount'] || '').trim();
+        const amountStr = (getVal(record, ['Amount', 'amount', 'Total Amount', 'total amount']) || '').trim();
         const normalizedAmountStr = amountStr ? amountStr.replace(/[^\d.,-]/g, '').replace(/,/g, '') : '';
         let amount = 0;
         if (normalizedAmountStr) {
@@ -221,7 +254,7 @@ serve(async (req) => {
           amount = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : 0;
         }
 
-        const paymentDayStr = (record['Payment Day'] || '').trim();
+        const paymentDayStr = (getVal(record, ['Payment Day', 'payment day']) || '').trim();
         let payment_day: number | null = null;
         if (paymentDayStr) {
           const d = parseInt(paymentDayStr, 10);
@@ -230,8 +263,7 @@ serve(async (req) => {
           }
         }
 
-        // Accept both "Payment Start Date" and "Payments Start Date"
-        const paymentStartDateStr = ((record['Payment Start Date'] ?? record['Payments Start Date']) || '').trim();
+        const paymentStartDateStr = ((getVal(record, ['Payment Start Date', 'Payments Start Date']) || '')).trim();
         let payment_date: string | null = null;
         const dateRegex = /^(\d{2})[./](\d{2})[./](\d{4})$/;
         if (paymentStartDateStr) {
@@ -242,8 +274,7 @@ serve(async (req) => {
           }
         }
 
-        // Accept both "Payment End Date" and "Payments End Date"
-        const paymentEndDateStr = ((record['Payment End Date'] ?? record['Payments End Date']) || '').trim();
+        const paymentEndDateStr = ((getVal(record, ['Payment End Date', 'Payments End Date']) || '')).trim();
         let payment_end_date: string | null = null;
         if (paymentEndDateStr) {
           const endMatch = paymentEndDateStr.match(dateRegex);
@@ -253,29 +284,27 @@ serve(async (req) => {
           }
         }
 
-        const payment_reference = (record['Payment Reference'] || '').trim() || null;
-        const comments = ((record['Comment'] ?? record['Comments']) || '').trim() || null;
+        const payment_reference = (getVal(record, ['Payment Reference', 'payment reference']) || '').trim() || null;
+        const comments = ((getVal(record, ['Comment', 'Comments', 'comment', 'comments']) || '')).trim() || null;
 
         const not_property_related = rawSku.toLowerCase() === 'n/a';
         const sku = not_property_related ? null : rawSku;
 
-        // Build categories array only if we have a valid category and a positive amount
         const categories = (mappedCategory && amount > 0) ? [{ category: mappedCategory, amount }] : [];
 
-        // Defaults for required fields not present in minimal sheet
         const from_day = 1;
         const to_day = 31;
 
         const rowPayload = {
           requester_id: uploaderId,
           payee,
-          payment_date,               // optional
-          payment_end_date,           // optional
-          payment_day,                // optional
+          payment_date,
+          payment_end_date,
+          payment_day,
           sku,
           not_property_related,
-          categories,                 // optional (can be [])
-          total_amount: amount,       // defaults to 0 if missing/invalid
+          categories,
+          total_amount: amount,
           account_name: null,
           account_address: null,
           iban_number: null,
