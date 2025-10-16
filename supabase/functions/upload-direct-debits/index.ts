@@ -212,6 +212,16 @@ serve(async (req) => {
 
     const directDebitsToInsert: any[] = [];
     const errors: string[] = [];
+    const duplicateRefs = new Set<string>();
+
+    // Build set of existing payment_reference values for this country
+    const { data: existingRefs } = await supabaseClient
+      .from('direct_debits')
+      .select('payment_reference')
+      .eq('country', country)
+      .not('payment_reference', 'is', null);
+
+    existingRefs?.forEach(r => duplicateRefs.add(r.payment_reference!));
 
     // Process rows
     for (let i = 0; i < dataRows.length; i++) {

@@ -251,6 +251,10 @@ const DirectDebitDetail = () => {
               <p>{format(new Date(directDebit.payment_date), 'PPP')}</p>
             </div>
             <div>
+              <p className="font-medium">Payment Day:</p>
+              <p>{new Date(directDebit.payment_date).getDate()}</p>
+            </div>
+            <div>
               <p className="font-medium">SKU:</p>
               <p>{directDebit.not_property_related ? 'N/A (Not Property Related)' : (directDebit.sku || 'N/A')}</p>
             </div>
