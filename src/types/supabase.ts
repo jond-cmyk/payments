@@ -86,18 +86,19 @@ export type StandingOrder = { // NEW: StandingOrder type
   payment_date: string; // YYYY-MM-DD format (start date of the standing order)
   sku: string | null;
   not_property_related: boolean;
-  category: string;
-  account_name: string; // NEW
-  account_address: string | null; // NEW, nullable
-  iban_number: string | null; // NEW, nullable
-  sort_code: string | null; // NEW, nullable
-  account_number: string | null; // NEW, nullable
+  categories: { category: string; amount: number; }[]; // Changed to array of objects
+  account_name: string;
+  account_address: string | null;
+  iban_number: string | null;
+  sort_code: string | null;
+  account_number: string | null;
   from_day: number; // NEW, for accruals period (day of month)
   to_day: number; // NEW, for accruals period (day of month)
   payment_reference: string;
   status: 'active' | 'cancelled' | 'paused' | 'pending'; // Added 'pending' status
   country: string;
   bank_details_verified: boolean; // NEW: Bank details verified checkbox
+  total_amount: number; // NEW: Total amount for the standing order
 };
 
 export type Profile = {
