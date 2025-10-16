@@ -125,21 +125,70 @@ serve(async (req) => {
       });
     }
 
-    const headers = parsedRows[0].map(h => h.trim());
-    const dataRows = parsedRows.slice(1);
+    // Find the correct header row by scanning first few rows for expected columns
+    const expectedHeaderHints = ['Payee', 'Payment Date', 'Account Number'];
+    let headerRowIndex = 0;
+    const scanLimit = Math.min(parsedRows.length, 10);
+    for (let i = 0; i < scanLimit; i++) {
+      const row = parsedRows[i].map(h => (h || '').trim());
+      const containsHint = expectedHeaderHints.some(hint => row.includes(hint));
+      if (containsHint) {
+        headerRowIndex = i;
+        break;
+      }
+    }
 
+    const headers = parsedRows[headerRowIndex].map(h => (h || '').trim());
+    const dataRows = parsedRows.slice(headerRowIndex + 1);
+
+    console.log(`[upload-direct-debits] Header row index: ${headerRowIndex}`);
     console.log(`[upload-direct-debits] Headers found: ${JSON.stringify(headers)}`);
     console.log(`[upload-direct-debits] Number of data rows: ${dataRows.length}`);
 
-    // DEBUG: Show first few rows of actual data with headers
-    console.log(`[upload-direct-debits] First 3 data rows with headers:`);
-    dataRows.slice(0, 3).forEach((row, i) => {
-      const rowObj: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        rowObj[header] = row[index]?.trim() || '';
+    // Validate that we found a plausible direct debit header
+    if (!headers.includes('Payee')) {
+      const serverDebugInfo = `Header row index guessed: ${headerRowIndex}\nHeaders found: ${JSON.stringify(headers, null, 2)}\n\nFirst 5 rows:\n${JSON.stringify(parsedRows.slice(0, 5), null, 2)}`;
+      const msg = 'The CSV does not contain a "Payee" column. Please upload the Direct Debits CSV with the correct headers.';
+      return new Response(JSON.stringify({ message: msg, errors: [msg], serverDebugInfo }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
-      console.log(`Row ${i + 1}: ${JSON.stringify(rowObj)}`);
-    });
+    }
+
+    // Helpers
+    const toISODate = (s: string | undefined | null) => {
+      if (!s) return null;
+      const str = s.trim();
+      // Try DD.MM.YYYY
+      const dot = str.split('.');
+      if (dot.length === 3) {
+        const [dd, mm, yyyy] = dot;
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      // Try DD/MM/YYYY
+      const slash = str.split('/');
+      if (slash.length === 3) {
+        const [dd, mm, yyyy] = slash;
+        return `${yyyy}-${mm}-${dd}`;
+      }
+      return str; // fallback (assume already ISO)
+    };
+
+    const mapCategory = (raw: string | undefined | null) => {
+      if (!raw) return '974_other';
+      const val = raw.trim();
+      const codeMatch = val.match(/^(\d{3,4})/);
+      if (codeMatch && categoryMap[codeMatch[1]]) {
+        return categoryMap[codeMatch[1]];
+      }
+      return val || '974_other';
+    };
+
+    const parseBoolean = (raw: string | undefined | null) => {
+      if (!raw) return false;
+      const v = raw.trim().toLowerCase();
+      return v === 'yes' || v === 'true' || v === '1' || v === 'y';
+    };
 
     const directDebitsToInsert = [];
     const errors: string[] = [];
@@ -147,66 +196,66 @@ serve(async (req) => {
     // Process each data row
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
-      
-      console.log(`[upload-direct-debits] Processing row ${i + 1}: ${JSON.stringify(row)}`);
-      
-      // Allow for rows with fewer columns than headers if trailing columns are optional
-      // For now, we'll keep strict check, but handle missing optional fields gracefully
-      // if (row.length !== headers.length) {
-      //   errors.push(`Row ${i + 1}: Column count mismatch (${row.length} vs ${headers.length}). Skipping.`);
-      //   continue;
-      // }
 
       const record: Record<string, string> = {};
       headers.forEach((header, index) => {
-        record[header] = row[index]?.trim() || '';
+        record[header] = (row[index]?.trim() || '');
       });
 
-      console.log(`[upload-direct-debits] Row ${i + 1} as object: ${JSON.stringify(record)}`);
-      console.log(`[upload-direct-debits] Available headers: ${Object.keys(record).join(', ')}`);
-
       try {
-        // Extract fields from your specified Direct Debit CSV format
+        // Expected columns for Direct Debits CSV
         const payee = record['Payee'];
-        const sku = record['SKU'];
+        const paymentDateRaw = record['Payment Date'];
+        const categoryRaw = record['Category'];
         const accountNumber = record['Account Number'];
+        const userEmail = record['User Email'];
+        const sku = record['SKU'];
+        const notPropertyRelatedRaw = record['Not Property Related'];
         const paymentReference = record['Payment Reference'];
-        const paymentDate = record['Payment Date'];
+        const bankAccount = record['Bank Account'];
 
-        console.log(`[upload-direct-debits] Row ${i + 1} extracted values:`, {
-          payee: payee || '(empty)',
-          sku: sku || '(empty)', 
-          accountNumber: accountNumber || '(empty)',
-          paymentReference: paymentReference || '(empty)',
-          paymentDate: paymentDate || '(empty)'
-        });
-
-        // Basic validation - only payee is required
+        // Basic validation
         if (!payee) {
           errors.push(`Row ${i + 1}: Missing 'Payee' column. This row will not be imported.`);
           continue;
         }
 
-        // Map category code (like "952") to full category value - assuming a default for direct debits
-        // If you have a 'Category' column in your direct debit CSV, let me know and I can map it.
-        const category = '974_other'; // Default category for direct debits if not provided
+        // Resolve requester_id via User Email if provided
+        let requesterId = uploaderId;
+        if (userEmail) {
+          const { data: profileRow, error: profileErr } = await supabaseClient
+            .from('profile_with_email')
+            .select('id, user_email')
+            .eq('user_email', userEmail)
+            .limit(1)
+            .single();
+
+          if (profileErr) {
+            console.warn(`[upload-direct-debits] Row ${i + 1}: Could not resolve requester by email "${userEmail}". Using uploaderId. Error: ${profileErr.message}`);
+          } else if (profileRow?.id) {
+            requesterId = profileRow.id;
+          }
+        }
+
+        const payment_date = toISODate(paymentDateRaw);
+        const category = mapCategory(categoryRaw);
+        const not_property_related = parseBoolean(notPropertyRelatedRaw);
 
         // Create direct debit record
         const directDebitRecord = {
-          requester_id: uploaderId,
+          requester_id: requesterId,
           payee: payee,
-          payment_date: paymentDate || null, // Can be null if not provided
-          sku: sku || null, // Can be null if not provided
-          not_property_related: false, // Default to false, adjust if you have a column for this
-          category: category,
-          account_number: accountNumber || 'UNKNOWN', // Default to 'UNKNOWN' if not provided
-          payment_reference: paymentReference || null, // Can be null if not provided
-          status: 'awaiting_info', // Set to 'awaiting_info' as requested
+          payment_date: payment_date, // YYYY-MM-DD or null
+          sku: sku || null,
+          not_property_related,
+          category,
+          account_number: accountNumber || 'UNKNOWN',
+          payment_reference: paymentReference || null,
+          status: 'awaiting_info',
           country: country,
-          bank_account: null, // Assuming no 'Bank Account' column in this specific direct debit CSV
+          bank_account: bankAccount || null,
         };
 
-        console.log(`[upload-direct-debits] Row ${i + 1}: Final record:`, JSON.stringify(directDebitRecord, null, 2));
         directDebitsToInsert.push(directDebitRecord);
 
       } catch (rowError) {
@@ -218,7 +267,9 @@ serve(async (req) => {
 
     console.log(`[upload-direct-debits] Total records to insert: ${directDebitsToInsert.length}`);
     console.log(`[upload-direct-debits] Total errors: ${errors.length}`);
-    console.log(`[upload-direct-debits] Errors:`, errors);
+    if (errors.length > 0) {
+      console.log(`[upload-direct-debits] Errors:`, errors);
+    }
 
     let insertedCount = 0;
     if (directDebitsToInsert.length > 0) {
@@ -247,15 +298,13 @@ serve(async (req) => {
       console.log('[upload-direct-debits] Processing completed with errors:', errors);
       
       // Create debug info for client
-      const serverDebugInfo = `Headers found: ${JSON.stringify(headers, null, 2)}\n\n` +
-        `First 3 data rows with headers:\n${JSON.stringify(dataRows.slice(0, 3).map((row, i) => {
+      const serverDebugInfo = `Header row index guessed: ${headerRowIndex}\nHeaders found: ${JSON.stringify(headers, null, 2)}\n\nFirst 3 data rows with headers:\n${JSON.stringify(dataRows.slice(0, 3).map((row, i) => {
           const rowObj: Record<string, string> = {};
           headers.forEach((header, index) => {
             rowObj[header] = row[index]?.trim() || '';
           });
           return `Row ${i + 1}: ${JSON.stringify(rowObj)}`;
-        }), null, 2)}\n\n` +
-        `All errors:\n${errors.join('\n')}`;
+        }), null, 2)}\n\nAll errors:\n${errors.join('\n')}`;
       
       return new Response(JSON.stringify({ 
         message: message, 
