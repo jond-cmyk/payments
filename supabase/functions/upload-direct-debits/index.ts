@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple category mapping - just the essential ones for direct debits
+// Simple category mapping
 const categoryOptions = [
   { value: '950_rent', label: '950 - Rent' },
   { value: '952_utilities_el', label: '952 - Electricity' },
@@ -132,6 +132,18 @@ serve(async (req) => {
     const directDebitsToInsert = [];
     const errors: string[] = [];
 
+    // Show what headers we found vs what we expect
+    const expectedHeaders = ['Payee', 'Payment Date', 'Category', 'Account Number', 'User Email'];
+    const foundHeaders = headers.filter(h => expectedHeaders.includes(h));
+    const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
+    
+    console.log(`[upload-direct-debits] Found expected headers: ${JSON.stringify(foundHeaders)}`);
+    console.log(`[upload-direct-debits] Missing expected headers: ${JSON.stringify(missingHeaders)}`);
+    
+    if (missingHeaders.length > 0) {
+      errors.push(`Warning: Missing some expected headers: ${missingHeaders.join(', ')}. These fields will be set to null/default values.`);
+    }
+
     // Process each data row with individual error handling
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
@@ -151,7 +163,7 @@ serve(async (req) => {
       console.log(`[upload-direct-debits] Processing row ${i + 1}: ${JSON.stringify(record)}`);
 
       try {
-        // Extract fields with safe defaults
+        // Extract fields with safe defaults - be more lenient
         const payee = record['Payee']?.trim() || '';
         const payment_date_str = record['Payment Date']?.trim() || '';
         const sku = record['SKU']?.trim() || '';
@@ -163,45 +175,41 @@ serve(async (req) => {
         const user_email_from_csv = record['User Email']?.trim() || '';
 
         console.log(`[upload-direct-debits] Row ${i + 1} extracted fields:`, {
-          payee: !!payee,
-          payment_date: !!payment_date_str,
-          category: !!categoryRaw,
-          account_number: !!account_number,
-          user_email: !!user_email_from_csv
+          payee: payee || '(empty)',
+          payment_date: payment_date_str || '(empty)',
+          category: categoryRaw || '(empty)',
+          account_number: account_number || '(empty)',
+          user_email: user_email_from_csv || '(empty)'
         });
 
-        // Map numeric category to full label
-        let category = categoryRaw || null;
-        if (category && /^\d{3}$/.test(category)) {
-          const found = categoryOptions.find(opt => opt.value.startsWith(category));
+        // Map numeric category to full label - be more lenient
+        let category = categoryRaw || '974_other'; // Default to 'Other' if missing
+        if (categoryRaw && /^\d{3}$/.test(categoryRaw)) {
+          const found = categoryOptions.find(opt => opt.value.startsWith(categoryRaw));
           if (found) {
             category = found.value;
             console.log(`[upload-direct-debits] Row ${i + 1}: Mapped category '${categoryRaw}' to '${category}'`);
           } else {
-            errors.push(`Row ${i + 1}: Unknown category code "${category}"`);
-            console.warn(`[upload-direct-debits] Row ${i + 1}: Unknown category code "${category}"`);
+            errors.push(`Row ${i + 1}: Unknown category code "${categoryRaw}", using default '974_other'`);
+            category = '974_other';
           }
+        } else if (categoryRaw && !categoryOptions.some(opt => opt.value === categoryRaw)) {
+          // If it's a text category that doesn't match our options, use default
+          errors.push(`Row ${i + 1}: Unknown category "${categoryRaw}", using default '974_other'`);
+          category = '974_other';
         }
 
-        // Basic validation
+        // More lenient validation - only require payee and user email
         if (!payee) {
-          errors.push(`Row ${i + 1}: Missing Payee`);
-          continue;
-        }
-        if (!category) {
-          errors.push(`Row ${i + 1}: Missing or invalid Category`);
-          continue;
-        }
-        if (!account_number) {
-          errors.push(`Row ${i + 1}: Missing Account Number`);
+          errors.push(`Row ${i + 1}: Missing Payee - skipping row`);
           continue;
         }
         if (!user_email_from_csv) {
-          errors.push(`Row ${i + 1}: Missing User Email`);
+          errors.push(`Row ${i + 1}: Missing User Email - skipping row`);
           continue;
         }
 
-        // Parse payment date
+        // Parse payment date - be more lenient
         let payment_date = null;
         if (payment_date_str) {
           const dateParts = payment_date_str.split('.');
@@ -209,8 +217,7 @@ serve(async (req) => {
             payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
             console.log(`[upload-direct-debits] Row ${i + 1}: Parsed date '${payment_date_str}' to '${payment_date}'`);
           } else {
-            errors.push(`Row ${i + 1}: Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY.`);
-            continue;
+            errors.push(`Row ${i + 1}: Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY. Setting Payment Date to null.`);
           }
         }
 
@@ -241,7 +248,7 @@ serve(async (req) => {
           errors.push(`Row ${i + 1}: Error finding user. Using uploader ID.`);
         }
 
-        // Create direct debit record
+        // Create direct debit record - use defaults for missing fields
         const directDebitRecord = {
           requester_id: requesterIdForDirectDebit,
           payee: payee,
@@ -249,7 +256,7 @@ serve(async (req) => {
           sku: sku || null,
           not_property_related: not_property_related,
           category: category,
-          account_number: account_number,
+          account_number: account_number || 'UNKNOWN', // Default if missing
           payment_reference: payment_reference || null,
           status: 'awaiting_info',
           country: country,
