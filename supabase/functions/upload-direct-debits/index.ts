@@ -293,7 +293,7 @@ serve(async (req) => {
           }
         }
 
-        const payment_date = toISODate(paymentDateRaw) || new Date().toISOString().split('T')[0];
+        const payment_date = toISODate(paymentDateRaw) || null;
         const category = mapCategory(categoryRaw);
         const not_property_related = parseBoolean(notPropertyRelatedRaw);
 
