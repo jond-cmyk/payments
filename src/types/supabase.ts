@@ -53,7 +53,6 @@ export type PaymentRequest = {
   receipt_required: boolean;
   is_urgent: boolean;
   country: string;
-  sort_code?: string | null; // already included above
   last_reminder_sent_at: string | null;
   is_reminded: boolean;
   category: string; // e.g. '974_other'
