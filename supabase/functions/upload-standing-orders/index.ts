@@ -90,6 +90,20 @@ serve(async (req) => {
       });
     }
 
+    // Ensure uploader is admin (simplified upload is only for admins)
+    const { data: uploaderProfile, error: uploaderErr } = await supabaseClient
+      .from('profiles')
+      .select('role')
+      .eq('id', uploaderId)
+      .single();
+
+    if (uploaderErr || !uploaderProfile || uploaderProfile.role !== 'admin') {
+      return new Response(JSON.stringify({ error: 'Forbidden: simplified standing order upload is restricted to admins.' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const parsedRows = await parse(fileContent, {
       header: false,
       separator: ',',
@@ -121,123 +135,96 @@ serve(async (req) => {
         record[header] = row[index];
       });
 
-      console.log(`Processing row ${i + 1}`, record);
-
       try {
-        // Minimal inputs expected:
-        // SKU, Payee, Amount, Payment Day, Payment Start Date (DD.MM.YYYY or DD/MM/YYYY), Comment, Category (3-digit prefix)
-        const payee = (record['Payee'] || '').trim();
-        const sku = (record['SKU'] || '').trim();
+        // Expected headers (all optional except SKU):
+        // SKU, Payee, Category, Amount, Payment Day, Payment Start Date/Payments Start Date, Payment End Date/Payments End Date, Payment Reference, Comment/Comments
+        const rawSku = (record['SKU'] || '').trim();
+        if (!rawSku) {
+          errors.push(`Row ${i + 1}: Missing SKU`);
+          continue;
+        }
+
+        const payee = (record['Payee'] || '').trim() || null;
+
+        const categoryPrefix = (record['Category'] || '').trim();
+        const mappedCategory = mapPrefixToCategory(categoryPrefix);
+
         const amountStr = (record['Amount'] || record['Total Amount'] || '').trim();
+        const normalizedAmountStr = amountStr ? amountStr.replace(/[^\d.,-]/g, '').replace(/,/g, '') : '';
+        let amount = 0;
+        if (normalizedAmountStr) {
+          const parsedAmount = parseFloat(normalizedAmountStr);
+          amount = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : 0;
+        }
+
         const paymentDayStr = (record['Payment Day'] || '').trim();
-        const paymentStartDateStr = (record['Payment Start Date'] || '').trim();
-        const comment = (record['Comment'] || '').trim();
-        const categoryPrefix = (record['Category'] || record['Category Prefix'] || '').trim();
-
-        console.log(`Row ${i + 1} extracted`, { payee, sku, amountStr, paymentDayStr, paymentStartDateStr, comment, categoryPrefix });
-
-        // Basic validation
-        if (!payee) {
-          errors.push(`Row ${i + 1}: Missing Payee`);
-          continue;
-        }
-
-        if (!amountStr) {
-          errors.push(`Row ${i + 1}: Missing Amount`);
-          continue;
-        }
-        const normalizedAmountStr = amountStr.replace(/[^\d.,-]/g, '').replace(/,/g, '');
-        const amount = parseFloat(normalizedAmountStr);
-        if (isNaN(amount) || amount <= 0) {
-          errors.push(`Row ${i + 1}: Invalid Amount '${amountStr}'`);
-          continue;
-        }
-
-        if (!paymentDayStr) {
-          errors.push(`Row ${i + 1}: Missing Payment Day`);
-          continue;
-        }
-        const payment_day = parseInt(paymentDayStr, 10);
-        if (isNaN(payment_day) || payment_day < 1 || payment_day > 31) {
-          errors.push(`Row ${i + 1}: Invalid Payment Day '${paymentDayStr}'`);
-          continue;
-        }
-
-        if (!paymentStartDateStr) {
-          errors.push(`Row ${i + 1}: Missing Payment Start Date`);
-          continue;
-        }
-        // Expect DD.MM.YYYY or DD/MM/YYYY -> convert to YYYY-MM-DD
-        let payment_date: string | null = null;
-        const dateRegex = /^(\d{2})[./](\d{2})[./](\d{4})$/;
-        const match = paymentStartDateStr.match(dateRegex);
-
-        if (match) {
-          const [_, dd, mm, yyyy] = match;
-          payment_date = `${yyyy}-${mm}-${dd}`;
-        } else {
-          errors.push(`Row ${i + 1}: Invalid Payment Start Date '${paymentStartDateStr}' (expected DD.MM.YYYY or DD/MM/YYYY).`);
-          continue;
-        }
-
-        // NEW: Parse Payment End Date if provided
-        let payment_end_date: string | null = null;
-        const paymentEndDateStr = (record['Payment End Date'] || '').trim();
-        if (paymentEndDateStr) {
-          const endDateMatch = paymentEndDateStr.match(dateRegex);
-          if (endDateMatch) {
-            const [_, dd, mm, yyyy] = endDateMatch;
-            payment_end_date = `${yyyy}-${mm}-${dd}`;
-          } else {
-            errors.push(`Row ${i + 1}: Invalid Payment End Date '${paymentEndDateStr}' (expected DD.MM.YYYY or DD/MM/YYYY).`);
-            continue;
+        let payment_day: number | null = null;
+        if (paymentDayStr) {
+          const d = parseInt(paymentDayStr, 10);
+          if (!isNaN(d) && d >= 1 && d <= 31) {
+            payment_day = d;
           }
         }
 
-        const mappedCategory = mapPrefixToCategory(categoryPrefix);
-        if (!mappedCategory) {
-          errors.push(`Row ${i + 1}: Invalid or unknown Category prefix '${categoryPrefix}'`);
-          continue;
+        // Accept both "Payment Start Date" and "Payments Start Date"
+        const paymentStartDateStr = ((record['Payment Start Date'] ?? record['Payments Start Date']) || '').trim();
+        let payment_date: string | null = null;
+        const dateRegex = /^(\d{2})[./](\d{2})[./](\d{4})$/;
+        if (paymentStartDateStr) {
+          const match = paymentStartDateStr.match(dateRegex);
+          if (match) {
+            const [_, dd, mm, yyyy] = match;
+            payment_date = `${yyyy}-${mm}-${dd}`;
+          }
         }
 
-        const not_property_related = sku === '' || sku.toLowerCase() === 'n/a';
+        // Accept both "Payment End Date" and "Payments End Date"
+        const paymentEndDateStr = ((record['Payment End Date'] ?? record['Payments End Date']) || '').trim();
+        let payment_end_date: string | null = null;
+        if (paymentEndDateStr) {
+          const endMatch = paymentEndDateStr.match(dateRegex);
+          if (endMatch) {
+            const [_, dd, mm, yyyy] = endMatch;
+            payment_end_date = `${yyyy}-${mm}-${dd}`;
+          }
+        }
 
-        // Build categories array with a single item from the provided amount
-        const categories = [{ category: mappedCategory, amount }];
+        const payment_reference = (record['Payment Reference'] || '').trim() || null;
+        const comments = ((record['Comment'] ?? record['Comments']) || '').trim() || null;
 
-        // Defaults for required fields not present in minimal CSV
+        const not_property_related = rawSku.toLowerCase() === 'n/a';
+        const sku = not_property_related ? null : rawSku;
+
+        // Build categories array only if we have a valid category and a positive amount
+        const categories = (mappedCategory && amount > 0) ? [{ category: mappedCategory, amount }] : [];
+
+        // Defaults for required fields not present in minimal sheet
         const from_day = 1;
         const to_day = 31;
 
-        // NEW: Map Comments field
-        const comments = (record['Comments'] || '').trim() || null;
-
-        // Insert-ready record
         const rowPayload = {
           requester_id: uploaderId,
           payee,
-          payment_date,              // Start date (YYYY-MM-DD)
-          payment_end_date: payment_end_date, // FIXED: Use the variable we defined
-          payment_day,               // New field for the day of month
-          sku: not_property_related ? null : sku,
+          payment_date,               // optional
+          payment_end_date,           // optional
+          payment_day,                // optional
+          sku,
           not_property_related,
-          categories,
-          total_amount: amount,
-          account_name: null,        // Not provided in minimal sheet
+          categories,                 // optional (can be [])
+          total_amount: amount,       // defaults to 0 if missing/invalid
+          account_name: null,
           account_address: null,
           iban_number: null,
           sort_code: null,
           account_number: null,
           from_day,
           to_day,
-          payment_reference: comment || null,
-          comments: comments,        // FIXED: Use the variable we defined
+          payment_reference,
+          comments,
           status: 'awaiting_info',
           country,
           bank_details_verified: false,
         };
-
-        console.log(`Row ${i + 1} ready for insert`, rowPayload);
 
         standingOrdersToInsert.push(rowPayload);
       } catch (rowErr: any) {
@@ -245,9 +232,6 @@ serve(async (req) => {
         continue;
       }
     }
-
-    console.log('Total rows to insert:', standingOrdersToInsert.length);
-    console.log('Errors collected:', errors);
 
     let insertedCount = 0;
     if (standingOrdersToInsert.length > 0) {
@@ -265,11 +249,11 @@ serve(async (req) => {
       }
 
       insertedCount = insertData?.length || 0;
-      console.log('Insert result count:', insertedCount);
     }
 
-    let message = `${insertedCount} standing orders inserted successfully with status 'Awaiting Info'.`;
-    const body: Record<string, unknown> = { message };
+    const body: Record<string, unknown> = {
+      message: `${insertedCount} standing orders inserted successfully with status 'Awaiting Info'.`,
+    };
     if (errors.length > 0) {
       body.errors = errors;
     }
