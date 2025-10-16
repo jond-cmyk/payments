@@ -50,8 +50,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('[upload-direct-debits] Boot: v1.0.0-direct-debit-parser – new revision deployed');
-    console.log('[upload-direct-debits] Starting function execution');
+    console.log('[upload-direct-debits] Boot: v1.1.0 – direct-debit parser with transaction CSV fallback');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -100,7 +99,7 @@ serve(async (req) => {
 
     console.log(`[upload-direct-debits] Processing file: ${fileName} from uploader: ${uploaderId} for country: ${country}`);
 
-    // Normalize content: remove BOM and auto-detect separator
+    // Normalize content: remove BOM and auto-detect separator (comma/semicolon)
     const rawContent = typeof fileContent === 'string' ? fileContent : String(fileContent);
     const normalizedContent = rawContent.replace(/^\uFEFF/, '');
     const firstLine = (normalizedContent.split(/\r?\n/)[0] ?? '');
@@ -134,14 +133,14 @@ serve(async (req) => {
       });
     }
 
-    // Find the correct header row by scanning first few rows for expected columns (case-insensitive)
-    const expectedHeaderHints = ['payee', 'payment date', 'account number'];
+    // Find header row
     let headerRowIndex = 0;
     const scanLimit = Math.min(parsedRows.length, 10);
     for (let i = 0; i < scanLimit; i++) {
       const rowLower = parsedRows[i].map(h => (h || '').trim().toLowerCase());
-      const containsHint = expectedHeaderHints.some(hint => rowLower.includes(hint));
-      if (containsHint) {
+      const containsDirectDebitHints = ['payee', 'payment date', 'account number'].some(h => rowLower.includes(h));
+      const containsTransactionHints = ['approval', 'date', 'text'].some(h => rowLower.includes(h));
+      if (containsDirectDebitHints || containsTransactionHints) {
         headerRowIndex = i;
         break;
       }
@@ -149,25 +148,35 @@ serve(async (req) => {
 
     const headers = parsedRows[headerRowIndex].map(h => (h || '').trim());
     const headersLower = headers.map(h => h.toLowerCase());
+    const headerSet = new Set(headersLower);
     const dataRows = parsedRows.slice(headerRowIndex + 1);
 
     console.log(`[upload-direct-debits] Header row index: ${headerRowIndex}`);
     console.log(`[upload-direct-debits] Headers found: ${JSON.stringify(headers)}`);
     console.log(`[upload-direct-debits] Number of data rows: ${dataRows.length}`);
 
-    // Validate that we found a plausible direct debit header
-    if (!headersLower.includes('payee')) {
+    // Determine mode: direct debit or transaction fallback
+    const isDirectDebitHeaders = headerSet.has('payee') && headerSet.has('payment date');
+    const isTransactionHeaders = headerSet.has('approval') && headerSet.has('date') && headerSet.has('text');
+
+    if (!isDirectDebitHeaders && !isTransactionHeaders) {
       const serverDebugInfo =
         `Header row index guessed: ${headerRowIndex}\n` +
         `Headers found: ${JSON.stringify(headers, null, 2)}\n\n` +
         `First 5 rows:\n${JSON.stringify(parsedRows.slice(0, 5), null, 2)}`;
-      const msg = 'The CSV does not contain a "Payee" column. Please upload the Direct Debits CSV with the correct headers.';
+      const msg = 'CSV headers not recognized. Expected either direct-debit headers (e.g. "Payee", "Payment Date") or transaction-style headers (e.g. "Approval", "Date", "Text").';
       console.error(`[upload-direct-debits] Error: ${msg}`);
       return new Response(JSON.stringify({ success: false, error: msg, serverDebugInfo }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const idxOf = (name: string) => headersLower.indexOf(name.toLowerCase());
+    const pick = (row: string[], name: string) => {
+      const idx = idxOf(name);
+      return idx >= 0 ? (row[idx]?.trim() || '') : '';
+    };
 
     const toISODate = (s: string | undefined | null) => {
       if (!s) return null;
@@ -201,34 +210,54 @@ serve(async (req) => {
       return v === 'yes' || v === 'true' || v === '1' || v === 'y';
     };
 
-    const getVal = (row: string[], name: string) => {
-      const idx = headersLower.indexOf(name.toLowerCase());
-      return idx >= 0 ? (row[idx]?.trim() || '') : '';
-    };
-
     const directDebitsToInsert: any[] = [];
     const errors: string[] = [];
 
-    // Process each data row
+    // Process rows
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       try {
-        const payee = getVal(row, 'Payee');
-        const paymentDateRaw = getVal(row, 'Payment Date');
-        const categoryRaw = getVal(row, 'Category');
-        const accountNumber = getVal(row, 'Account Number');
-        const userEmail = getVal(row, 'User Email');
-        const sku = getVal(row, 'SKU');
-        const notPropertyRelatedRaw = getVal(row, 'Not Property Related');
-        const paymentReference = getVal(row, 'Payment Reference');
-        const bankAccount = getVal(row, 'Bank Account');
+        let payee = '';
+        let paymentDateRaw = '';
+        let categoryRaw = '';
+        let accountNumber = '';
+        let userEmail = '';
+        let sku = '';
+        let notPropertyRelatedRaw = '';
+        let paymentReference = '';
+        let bankAccount = '';
+
+        if (isDirectDebitHeaders) {
+          // Direct-debit CSV mapping
+          payee = pick(row, 'Payee');
+          paymentDateRaw = pick(row, 'Payment Date');
+          categoryRaw = pick(row, 'Category');
+          accountNumber = pick(row, 'Account Number');
+          userEmail = pick(row, 'User Email');
+          sku = pick(row, 'SKU');
+          notPropertyRelatedRaw = pick(row, 'Not Property Related');
+          paymentReference = pick(row, 'Payment Reference');
+          bankAccount = pick(row, 'Bank Account');
+        } else {
+          // Transaction CSV fallback mapping to direct debits
+          payee = pick(row, 'Text'); // merchant/payee
+          paymentDateRaw = pick(row, 'Date');
+          // prefer Reason for Payment, else Comment
+          categoryRaw = pick(row, 'Reason for Payment') || pick(row, 'Comment');
+          accountNumber = pick(row, 'Contra account'); // map to account number
+          userEmail = ''; // not present in transaction export → fallback to uploaderId
+          sku = pick(row, 'SKU');
+          notPropertyRelatedRaw = ''; // default false
+          paymentReference = pick(row, 'Entry'); // use numeric entry as reference
+          bankAccount = pick(row, 'Bank'); // keep for context
+        }
 
         if (!payee) {
-          errors.push(`Row ${i + 1}: Missing 'Payee' column. This row will not be imported.`);
+          errors.push(`Row ${i + 1}: Missing payee/merchant value. This row will not be imported.`);
           continue;
         }
 
-        // Resolve requester_id via User Email if provided
+        // Resolve requester_id via email if present, otherwise fallback to uploader
         let requesterId = uploaderId;
         if (userEmail) {
           const { data: profileRow, error: profileErr } = await supabaseClient
@@ -264,7 +293,6 @@ serve(async (req) => {
         };
 
         directDebitsToInsert.push(directDebitRecord);
-
       } catch (rowError: any) {
         console.error(`[upload-direct-debits] Error processing row ${i + 1}:`, rowError);
         errors.push(`Row ${i + 1}: ${rowError.message || 'Unknown row error'}`);
@@ -307,8 +335,9 @@ serve(async (req) => {
       
       const serverDebugInfo =
         `Header row index guessed: ${headerRowIndex}\n` +
+        `Detected mode: ${isDirectDebitHeaders ? 'direct-debit' : 'transaction-fallback'}\n` +
         `Headers found: ${JSON.stringify(headers, null, 2)}\n\n` +
-        `First 3 data rows with headers:\n${JSON.stringify(dataRows.slice(0, 3).map((row, i) => {
+        `First 3 data rows mapped:\n${JSON.stringify(dataRows.slice(0, 3).map((row, i) => {
           const rowObj: Record<string, string> = {};
           headers.forEach((header, index) => {
             rowObj[header] = row[index]?.trim() || '';
