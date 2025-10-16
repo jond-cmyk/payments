@@ -168,6 +168,10 @@ const StandingOrders = () => {
       if (filterPaymentReference) {
         query = query.ilike('payment_reference', `%${filterPaymentReference}%`);
       }
+      // Add payment day filter
+      if (filterPaymentDay) {
+        query = query.eq('payment_day', filterPaymentDay);
+      }
 
       // Apply sorting
       if (sortColumn) {
