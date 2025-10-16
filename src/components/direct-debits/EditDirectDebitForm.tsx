@@ -23,9 +23,14 @@ import PrefixedInput from '@/components/PrefixedInput';
 // Zod schema for editing a direct debit
 const editDirectDebitFormSchema = z.object({
   payee: z.string().min(1, "Payee is required."),
-  payment_date: z.date({
-    required_error: "Payment Date is required.",
-  }),
+  payment_day: z
+    .number({
+      required_error: "Payment Day is required.",
+      invalid_type_error: "Payment Day must be a number.",
+    })
+    .int()
+    .min(1, "Day must be between 1 and 31.")
+    .max(31, "Day must be between 1 and 31."),
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
   category: z.string().min(1, "Category is required."),
@@ -83,7 +88,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
     resolver: zodResolver(editDirectDebitFormSchema),
     defaultValues: {
       payee: directDebit.payee,
-      payment_date: new Date(directDebit.payment_date),
+      payment_day: new Date(directDebit.payment_date).getDate(),
       sku: directDebit.sku || (directDebit.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: directDebit.not_property_related,
       category: directDebit.category,
@@ -107,11 +112,18 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
         throw new Error("User not authenticated.");
       }
 
+      const prevDate = new Date(directDebit.payment_date);
+      const year = prevDate.getFullYear();
+      const monthIndex = prevDate.getMonth(); // 0-based
+      const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
+      const safeDay = Math.min(values.payment_day, lastDayOfMonth);
+      const paymentDate = new Date(year, monthIndex, safeDay).toISOString().split('T')[0];
+
       const { error: updateError } = await supabase
         .from('direct_debits')
         .update({
           payee: values.payee,
-          payment_date: values.payment_date.toISOString().split('T')[0],
+          payment_date: paymentDate,
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           category: values.category,
@@ -189,17 +201,30 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
         
         <FormField
           control={form.control}
-          name="payment_date"
+          name="payment_day"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel className="font-semibold">Payment Date<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormLabel className="font-semibold">
+                Payment Day (Day of Month)
+                <span className="text-red-600 ml-1 text-lg font-bold">*</span>
+              </FormLabel>
               <FormControl>
-                <DatePicker
-                  date={field.value}
-                  setDate={field.onChange}
-                  placeholder="Select payment date"
+                <Select
+                  onValueChange={(val) => field.onChange(Number(val))}
+                  value={field.value !== undefined ? String(field.value) : undefined}
                   disabled={!isAdmin}
-                />
+                >
+                  <SelectTrigger id={field.name}>
+                    <SelectValue placeholder="Select day (1–31)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormControl>
               <FormMessage />
             </FormItem>

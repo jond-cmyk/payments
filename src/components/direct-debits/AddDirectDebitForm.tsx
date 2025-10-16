@@ -22,9 +22,14 @@ import PrefixedInput from '@/components/PrefixedInput';
 // Zod schema for adding a new direct debit
 const addDirectDebitFormSchema = z.object({
   payee: z.string().min(1, "Payee is required."),
-  payment_date: z.date({
-    required_error: "Payment Date is required.",
-  }),
+  payment_day: z
+    .number({
+      required_error: "Payment Day is required.",
+      invalid_type_error: "Payment Day must be a number.",
+    })
+    .int()
+    .min(1, "Day must be between 1 and 31.")
+    .max(31, "Day must be between 1 and 31."),
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
   category: z.string().min(1, "Category is required."),
@@ -82,7 +87,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
     resolver: zodResolver(addDirectDebitFormSchema),
     defaultValues: {
       payee: "",
-      payment_date: undefined,
+      payment_day: undefined,
       sku: currentCountry === 'United Kingdom' ? 'UK' : 'CH',
       not_property_related: false,
       category: "",
@@ -116,12 +121,19 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         throw new Error("User not authenticated.");
       }
 
+      const now = new Date();
+      const year = now.getFullYear();
+      const monthIndex = now.getMonth(); // 0-based
+      const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
+      const safeDay = Math.min(values.payment_day, lastDayOfMonth);
+      const paymentDate = new Date(year, monthIndex, safeDay).toISOString().split('T')[0];
+
       const { error: insertError } = await supabase
         .from('direct_debits')
         .insert({
           requester_id: user.id,
           payee: values.payee,
-          payment_date: values.payment_date.toISOString().split('T')[0],
+          payment_date: paymentDate,
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           category: values.category,
@@ -140,7 +152,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       showSuccess("Direct Debit added successfully!");
       form.reset({
         payee: "",
-        payment_date: undefined,
+        payment_day: undefined,
         sku: formCountry === 'United Kingdom' ? 'UK' : 'CH',
         not_property_related: false,
         category: "",
@@ -208,16 +220,29 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         />
         <FormField
           control={form.control}
-          name="payment_date"
+          name="payment_day"
           render={({ field }) => (
             <FormItem className="flex flex-col">
-              <FormLabel className="font-semibold">Payment Date<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormLabel className="font-semibold">
+                Payment Day (Day of Month)
+                <span className="text-red-600 ml-1 text-lg font-bold">*</span>
+              </FormLabel>
               <FormControl>
-                <DatePicker
-                  date={field.value}
-                  setDate={field.onChange}
-                  placeholder="Select payment date"
-                />
+                <Select
+                  onValueChange={(val) => field.onChange(Number(val))}
+                  value={field.value !== undefined ? String(field.value) : undefined}
+                >
+                  <SelectTrigger id={field.name}>
+                    <SelectValue placeholder="Select day (1–31)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormControl>
               <FormMessage />
             </FormItem>
