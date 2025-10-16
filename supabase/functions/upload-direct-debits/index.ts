@@ -7,43 +7,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// List of common categories - UPDATED with custom sort from src/lib/constants.ts
-const categoryOptions = [
-  { value: '950_rent', label: '950 - Rent' },
-  { value: '952_utilities_el', label: '952 - Electricity' },
-  { value: '953_water', label: '953 - Water' },
-  { value: '954_heating', label: '954 - Heating' },
-  { value: '956_fiber_wifi', label: '956 - Fiber/Wifi' },
-  { value: '958_internet', label: '958 - Internet' },
-  { value: '960_cleaning_services', label: '960 - Cleaning services' },
-  { value: '962_cleaning_move_out', label: '962 - Cleaning, at move-out' },
-  { value: '964_parking', label: '964 - Parking' },
-  { value: '970_maintenance', label: '970 - Maintenance' },
-  { value: '972_maintenance_move_out', label: '972 - Maintenance, at move-out' },
-  { value: '974_other', label: '974 - Other' },
-  { value: '975_small_furniture', label: '975 - Small Furniture' },
-  { value: '976_council_tax', label: '976 - Council Tax', countries: ['United Kingdom'] }, // NEW: Council Tax for UK
-  { value: '3055_subcontractors', label: '3055 - Subcontractors' },
-  { value: '3056_otg_service_team_costs', label: '3056 - OTG - Service Team Costs' },
-  { value: '3057_storage_units_facilities', label: '3057 - Storage Units & Facilities' },
-  { value: '3075_software', label: '3075 - Software' },
-  { value: '3079_fines', label: '3079 - Fines' },
-  { value: '3089_car_fuel', label: '3089 - Car fuel' },
-  { value: '3090_car_taxes', label: '3090 - Car taxes' },
-  { value: '3091_car_insurance', label: '3091 - Car Insurance' },
-  { value: '3092_bridge_ferry_tolls', label: '3092 - Bridge, ferry and tolls' },
-  { value: '3102_office_rent', label: '3102 - Office rent' },
-  { value: '3115_office_phone_internet', label: '3115 - Office Phone and internet' },
-  { value: '3122_accountant', label: '3122 - Accountant' },
-  { value: '3125_lawyer', label: '3125 - Lawyer' },
-  { value: '3147_company_insurance', label: '3147 - Company insurance' },
-  { value: '3157_postage', label: '3157 - Postage' },
-  { value: '3444_restaurant_visits', label: '3444 - Restaurant visits' },
-  { value: '3469_gifts_flowers', label: '3469 - Gifts and flowers' },
-  { value: '3476_travel_hotels', label: '3476 - Travel and hotels' },
-  { value: '3480_marketing', label: '3480 – Marketing' },
-  { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
-];
+// Simple category mapping
+const categoryMap = {
+  '950': '950_rent',
+  '952': '952_utilities_el',
+  '953': '953_water',
+  '954': '954_heating',
+  '956': '956_fiber_wifi',
+  '958': '958_internet',
+  '960': '960_cleaning_services',
+  '962': '962_cleaning_move_out',
+  '964': '964_parking',
+  '970': '970_maintenance',
+  '972': '972_maintenance_move_out',
+  '974': '974_other',
+  '975': '975_small_furniture',
+  '976': '976_council_tax',
+  '3055': '3055_subcontractors',
+  '3056': '3056_otg_service_team_costs',
+  '3057': '3057_storage_units_facilities',
+  '3075': '3075_software',
+  '3079': '3079_fines',
+  '3089': '3089_car_fuel',
+  '3090': '3090_car_taxes',
+  '3091': '3091_car_insurance',
+  '3092': '3092_bridge_ferry_tolls',
+  '3102': '3102_office_rent',
+  '3115': '3115_office_phone_internet',
+  '3122': '3122_accountant',
+  '3125': '3125_lawyer',
+  '3147': '3147_company_insurance',
+  '3157': '3157_postage',
+  '3444': '3444_restaurant_visits',
+  '3469': '3469_gifts_flowers',
+  '3476': '3476_travel_hotels',
+  '3480': '3480_marketing',
+  '5201': '5201_provider_deposit',
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -65,49 +65,20 @@ serve(async (req) => {
       });
     }
 
-    let supabaseClient;
-    try {
-      supabaseClient = createClient(
-        supabaseUrl,
-        supabaseServiceRoleKey,
-        {
-          auth: {
-            persistSession: false,
-          },
-        }
-      );
-      console.log('[upload-direct-debits] Supabase client created successfully.');
-    } catch (clientError) {
-      const msg = `Failed to create Supabase client: ${clientError.message}`;
-      console.error(`[upload-direct-debits] Error: ${msg}`);
-      return new Response(JSON.stringify({ error: msg }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const supabaseClient = createClient(
+      supabaseUrl,
+      supabaseServiceRoleKey,
+      {
+        auth: {
+          persistSession: false,
+        },
+      }
+    );
 
-    let payload;
-    try {
-      payload = await req.json();
-      console.log('[upload-direct-debits] Payload received successfully');
-      console.log(`[upload-direct-debits] Payload keys: ${Object.keys(payload).join(', ')}`);
-    } catch (jsonError) {
-      console.error('[upload-direct-debits] Failed to parse JSON payload:', jsonError);
-      return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
+    const payload = await req.json();
     const { fileName, fileContent, uploaderId, country } = payload;
 
     if (!fileName || !fileContent || !uploaderId || !country) {
-      console.error('[upload-direct-debits] Missing required fields:', { 
-        fileName: !!fileName, 
-        fileContent: !!fileContent, 
-        uploaderId: !!uploaderId, 
-        country: !!country 
-      });
       return new Response(JSON.stringify({ error: 'Missing file data, uploader ID, or country in payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -115,7 +86,6 @@ serve(async (req) => {
     }
 
     console.log(`[upload-direct-debits] Processing file: ${fileName} from uploader: ${uploaderId} for country: ${country}`);
-    console.log(`[upload-direct-debits] File content length: ${fileContent.length}`);
 
     let parsedRows: string[][];
     try {
@@ -125,9 +95,6 @@ serve(async (req) => {
         trimLeadingWhitespace: true,
       }) as string[][];
       console.log(`[upload-direct-debits] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
-      if (parsedRows.length > 0) {
-        console.log(`[upload-direct-debits] First parsed row (potential headers): ${JSON.stringify(parsedRows[0])}`);
-      }
     } catch (csvParseError) {
       console.error('[upload-direct-debits] CSV parsing error:', csvParseError);
       return new Response(JSON.stringify({ error: `Failed to parse CSV file: ${csvParseError.message}` }), {
@@ -146,145 +113,59 @@ serve(async (req) => {
     const headers = parsedRows[0].map(h => h.trim());
     const dataRows = parsedRows.slice(1);
 
-    console.log(`[upload-direct-debits] Extracted headers: ${JSON.stringify(headers)}`);
+    console.log(`[upload-direct-debits] Headers found: ${JSON.stringify(headers)}`);
     console.log(`[upload-direct-debits] Number of data rows: ${dataRows.length}`);
 
     const directDebitsToInsert = [];
     const errors: string[] = [];
 
-    // Show what headers we found vs what we expect
-    const expectedHeaders = ['Payee', 'Payment Date', 'Category', 'Account Number', 'User Email', 'SKU', 'Payment Reference', 'Bank Account', 'Not Property Related'];
-    const foundHeaders = headers.filter(h => expectedHeaders.includes(h));
-    const missingHeaders = expectedHeaders.filter(h => !headers.includes(h));
-    
-    console.log(`[upload-direct-debits] Found expected headers: ${JSON.stringify(foundHeaders)}`);
-    console.log(`[upload-direct-debits] Missing expected headers: ${JSON.stringify(missingHeaders)}`);
-    
-    if (missingHeaders.length > 0) {
-      errors.push(`Warning: Missing some expected headers: ${missingHeaders.join(', ')}. These fields will be set to null/default values.`);
-    }
-
-    // Process each data row with individual error handling
+    // Process each data row
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       
       if (row.length !== headers.length) {
-        const msg = `Row ${i + 1} has ${row.length} columns but headers have ${headers.length}. Skipping.`;
-        errors.push(msg);
-        console.warn(`[upload-direct-debits] ${msg}`);
+        errors.push(`Row ${i + 1}: Column count mismatch (${row.length} vs ${headers.length}). Skipping.`);
         continue;
       }
 
       const record: Record<string, string> = {};
       headers.forEach((header, index) => {
-        record[header] = row[index];
+        record[header] = row[index]?.trim() || '';
       });
 
       console.log(`[upload-direct-debits] Processing row ${i + 1}: ${JSON.stringify(record)}`);
 
       try {
-        // Extract fields with safe defaults - be more lenient
-        const payee = record['Payee']?.trim() || '';
-        const payment_date_str = record['Payment Date']?.trim() || '';
-        const sku = record['SKU']?.trim() || '';
-        const not_property_related_str = record['Not Property Related']?.trim() || '';
-        const categoryRaw = record['Category']?.trim() || '';
-        const account_number = record['Account Number']?.trim() || '';
-        const payment_reference = record['Payment Reference']?.trim() || '';
-        const bank_account = record['Bank Account']?.trim() || '';
-        const user_email_from_csv = record['User Email']?.trim() || '';
+        // Extract fields from your CSV format
+        const leaseId = record['Lease ID'] || '';
+        const sku = record['SKU'] || '';
+        const categoryCode = record['Category'] || '';
+        const payee = record['Payee'] || '';
+        const accountNumber = record['Account Number'] || '';
+        const paymentReference = record['Payment Reference'] || '';
 
-        console.log(`[upload-direct-debits] Row ${i + 1} extracted fields:`, {
-          payee: payee || '(empty)',
-          payment_date: payment_date_str || '(empty)',
-          category: categoryRaw || '(empty)',
-          account_number: account_number || '(empty)',
-          user_email: user_email_from_csv || '(empty)'
-        });
-
-        // Map numeric category to full label - be more lenient
-        let category = categoryRaw || '974_other'; // Default to 'Other' if missing
-        if (categoryRaw && /^\d{3}$/.test(categoryRaw)) {
-          const found = categoryOptions.find(opt => opt.value.startsWith(categoryRaw));
-          if (found) {
-            category = found.value;
-            console.log(`[upload-direct-debits] Row ${i + 1}: Mapped category '${categoryRaw}' to '${category}'`);
-          } else {
-            errors.push(`Row ${i + 1}: Unknown category code "${categoryRaw}", using default '974_other'`);
-            category = '974_other';
-          }
-        } else if (categoryRaw && !categoryOptions.some(opt => opt.value === categoryRaw)) {
-          // If it's a text category that doesn't match our options, use default
-          errors.push(`Row ${i + 1}: Unknown category "${categoryRaw}", using default '974_other'`);
-          category = '974_other';
-        }
-
-        // Basic validation - only payee and account_number are strictly required for direct debits
+        // Basic validation - only payee is required
         if (!payee) {
           errors.push(`Row ${i + 1}: Missing Payee - skipping row`);
           continue;
         }
-        if (!account_number) {
-          errors.push(`Row ${i + 1}: Missing Account Number - skipping row`);
-          continue;
-        }
 
-        // Parse payment date - be more lenient
-        let payment_date = null;
-        if (payment_date_str) {
-          const dateParts = payment_date_str.split('.');
-          if (dateParts.length === 3) {
-            payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
-            console.log(`[upload-direct-debits] Row ${i + 1}: Parsed date '${payment_date_str}' to '${payment_date}'`);
-          } else {
-            errors.push(`Row ${i + 1}: Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY. Setting Payment Date to null.`);
-          }
-        }
+        // Map category code (like "952") to full category value
+        const category = categoryMap[categoryCode] || '974_other';
 
-        const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
-
-        // Determine requester_id
-        let requesterIdForDirectDebit = uploaderId; // Default to uploader's ID
-        
-        if (user_email_from_csv) {
-          console.log(`[upload-direct-debits] Row ${i + 1}: Looking up user for email '${user_email_from_csv}' in country '${country}'`);
-          try {
-            const { data: profileData, error: profileError } = await supabaseClient
-              .from('profile_with_email')
-              .select('id')
-              .eq('user_email', user_email_from_csv)
-              .eq('country', country)
-              .single();
-
-            if (profileError || !profileData) {
-              console.warn(`[upload-direct-debits] Row ${i + 1}: User lookup failed for email '${user_email_from_csv}' - ${profileError?.message || 'User not found'}. Using uploader ID.`);
-              errors.push(`Row ${i + 1}: User with email '${user_email_from_csv}' not found in country ${country}. Using uploader ID.`);
-            } else {
-              requesterIdForDirectDebit = profileData.id;
-              console.log(`[upload-direct-debits] Row ${i + 1}: Found user ID '${requesterIdForDirectDebit}' for email '${user_email_from_csv}'`);
-            }
-          } catch (userError) {
-            console.error(`[upload-direct-debits] Row ${i + 1}: Error finding user for email ${user_email_from_csv}:`, userError);
-            errors.push(`Row ${i + 1}: Error finding user. Using uploader ID.`);
-          }
-        } else {
-          errors.push(`Row ${i + 1}: Missing User Email. Using uploader ID as requester.`);
-          console.warn(`[upload-direct-debits] Row ${i + 1}: Missing User Email. Using uploader ID (${uploaderId}) as requester.`);
-        }
-
-        // Create direct debit record - use defaults for missing fields
+        // Create direct debit record
         const directDebitRecord = {
-          requester_id: requesterIdForDirectDebit,
+          requester_id: uploaderId, // Always use uploader ID
           payee: payee,
-          payment_date: payment_date,
+          payment_date: null, // Payment date is blank as you mentioned
           sku: sku || null,
-          not_property_related: not_property_related,
+          not_property_related: false, // Default to false
           category: category,
-          account_number: account_number,
-          payment_reference: payment_reference || null,
+          account_number: accountNumber || 'UNKNOWN',
+          payment_reference: paymentReference || null,
           status: 'awaiting_info',
           country: country,
-          bank_account: bank_account || null,
+          bank_account: null,
         };
 
         console.log(`[upload-direct-debits] Row ${i + 1}: Created record:`, JSON.stringify(directDebitRecord, null, 2));
@@ -302,7 +183,6 @@ serve(async (req) => {
     let insertedCount = 0;
     if (directDebitsToInsert.length > 0) {
       console.log('[upload-direct-debits] Inserting direct debits into database...');
-      console.log(`[upload-direct-debits] First record to insert:`, JSON.stringify(directDebitsToInsert[0], null, 2));
       
       const { data: insertData, error: insertError } = await supabaseClient
         .from('direct_debits')
@@ -310,13 +190,7 @@ serve(async (req) => {
         .select();
 
       if (insertError) {
-        console.error('[upload-direct-debits] Failed to insert direct debits into database:', insertError);
-        console.error('[upload-direct-debits] Insert error details:', {
-          message: insertError.message,
-          code: insertError.code,
-          details: insertError.details,
-          hint: insertError.hint
-        });
+        console.error('[upload-direct-debits] Failed to insert direct debits:', insertError);
         return new Response(JSON.stringify({ error: `Failed to insert direct debits: ${insertError.message}` }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -325,9 +199,6 @@ serve(async (req) => {
       
       insertedCount = insertData?.length || 0;
       console.log(`[upload-direct-debits] Successfully inserted ${insertedCount} direct debits.`);
-      console.log(`[upload-direct-debits] Insert response data:`, JSON.stringify(insertData, null, 2));
-    } else {
-      console.warn('[upload-direct-debits] No direct debits to insert after processing.');
     }
 
     let message = `${insertedCount} direct debits inserted successfully with status 'Awaiting Info'.`;
@@ -348,13 +219,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[upload-direct-debits] Edge Function unhandled error:', error);
-    console.error('[upload-direct-debits] Error stack:', error.stack);
-    console.error('[upload-direct-debits] Error name:', error.name);
-    console.error('[upload-direct-debits] Error message:', error.message);
     return new Response(JSON.stringify({ 
       error: 'An unexpected error occurred in the Edge Function.',
-      details: error.message,
-      type: error.name 
+      details: error.message 
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
