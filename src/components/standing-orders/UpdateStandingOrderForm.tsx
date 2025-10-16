@@ -54,6 +54,7 @@ const updateStandingOrderFormSchema = z.object({
   country: z.string().min(1, "Country is required."),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
   total_amount: z.coerce.number().min(0.01, "Total amount must be positive."),
+  payment_day: z.string().optional().nullable(),
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -190,6 +191,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       status: standingOrder.status,
       country: standingOrder.country,
       bank_details_verified: standingOrder.bank_details_verified,
+      payment_day: standingOrder.payment_day ? String(standingOrder.payment_day) : undefined,
     },
   });
 
@@ -259,6 +261,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           status: values.status,
           country: values.country,
           bank_details_verified: values.bank_details_verified,
+          payment_day: values.payment_day ? parseInt(values.payment_day) : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', standingOrder.id);
@@ -361,6 +364,34 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               </FormControl>
               <FormDescription>
                 Optional: set an end date if the standing order should stop automatically.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="payment_day"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Payment Day</FormLabel>
+              <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                <SelectTrigger id={field.name}>
+                  <FormControl>
+                    <SelectValue placeholder="Select payment day" />
+                  </FormControl>
+                </SelectTrigger>
+                <SelectContent>
+                  {daysOfMonth.map((day) => (
+                    <SelectItem key={day} value={String(day)}>
+                      Day {day}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormDescription>
+                The day of the month when the payment should be made.
               </FormDescription>
               <FormMessage />
             </FormItem>

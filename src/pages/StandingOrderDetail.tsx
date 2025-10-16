@@ -251,6 +251,10 @@ const StandingOrderDetail = () => {
               <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
             </div>
             <div>
+              <p className="font-medium">Payment Day:</p>
+              <p>{standingOrder.payment_day ? `Day ${standingOrder.payment_day}` : 'N/A'}</p>
+            </div>
+            <div>
               <p className="font-medium">SKU:</p>
               <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
             </div>
