@@ -109,11 +109,14 @@ const AdminUploadDirectDebits = () => {
           errorMessage = data.error || data.message;
         } 
         // If data is not helpful, try to extract from invokeError context (raw response body)
-        else if (invokeError.context && typeof invokeError.context === 'object' && invokeError.context.body) {
+        else if (invokeError.context && typeof invokeError.context === 'object') {
           try {
-            // invokeError.context.body is a Response object, not a plain string
-            const errorBodyText = await invokeError.context.body.text();
-            const errorBody = JSON.parse(errorBodyText);
+            // invokeError.context is not a standard Response object, so we need to inspect it
+            const contextString = JSON.stringify(invokeError.context);
+            console.log("[Client] invokeError.context as string:", contextString);
+            
+            // Try to parse the context string as JSON
+            const errorBody = JSON.parse(contextString);
             if (errorBody.error) {
               errorMessage = errorBody.error;
             } else if (errorBody.message) {
