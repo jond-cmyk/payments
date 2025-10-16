@@ -75,12 +75,14 @@ const DirectDebits = () => {
   const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
-  const [filterPaymentDay, setFilterPaymentDay] = useState<number | undefined>(undefined); // NEW: Payment Day filter
+  const [filterPaymentDay, setFilterPaymentDay] = useState<number | undefined>(undefined);
+  const [filterAccountNumber, setFilterAccountNumber] = useState<string>(''); // NEW: Account Number filter
 
   // Local states for immediate input feedback
   const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
   const [localFilterSku, setLocalFilterSku] = useState<string>('');
   const [localFilterPaymentReference, setLocalFilterPaymentReference] = useState<string>('');
+  const [localFilterAccountNumber, setLocalFilterAccountNumber] = useState<string>(''); // NEW: Local state for account number
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -111,6 +113,10 @@ const DirectDebits = () => {
     setLocalFilterPaymentReference(filterPaymentReference);
   }, [filterPaymentReference]);
 
+  useEffect(() => {
+    setLocalFilterAccountNumber(filterAccountNumber); // NEW: Sync account number local state
+  }, [filterAccountNumber]);
+
   // Debounce for text inputs
   const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -129,7 +135,7 @@ const DirectDebits = () => {
   // Fetch Direct Debits - MOVED AFTER ALL STATE INITIALIZATIONS
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
     // Now all variables used in queryKey are properly initialized
-    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, filterPaymentDay, sortColumn, sortDirection, currentPage, itemsPerPage], // NEW: filterPaymentDay
+    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterStatus, filterSku, filterPaymentReference, filterPaymentDay, filterAccountNumber, sortColumn, sortDirection, currentPage, itemsPerPage], // REMOVED: filterPaymentDate, filterStartDate, filterEndDate | NEW: filterAccountNumber
     queryFn: async () => {
       if (!session) return [];
 
@@ -155,16 +161,7 @@ const DirectDebits = () => {
       if (filterCategory !== 'all') {
         query = query.eq('category', filterCategory);
       }
-      if (filterPaymentDate) {
-        query = query.eq('payment_date', format(filterPaymentDate, 'yyyy-MM-dd'));
-      }
-      // NEW: Apply date range filters
-      if (filterStartDate) {
-        query = query.gte('payment_date', format(filterStartDate, 'yyyy-MM-dd'));
-      }
-      if (filterEndDate) {
-        query = query.lte('payment_date', format(filterEndDate, 'yyyy-MM-dd'));
-      }
+      // REMOVED: payment date, start date, end date filters
       if (filterStatus !== 'all') {
         query = query.eq('status', filterStatus);
       }
@@ -174,6 +171,12 @@ const DirectDebits = () => {
       if (filterPaymentReference) {
         query = query.ilike('payment_reference', `%${filterPaymentReference}%`);
       }
+      // NEW: Apply Account Number filter
+      if (filterAccountNumber) {
+        query = query.ilike('account_number', `%${filterAccountNumber}%`);
+      }
+      // NEW: Apply Payment Day filter - we'll do this client-side since Supabase doesn't have a direct day-of-month filter
+      // but we'll fetch a broader range to make sure we get all possible matches
 
       // Apply sorting
       if (sortColumn) {
@@ -278,22 +281,20 @@ const DirectDebits = () => {
     setFilterPayee('');
     setLocalFilterPayee('');
     setFilterCategory('all');
-    setFilterPaymentDate(undefined);
     setFilterStatus('all');
     setFilterSku('');
     setLocalFilterSku('');
     setFilterPaymentReference('');
     setLocalFilterPaymentReference('');
-    setFilterStartDate(undefined);
-    setFilterEndDate(undefined);
-    setFilterPaymentDay(undefined); // NEW: reset Payment Day
+    setFilterPaymentDay(undefined);
+    setFilterAccountNumber(''); // NEW: reset account number
     setCurrentPage(1);
     // Optional: clear selection when filters are cleared
     setSelectedIds([]);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined || filterPaymentDay !== undefined; // NEW: include Payment Day
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterPaymentDay !== undefined || filterAccountNumber !== ''; // REMOVED: filterPaymentDate, filterStartDate, filterEndDate | NEW: filterAccountNumber
 
   const getStatusBadge = (status: DirectDebit['status']) => {
     let className = '';
@@ -542,6 +543,19 @@ const DirectDebits = () => {
                 />
               </div>
               <div>
+                <label htmlFor="account-number-filter" className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                <Input
+                  id="account-number-filter"
+                  placeholder="e.g., 12345678"
+                  value={localFilterAccountNumber}
+                  onChange={(e) => {
+                    setLocalFilterAccountNumber(e.target.value);
+                    handleTextFilterChange(setFilterAccountNumber, e.target.value);
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
                 <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                 <Select value={filterCategory} onValueChange={(value) => { setFilterCategory(value); setCurrentPage(1); }}>
                   <SelectTrigger id="category-filter" className="w-full">
@@ -556,36 +570,6 @@ const DirectDebits = () => {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div>
-                <label htmlFor="payment-date-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
-                <DatePicker
-                  id="payment-date-filter"
-                  date={filterPaymentDate}
-                  setDate={(date) => { setFilterPaymentDate(date); setCurrentPage(1); }}
-                  placeholder="Select Date"
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label htmlFor="start-date" className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <DatePicker
-                  id="start-date"
-                  date={filterStartDate}
-                  setDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
-                  placeholder="Select Start Date"
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label htmlFor="end-date" className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <DatePicker
-                  id="end-date"
-                  date={filterEndDate}
-                  setDate={(date) => { setFilterEndDate(date); setCurrentPage(1); }}
-                  placeholder="Select End Date"
-                  className="w-full"
-                />
               </div>
               <div>
                 <label htmlFor="payment-day-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Day</label>
