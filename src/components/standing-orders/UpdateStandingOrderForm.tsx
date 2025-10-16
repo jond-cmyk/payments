@@ -32,6 +32,7 @@ const updateStandingOrderFormSchema = z.object({
   payment_date: z.date({
     required_error: "Payment Start Date is required.",
   }),
+  payment_end_date: z.date().optional(),
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
   categories: z.array(z.object({
@@ -46,6 +47,7 @@ const updateStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().optional(),
+  comments: z.string().optional(),
   status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], {
     required_error: "Status is required.",
   }).default('active'),
@@ -146,6 +148,15 @@ const updateStandingOrderFormSchema = z.object({
       path: ['from_day'],
     });
   }
+
+  // NEW: End date must be after start date if provided
+  if (data.payment_end_date && data.payment_end_date < data.payment_date) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Payment End Date must be after the Payment Start Date.",
+      path: ['payment_end_date'],
+    });
+  }
 });
 
 interface UpdateStandingOrderFormProps {
@@ -162,6 +173,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     defaultValues: {
       payee: standingOrder.payee,
       payment_date: new Date(standingOrder.payment_date),
+      payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date) : undefined,
       sku: standingOrder.sku || (standingOrder.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: standingOrder.not_property_related,
       categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }],
@@ -174,6 +186,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       from_day: String(standingOrder.from_day),
       to_day: String(standingOrder.to_day),
       payment_reference: standingOrder.payment_reference,
+      comments: standingOrder.comments || "",
       status: standingOrder.status,
       country: standingOrder.country,
       bank_details_verified: standingOrder.bank_details_verified,
@@ -232,6 +245,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
         .update({
           payee: values.payee,
           payment_date: values.payment_date.toISOString().split('T')[0],
+          payment_end_date: values.payment_end_date ? values.payment_end_date.toISOString().split('T')[0] : null,
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           categories: values.categories,
@@ -241,6 +255,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           from_day: parseInt(values.from_day),
           to_day: parseInt(values.to_day),
           payment_reference: values.payment_reference || null,
+          comments: values.comments || null,
           status: values.status,
           country: values.country,
           bank_details_verified: values.bank_details_verified,
@@ -325,6 +340,28 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   disabled={!isAdmin}
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="payment_end_date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel className="font-semibold">Payment End Date</FormLabel>
+              <FormControl>
+                <DatePicker
+                  date={field.value}
+                  setDate={field.onChange}
+                  placeholder="Select end date (optional)"
+                  disabled={!isAdmin}
+                />
+              </FormControl>
+              <FormDescription>
+                Optional: set an end date if the standing order should stop automatically.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -662,6 +699,20 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               <FormDescription>
                 {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Awaiting Info' by default and can only be changed by an administrator."}
               </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="comments"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Comments</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Add any notes or context for this standing order" {...field} disabled={!isAdmin} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

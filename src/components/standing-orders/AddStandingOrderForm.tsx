@@ -33,6 +33,7 @@ const addStandingOrderFormSchema = z.object({
   payment_date: z.date({
     required_error: "Payment Start Date is required.",
   }),
+  payment_end_date: z.date().optional(), // NEW
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
   categories: z.array(z.object({
@@ -47,6 +48,7 @@ const addStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().optional(),
+  comments: z.string().optional(), // NEW
   status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], { // Added 'awaiting_info' status
     required_error: "Status is required.",
   }).default('awaiting_info'), // Default to 'awaiting_info'
@@ -149,6 +151,15 @@ const addStandingOrderFormSchema = z.object({
       path: ['from_day'],
     });
   }
+
+  // NEW: End date must be after start date if provided
+  if (data.payment_end_date && data.payment_end_date < data.payment_date) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Payment End Date must be after the Payment Start Date.",
+      path: ['payment_end_date'],
+    });
+  }
 });
 
 interface AddStandingOrderFormProps {
@@ -168,6 +179,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     defaultValues: {
       payee: "",
       payment_date: undefined,
+      payment_end_date: undefined, // NEW
       sku: currentCountry === 'United Kingdom' ? 'UK' : 'CH',
       not_property_related: false,
       categories: [{ category: "", amount: 0 }], // Initialize with one mandatory category
@@ -179,6 +191,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       from_day: "1", // Default to 1st day
       to_day: "31", // Default to 31st day
       payment_reference: "",
+      comments: "", // NEW
       status: "awaiting_info", // Default to 'awaiting_info'
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
       bank_details_verified: false,
@@ -322,6 +335,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           requester_id: user.id,
           payee: values.payee,
           payment_date: values.payment_date.toISOString().split('T')[0],
+          payment_end_date: values.payment_end_date ? values.payment_end_date.toISOString().split('T')[0] : null, // NEW
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           categories: values.categories, // Use the new categories array
@@ -331,6 +345,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           from_day: parseInt(values.from_day),
           to_day: parseInt(values.to_day),
           payment_reference: values.payment_reference || null,
+          comments: values.comments || null, // NEW
           status: values.status,
           country: values.country,
           bank_details_verified: values.bank_details_verified,
@@ -345,6 +360,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       form.reset({
         payee: "",
         payment_date: undefined,
+        payment_end_date: undefined, // NEW
         sku: formCountry === 'United Kingdom' ? 'UK' : 'CH',
         not_property_related: false,
         categories: [{ category: "", amount: 0 }], // Reset categories
@@ -357,6 +373,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         from_day: "1",
         to_day: "31",
         payment_reference: "",
+        comments: "", // NEW
         status: "awaiting_info",
         country: formCountry,
         bank_details_verified: false,
@@ -438,6 +455,26 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   placeholder="Select start date"
                 />
               </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="payment_end_date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel className="font-semibold">Payment End Date</FormLabel>
+              <FormControl>
+                <DatePicker
+                  date={field.value}
+                  setDate={field.onChange}
+                  placeholder="Select end date (optional)"
+                />
+              </FormControl>
+              <FormDescription>
+                Optional: set an end date if the standing order should stop automatically.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -745,6 +782,21 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             </FormItem>
           )}
         />
+
+        <FormField
+          control={form.control}
+          name="comments"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Comments</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Add any notes or context for this standing order" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="status"
