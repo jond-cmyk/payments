@@ -74,6 +74,7 @@ const StandingOrders = () => {
   const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [filterPaymentDay, setFilterPaymentDay] = useState<number | undefined>(undefined);
 
   // Local states for immediate input feedback
   const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
@@ -274,6 +275,7 @@ const StandingOrders = () => {
     setLocalFilterPaymentReference('');
     setFilterStartDate(undefined);
     setFilterEndDate(undefined);
+    setFilterPaymentDay(undefined);
     setCurrentPage(1);
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
   };
@@ -595,6 +597,23 @@ const StandingOrders = () => {
                 </Select>
               </div>
               <div>
+                <label htmlFor="payment-day-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Day</label>
+                <Input
+                  id="payment-day-filter"
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="e.g., 1"
+                  value={filterPaymentDay || ''}
+                  onChange={(e) => {
+                    const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                    setFilterPaymentDay(val);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
                 <label htmlFor="payment-date-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
                 <DatePicker
                   id="payment-date-filter"
@@ -636,6 +655,7 @@ const StandingOrders = () => {
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="paused">Paused</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
