@@ -180,6 +180,20 @@ serve(async (req) => {
           continue;
         }
 
+        // NEW: Parse Payment End Date if provided
+        let payment_end_date: string | null = null;
+        const paymentEndDateStr = (record['Payment End Date'] || '').trim();
+        if (paymentEndDateStr) {
+          const endDateMatch = paymentEndDateStr.match(dateRegex);
+          if (endDateMatch) {
+            const [_, dd, mm, yyyy] = endDateMatch;
+            payment_end_date = `${yyyy}-${mm}-${dd}`;
+          } else {
+            errors.push(`Row ${i + 1}: Invalid Payment End Date '${paymentEndDateStr}' (expected DD.MM.YYYY or DD/MM/YYYY).`);
+            continue;
+          }
+        }
+
         const mappedCategory = mapPrefixToCategory(categoryPrefix);
         if (!mappedCategory) {
           errors.push(`Row ${i + 1}: Invalid or unknown Category prefix '${categoryPrefix}'`);
@@ -195,12 +209,15 @@ serve(async (req) => {
         const from_day = 1;
         const to_day = 31;
 
+        // NEW: Map Comments field
+        const comments = (record['Comments'] || '').trim() || null;
+
         // Insert-ready record
         const rowPayload = {
           requester_id: uploaderId,
           payee,
           payment_date,              // Start date (YYYY-MM-DD)
-          payment_end_date,          // End date (YYYY-MM-DD)
+          payment_end_date: payment_end_date, // FIXED: Use the variable we defined
           payment_day,               // New field for the day of month
           sku: not_property_related ? null : sku,
           not_property_related,
@@ -214,8 +231,8 @@ serve(async (req) => {
           from_day,
           to_day,
           payment_reference: comment || null,
-          comments,                  // Comments from CSV
-          status: 'awaiting_info',   // CHANGED: Set to awaiting_info instead of pending
+          comments: comments,        // FIXED: Use the variable we defined
+          status: 'awaiting_info',
           country,
           bank_details_verified: false,
         };
