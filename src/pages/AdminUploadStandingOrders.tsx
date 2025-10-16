@@ -87,7 +87,17 @@ const AdminUploadStandingOrders = () => {
         throw new Error(data.error);
       }
 
-      showSuccess(data?.message || "Standing orders spreadsheet uploaded and processed successfully!");
+      // Always show the full response so we can see errors or 0 inserts
+      showSuccess(
+        data?.message ||
+        "Standing orders spreadsheet uploaded and processed successfully!"
+      );
+
+      // If backend returned an errors array, toast it too
+      if (data?.errors && Array.isArray(data.errors) && data.errors.length > 0) {
+        showError("Upload issues:\n" + data.errors.slice(0, 5).join("\n"));
+      }
+
       setSelectedFile(null);
     } catch (error: any) {
       showError(error.message || "Failed to upload and process standing orders spreadsheet.");
