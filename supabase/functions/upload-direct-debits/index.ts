@@ -7,8 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple category mapping
-const categoryMap = {
+const categoryMap: Record<string, string> = {
   '950': '950_rent',
   '952': '952_utilities_el',
   '953': '953_water',
@@ -59,8 +58,8 @@ serve(async (req) => {
     if (!supabaseUrl || !supabaseServiceRoleKey) {
       const msg = 'Supabase URL or Service Role Key is missing in environment variables.';
       console.error(`[upload-direct-debits] Error: ${msg}`);
-      return new Response(JSON.stringify({ error: msg }), {
-        status: 500,
+      return new Response(JSON.stringify({ success: false, error: msg }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -69,14 +68,12 @@ serve(async (req) => {
       supabaseUrl,
       supabaseServiceRoleKey,
       {
-        auth: {
-          persistSession: false,
-        },
+        auth: { persistSession: false },
       }
     );
 
     const payload = await req.json();
-    const { fileName, fileContent, uploaderId, country } = payload;
+    const { fileName, fileContent, uploaderId, country } = payload ?? {};
 
     console.log(`[upload-direct-debits] Received payload:`, {
       fileName,
@@ -86,7 +83,7 @@ serve(async (req) => {
     });
 
     if (!fileName || !fileContent || !uploaderId || !country) {
-      const missing = [];
+      const missing: string[] = [];
       if (!fileName) missing.push('fileName');
       if (!fileContent) missing.push('fileContent');
       if (!uploaderId) missing.push('uploaderId');
@@ -94,53 +91,55 @@ serve(async (req) => {
       
       const msg = `Missing required fields: ${missing.join(', ')}`;
       console.error(`[upload-direct-debits] Error: ${msg}`);
-      const errorResponse = JSON.stringify({ error: msg });
-      console.error(`[upload-direct-debits] Sending error response: ${errorResponse}`);
-      return new Response(errorResponse, {
-        status: 400,
+      return new Response(JSON.stringify({ success: false, error: msg }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     console.log(`[upload-direct-debits] Processing file: ${fileName} from uploader: ${uploaderId} for country: ${country}`);
 
+    // Normalize content: remove BOM and auto-detect separator
+    const rawContent = typeof fileContent === 'string' ? fileContent : String(fileContent);
+    const normalizedContent = rawContent.replace(/^\uFEFF/, '');
+    const firstLine = (normalizedContent.split(/\r?\n/)[0] ?? '');
+    const commaCount = (firstLine.match(/,/g) || []).length;
+    const semicolonCount = (firstLine.match(/;/g) || []).length;
+    const separator = semicolonCount > commaCount ? ';' : ',';
+
     let parsedRows: string[][];
     try {
-      parsedRows = await parse(fileContent, {
+      parsedRows = await parse(normalizedContent, {
         header: false,
-        separator: ',',
+        separator,
         trimLeadingWhitespace: true,
       }) as string[][];
-      console.log(`[upload-direct-debits] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
-    } catch (csvParseError) {
-      const msg = `Failed to parse CSV file: ${csvParseError.message}`;
+      console.log(`[upload-direct-debits] CSV parsed successfully. Number of rows: ${parsedRows.length}. Using separator: "${separator}"`);
+    } catch (csvParseError: any) {
+      const msg = `Failed to parse CSV file: ${csvParseError?.message || 'Unknown parse error'}`;
       console.error('[upload-direct-debits] CSV parsing error:', csvParseError);
-      const errorResponse = JSON.stringify({ error: msg });
-      console.error(`[upload-direct-debits] Sending error response: ${errorResponse}`);
-      return new Response(errorResponse, {
-        status: 400,
+      return new Response(JSON.stringify({ success: false, error: msg }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    if (parsedRows.length === 0) {
+    if (!parsedRows || parsedRows.length === 0) {
       const msg = 'CSV file is empty or contains no data rows.';
       console.error('[upload-direct-debits] CSV file is empty');
-      const errorResponse = JSON.stringify({ error: msg });
-      console.error(`[upload-direct-debits] Sending error response: ${errorResponse}`);
-      return new Response(errorResponse, {
-        status: 400,
+      return new Response(JSON.stringify({ success: false, error: msg }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Find the correct header row by scanning first few rows for expected columns
-    const expectedHeaderHints = ['Payee', 'Payment Date', 'Account Number'];
+    // Find the correct header row by scanning first few rows for expected columns (case-insensitive)
+    const expectedHeaderHints = ['payee', 'payment date', 'account number'];
     let headerRowIndex = 0;
     const scanLimit = Math.min(parsedRows.length, 10);
     for (let i = 0; i < scanLimit; i++) {
-      const row = parsedRows[i].map(h => (h || '').trim());
-      const containsHint = expectedHeaderHints.some(hint => row.includes(hint));
+      const rowLower = parsedRows[i].map(h => (h || '').trim().toLowerCase());
+      const containsHint = expectedHeaderHints.some(hint => rowLower.includes(hint));
       if (containsHint) {
         headerRowIndex = i;
         break;
@@ -148,6 +147,7 @@ serve(async (req) => {
     }
 
     const headers = parsedRows[headerRowIndex].map(h => (h || '').trim());
+    const headersLower = headers.map(h => h.toLowerCase());
     const dataRows = parsedRows.slice(headerRowIndex + 1);
 
     console.log(`[upload-direct-debits] Header row index: ${headerRowIndex}`);
@@ -155,35 +155,33 @@ serve(async (req) => {
     console.log(`[upload-direct-debits] Number of data rows: ${dataRows.length}`);
 
     // Validate that we found a plausible direct debit header
-    if (!headers.includes('Payee')) {
-      const serverDebugInfo = `Header row index guessed: ${headerRowIndex}\nHeaders found: ${JSON.stringify(headers, null, 2)}\n\nFirst 5 rows:\n${JSON.stringify(parsedRows.slice(0, 5), null, 2)}`;
+    if (!headersLower.includes('payee')) {
+      const serverDebugInfo =
+        `Header row index guessed: ${headerRowIndex}\n` +
+        `Headers found: ${JSON.stringify(headers, null, 2)}\n\n` +
+        `First 5 rows:\n${JSON.stringify(parsedRows.slice(0, 5), null, 2)}`;
       const msg = 'The CSV does not contain a "Payee" column. Please upload the Direct Debits CSV with the correct headers.';
       console.error(`[upload-direct-debits] Error: ${msg}`);
-      const errorResponse = JSON.stringify({ message: msg, errors: [msg], error: msg, serverDebugInfo });
-      console.error(`[upload-direct-debits] Sending error response: ${errorResponse}`);
-      return new Response(errorResponse, {
-        status: 400,
+      return new Response(JSON.stringify({ success: false, error: msg, serverDebugInfo }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Helpers
     const toISODate = (s: string | undefined | null) => {
       if (!s) return null;
       const str = s.trim();
-      // Try DD.MM.YYYY
       const dot = str.split('.');
       if (dot.length === 3) {
         const [dd, mm, yyyy] = dot;
         return `${yyyy}-${mm}-${dd}`;
       }
-      // Try DD/MM/YYYY
       const slash = str.split('/');
       if (slash.length === 3) {
         const [dd, mm, yyyy] = slash;
         return `${yyyy}-${mm}-${dd}`;
       }
-      return str; // fallback (assume already ISO)
+      return str;
     };
 
     const mapCategory = (raw: string | undefined | null) => {
@@ -202,31 +200,28 @@ serve(async (req) => {
       return v === 'yes' || v === 'true' || v === '1' || v === 'y';
     };
 
-    const directDebitsToInsert = [];
+    const getVal = (row: string[], name: string) => {
+      const idx = headersLower.indexOf(name.toLowerCase());
+      return idx >= 0 ? (row[idx]?.trim() || '') : '';
+    };
+
+    const directDebitsToInsert: any[] = [];
     const errors: string[] = [];
 
     // Process each data row
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
-
-      const record: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        record[header] = (row[index]?.trim() || '');
-      });
-
       try {
-        // Expected columns for Direct Debits CSV
-        const payee = record['Payee'];
-        const paymentDateRaw = record['Payment Date'];
-        const categoryRaw = record['Category'];
-        const accountNumber = record['Account Number'];
-        const userEmail = record['User Email'];
-        const sku = record['SKU'];
-        const notPropertyRelatedRaw = record['Not Property Related'];
-        const paymentReference = record['Payment Reference'];
-        const bankAccount = record['Bank Account'];
+        const payee = getVal(row, 'Payee');
+        const paymentDateRaw = getVal(row, 'Payment Date');
+        const categoryRaw = getVal(row, 'Category');
+        const accountNumber = getVal(row, 'Account Number');
+        const userEmail = getVal(row, 'User Email');
+        const sku = getVal(row, 'SKU');
+        const notPropertyRelatedRaw = getVal(row, 'Not Property Related');
+        const paymentReference = getVal(row, 'Payment Reference');
+        const bankAccount = getVal(row, 'Bank Account');
 
-        // Basic validation
         if (!payee) {
           errors.push(`Row ${i + 1}: Missing 'Payee' column. This row will not be imported.`);
           continue;
@@ -253,11 +248,10 @@ serve(async (req) => {
         const category = mapCategory(categoryRaw);
         const not_property_related = parseBoolean(notPropertyRelatedRaw);
 
-        // Create direct debit record
         const directDebitRecord = {
           requester_id: requesterId,
-          payee: payee,
-          payment_date: payment_date, // YYYY-MM-DD or null
+          payee,
+          payment_date, // YYYY-MM-DD or null
           sku: sku || null,
           not_property_related,
           category,
@@ -270,9 +264,9 @@ serve(async (req) => {
 
         directDebitsToInsert.push(directDebitRecord);
 
-      } catch (rowError) {
+      } catch (rowError: any) {
         console.error(`[upload-direct-debits] Error processing row ${i + 1}:`, rowError);
-        errors.push(`Row ${i + 1}: ${rowError.message}`);
+        errors.push(`Row ${i + 1}: ${rowError.message || 'Unknown row error'}`);
         continue;
       }
     }
@@ -295,10 +289,8 @@ serve(async (req) => {
       if (insertError) {
         const msg = `Failed to insert direct debits: ${insertError.message}`;
         console.error('[upload-direct-debits] Failed to insert direct debits:', insertError);
-        const errorResponse = JSON.stringify({ error: msg });
-        console.error(`[upload-direct-debits] Sending error response: ${errorResponse}`);
-        return new Response(errorResponse, {
-          status: 500,
+        return new Response(JSON.stringify({ success: false, error: msg }), {
+          status: 200,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -312,19 +304,23 @@ serve(async (req) => {
       message += ` ${errors.length} warnings/errors encountered during processing.`;
       console.log('[upload-direct-debits] Processing completed with errors:', errors);
       
-      // Create debug info for client
-      const serverDebugInfo = `Header row index guessed: ${headerRowIndex}\nHeaders found: ${JSON.stringify(headers, null, 2)}\n\nFirst 3 data rows with headers:\n${JSON.stringify(dataRows.slice(0, 3).map((row, i) => {
+      const serverDebugInfo =
+        `Header row index guessed: ${headerRowIndex}\n` +
+        `Headers found: ${JSON.stringify(headers, null, 2)}\n\n` +
+        `First 3 data rows with headers:\n${JSON.stringify(dataRows.slice(0, 3).map((row, i) => {
           const rowObj: Record<string, string> = {};
           headers.forEach((header, index) => {
             rowObj[header] = row[index]?.trim() || '';
           });
           return `Row ${i + 1}: ${JSON.stringify(rowObj)}`;
-        }), null, 2)}\n\nAll errors:\n${errors.join('\n')}`;
+        }), null, 2)}\n\n` +
+        `All errors:\n${errors.join('\n')}`;
       
       return new Response(JSON.stringify({ 
-        message: message, 
-        errors: errors,
-        serverDebugInfo: serverDebugInfo
+        success: true,
+        message,
+        errors,
+        serverDebugInfo
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -332,21 +328,20 @@ serve(async (req) => {
     }
 
     console.log('[upload-direct-debits] Processing completed successfully');
-    return new Response(JSON.stringify({ message: message }), {
+    return new Response(JSON.stringify({ success: true, message }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
+  } catch (error: any) {
     const msg = 'An unexpected error occurred in the Edge Function.';
     console.error('[upload-direct-debits] Edge Function unhandled error:', error);
-    const errorResponse = JSON.stringify({ 
+    return new Response(JSON.stringify({ 
+      success: false,
       error: msg,
-      details: error.message 
-    });
-    console.error(`[upload-direct-debits] Sending error response: ${errorResponse}`);
-    return new Response(errorResponse, {
-      status: 500,
+      details: error?.message 
+    }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

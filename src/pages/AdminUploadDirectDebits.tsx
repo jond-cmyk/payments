@@ -97,6 +97,19 @@ const AdminUploadDirectDebits = () => {
 
       console.log(`[Client] Function response:`, { data, invokeError });
 
+      // Handle function returning a JSON error payload with success === false
+      if (data && typeof data === 'object' && ((data as any).success === false || (data as any).error)) {
+        const body: any = data;
+        if (body.serverDebugInfo) {
+          setServerDebugInfo(body.serverDebugInfo);
+          console.log(`[Client] Server debug info received:`, body.serverDebugInfo);
+        }
+        const errorMessage = body.error || body.message || "Failed to upload and process direct debits spreadsheet.";
+        console.error("[Client] Function returned error payload:", errorMessage);
+        showError(errorMessage);
+        throw new Error(errorMessage);
+      }
+
       if (invokeError) {
         console.error("[Client] Supabase Function Invoke Error:", invokeError);
         console.error("[Client] Full error details:", JSON.stringify(invokeError, null, 2));
@@ -105,55 +118,39 @@ const AdminUploadDirectDebits = () => {
         let errorMessage = "Failed to upload and process direct debits spreadsheet."; // Default generic message
 
         // Try to get error from data object first (if data is populated)
-        if (data && (data.error || data.message)) {
-          errorMessage = data.error || data.message;
+        if (data && (data as any).error) {
+          errorMessage = (data as any).error;
+        } else if (data && (data as any).message) {
+          errorMessage = (data as any).message;
         } 
-        // If data is not helpful, try to extract from invokeError context (raw response body)
-        else if (invokeError.context && typeof invokeError.context === 'object') {
-          try {
-            // invokeError.context is not a standard Response object, so we need to inspect it
-            const contextString = JSON.stringify(invokeError.context);
-            console.log("[Client] invokeError.context as string:", contextString);
-            
-            // Try to parse the context string as JSON
-            const errorBody = JSON.parse(contextString);
-            if (errorBody.error) {
-              errorMessage = errorBody.error;
-            } else if (errorBody.message) {
-              errorMessage = errorBody.message;
-            }
-          } catch (parseError) {
-            console.warn("[Client] Could not parse error body from invokeError context:", parseError);
-          }
+        // If data is not helpful, try to extract from invokeError context (often empty on 4xx)
+        else if ((invokeError as any).message) {
+          errorMessage = (invokeError as any).message;
         }
-        // Fallback to invokeError message if no specific error found
-        else if (invokeError.message) {
-          errorMessage = invokeError.message;
-        }
-        
+
         console.error("[Client] Final error message to be thrown:", errorMessage);
         throw new Error(errorMessage);
       }
 
-      if (data?.error) {
-        console.error("[Client] Function returned error:", data.error);
-        throw new Error(data.error);
+      if ((data as any)?.error) {
+        console.error("[Client] Function returned error:", (data as any).error);
+        throw new Error((data as any).error);
       }
 
-      console.log(`[Client] Upload successful! Message: ${data?.message}`);
-      if (data.errors && data.errors.length > 0) {
-        console.warn(`[Client] Upload completed with ${data.errors.length} warnings/errors:`, data.errors);
+      console.log(`[Client] Upload successful! Message: ${(data as any)?.message}`);
+      if ((data as any)?.errors && (data as any).errors.length > 0) {
+        console.warn(`[Client] Upload completed with ${(data as any).errors.length} warnings/errors:`, (data as any).errors);
       }
       
-      // Store server debug info
-      if (data?.serverDebugInfo) {
-        setServerDebugInfo(data.serverDebugInfo);
-        console.log(`[Client] Server debug info received:`, data.serverDebugInfo);
+      // Store server debug info when provided
+      if ((data as any)?.serverDebugInfo) {
+        setServerDebugInfo((data as any).serverDebugInfo);
+        console.log(`[Client] Server debug info received:`, (data as any).serverDebugInfo);
       } else {
         console.log(`[Client] No server debug info received`);
       }
       
-      showSuccess(data?.message || "Direct debits spreadsheet uploaded and processed successfully!");
+      showSuccess((data as any)?.message || "Direct debits spreadsheet uploaded and processed successfully!");
       setSelectedFile(null);
     } catch (error: any) {
       console.error("[Client] Direct debits upload error:", error);
