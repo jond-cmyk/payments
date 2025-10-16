@@ -92,12 +92,9 @@ const DirectDebits = () => {
   const toggleRowSelection = useCallback((id: string, checked: boolean) => {
     setSelectedIds((prev) => checked ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id));
   }, []);
-  const toggleSelectAllVisible = (checked: boolean) => {
-    if (!directDebits) return;
-    const visibleIds = directDebits.map(d => d.id);
-    setSelectedIds((prev) => checked ? Array.from(new Set([...prev, ...visibleIds])) : prev.filter((id) => !visibleIds.includes(id)));
-  };
-  const visibleIds = (directDebits ?? []).map(d => d.id);
+
+  // Move this function after directDebits is defined
+  const visibleIds = directDebits?.map(d => d.id) ?? [];
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
 
   // Effect to sync local filter states with actual filter states when they are cleared externally
@@ -204,6 +201,13 @@ const DirectDebits = () => {
     },
     enabled: !!session,
   });
+
+  // Define toggleSelectAllVisible after directDebits is available
+  const toggleSelectAllVisible = (checked: boolean) => {
+    if (!directDebits) return;
+    const visibleIds = directDebits.map(d => d.id);
+    setSelectedIds((prev) => checked ? Array.from(new Set([...prev, ...visibleIds])) : prev.filter((id) => !visibleIds.includes(id)));
+  };
 
   // NEW: Bulk delete mutation (admins only)
   const bulkDeleteMutation = useMutation({
