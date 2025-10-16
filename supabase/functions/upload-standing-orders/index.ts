@@ -95,11 +95,12 @@ serve(async (req) => {
     const standingOrdersToInsert = [];
     const errors: string[] = [];
 
-    const requiredHeaders = ['Payee', 'Payment Date', 'Category', 'Account Name', 'From Day', 'To Day', 'User Email'];
+    // Updated required headers
+    const requiredHeaders = ['Payee', 'Payment Date', 'Category', 'Amount', 'Account Name', 'From Day', 'To Day', 'User Email'];
     const missingRequiredHeaders = requiredHeaders.filter(h => !headers.includes(h));
 
     if (missingRequiredHeaders.length > 0) {
-      const msg = `Missing required CSV headers: ${missingRequiredHeaders.join(', ')}. Please ensure your CSV contains 'Payee', 'Payment Date', 'Category', 'Account Name', 'From Day', 'To Day', and 'User Email' columns.`;
+      const msg = `Missing required CSV headers: ${missingRequiredHeaders.join(', ')}. Please ensure your CSV contains 'Payee', 'Payment Date', 'Category', 'Amount', 'Account Name', 'From Day', 'To Day', and 'User Email' columns.`;
       errors.push(msg);
       console.error('[upload-standing-orders] Invalid CSV format. Headers:', headers);
       return new Response(JSON.stringify({ message: msg, errors: errors }), {
@@ -130,7 +131,8 @@ serve(async (req) => {
         'Payment Date': payment_date_str,
         'SKU': sku,
         'Not Property Related': not_property_related_str,
-        'Category': category,
+        'Category': category, // Now represents the first category
+        'Amount': amount_str, // Amount for the first category
         'Account Name': account_name,
         'Account Address': account_address,
         'IBAN Number': iban_number,
@@ -140,10 +142,11 @@ serve(async (req) => {
         'To Day': to_day_str,
         'Payment Reference': payment_reference,
         'User Email': user_email_from_csv,
+        'Bank Details Verified': bank_details_verified_str, // NEW: Bank Details Verified
       } = record;
 
-      if (!payee || !payment_date_str || !category || !account_name || !from_day_str || !to_day_str || !user_email_from_csv) {
-        const msg = `Missing required fields (Payee, Payment Date, Category, Account Name, From Day, To Day, or User Email). Skipping record: ${JSON.stringify(record)}`;
+      if (!payee || !payment_date_str || !category || !amount_str || !account_name || !from_day_str || !to_day_str || !user_email_from_csv) {
+        const msg = `Missing required fields (Payee, Payment Date, Category, Amount, Account Name, From Day, To Day, or User Email). Skipping record: ${JSON.stringify(record)}`;
         errors.push(msg);
         console.warn(`[upload-standing-orders] ${msg}`);
         continue;
@@ -159,12 +162,21 @@ serve(async (req) => {
       const payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
 
       const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
+      const bank_details_verified = bank_details_verified_str?.toLowerCase() === 'yes' || bank_details_verified_str?.toLowerCase() === 'true'; // Parse boolean
 
       const from_day = parseInt(from_day_str);
       const to_day = parseInt(to_day_str);
 
       if (isNaN(from_day) || from_day < 1 || from_day > 31 || isNaN(to_day) || to_day < 1 || to_day > 31 || from_day > to_day) {
         const msg = `Invalid 'From Day' or 'To Day' values or range. Skipping record: ${JSON.stringify(record)}`;
+        errors.push(msg);
+        console.warn(`[upload-standing-orders] ${msg}`);
+        continue;
+      }
+
+      const parsedAmount = parseFloat(amount_str.replace(/,/g, ''));
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        const msg = `Invalid or non-positive amount '${amount_str}'. Skipping record: ${JSON.stringify(record)}`;
         errors.push(msg);
         console.warn(`[upload-standing-orders] ${msg}`);
         continue;
@@ -195,13 +207,36 @@ serve(async (req) => {
         }
       }
 
+      // Construct categories array and calculate total amount
+      const categories = [{ category: category, amount: parsedAmount }];
+      let total_amount = parsedAmount;
+
+      // Handle additional categories if present in CSV (e.g., Category 2, Amount 2)
+      for (let i = 2; ; i++) {
+        const additionalCategory = record[`Category ${i}`];
+        const additionalAmountStr = record[`Amount ${i}`];
+        if (additionalCategory && additionalAmountStr) {
+          const additionalParsedAmount = parseFloat(additionalAmountStr.replace(/,/g, ''));
+          if (!isNaN(additionalParsedAmount) && additionalParsedAmount > 0) {
+            categories.push({ category: additionalCategory, amount: additionalParsedAmount });
+            total_amount += additionalParsedAmount;
+          } else {
+            errors.push(`Invalid amount for Category ${i}: '${additionalAmountStr}'. Skipping.`);
+            console.warn(`[upload-standing-orders] Invalid amount for Category ${i}: '${additionalAmountStr}'. Skipping.`);
+          }
+        } else {
+          break; // No more additional categories
+        }
+      }
+
       standingOrdersToInsert.push({
         requester_id: requesterIdForStandingOrder,
         payee: payee,
         payment_date: payment_date,
         sku: sku || null,
         not_property_related: not_property_related,
-        category: category,
+        categories: categories, // Use the new categories array
+        total_amount: total_amount, // Use the calculated total amount
         account_name: account_name,
         account_address: account_address || null,
         iban_number: iban_number || null,
@@ -210,8 +245,9 @@ serve(async (req) => {
         from_day: from_day,
         to_day: to_day,
         payment_reference: payment_reference || null,
-        status: 'pending', // Set status to 'pending' as requested
+        status: 'pending',
         country: country,
+        bank_details_verified: bank_details_verified,
       });
     }
 

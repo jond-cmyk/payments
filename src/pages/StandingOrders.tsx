@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { StandingOrder } from '@/types/supabase';
 import { format } from 'date-fns';
-import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown } from 'lucide-react';
+import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown, DollarSign } from 'lucide-react'; // Import DollarSign
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -142,7 +142,8 @@ const StandingOrders = () => {
         query = query.ilike('payee', `%${filterPayee}%`);
       }
       if (filterCategory !== 'all') {
-        query = query.eq('category', filterCategory);
+        // Filter by category within the JSONB array
+        query = query.contains('categories', [{ category: filterCategory }]);
       }
       if (filterPaymentDate) {
         query = query.eq('payment_date', format(filterPaymentDate, 'yyyy-MM-dd'));
@@ -196,6 +197,7 @@ const StandingOrders = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate pending standing orders
       showSuccess("Standing Order deleted successfully!");
     },
     onError: (error: any) => {
@@ -286,14 +288,51 @@ const StandingOrders = () => {
 
   const standingOrderExportColumns: (keyof StandingOrder)[] = [
     'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
-    'sku', 'not_property_related', 'category', 'account_name', 'account_address',
+    'sku', 'not_property_related', 'categories', 'total_amount', 'account_name', 'account_address',
     'iban_number', 'sort_code', 'account_number', 'from_day', 'to_day',
     'payment_reference', 'status', 'country', 'bank_details_verified'
   ];
 
   const handleDownloadStandingOrders = () => {
     if (standingOrders) {
-      exportToCsv(standingOrders, `standing_orders_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, standingOrderExportColumns);
+      // Flatten categories for CSV export
+      const flattenedData = standingOrders.map(order => {
+        const base = { ...order };
+        // Remove original categories and total_amount for flattening
+        delete (base as any).categories;
+        delete (base as any).total_amount;
+
+        // Add flattened categories
+        order.categories.forEach((cat, index) => {
+          (base as any)[`category_${index + 1}`] = categoryOptions.find(c => c.value === cat.category)?.label || cat.category;
+          (base as any)[`amount_${index + 1}`] = cat.amount;
+        });
+        (base as any)['total_amount'] = order.total_amount; // Add total amount back
+        return base;
+      });
+
+      // Dynamically generate headers for flattened categories
+      const dynamicCategoryHeaders: string[] = [];
+      let maxCategories = 0;
+      standingOrders.forEach(order => {
+        if (order.categories.length > maxCategories) {
+          maxCategories = order.categories.length;
+        }
+      });
+      for (let i = 1; i <= maxCategories; i++) {
+        dynamicCategoryHeaders.push(`category_${i}`);
+        dynamicCategoryHeaders.push(`amount_${i}`);
+      }
+
+      // Construct the final column order for CSV
+      const finalExportColumns = [
+        'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
+        'sku', 'not_property_related', ...dynamicCategoryHeaders, 'total_amount', 'account_name', 'account_address',
+        'iban_number', 'sort_code', 'account_number', 'from_day', 'to_day',
+        'payment_reference', 'status', 'country', 'bank_details_verified'
+      ];
+
+      exportToCsv(flattenedData, `standing_orders_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, finalExportColumns);
     }
   };
 
@@ -528,9 +567,10 @@ const StandingOrders = () => {
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('category')}>
+                    <TableHead>Categories</TableHead> {/* Updated header */}
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('total_amount')}>
                       <div className="flex items-center">
-                        Category {renderSortIcon('category')}
+                        Total Amount {renderSortIcon('total_amount')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('account_name')}>
@@ -565,7 +605,18 @@ const StandingOrders = () => {
                       <TableCell>
                         {order.not_property_related ? 'N/A (Not Property Related)' : (order.sku || 'N/A')}
                       </TableCell>
-                      <TableCell>{categoryOptions.find(c => c.value === order.category)?.label || order.category}</TableCell>
+                      <TableCell>
+                        {order.categories && order.categories.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {order.categories.map((cat, idx) => (
+                              <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-800">
+                                {categoryOptions.find(c => c.value === cat.category)?.label || cat.category}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : 'N/A'}
+                      </TableCell>
+                      <TableCell>{order.total_amount.toFixed(2)}</TableCell>
                       <TableCell>{order.account_name}</TableCell>
                       <TableCell>
                         {order.country === 'United Kingdom' ? (

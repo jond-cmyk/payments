@@ -1,12 +1,12 @@
 "use client";
 
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { Edit } from 'lucide-react';
+import { Edit, PlusCircle, MinusCircle, DollarSign } from 'lucide-react'; // Import DollarSign
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -20,6 +20,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -32,7 +33,10 @@ const updateStandingOrderFormSchema = z.object({
   }),
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
-  category: z.string().min(1, "Category is required."),
+  categories: z.array(z.object({
+    category: z.string().min(1, "Category is required."),
+    amount: z.coerce.number().min(0.01, "Amount must be positive."),
+  })).min(1, "At least one category with an amount is required."), // Ensure at least one category
   account_name: z.string().min(1, "Account Name is required."),
   account_address: z.string().optional(),
   iban_number: z.string().optional(),
@@ -40,11 +44,13 @@ const updateStandingOrderFormSchema = z.object({
   account_number: z.string().optional(),
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
-  payment_reference: z.string().optional(), // Changed to optional()
+  payment_reference: z.string().optional(),
   status: z.enum(['active', 'cancelled', 'paused', 'pending'], {
     required_error: "Status is required.",
   }).default('active'),
   country: z.string().min(1, "Country is required."),
+  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
+  total_amount: z.coerce.number().min(0.01, "Total amount must be positive."), // Added total_amount to schema
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -159,7 +165,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       payment_date: new Date(standingOrder.payment_date),
       sku: standingOrder.sku || (standingOrder.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: standingOrder.not_property_related,
-      category: standingOrder.category,
+      categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }], // Initialize with existing or one mandatory
+      total_amount: standingOrder.total_amount,
       account_name: standingOrder.account_name,
       account_address: standingOrder.account_address || "",
       iban_number: standingOrder.iban_number || "",
@@ -170,12 +177,25 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       payment_reference: standingOrder.payment_reference,
       status: standingOrder.status,
       country: standingOrder.country,
+      bank_details_verified: standingOrder.bank_details_verified,
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "categories",
   });
 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
   const isAdmin = userProfile?.role === 'admin';
+  const watchedCategories = form.watch("categories");
+
+  // Calculate total amount whenever categories change
+  React.useEffect(() => {
+    const newTotal = watchedCategories.reduce((sum, item) => sum + (item.amount || 0), 0);
+    form.setValue("total_amount", newTotal);
+  }, [watchedCategories, form]);
 
   const onSubmit = async (values: z.infer<typeof updateStandingOrderFormSchema>) => {
     const toastId = showLoading("Updating standing order...");
@@ -207,14 +227,16 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           payment_date: values.payment_date.toISOString().split('T')[0],
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
-          category: values.category,
+          categories: values.categories, // Use the new categories array
+          total_amount: values.total_amount, // Use the new total_amount
           account_name: values.account_name,
           ...bankDetails,
           from_day: parseInt(values.from_day),
           to_day: parseInt(values.to_day),
-          payment_reference: values.payment_reference || null, // Store null if empty string
+          payment_reference: values.payment_reference || null,
           status: values.status,
           country: values.country,
+          bank_details_verified: values.bank_details_verified,
           updated_at: new Date().toISOString(),
         })
         .eq('id', standingOrder.id);
@@ -335,30 +357,88 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <SelectTrigger id={field.name}>
+
+        {/* Dynamic Categories Section */}
+        <Card className="p-4 shadow-sm">
+          <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+            <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+          </CardTitle>
+          <div className="space-y-4">
+            {fields.map((item, index) => (
+              <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                <FormField
+                  control={form.control}
+                  name={`categories.${index}.category`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 w-full">
+                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                        <SelectTrigger>
+                          <FormControl>
+                            <SelectValue placeholder="Select a category" />
+                          </FormControl>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredCategoryOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`categories.${index}.amount`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 w-full">
+                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="Amount" {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))} disabled={!isAdmin} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {fields.length > 1 && (
+                  <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0" disabled={!isAdmin}>
+                    <MinusCircle className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => append({ category: "", amount: 0 })}
+              className="w-full"
+              disabled={!isAdmin}
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
+            </Button>
+            <Separator className="my-4" />
+            <div className="flex justify-between items-center text-lg font-bold">
+              <span>Total Amount:</span>
+              <span>{form.getValues('total_amount').toFixed(2)}</span>
+            </div>
+            <FormField
+              control={form.control}
+              name="total_amount"
+              render={({ field }) => (
+                <FormItem className="hidden"> {/* Hidden field for Zod validation */}
                   <FormControl>
-                    <SelectValue placeholder="Select a category" />
+                    <Input type="hidden" {...field} />
                   </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredCategoryOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </Card>
 
         <FormField
           control={form.control}
@@ -461,6 +541,31 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           </>
         )}
 
+        <FormField
+          control={form.control}
+          name="bank_details_verified"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                  disabled={!isAdmin}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel className="text-blue-700">
+                  I have verified these bank details with the payee.<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+                </FormLabel>
+                <FormDescription className="text-blue-600">
+                  Please ensure the bank details are correct to avoid payment delays or errors.
+                </FormDescription>
+              </div>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -544,11 +649,14 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
+              <FormDescription>
+                {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Pending' by default and can only be changed by an administrator."}
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
           <Edit className="mr-2 h-4 w-4" />
           {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
         </Button>

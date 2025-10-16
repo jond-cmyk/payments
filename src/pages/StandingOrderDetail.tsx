@@ -5,10 +5,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { StandingOrder, StandingOrderAudit, Profile } from '@/types/supabase'; // Import StandingOrderAudit and Profile
+import { StandingOrder, StandingOrderAudit, Profile } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
-import { Edit, Trash2, Repeat, Eye } from 'lucide-react';
+import { Edit, Trash2, Repeat, Eye, DollarSign } from 'lucide-react'; // Import DollarSign
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 
@@ -28,9 +28,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm'; // Import the renamed form
-import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOrderAuditTrailCard'; // Import the new audit card
+import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm';
+import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOrderAuditTrailCard';
 import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 const StandingOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -146,6 +147,9 @@ const StandingOrderDetail = () => {
       case 'cancelled':
         className = 'bg-red-500 text-red-50';
         break;
+      case 'pending':
+        className = 'bg-orange-500 text-orange-50';
+        break;
       default:
         className = 'bg-gray-500 text-gray-50';
     }
@@ -160,6 +164,7 @@ const StandingOrderDetail = () => {
     setIsEditStandingOrderDialogOpen(false);
     queryClient.invalidateQueries({ queryKey: ['standingOrder', id] }); // Invalidate detail page query
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] }); // Invalidate list page query
+    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate pending standing orders
   };
 
   if (isSessionLoading || isStandingOrderLoading || isAuditsLoading || isAuditUsersLoading) {
@@ -230,6 +235,10 @@ const StandingOrderDetail = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
+              <p className="font-medium">Requested By:</p>
+              <p>{auditUsers?.[standingOrder.requester_id] || standingOrder.requester_id}</p>
+            </div>
+            <div>
               <p className="font-medium">Payee:</p>
               <p>{standingOrder.payee}</p>
             </div>
@@ -241,9 +250,23 @@ const StandingOrderDetail = () => {
               <p className="font-medium">SKU:</p>
               <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
             </div>
-            <div>
-              <p className="font-medium">Category:</p>
-              <p>{categoryOptions.find(c => c.value === standingOrder.category)?.label || standingOrder.category}</p>
+            <div className="md:col-span-2">
+              <p className="font-medium flex items-center">
+                <DollarSign className="mr-1 h-4 w-4" /> Categories & Amounts:
+              </p>
+              {standingOrder.categories && standingOrder.categories.length > 0 ? (
+                <div className="space-y-1 mt-1">
+                  {standingOrder.categories.map((cat, index) => (
+                    <p key={index} className="ml-2">
+                      - {categoryOptions.find(c => c.value === cat.category)?.label || cat.category}: {cat.amount.toFixed(2)}
+                    </p>
+                  ))}
+                  <Separator className="my-2" />
+                  <p className="font-bold text-base">Total Amount: {standingOrder.total_amount.toFixed(2)}</p>
+                </div>
+              ) : (
+                <p className="ml-2">No categories defined.</p>
+              )}
             </div>
             <div>
               <p className="font-medium">Account Name:</p>
@@ -289,6 +312,10 @@ const StandingOrderDetail = () => {
               <p>{standingOrder.country}</p>
             </div>
             <div>
+              <p className="font-medium">Bank Details Verified:</p>
+              <p>{standingOrder.bank_details_verified ? 'Yes' : 'No'}</p>
+            </div>
+            <div>
               <p className="font-medium">Created At:</p>
               <p>{format(new Date(standingOrder.created_at), 'PPP p')}</p>
             </div>
@@ -304,7 +331,7 @@ const StandingOrderDetail = () => {
 
       {standingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
-          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto"> {/* Adjusted max-w-lg */}
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Standing Order: {standingOrder.payee}</DialogTitle>
             </DialogHeader>

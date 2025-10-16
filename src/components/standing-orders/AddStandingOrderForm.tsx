@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, MinusCircle, DollarSign } from 'lucide-react'; // Import DollarSign
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -22,6 +22,7 @@ import PrefixedInput from '@/components/PrefixedInput';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
 import { Card } from '@/components/ui/card'; // Import Card for suggestions
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -34,7 +35,10 @@ const addStandingOrderFormSchema = z.object({
   }),
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
-  category: z.string().min(1, "Category is required."),
+  categories: z.array(z.object({
+    category: z.string().min(1, "Category is required."),
+    amount: z.coerce.number().min(0.01, "Amount must be positive."),
+  })).min(1, "At least one category with an amount is required."), // Ensure at least one category
   account_name: z.string().min(1, "Account Name is required."),
   account_address: z.string().optional(),
   iban_number: z.string().optional(),
@@ -42,12 +46,13 @@ const addStandingOrderFormSchema = z.object({
   account_number: z.string().optional(),
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
-  payment_reference: z.string().optional(), // Changed to optional()
+  payment_reference: z.string().optional(),
   status: z.enum(['active', 'cancelled', 'paused', 'pending'], {
     required_error: "Status is required.",
   }).default('pending'),
   country: z.string().min(1, "Country is required."),
-  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
+  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
+  total_amount: z.coerce.number().min(0.01, "Total amount must be positive."), // Added total_amount to schema
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -165,7 +170,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       payment_date: undefined,
       sku: currentCountry === 'United Kingdom' ? 'UK' : 'CH',
       not_property_related: false,
-      category: "",
+      categories: [{ category: "", amount: 0 }], // Initialize with one mandatory category
       account_name: "",
       account_address: "",
       iban_number: "",
@@ -176,13 +181,26 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       payment_reference: "",
       status: "pending", // Default to 'pending'
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
-      bank_details_verified: false, // NEW: Default to false
+      bank_details_verified: false,
+      total_amount: 0, // Initialize total amount
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "categories",
   });
 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
-  const isAdmin = userProfile?.role === 'admin'; // Determine if the current user is an admin
+  const isAdmin = userProfile?.role === 'admin';
+  const watchedCategories = form.watch("categories");
+
+  // Calculate total amount whenever categories change
+  React.useEffect(() => {
+    const newTotal = watchedCategories.reduce((sum, item) => sum + (item.amount || 0), 0);
+    form.setValue("total_amount", newTotal);
+  }, [watchedCategories, form]);
 
   // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
@@ -195,7 +213,9 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       iban_number: "",
       sort_code: "",
       account_number: "",
-      bank_details_verified: false, // NEW: Reset to false
+      bank_details_verified: false,
+      categories: [{ category: "", amount: 0 }], // Reset categories
+      total_amount: 0, // Reset total amount
     }));
   }, [currentCountry, form]);
 
@@ -253,7 +273,9 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     form.setValue('iban_number', suggestion.iban_number || '');
     form.setValue('sort_code', suggestion.sort_code || '');
     form.setValue('account_number', suggestion.account_number || '');
-    form.setValue('bank_details_verified', false); // NEW: Reset verified status when using suggestion
+    form.setValue('bank_details_verified', false); // Reset verified status when using suggestion
+    form.setValue('categories', suggestion.categories); // Set categories from suggestion
+    form.setValue('total_amount', suggestion.total_amount); // Set total amount from suggestion
     // Close the dialog
     setIsSuggestionDialogOpen(false);
   };
@@ -289,15 +311,16 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           payment_date: values.payment_date.toISOString().split('T')[0],
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
-          category: values.category,
+          categories: values.categories, // Use the new categories array
+          total_amount: values.total_amount, // Use the new total_amount
           account_name: values.account_name,
           ...bankDetails,
           from_day: parseInt(values.from_day),
           to_day: parseInt(values.to_day),
-          payment_reference: values.payment_reference || null, // Store null if empty string
+          payment_reference: values.payment_reference || null,
           status: values.status,
           country: values.country,
-          bank_details_verified: values.bank_details_verified, // NEW: Include bank_details_verified
+          bank_details_verified: values.bank_details_verified,
         });
 
       if (insertError) {
@@ -311,7 +334,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         payment_date: undefined,
         sku: formCountry === 'United Kingdom' ? 'UK' : 'CH',
         not_property_related: false,
-        category: "",
+        categories: [{ category: "", amount: 0 }], // Reset categories
+        total_amount: 0, // Reset total amount
         account_name: "",
         account_address: "",
         iban_number: "",
@@ -319,10 +343,10 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         account_number: "",
         from_day: "1",
         to_day: "31",
-        payment_reference: "", // Reset to empty string
-        status: "pending", // Reset to 'pending'
+        payment_reference: "",
+        status: "pending",
         country: formCountry,
-        bank_details_verified: false, // NEW: Reset to false
+        bank_details_verified: false,
       });
       onStandingOrderAdded();
     } catch (error: any) {
@@ -353,7 +377,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCountries.filter(c => c.value !== 'all').map((country) => ( // Filter out 'All Countries'
+                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
                     <SelectItem key={country.value} value={country.value}>
                       {country.label}
                     </SelectItem>
@@ -378,8 +402,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   placeholder="e.g., Rent Co."
                   {...field}
                   onBlur={(e) => {
-                    field.onBlur(); // Call original onBlur
-                    handlePayeeBlur(); // Call our custom blur handler
+                    field.onBlur();
+                    handlePayeeBlur();
                   }}
                   disabled={form.formState.isSubmitting || isSearchingPayee}
                 />
@@ -440,30 +464,87 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger id={field.name}>
+
+        {/* Dynamic Categories Section */}
+        <Card className="p-4 shadow-sm">
+          <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+            <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+          </CardTitle>
+          <div className="space-y-4">
+            {fields.map((item, index) => (
+              <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                <FormField
+                  control={form.control}
+                  name={`categories.${index}.category`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 w-full">
+                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <FormControl>
+                            <SelectValue placeholder="Select a category" />
+                          </FormControl>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredCategoryOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`categories.${index}.amount`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 w-full">
+                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="Amount" {...field}
+                          onChange={(e) => field.onChange(parseFloat(e.target.value))} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {fields.length > 1 && (
+                  <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
+                    <MinusCircle className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => append({ category: "", amount: 0 })}
+              className="w-full"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
+            </Button>
+            <Separator className="my-4" />
+            <div className="flex justify-between items-center text-lg font-bold">
+              <span>Total Amount:</span>
+              <span>{form.getValues('total_amount').toFixed(2)}</span>
+            </div>
+            <FormField
+              control={form.control}
+              name="total_amount"
+              render={({ field }) => (
+                <FormItem className="hidden"> {/* Hidden field for Zod validation */}
                   <FormControl>
-                    <SelectValue placeholder="Select a category" />
+                    <Input type="hidden" {...field} />
                   </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredCategoryOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </Card>
 
         <FormField
           control={form.control}
@@ -582,8 +663,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormDescription className="text-blue-600">
                   Please ensure the bank details are correct to avoid payment delays or errors.
                 </FormDescription>
-                <FormMessage />
               </div>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -658,7 +739,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           render={({ field }) => (
             <FormItem>
               <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}> {/* Only admins can change status */}
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
                 <SelectTrigger id={field.name}>
                   <FormControl>
                     <SelectValue placeholder="Select status" />
@@ -707,6 +788,15 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                       <p className="text-sm text-muted-foreground">Address: {suggestion.account_address || 'N/A'}</p>
                     </>
                   )}
+                  <div className="mt-2">
+                    <p className="text-sm font-medium">Categories:</p>
+                    {suggestion.categories.map((cat, catIndex) => (
+                      <p key={catIndex} className="text-xs text-muted-foreground ml-2">
+                        - {categoryOptions.find(opt => opt.value === cat.category)?.label || cat.category}: {cat.amount.toFixed(2)}
+                      </p>
+                    ))}
+                    <p className="text-sm font-bold mt-1">Total: {suggestion.total_amount.toFixed(2)}</p>
+                  </div>
                   <Button
                     onClick={() => handleUseSuggestion(suggestion)}
                     className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
