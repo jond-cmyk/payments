@@ -601,6 +601,28 @@ const StandingOrders = () => {
                 </Select>
               </div>
               <div>
+                <label htmlFor="payment-day-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Day</label>
+                <Select 
+                  value={filterPaymentDay?.toString() || 'all'} 
+                  onValueChange={(value) => { 
+                    setFilterPaymentDay(value === 'all' ? undefined : parseInt(value, 10)); 
+                    setCurrentPage(1); 
+                  }}
+                >
+                  <SelectTrigger id="payment-day-filter" className="w-full">
+                    <SelectValue placeholder="All Days" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Days</SelectItem>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <SelectItem key={day} value={day.toString()}>
+                        Day {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
                 <label htmlFor="payment-date-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
                 <Input
                   id="payment-date-filter"
@@ -609,23 +631,6 @@ const StandingOrders = () => {
                   onChange={(e) => {
                     const dateValue = e.target.value ? new Date(e.target.value) : undefined;
                     setFilterPaymentDate(dateValue);
-                    setCurrentPage(1);
-                  }}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label htmlFor="payment-day-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Day</label>
-                <Input
-                  id="payment-day-filter"
-                  type="number"
-                  min="1"
-                  max="31"
-                  placeholder="e.g., 1"
-                  value={filterPaymentDay || ''}
-                  onChange={(e) => {
-                    const val = e.target.value ? parseInt(e.target.value, 10) : undefined;
-                    setFilterPaymentDay(val);
                     setCurrentPage(1);
                   }}
                   className="w-full"
