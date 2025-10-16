@@ -652,30 +652,25 @@ const DirectDebits = () => {
                         Payee {renderSortIcon('payee')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
-                      <div className="flex items-center">
-                        Payment Day {renderSortIcon('payment_date')}
-                      </div>
-                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
                       <div className="flex items-center">
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('category')}>
+                    <TableHead>Categories</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
                       <div className="flex items-center">
-                        Category {renderSortIcon('category')}
+                        Start Date {renderSortIcon('payment_date')}
                       </div>
                     </TableHead>
-                    <TableHead>Account Number</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_reference')}>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_end_date')}>
                       <div className="flex items-center">
-                        Payment Reference {renderSortIcon('payment_reference')}
+                        End Date {renderSortIcon('payment_end_date')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('bank_account')}>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
-                        Bank Account {renderSortIcon('bank_account')}
+                        Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('status')}>
@@ -683,6 +678,12 @@ const DirectDebits = () => {
                         Status {renderSortIcon('status')}
                       </div>
                     </TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('country')}>
+                      <div className="flex items-center">
+                        Country {renderSortIcon('country')}
+                      </div>
+                    </TableHead>
+                    <TableHead>Account Number</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -698,15 +699,22 @@ const DirectDebits = () => {
                         />
                       </TableCell>
                       <TableCell className="font-medium">{debit.payee}</TableCell>
-                      <TableCell>{debit.payment_date ? new Date(debit.payment_date).getDate() : '—'}</TableCell>
                       <TableCell>
                         {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
                       </TableCell>
-                      <TableCell>{categoryOptions.find(c => c.value === debit.category)?.label || debit.category}</TableCell>
-                      <TableCell>{debit.account_number}</TableCell>
-                      <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
-                      <TableCell>{debit.bank_account || 'N/A'}</TableCell>
+                      <TableCell>
+                        {debit.category ? (
+                          <Badge variant="secondary" className="bg-gray-100 text-gray-800">
+                            {categoryOptions.find(c => c.value === debit.category)?.label || debit.category}
+                          </Badge>
+                        ) : 'N/A'}
+                      </TableCell>
+                      <TableCell>{debit.payment_date ? format(new Date(debit.payment_date), 'PPP') : 'N/A'}</TableCell>
+                      <TableCell>N/A</TableCell>
+                      <TableCell>{debit.payment_date ? new Date(debit.payment_date).getDate() : 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
+                      <TableCell>{debit.country}</TableCell>
+                      <TableCell>{debit.account_number}</TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">
                         <Button
                           variant="outline"
