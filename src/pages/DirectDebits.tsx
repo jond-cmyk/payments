@@ -75,6 +75,7 @@ const DirectDebits = () => {
   const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+  const [filterPaymentDay, setFilterPaymentDay] = useState<number | undefined>(undefined); // NEW: Payment Day filter
 
   // Local states for immediate input feedback
   const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
@@ -128,7 +129,7 @@ const DirectDebits = () => {
   // Fetch Direct Debits - MOVED AFTER ALL STATE INITIALIZATIONS
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
     // Now all variables used in queryKey are properly initialized
-    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage, itemsPerPage],
+    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, filterPaymentDay, sortColumn, sortDirection, currentPage, itemsPerPage], // NEW: filterPaymentDay
     queryFn: async () => {
       if (!session) return [];
 
@@ -192,8 +193,16 @@ const DirectDebits = () => {
 
       const { data, error, count } = await query;
       if (error) throw error;
-      setTotalItems(count || 0);
-      return data;
+      // NEW: Apply client-side Payment Day filter (day of month from payment_date)
+      const filteredData = filterPaymentDay
+        ? (data || []).filter(d => {
+            if (!d.payment_date) return false;
+            const day = new Date(d.payment_date).getDate();
+            return day === filterPaymentDay;
+          })
+        : (data || []);
+      setTotalItems(filteredData.length);
+      return filteredData;
     },
     enabled: !!session,
   });
@@ -277,13 +286,14 @@ const DirectDebits = () => {
     setLocalFilterPaymentReference('');
     setFilterStartDate(undefined);
     setFilterEndDate(undefined);
+    setFilterPaymentDay(undefined); // NEW: reset Payment Day
     setCurrentPage(1);
     // Optional: clear selection when filters are cleared
     setSelectedIds([]);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined;
+  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterPaymentDate !== undefined || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined || filterPaymentDay !== undefined; // NEW: include Payment Day
 
   const getStatusBadge = (status: DirectDebit['status']) => {
     let className = '';
@@ -576,6 +586,28 @@ const DirectDebits = () => {
                   placeholder="Select End Date"
                   className="w-full"
                 />
+              </div>
+              <div>
+                <label htmlFor="payment-day-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Day</label>
+                <Select 
+                  value={filterPaymentDay?.toString() || 'all'}
+                  onValueChange={(value) => { 
+                    setFilterPaymentDay(value === 'all' ? undefined : parseInt(value, 10)); 
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger id="payment-day-filter" className="w-full">
+                    <SelectValue placeholder="All Days" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Days</SelectItem>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                      <SelectItem key={day} value={day.toString()}>
+                        Day {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
