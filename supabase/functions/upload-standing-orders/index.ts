@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Simple category mapping
+// Category mapping
 const categoryOptions = [
   { value: '950_rent', label: '950 - Rent' },
   { value: '952_utilities_el', label: '952 - Electricity' },
@@ -45,53 +45,36 @@ const categoryOptions = [
   { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
 ];
 
+function mapPrefixToCategory(prefix: string | null): string | null {
+  if (!prefix) return null;
+  const trimmed = prefix.trim();
+  if (!/^\d{3}$/.test(trimmed)) return null;
+  const found = categoryOptions.find(opt => opt.value.startsWith(trimmed));
+  return found ? found.value : null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('[upload-standing-orders] Starting function execution');
-    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
-      const msg = 'Supabase URL or Service Role Key is missing in environment variables.';
-      console.error(`[upload-standing-orders] Error: ${msg}`);
-      return new Response(JSON.stringify({ error: msg }), {
+      return new Response(JSON.stringify({ error: 'Supabase URL or Service Role Key is missing in environment variables.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    let supabaseClient;
-    try {
-      supabaseClient = createClient(
-        supabaseUrl,
-        supabaseServiceRoleKey,
-        {
-          auth: {
-            persistSession: false,
-          },
-        }
-      );
-      console.log('[upload-standing-orders] Supabase client created successfully.');
-    } catch (clientError) {
-      const msg = `Failed to create Supabase client: ${clientError.message}`;
-      console.error(`[upload-standing-orders] Error: ${msg}`);
-      return new Response(JSON.stringify({ error: msg }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });
 
-    let payload;
+    let payload: any;
     try {
       payload = await req.json();
-      console.log('[upload-standing-orders] Payload received successfully');
-    } catch (jsonError) {
-      console.error('[upload-standing-orders] Failed to parse JSON payload:', jsonError);
+    } catch {
       return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -101,32 +84,19 @@ serve(async (req) => {
     const { fileName, fileContent, uploaderId, country } = payload;
 
     if (!fileName || !fileContent || !uploaderId || !country) {
-      console.error('[upload-standing-orders] Missing required fields:', { fileName: !!fileName, fileContent: !!fileContent, uploaderId: !!uploaderId, country: !!country });
       return new Response(JSON.stringify({ error: 'Missing file data, uploader ID, or country in payload' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log(`[upload-standing-orders] Processing file: ${fileName} from uploader: ${uploaderId} for country: ${country}`);
+    const parsedRows = await parse(fileContent, {
+      header: false,
+      separator: ',',
+      trimLeadingWhitespace: true,
+    }) as string[][];
 
-    let parsedRows: string[][];
-    try {
-      parsedRows = await parse(fileContent, {
-        header: false,
-        separator: ',',
-        trimLeadingWhitespace: true,
-      }) as string[][];
-      console.log(`[upload-standing-orders] CSV parsed successfully. Number of rows: ${parsedRows.length}`);
-    } catch (csvParseError) {
-      console.error('[upload-standing-orders] CSV parsing error:', csvParseError);
-      return new Response(JSON.stringify({ error: `Failed to parse CSV file: ${csvParseError.message}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    if (parsedRows.length === 0) {
+    if (!parsedRows || parsedRows.length < 2) {
       return new Response(JSON.stringify({ error: 'CSV file is empty or contains no data rows.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -136,20 +106,13 @@ serve(async (req) => {
     const headers = parsedRows[0].map(h => h.trim());
     const dataRows = parsedRows.slice(1);
 
-    console.log(`[upload-standing-orders] Extracted headers: ${JSON.stringify(headers)}`);
-    console.log(`[upload-standing-orders] Number of data rows: ${dataRows.length}`);
-
-    const standingOrdersToInsert = [];
+    const standingOrdersToInsert: any[] = [];
     const errors: string[] = [];
 
-    // Process each data row
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
-      
       if (row.length !== headers.length) {
-        const msg = `Row ${i + 1} has ${row.length} columns but headers have ${headers.length}. Skipping.`;
-        errors.push(msg);
-        console.warn(`[upload-standing-orders] ${msg}`);
+        errors.push(`Row ${i + 1}: Column count mismatch, expected ${headers.length} found ${row.length}. Skipping.`);
         continue;
       }
 
@@ -159,216 +122,138 @@ serve(async (req) => {
       });
 
       try {
-        let payee = record['Payee'] || '';
-        let payment_date_str = record['Payment Date'] || '';
-        let sku = record['SKU'] || '';
-        let not_property_related_str = record['Not Property Related'] || '';
-        let categoryRaw = record['Category'] || '';
-        let account_name = record['Account Name'] || '';
-        let account_address = record['Account Address'] || '';
-        let iban_number = record['IBAN Number'] || '';
-        let sort_code = record['Sort Code'] || '';
-        let account_number = record['Account Number'] || '';
-        let from_day_str = record['From Day'] || '';
-        let to_day_str = record['To Day'] || '';
-        let payment_reference = record['Payment Reference'] || '';
-        let total_amount_str = record['Total Amount'] || '';
-        let user_email_from_csv = record['User Email'] || '';
-        let bank_details_verified_str = record['Bank Details Verified'] || '';
-
-        // Map numeric category to full label
-        let category = categoryRaw || null;
-        if (category && /^\d{3}$/.test(category.trim())) {
-          const found = categoryOptions.find(opt => opt.value.startsWith(category.trim()));
-          if (found) {
-            category = found.value;
-          } else {
-            errors.push(`Row ${i + 1}: Unknown category code "${category}"`);
-          }
-        }
+        // Minimal inputs expected:
+        // SKU, Payee, Amount, Payment Day, Payment Start Date (DD.MM.YYYY), Comment, Category (3-digit prefix)
+        const payee = (record['Payee'] || '').trim();
+        const sku = (record['SKU'] || '').trim();
+        const amountStr = (record['Amount'] || record['Total Amount'] || '').trim();
+        const paymentDayStr = (record['Payment Day'] || '').trim();
+        const paymentStartDateStr = (record['Payment Start Date'] || '').trim();
+        const comment = (record['Comment'] || '').trim();
+        const categoryPrefix = (record['Category'] || record['Category Prefix'] || '').trim();
 
         // Basic validation
         if (!payee) {
           errors.push(`Row ${i + 1}: Missing Payee`);
           continue;
         }
-        if (!category) {
-          errors.push(`Row ${i + 1}: Missing or invalid Category`);
+
+        if (!amountStr) {
+          errors.push(`Row ${i + 1}: Missing Amount`);
           continue;
         }
-        if (!total_amount_str) {
-          errors.push(`Row ${i + 1}: Missing Total Amount`);
-          continue;
-        }
-        if (!account_name) {
-          errors.push(`Row ${i + 1}: Missing Account Name`);
-          continue;
-        }
-        if (!from_day_str) {
-          errors.push(`Row ${i + 1}: Missing From Day`);
-          continue;
-        }
-        if (!to_day_str) {
-          errors.push(`Row ${i + 1}: Missing To Day`);
-          continue;
-        }
-        if (!user_email_from_csv) {
-          errors.push(`Row ${i + 1}: Missing User Email`);
+        const normalizedAmountStr = amountStr.replace(/[^\d.,-]/g, '').replace(/,/g, '');
+        const amount = parseFloat(normalizedAmountStr);
+        if (isNaN(amount) || amount <= 0) {
+          errors.push(`Row ${i + 1}: Invalid Amount '${amountStr}'`);
           continue;
         }
 
-        // Parse payment date
-        let payment_date = null;
-        if (payment_date_str) {
-          const dateParts = payment_date_str.split('.');
-          if (dateParts.length === 3) {
-            payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        if (!paymentDayStr) {
+          errors.push(`Row ${i + 1}: Missing Payment Day`);
+          continue;
+        }
+        const payment_day = parseInt(paymentDayStr, 10);
+        if (isNaN(payment_day) || payment_day < 1 || payment_day > 31) {
+          errors.push(`Row ${i + 1}: Invalid Payment Day '${paymentDayStr}'`);
+          continue;
+        }
+
+        if (!paymentStartDateStr) {
+          errors.push(`Row ${i + 1}: Missing Payment Start Date`);
+          continue;
+        }
+        // Expect DD.MM.YYYY -> convert to YYYY-MM-DD
+        let payment_date: string | null = null;
+        const parts = paymentStartDateStr.split('.');
+        if (parts.length === 3) {
+          const [dd, mm, yyyy] = parts;
+          if (/^\d{2}$/.test(dd) && /^\d{2}$/.test(mm) && /^\d{4}$/.test(yyyy)) {
+            payment_date = `${yyyy}-${mm}-${dd}`;
           } else {
-            errors.push(`Row ${i + 1}: Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY.`);
+            errors.push(`Row ${i + 1}: Invalid Payment Start Date '${paymentStartDateStr}' (expected DD.MM.YYYY).`);
             continue;
           }
-        }
-
-        const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
-        const bank_details_verified = bank_details_verified_str?.toLowerCase() === 'yes' || bank_details_verified_str?.toLowerCase() === 'true';
-
-        // Parse day values
-        let from_day = 1;
-        if (from_day_str) {
-          const parsed = parseInt(from_day_str);
-          if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
-            from_day = parsed;
-          } else {
-            errors.push(`Row ${i + 1}: Invalid 'From Day' value '${from_day_str}'`);
-            continue;
-          }
-        }
-
-        let to_day = 31;
-        if (to_day_str) {
-          const parsed = parseInt(to_day_str);
-          if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
-            to_day = parsed;
-          } else {
-            errors.push(`Row ${i + 1}: Invalid 'To Day' value '${to_day_str}'`);
-            continue;
-          }
-        }
-
-        if (from_day > to_day) {
-          errors.push(`Row ${i + 1}: 'From Day' (${from_day}) cannot be after 'To Day' (${to_day})`);
+        } else {
+          errors.push(`Row ${i + 1}: Invalid Payment Start Date '${paymentStartDateStr}' (expected DD.MM.YYYY).`);
           continue;
         }
 
-        // Parse amount
-        let total_amount = 0;
-        if (total_amount_str) {
-          const parsed = parseFloat(total_amount_str.replace(/,/g, ''));
-          if (!isNaN(parsed) && parsed > 0) {
-            total_amount = parsed;
-          } else {
-            errors.push(`Row ${i + 1}: Invalid amount '${total_amount_str}'`);
-            continue;
-          }
+        const mappedCategory = mapPrefixToCategory(categoryPrefix);
+        if (!mappedCategory) {
+          errors.push(`Row ${i + 1}: Invalid or unknown Category prefix '${categoryPrefix}'`);
+          continue;
         }
 
-        // Find user ID from email
-        let requesterIdForStandingOrder = uploaderId;
-        
-        try {
-          const { data: profileData, error: profileError } = await supabaseClient
-            .from('profile_with_email')
-            .select('id')
-            .eq('user_email', user_email_from_csv)
-            .eq('country', country)
-            .single();
+        const not_property_related = sku === '' || sku.toLowerCase() === 'n/a';
 
-          if (profileError || !profileData) {
-            errors.push(`Row ${i + 1}: User with email '${user_email_from_csv}' not found in country ${country}. Using uploader ID.`);
-          } else {
-            requesterIdForStandingOrder = profileData.id;
-          }
-        } catch (userError) {
-          console.error(`[upload-standing-orders] Error finding user for email ${user_email_from_csv}:`, userError);
-          errors.push(`Row ${i + 1}: Error finding user. Using uploader ID.`);
-        }
+        // Build categories array with a single item from the provided amount
+        const categories = [{ category: mappedCategory, amount }];
 
+        // Defaults for required fields not present in minimal CSV
+        const from_day = 1;
+        const to_day = 31;
+
+        // Insert-ready record
         standingOrdersToInsert.push({
-          requester_id: requesterIdForStandingOrder,
-          payee: payee,
-          payment_date: payment_date,
-          sku: sku || null,
-          not_property_related: not_property_related,
-          category: category,
-          account_name: account_name,
-          account_address: account_address || null,
-          iban_number: iban_number || null,
-          sort_code: sort_code || null,
-          account_number: account_number || null,
-          from_day: from_day,
-          to_day: to_day,
-          payment_reference: payment_reference || null,
-          total_amount: total_amount,
+          requester_id: uploaderId,
+          payee,
+          payment_date,              // Start date (YYYY-MM-DD)
+          payment_day,               // New field for the day of month
+          payment_end_date: null,    // Optional, not provided
+          sku: not_property_related ? null : sku,
+          not_property_related,
+          categories,
+          total_amount: amount,
+          account_name: null,        // Not provided in minimal sheet
+          account_address: null,
+          iban_number: null,
+          sort_code: null,
+          account_number: null,
+          from_day,
+          to_day,
+          payment_reference: comment || null,
           status: 'pending',
-          country: country,
-          categories: [],
-          bank_details_verified: bank_details_verified,
+          country,
+          bank_details_verified: false,
         });
-
-      } catch (rowError) {
-        console.error(`[upload-standing-orders] Error processing row ${i + 1}:`, rowError);
-        errors.push(`Row ${i + 1}: ${rowError.message}`);
+      } catch (rowErr: any) {
+        errors.push(`Row ${i + 1}: ${rowErr?.message || 'Unknown row error'}`);
         continue;
       }
     }
 
-    console.log(`[upload-standing-orders] Standing Orders prepared for insertion: ${standingOrdersToInsert.length}`);
-
     let insertedCount = 0;
     if (standingOrdersToInsert.length > 0) {
-      console.log('[upload-standing-orders] Inserting standing orders into database...');
-      
       const { data: insertData, error: insertError } = await supabaseClient
         .from('standing_orders')
         .insert(standingOrdersToInsert)
         .select();
 
       if (insertError) {
-        console.error('[upload-standing-orders] Failed to insert standing orders into database:', insertError);
         return new Response(JSON.stringify({ error: `Failed to insert standing orders: ${insertError.message}` }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      
+
       insertedCount = insertData?.length || 0;
-      console.log(`[upload-standing-orders] Successfully inserted ${insertedCount} standing orders.`);
-    } else {
-      console.warn('[upload-standing-orders] No standing orders to insert after processing.');
     }
 
     let message = `${insertedCount} standing orders inserted successfully with status 'Pending'.`;
+    const body: Record<string, unknown> = { message };
     if (errors.length > 0) {
-      message += ` ${errors.length} warnings/errors encountered during processing.`;
-      console.log('[upload-standing-orders] Processing completed with errors:', errors);
-      return new Response(JSON.stringify({ message: message, errors: errors }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      body.errors = errors;
     }
 
-    console.log('[upload-standing-orders] Processing completed successfully');
-    return new Response(JSON.stringify({ message: message }), {
+    return new Response(JSON.stringify(body), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-
-  } catch (error) {
-    console.error('[upload-standing-orders] Edge Function unhandled error:', error);
-    console.error('[upload-standing-orders] Error stack:', error.stack);
-    return new Response(JSON.stringify({ 
+  } catch (err: any) {
+    return new Response(JSON.stringify({
       error: 'An unexpected error occurred in the Edge Function.',
-      details: error.message 
+      details: err?.message || String(err),
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
