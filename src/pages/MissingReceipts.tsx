@@ -96,7 +96,7 @@ const MissingReceipts = () => {
     queryFn: async () => {
       if (!session) return [];
 
-      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, startDate=${filterStartDate?.toISOString().split('T')[0]}, endDate=${filterEndDate?.toISOString().split('T')[0]}, sortColumn=${sortColumn}, sortDirection=${sortDirection}, country=${currentCountry}, currentPage=${currentPage}`);
+      console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, startDate=${filterStartDate?.toISOString().split('T')[0]}, endDate=${filterEndDate?.toISOString().split('T')[0]}, sortColumn=${String(sortColumn)}, sortDirection=${sortDirection}, country=${currentCountry}, currentPage=${currentPage}`);
 
       const from = (currentPage - 1) * ITEMS_PER_PAGE;
       const to = from + ITEMS_PER_PAGE - 1;
@@ -114,7 +114,7 @@ const MissingReceipts = () => {
 
       // Apply dynamic sorting
       if (sortColumn) {
-        query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+        query = query.order(String(sortColumn), { ascending: sortDirection === 'asc' });
       }
       if (sortColumn !== 'created_at') {
         query = query.order('created_at', { ascending: false });

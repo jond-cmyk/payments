@@ -180,7 +180,7 @@ const DirectDebits = () => {
 
       // Apply sorting
       if (sortColumn) {
-        query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+        query = query.order(sortColumn as string, { ascending: sortDirection === 'asc' });
       }
       if (sortColumn !== 'created_at') {
         query = query.order('created_at', { ascending: false });

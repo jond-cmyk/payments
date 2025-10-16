@@ -263,7 +263,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       query = query.order('is_urgent', { ascending: false });
       query = query.order('is_reminded', { ascending: false });
       if (sortColumn) {
-        query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+        query = query.order(sortColumn as string, { ascending: sortDirection === 'asc' });
       }
       // Add secondary and tertiary sorts for stability
       if (sortColumn !== 'created_at') {

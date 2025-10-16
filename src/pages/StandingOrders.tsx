@@ -372,7 +372,11 @@ const StandingOrders = () => {
         'payment_reference', 'status', 'country', 'bank_details_verified'
       ];
 
-      exportToCsv(flattenedData, `standing_orders_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, finalExportColumns);
+      exportToCsv(
+        flattenedData,
+        `standing_orders_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`,
+        finalExportColumns as unknown as (keyof StandingOrder)[]
+      );
     }
   };
 
