@@ -5,10 +5,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { StandingOrder, StandingOrderAudit, Profile } from '@/types/supabase';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { StandingOrder, StandingOrderAudit } from '@/types/supabase';
+import { showSuccess, showError } from '@/utils/toast';
 import { format } from 'date-fns';
-import { Edit, Trash2, Repeat, Eye, DollarSign } from 'lucide-react'; // Import DollarSign
+import { Edit, Trash2, Repeat, DollarSign } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 
@@ -27,11 +27,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm';
 import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOrderAuditTrailCard';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Separator } from '@/components/ui/separator';
 
 const StandingOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,7 +53,6 @@ const StandingOrderDetail = () => {
         .select('*')
         .eq('id', id);
 
-      // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
@@ -62,7 +61,7 @@ const StandingOrderDetail = () => {
 
       const { data, error } = await query.single();
       if (error) throw error;
-      return data;
+      return data as StandingOrder;
     },
     enabled: !!id,
   });
@@ -78,7 +77,7 @@ const StandingOrderDetail = () => {
         .eq('standing_order_id', id)
         .order('changed_at', { ascending: false });
       if (error) throw error;
-      return data;
+      return data as StandingOrderAudit[];
     },
     enabled: !!id,
   });
@@ -98,15 +97,11 @@ const StandingOrderDetail = () => {
       const { data, error } = await query;
       if (error) throw error;
       const usersMap: Record<string, string> = {};
-      data.forEach(profile => {
+      (data || []).forEach((profile: any) => {
         let displayString = profile.user_email || profile.id;
         if (profile.first_name || profile.last_name) {
           const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-          if (profile.user_email) {
-            displayString = `${name} (${profile.user_email})`;
-          } else {
-            displayString = name;
-          }
+          displayString = profile.user_email ? `${name} (${profile.user_email})` : name;
         }
         usersMap[profile.id] = displayString;
       });
@@ -127,7 +122,7 @@ const StandingOrderDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
       showSuccess("Standing Order deleted successfully!");
-      navigate('/standing-orders'); // Navigate back to the list after deletion
+      navigate('/standing-orders');
     },
     onError: (error: any) => {
       showError(error.message || "Failed to delete Standing Order.");
@@ -162,9 +157,9 @@ const StandingOrderDetail = () => {
 
   const handleStandingOrderUpdated = () => {
     setIsEditStandingOrderDialogOpen(false);
-    queryClient.invalidateQueries({ queryKey: ['standingOrder', id] }); // Invalidate detail page query
-    queryClient.invalidateQueries({ queryKey: ['standingOrders'] }); // Invalidate list page query
-    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] }); // Invalidate pending standing orders
+    queryClient.invalidateQueries({ queryKey: ['standingOrder', id] });
+    queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] });
   };
 
   if (isSessionLoading || isStandingOrderLoading || isAuditsLoading || isAuditUsersLoading) {
@@ -183,6 +178,9 @@ const StandingOrderDetail = () => {
   if (!standingOrder) {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Standing order not found.</div>;
   }
+
+  const isUK = standingOrder.country === 'United Kingdom';
+  const isCH = standingOrder.country === 'Switzerland';
 
   return (
     <div className="container mx-auto py-8">
@@ -236,7 +234,7 @@ const StandingOrderDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="font-medium">Requested By:</p>
-              <p>{auditUsers?.[standingOrder.requester_id] || standingOrder.requester_id}</p>
+              <p>{standingOrder.requester_id}</p>
             </div>
             <div>
               <p className="font-medium">Payee:</p>
@@ -258,6 +256,7 @@ const StandingOrderDetail = () => {
               <p className="font-medium">SKU:</p>
               <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
             </div>
+
             <div className="md:col-span-2">
               <p className="font-medium flex items-center">
                 <DollarSign className="mr-1 h-4 w-4" /> Categories & Amounts:
@@ -276,11 +275,13 @@ const StandingOrderDetail = () => {
                 <p className="ml-2">No categories defined.</p>
               )}
             </div>
+
             <div>
               <p className="font-medium">Account Name:</p>
-              <p>{standingOrder.account_name}</p>
+              <p>{standingOrder.account_name || 'N/A'}</p>
             </div>
-            {standingOrder.country === 'United Kingdom' ? (
+
+            {isUK ? (
               <>
                 <div>
                   <p className="font-medium">Sort Code:</p>
@@ -301,15 +302,28 @@ const StandingOrderDetail = () => {
                   <p className="font-medium">IBAN Number:</p>
                   <p>{standingOrder.iban_number || 'N/A'}</p>
                 </div>
+                {isCH && (
+                  <>
+                    <div>
+                      <p className="font-medium">Bank Account:</p>
+                      <p>{standingOrder.bank_account || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Currency:</p>
+                      <p>{standingOrder.currency || 'N/A'}</p>
+                    </div>
+                  </>
+                )}
               </>
             )}
+
             <div>
               <p className="font-medium">Accruals Period:</p>
               <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
             </div>
             <div>
               <p className="font-medium">Payment Reference:</p>
-              <p>{standingOrder.payment_reference}</p>
+              <p>{standingOrder.payment_reference || 'N/A'}</p>
             </div>
             <div className="md:col-span-2">
               <p className="font-medium">Comments:</p>
@@ -339,7 +353,7 @@ const StandingOrderDetail = () => {
         </CardContent>
       </Card>
 
-      <StandingOrderAuditTrailCard audits={audits} auditUsers={auditUsers} />
+      <StandingOrderAuditTrailCard audits={audits} auditUsers={auditUsers || {}} />
 
       {standingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>

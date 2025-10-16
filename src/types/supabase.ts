@@ -13,7 +13,6 @@ export type Profile = {
   updated_at: string;
   is_approved: boolean;
   country: string | null;
-  // From profile_with_email view
   user_email?: string | null;
 };
 
@@ -40,8 +39,8 @@ export type PaymentRequest = {
   currency: string | null;
   payment_amount: number | null;
   reason_for_payment: string;
-  date_payment_required: string; // YYYY-MM-DD
-  invoice_pdf_urls: string[]; // text[]
+  date_payment_required: string;
+  invoice_pdf_urls: string[];
   status: PaymentRequestStatus;
   admin_action_by: string | null;
   admin_action_reason: string | null;
@@ -55,7 +54,7 @@ export type PaymentRequest = {
   country: string;
   last_reminder_sent_at: string | null;
   is_reminded: boolean;
-  category: string; // e.g. '974_other'
+  category: string;
   bank_details_verified: boolean;
 };
 
@@ -76,9 +75,9 @@ export type Transaction = {
   requester_id: string;
   uploaded_by_user_id: string | null;
   original_transaction_id: string | null;
-  status: string; // keep as string due to multiple possible values
+  status: string;
   type: string | null;
-  transaction_date: string; // YYYY-MM-DD
+  transaction_date: string;
   entry: string | null;
   description: string;
   amount: number;
@@ -89,7 +88,7 @@ export type Transaction = {
   comment: string | null;
   sku: string | null;
   reason_for_payment: string | null;
-  receipt_urls: string[] | null; // text[]
+  receipt_urls: string[] | null;
   category: string | null;
   merchant_name: string | null;
   notes: string | null;
@@ -117,7 +116,7 @@ export type DirectDebit = {
   updated_at: string;
   requester_id: string;
   payee: string | null;
-  payment_date: string | null; // YYYY-MM-DD
+  payment_date: string | null;
   sku: string | null;
   not_property_related: boolean;
   category: string | null;
@@ -151,7 +150,7 @@ export type StandingOrder = {
   updated_at: string;
   requester_id: string;
   payee: string;
-  payment_date: string; // YYYY-MM-DD (start)
+  payment_date: string;
   payment_end_date?: string | null;
   sku: string | null;
   not_property_related: boolean;
@@ -170,6 +169,8 @@ export type StandingOrder = {
   bank_details_verified: boolean;
   total_amount: number;
   payment_day?: number | null;
+  currency?: string | null;
+  bank_account?: string | null;
 };
 
 /** Standing Order Audits */
@@ -196,7 +197,7 @@ export type Notification = {
 /** Feedback */
 export type Feedback = {
   id: string;
-  feedback_types: string[]; // text[]
+  feedback_types: string[];
   message: string;
   created_at: string | null;
   is_read: boolean;

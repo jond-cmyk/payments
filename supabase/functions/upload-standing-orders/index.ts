@@ -65,7 +65,6 @@ function detectSeparator(text: string): string {
 function getVal(record: Record<string, string>, keys: string[]): string {
   for (const k of keys) {
     if (record[k] !== undefined) return record[k];
-    // try case-insensitive lookup
     const foundKey = Object.keys(record).find(h => h.toLowerCase() === k.toLowerCase());
     if (foundKey) return record[foundKey];
   }
@@ -119,7 +118,6 @@ serve(async (req) => {
       });
     }
 
-    // Validate file content
     if (typeof fileContent !== 'string') {
       return new Response(JSON.stringify({ 
         error: 'File content must be a string', 
@@ -173,18 +171,12 @@ serve(async (req) => {
     const headers = parsedRows[0].map(h => (h ?? '').trim());
     const dataRows = parsedRows.slice(1);
 
-    console.log('Parsed headers:', headers);
-    console.log('Total data rows:', dataRows.length);
-
     // Switzerland-only required columns (case-insensitive & flexible)
     if (country === 'Switzerland') {
       const lower = headers.map(h => h.toLowerCase());
       const hasCurrency = lower.includes('currency');
       const hasBankAccount = lower.includes('bank account') || lower.includes('bankaccount');
 
-      console.log('Switzerland validation - headers found:', { hasCurrency, hasBankAccount, headers: lower });
-
-      // Friendlier behavior: return 200 with errors so UI can show details
       if (!hasCurrency || !hasBankAccount) {
         const errs = [];
         if (!hasCurrency) errs.push('Missing required header: Currency');
@@ -194,7 +186,7 @@ serve(async (req) => {
           errors: [
             'For Switzerland, the CSV must include headers: Currency and Bank Account.',
             ...errs,
-            'Tip: If your CSV uses semicolons, this function now auto-detects the delimiter.'
+            'Tip: If your CSV uses semicolons, this function auto-detects the delimiter.'
           ]
         }), {
           status: 200,
@@ -208,7 +200,6 @@ serve(async (req) => {
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
-      console.log(`Processing row ${i + 1}:`, row);
 
       if (row.length !== headers.length) {
         errors.push(`Row ${i + 1}: Column count mismatch, expected ${headers.length} found ${row.length}. Skipping.`);
@@ -222,9 +213,11 @@ serve(async (req) => {
 
       try {
         // Switzerland-only row validation (case-insensitive)
+        let currency: string | null = null;
+        let bankAccount: string | null = null;
         if (country === 'Switzerland') {
-          const currency = (getVal(record, ['Currency', 'currency']) || '').trim();
-          const bankAccount = (getVal(record, ['Bank Account', 'Bank account', 'bank account', 'BankAccount', 'bankaccount']) || '').trim();
+          currency = (getVal(record, ['Currency', 'currency']) || '').trim() || null;
+          bankAccount = (getVal(record, ['Bank Account', 'Bank account', 'bank account', 'BankAccount', 'bankaccount']) || '').trim() || null;
           if (!currency || !bankAccount) {
             const missing: string[] = [];
             if (!currency) missing.push('Currency');
@@ -258,9 +251,7 @@ serve(async (req) => {
         let payment_day: number | null = null;
         if (paymentDayStr) {
           const d = parseInt(paymentDayStr, 10);
-          if (!isNaN(d) && d >= 1 && d <= 31) {
-            payment_day = d;
-          }
+          if (!isNaN(d) && d >= 1 && d <= 31) payment_day = d;
         }
 
         const paymentStartDateStr = ((getVal(record, ['Payment Start Date', 'Payments Start Date']) || '')).trim();
@@ -295,7 +286,7 @@ serve(async (req) => {
         const from_day = 1;
         const to_day = 31;
 
-        const rowPayload = {
+        const rowPayload: Record<string, unknown> = {
           requester_id: uploaderId,
           payee,
           payment_date,
@@ -318,6 +309,12 @@ serve(async (req) => {
           country,
           bank_details_verified: false,
         };
+
+        // Attach CH-only fields when present
+        if (country === 'Switzerland') {
+          rowPayload.currency = currency;
+          rowPayload.bank_account = bankAccount;
+        }
 
         standingOrdersToInsert.push(rowPayload);
       } catch (rowErr: any) {
