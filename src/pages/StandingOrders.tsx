@@ -84,7 +84,7 @@ const StandingOrders = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [itemsPerPage, setItemsPerPage] = useState(ITEMS_PER_PAGE);
+  const [itemsPerPage, setItemsPerPage] = useState(10); // Default to 10 items per page
 
   // NEW: Bulk selection state
   const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
@@ -123,12 +123,12 @@ const StandingOrders = () => {
 
   // Fetch Standing Orders
   const { data: standingOrders, isLoading: isStandingOrdersLoading, error: standingOrdersError } = useQuery<StandingOrder[]>({
-    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage],
+    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterPaymentDate, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, sortColumn, sortDirection, currentPage, itemsPerPage],
     queryFn: async () => {
       if (!session) return [];
 
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+      const from = (currentPage - 1) * itemsPerPage; // Use itemsPerPage instead of ITEMS_PER_PAGE
+      const to = itemsPerPage === -1 ? -1 : from + itemsPerPage - 1; // Handle show all case
 
       let query = supabase
         .from('standing_orders')
@@ -180,7 +180,9 @@ const StandingOrders = () => {
         query = query.order('id', { ascending: false });
       }
 
-      query = query.range(from, to);
+      if (itemsPerPage !== -1) { // Only apply range if not showing all
+        query = query.range(from, to);
+      }
 
       const { data, error, count } = await query;
       if (error) throw error;
@@ -374,9 +376,11 @@ const StandingOrders = () => {
     }
   };
 
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(totalItems / itemsPerPage); // Handle show all case
 
   const renderPaginationItems = () => {
+    if (itemsPerPage === -1) return null; // No pagination if showing all
+
     const items = [];
     const maxPagesToShow = 5;
     const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
