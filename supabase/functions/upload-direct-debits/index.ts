@@ -50,6 +50,7 @@ serve(async (req) => {
   }
 
   try {
+    console.log('[upload-direct-debits] Boot: v1.0.0-direct-debit-parser – new revision deployed');
     console.log('[upload-direct-debits] Starting function execution');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
