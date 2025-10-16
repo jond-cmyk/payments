@@ -252,7 +252,23 @@ serve(async (req) => {
     if (errors.length > 0) {
       message += ` ${errors.length} warnings/errors encountered during processing.`;
       console.log('[upload-direct-debits] Processing completed with errors:', errors);
-      return new Response(JSON.stringify({ message: message, errors: errors }), {
+      
+      // Create debug info for client
+      const serverDebugInfo = `Headers found: ${JSON.stringify(headers, null, 2)}\n\n` +
+        `First 3 data rows with headers:\n${JSON.stringify(dataRows.slice(0, 3).map((row, i) => {
+          const rowObj: Record<string, string> = {};
+          headers.forEach((header, index) => {
+            rowObj[header] = row[index]?.trim() || '';
+          });
+          return `Row ${i + 1}: ${JSON.stringify(rowObj)}`;
+        }), null, 2)}\n\n` +
+        `All errors:\n${errors.join('\n')}`;
+      
+      return new Response(JSON.stringify({ 
+        message: message, 
+        errors: errors,
+        serverDebugInfo: serverDebugInfo
+      }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

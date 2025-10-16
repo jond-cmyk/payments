@@ -20,6 +20,7 @@ const AdminUploadDirectDebits = () => {
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedUploadCountry, setSelectedUploadCountry] = useState<string>(currentCountry === 'all' ? 'Switzerland' : currentCountry);
+  const [serverDebugInfo, setServerDebugInfo] = useState<string>('');
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -66,6 +67,7 @@ const AdminUploadDirectDebits = () => {
     
     const toastId = showLoading("Uploading and processing direct debits spreadsheet...");
     setIsUploading(true);
+    setServerDebugInfo('');
 
     try {
       console.log(`[Client] Reading file content...`);
@@ -102,6 +104,11 @@ const AdminUploadDirectDebits = () => {
       console.log(`[Client] Upload successful! Message: ${data?.message}`);
       if (data.errors && data.errors.length > 0) {
         console.warn(`[Client] Upload completed with ${data.errors.length} warnings/errors:`, data.errors);
+      }
+      
+      // Store server debug info
+      if (data?.serverDebugInfo) {
+        setServerDebugInfo(data.serverDebugInfo);
       }
       
       showSuccess(data?.message || "Direct debits spreadsheet uploaded and processed successfully!");
@@ -160,6 +167,13 @@ const AdminUploadDirectDebits = () => {
             <br />
             Optional columns: `SKU`, `Not Property Related` (Yes/No), `Payment Reference`, `Bank Account` (for Switzerland).
           </p>
+          
+          {serverDebugInfo && (
+            <div className="mt-4 p-4 bg-gray-100 rounded-md">
+              <h4 className="font-semibold mb-2">Server Debug Information:</h4>
+              <pre className="text-xs overflow-auto max-h-40">{serverDebugInfo}</pre>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
