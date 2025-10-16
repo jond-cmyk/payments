@@ -121,6 +121,8 @@ serve(async (req) => {
         record[header] = row[index];
       });
 
+      console.log(`Processing row ${i + 1}`, record);
+
       try {
         // Minimal inputs expected:
         // SKU, Payee, Amount, Payment Day, Payment Start Date (DD.MM.YYYY), Comment, Category (3-digit prefix)
@@ -131,6 +133,8 @@ serve(async (req) => {
         const paymentStartDateStr = (record['Payment Start Date'] || '').trim();
         const comment = (record['Comment'] || '').trim();
         const categoryPrefix = (record['Category'] || record['Category Prefix'] || '').trim();
+
+        console.log(`Row ${i + 1} extracted`, { payee, sku, amountStr, paymentDayStr, paymentStartDateStr, comment, categoryPrefix });
 
         // Basic validation
         if (!payee) {
@@ -195,7 +199,7 @@ serve(async (req) => {
         const to_day = 31;
 
         // Insert-ready record
-        standingOrdersToInsert.push({
+        const rowPayload = {
           requester_id: uploaderId,
           payee,
           payment_date,              // Start date (YYYY-MM-DD)
@@ -216,12 +220,19 @@ serve(async (req) => {
           status: 'pending',
           country,
           bank_details_verified: false,
-        });
+        };
+
+        console.log(`Row ${i + 1} ready for insert`, rowPayload);
+
+        standingOrdersToInsert.push(rowPayload);
       } catch (rowErr: any) {
         errors.push(`Row ${i + 1}: ${rowErr?.message || 'Unknown row error'}`);
         continue;
       }
     }
+
+    console.log('Total rows to insert:', standingOrdersToInsert.length);
+    console.log('Errors collected:', errors);
 
     let insertedCount = 0;
     if (standingOrdersToInsert.length > 0) {
@@ -231,6 +242,7 @@ serve(async (req) => {
         .select();
 
       if (insertError) {
+        console.error('Insert error:', insertError);
         return new Response(JSON.stringify({ error: `Failed to insert standing orders: ${insertError.message}` }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -238,6 +250,7 @@ serve(async (req) => {
       }
 
       insertedCount = insertData?.length || 0;
+      console.log('Insert result count:', insertedCount);
     }
 
     let message = `${insertedCount} standing orders inserted successfully with status 'Pending'.`;
