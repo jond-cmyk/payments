@@ -120,6 +120,22 @@ serve(async (req) => {
     const headers = parsedRows[0].map(h => h.trim());
     const dataRows = parsedRows.slice(1);
 
+    // Switzerland-only required columns
+    if (country === 'Switzerland') {
+      const lower = headers.map(h => h.toLowerCase());
+      const hasCurrency = lower.includes('currency');
+      const hasBankAccount = lower.includes('bank account');
+      if (!hasCurrency || !hasBankAccount) {
+        return new Response(JSON.stringify({
+          error: 'For Switzerland, the CSV must include the following columns: Currency, Bank Account.',
+          details: { headers }
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const standingOrdersToInsert: any[] = [];
     const errors: string[] = [];
 
@@ -136,6 +152,19 @@ serve(async (req) => {
       });
 
       try {
+        // Switzerland-only row validation
+        if (country === 'Switzerland') {
+          const currency = (record['Currency'] || '').trim();
+          const bankAccount = (record['Bank Account'] || '').trim();
+          const missingFields: string[] = [];
+          if (!currency) missingFields.push('Currency');
+          if (!bankAccount) missingFields.push('Bank Account');
+          if (missingFields.length > 0) {
+            errors.push(`Row ${i + 1}: Missing required field(s) for Switzerland: ${missingFields.join(', ')}. Skipping.`);
+            continue;
+          }
+        }
+
         // Expected headers (all optional except SKU):
         // SKU, Payee, Category, Amount, Payment Day, Payment Start Date/Payments Start Date, Payment End Date/Payments End Date, Payment Reference, Comment/Comments
         const rawSku = (record['SKU'] || '').trim();

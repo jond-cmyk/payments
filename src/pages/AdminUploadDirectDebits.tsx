@@ -206,7 +206,9 @@ const AdminUploadDirectDebits = () => {
               <br />
               Expected columns: `Payee`, `Payment Date` (DD.MM.YYYY), `Category`, `Account Number`, `User Email`.
               <br />
-              Optional columns: `SKU`, `Not Property Related` (Yes/No), `Payment Reference`, `Bank Account` (for Switzerland).
+              Optional columns: `SKU`, `Not Property Related` (Yes/No), `Payment Reference`.
+              <br />
+              For Switzerland, the CSV must include: `Currency` and `Bank Account` (required).
             </p>
             
             {serverDebugInfo && (

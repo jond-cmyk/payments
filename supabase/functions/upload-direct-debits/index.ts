@@ -155,6 +155,25 @@ serve(async (req) => {
     console.log(`[upload-direct-debits] Headers found: ${JSON.stringify(headers)}`);
     console.log(`[upload-direct-debits] Number of data rows: ${dataRows.length}`);
 
+    // Switzerland-only required columns
+    if (country === 'Switzerland') {
+      const missing: string[] = [];
+      if (!headerSet.has('currency')) missing.push('Currency');
+      if (!headerSet.has('bank account')) missing.push('Bank Account');
+      if (missing.length > 0) {
+        const msg = `For Switzerland, the CSV must include the following columns: ${missing.join(', ')}.`;
+        console.error(`[upload-direct-debits] Error: ${msg}`);
+        return new Response(JSON.stringify({
+          success: false,
+          error: msg,
+          details: { headers }
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // Determine mode: direct debit or transaction fallback
     const isDirectDebitHeaders = headerSet.has('payee') && headerSet.has('payment date');
     const isTransactionHeaders = headerSet.has('approval') && headerSet.has('date') && headerSet.has('text');
@@ -237,6 +256,7 @@ serve(async (req) => {
         let notPropertyRelatedRaw = '';
         let paymentReference = '';
         let bankAccount = '';
+        let currency = '';
 
         if (isDirectDebitHeaders) {
           payee = pick(row, 'Payee');
@@ -248,6 +268,7 @@ serve(async (req) => {
           notPropertyRelatedRaw = pick(row, 'Not Property Related');
           paymentReference = pick(row, 'Payment Reference');
           bankAccount = pick(row, 'Bank Account');
+          currency = pick(row, 'Currency');
         } else if (isUKMinimalHeaders) {
           payee = pick(row, 'Payee');
           paymentDateRaw = '';
@@ -257,7 +278,8 @@ serve(async (req) => {
           sku = pick(row, 'SKU');
           notPropertyRelatedRaw = '';
           paymentReference = pick(row, 'Payment Reference');
-          bankAccount = '';
+          bankAccount = pick(row, 'Bank Account');
+          currency = pick(row, 'Currency');
         } else {
           // Transaction CSV fallback mapping to direct debits
           payee = pick(row, 'Text');
@@ -269,11 +291,23 @@ serve(async (req) => {
           notPropertyRelatedRaw = '';
           paymentReference = pick(row, 'Entry');
           bankAccount = pick(row, 'Bank');
+          currency = pick(row, 'Currency');
         }
 
         if (!payee) {
           errors.push(`Row ${i + 1}: Missing payee/merchant value. This row will not be imported.`);
           continue;
+        }
+
+        // Switzerland-only row validation
+        if (country === 'Switzerland') {
+          const missingFields: string[] = [];
+          if (!currency) missingFields.push('Currency');
+          if (!bankAccount) missingFields.push('Bank Account');
+          if (missingFields.length > 0) {
+            errors.push(`Row ${i + 1}: Missing required field(s) for Switzerland: ${missingFields.join(', ')}. Skipping.`);
+            continue;
+          }
         }
 
         // Resolve requester_id via email if present, otherwise fallback to uploader

@@ -151,6 +151,8 @@ const AdminUploadStandingOrders = () => {
             Expected columns: `Payee`, `Payment Date` (DD.MM.YYYY), `Category`, `Account Name`, `From Day`, `To Day`, `User Email`.
             <br />
             Optional columns: `SKU`, `Not Property Related` (Yes/No), `Account Address`, `IBAN Number`, `Sort Code`, `Account Number`, `Payment Reference`.
+            <br />
+            For Switzerland, the CSV must include: `Currency` and `Bank Account` (required).
           </p>
         </CardContent>
       </Card>
