@@ -95,17 +95,12 @@ serve(async (req) => {
     const directDebitsToInsert = [];
     const errors: string[] = [];
 
-    const requiredHeaders = ['Payee', 'Payment Date', 'Category', 'Account Number', 'User Email'];
-    const missingRequiredHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    const expectedHeaders = ['Payee', 'Payment Date', 'SKU', 'Not Property Related', 'Category', 'Account Number', 'Payment Reference', 'Bank Account', 'User Email'];
+    const missingExpectedHeaders = expectedHeaders.filter(h => !headers.includes(h));
 
-    if (missingRequiredHeaders.length > 0) {
-      const msg = `Missing required CSV headers: ${missingRequiredHeaders.join(', ')}. Please ensure your CSV contains 'Payee', 'Payment Date', 'Category', 'Account Number', and 'User Email' columns.`;
-      errors.push(msg);
-      console.error('[upload-direct-debits] Invalid CSV format. Headers:', headers);
-      return new Response(JSON.stringify({ message: msg, errors: errors }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (missingExpectedHeaders.length > 0) {
+      errors.push(`Warning: Missing some expected CSV headers: ${missingExpectedHeaders.join(', ')}. Data for these columns will be null.`);
+      console.warn('[upload-direct-debits] Missing expected CSV headers:', missingExpectedHeaders);
     }
 
     const userEmailToIdCache = new Map<string, string | null>();
@@ -137,59 +132,64 @@ serve(async (req) => {
         'User Email': user_email_from_csv,
       } = record;
 
-      if (!payee || !payment_date_str || !category || !account_number || !user_email_from_csv) {
-        const msg = `Missing required fields (Payee, Payment Date, Category, Account Number, or User Email). Skipping record: ${JSON.stringify(record)}`;
-        errors.push(msg);
-        console.warn(`[upload-direct-debits] ${msg}`);
-        continue;
-      }
+      // Relaxed validation: if critical fields are missing, set to null and add a warning
+      if (!payee) errors.push(`Missing Payee for row: ${JSON.stringify(record)}`);
+      if (!payment_date_str) errors.push(`Missing Payment Date for row: ${JSON.stringify(record)}`);
+      if (!category) errors.push(`Missing Category for row: ${JSON.stringify(record)}`);
+      if (!account_number) errors.push(`Missing Account Number for row: ${JSON.stringify(record)}`);
+      if (!user_email_from_csv) errors.push(`Missing User Email for row: ${JSON.stringify(record)}`);
 
-      const dateParts = payment_date_str.split('.');
-      if (dateParts.length !== 3) {
-        const msg = `Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY. Skipping record: ${JSON.stringify(record)}`;
-        errors.push(msg);
-        console.warn(`[upload-direct-debits] ${msg}`);
-        continue;
+      let payment_date = null;
+      if (payment_date_str) {
+        const dateParts = payment_date_str.split('.');
+        if (dateParts.length === 3) {
+          payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        } else {
+          errors.push(`Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY. Setting Payment Date to null.`);
+        }
       }
-      const payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
 
       const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
 
       let requesterIdForDirectDebit = uploaderId;
 
-      if (userEmailToIdCache.has(user_email_from_csv)) {
-        requesterIdForDirectDebit = userEmailToIdCache.get(user_email_from_csv) || uploaderId;
-        console.log(`[upload-direct-debits] Found user_id for ${user_email_from_csv} in cache: ${requesterIdForDirectDebit}`);
-      } else {
-        const { data: profileData, error: profileError } = await supabaseClient
-          .from('profile_with_email')
-          .select('id')
-          .eq('user_email', user_email_from_csv)
-          .eq('country', country)
-          .single();
-
-        if (profileError || !profileData) {
-          const msg = `User with email '${user_email_from_csv}' not found in country ${country}. Assigning direct debit to uploader.`;
-          errors.push(msg);
-          console.warn(`[upload-direct-debits] ${msg}`);
-          userEmailToIdCache.set(user_email_from_csv, null);
+      if (user_email_from_csv) {
+        if (userEmailToIdCache.has(user_email_from_csv)) {
+          requesterIdForDirectDebit = userEmailToIdCache.get(user_email_from_csv) || uploaderId;
+          console.log(`[upload-direct-debits] Found user_id for ${user_email_from_csv} in cache: ${requesterIdForDirectDebit}`);
         } else {
-          requesterIdForDirectDebit = profileData.id;
-          userEmailToIdCache.set(user_email_from_csv, profileData.id);
-          console.log(`[upload-direct-debits] Found user_id for ${user_email_from_csv}: ${requesterIdForDirectDebit}`);
+          const { data: profileData, error: profileError } = await supabaseClient
+            .from('profile_with_email')
+            .select('id')
+            .eq('user_email', user_email_from_csv)
+            .eq('country', country)
+            .single();
+
+          if (profileError || !profileData) {
+            const msg = `User with email '${user_email_from_csv}' not found in country ${country}. Assigning direct debit to uploader.`;
+            errors.push(msg);
+            console.warn(`[upload-direct-debits] ${msg}`);
+            userEmailToIdCache.set(user_email_from_csv, null);
+          } else {
+            requesterIdForDirectDebit = profileData.id;
+            userEmailToIdCache.set(user_email_from_csv, profileData.id);
+            console.log(`[upload-direct-debits] Found user_id for ${user_email_from_csv}: ${requesterIdForDirectDebit}`);
+          }
         }
+      } else {
+        errors.push(`User Email missing for row. Assigning direct debit to uploader.`);
       }
 
       directDebitsToInsert.push({
         requester_id: requesterIdForDirectDebit,
-        payee: payee,
+        payee: payee || null,
         payment_date: payment_date,
         sku: sku || null,
         not_property_related: not_property_related,
-        category: category,
-        account_number: account_number,
+        category: category || null,
+        account_number: account_number || null,
         payment_reference: payment_reference || null,
-        status: 'pending', // Set status to 'pending' as requested
+        status: 'awaiting_info', // Set status to 'awaiting_info'
         country: country,
         bank_account: bank_account || null,
       });
@@ -220,9 +220,9 @@ serve(async (req) => {
       console.warn('[upload-direct-debits] No direct debits to insert after processing.');
     }
 
-    let message = `${insertedCount} direct debits inserted successfully.`;
+    let message = `${insertedCount} direct debits inserted successfully with status 'Awaiting Info'.`;
     if (errors.length > 0) {
-      message += ` ${errors.length} records skipped due to errors (e.g., missing data, invalid format, user not found).`;
+      message += ` ${errors.length} warnings/errors encountered during processing.`;
       console.error('[upload-direct-debits] Direct Debit processing errors summary:', errors);
       return new Response(JSON.stringify({ message: message, errors: errors }), {
         status: 200,

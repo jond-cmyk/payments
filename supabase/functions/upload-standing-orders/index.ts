@@ -95,18 +95,12 @@ serve(async (req) => {
     const standingOrdersToInsert = [];
     const errors: string[] = [];
 
-    // Updated required headers
-    const requiredHeaders = ['Payee', 'Payment Date', 'Category', 'Amount', 'Account Name', 'From Day', 'To Day', 'User Email'];
-    const missingRequiredHeaders = requiredHeaders.filter(h => !headers.includes(h));
+    const expectedHeaders = ['Payee', 'Payment Date', 'SKU', 'Not Property Related', 'Category', 'Amount', 'Account Name', 'Account Address', 'IBAN Number', 'Sort Code', 'Account Number', 'From Day', 'To Day', 'Payment Reference', 'User Email', 'Bank Details Verified'];
+    const missingExpectedHeaders = expectedHeaders.filter(h => !headers.includes(h));
 
-    if (missingRequiredHeaders.length > 0) {
-      const msg = `Missing required CSV headers: ${missingRequiredHeaders.join(', ')}. Please ensure your CSV contains 'Payee', 'Payment Date', 'Category', 'Amount', 'Account Name', 'From Day', 'To Day', and 'User Email' columns.`;
-      errors.push(msg);
-      console.error('[upload-standing-orders] Invalid CSV format. Headers:', headers);
-      return new Response(JSON.stringify({ message: msg, errors: errors }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+    if (missingExpectedHeaders.length > 0) {
+      errors.push(`Warning: Missing some expected CSV headers: ${missingExpectedHeaders.join(', ')}. Data for these columns will be null.`);
+      console.warn('[upload-standing-orders] Missing expected CSV headers:', missingExpectedHeaders);
     }
 
     const userEmailToIdCache = new Map<string, string | null>();
@@ -145,71 +139,102 @@ serve(async (req) => {
         'Bank Details Verified': bank_details_verified_str, // NEW: Bank Details Verified
       } = record;
 
-      if (!payee || !payment_date_str || !category || !amount_str || !account_name || !from_day_str || !to_day_str || !user_email_from_csv) {
-        const msg = `Missing required fields (Payee, Payment Date, Category, Amount, Account Name, From Day, To Day, or User Email). Skipping record: ${JSON.stringify(record)}`;
-        errors.push(msg);
-        console.warn(`[upload-standing-orders] ${msg}`);
-        continue;
-      }
+      // Relaxed validation: if critical fields are missing, set to null/default and add a warning
+      if (!payee) errors.push(`Missing Payee for row: ${JSON.stringify(record)}`);
+      if (!payment_date_str) errors.push(`Missing Payment Date for row: ${JSON.stringify(record)}`);
+      if (!category) errors.push(`Missing Category for row: ${JSON.stringify(record)}`);
+      if (!amount_str) errors.push(`Missing Amount for row: ${JSON.stringify(record)}`);
+      if (!account_name) errors.push(`Missing Account Name for row: ${JSON.stringify(record)}`);
+      if (!from_day_str) errors.push(`Missing From Day for row: ${JSON.stringify(record)}`);
+      if (!to_day_str) errors.push(`Missing To Day for row: ${JSON.stringify(record)}`);
+      if (!user_email_from_csv) errors.push(`Missing User Email for row: ${JSON.stringify(record)}`);
 
-      const dateParts = payment_date_str.split('.');
-      if (dateParts.length !== 3) {
-        const msg = `Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY. Skipping record: ${JSON.stringify(record)}`;
-        errors.push(msg);
-        console.warn(`[upload-standing-orders] ${msg}`);
-        continue;
+      let payment_date = null;
+      if (payment_date_str) {
+        const dateParts = payment_date_str.split('.');
+        if (dateParts.length === 3) {
+          payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+        } else {
+          errors.push(`Invalid date format '${payment_date_str}'. Expected DD.MM.YYYY. Setting Payment Date to null.`);
+        }
       }
-      const payment_date = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
 
       const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
       const bank_details_verified = bank_details_verified_str?.toLowerCase() === 'yes' || bank_details_verified_str?.toLowerCase() === 'true'; // Parse boolean
 
-      const from_day = parseInt(from_day_str);
-      const to_day = parseInt(to_day_str);
-
-      if (isNaN(from_day) || from_day < 1 || from_day > 31 || isNaN(to_day) || to_day < 1 || to_day > 31 || from_day > to_day) {
-        const msg = `Invalid 'From Day' or 'To Day' values or range. Skipping record: ${JSON.stringify(record)}`;
-        errors.push(msg);
-        console.warn(`[upload-standing-orders] ${msg}`);
-        continue;
+      let from_day: number | null = null;
+      if (from_day_str) {
+        const parsed = parseInt(from_day_str);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
+          from_day = parsed;
+        } else {
+          errors.push(`Invalid 'From Day' value '${from_day_str}'. Setting to null.`);
+        }
       }
 
-      const parsedAmount = parseFloat(amount_str.replace(/,/g, ''));
-      if (isNaN(parsedAmount) || parsedAmount <= 0) {
-        const msg = `Invalid or non-positive amount '${amount_str}'. Skipping record: ${JSON.stringify(record)}`;
-        errors.push(msg);
-        console.warn(`[upload-standing-orders] ${msg}`);
-        continue;
+      let to_day: number | null = null;
+      if (to_day_str) {
+        const parsed = parseInt(to_day_str);
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 31) {
+          to_day = parsed;
+        } else {
+          errors.push(`Invalid 'To Day' value '${to_day_str}'. Setting to null.`);
+        }
+      }
+
+      if (from_day !== null && to_day !== null && from_day > to_day) {
+        errors.push(`'From Day' (${from_day}) cannot be after 'To Day' (${to_day}).`);
+      }
+
+      let parsedAmount: number | null = null;
+      if (amount_str) {
+        const parsed = parseFloat(amount_str.replace(/,/g, ''));
+        if (!isNaN(parsed) && parsed > 0) {
+          parsedAmount = parsed;
+        } else {
+          errors.push(`Invalid or non-positive amount '${amount_str}'. Setting to null.`);
+        }
       }
 
       let requesterIdForStandingOrder = uploaderId;
 
-      if (userEmailToIdCache.has(user_email_from_csv)) {
-        requesterIdForStandingOrder = userEmailToIdCache.get(user_email_from_csv) || uploaderId;
-        console.log(`[upload-standing-orders] Found user_id for ${user_email_from_csv} in cache: ${requesterIdForStandingOrder}`);
-      } else {
-        const { data: profileData, error: profileError } = await supabaseClient
-          .from('profile_with_email')
-          .select('id')
-          .eq('user_email', user_email_from_csv)
-          .eq('country', country)
-          .single();
-
-        if (profileError || !profileData) {
-          const msg = `User with email '${user_email_from_csv}' not found in country ${country}. Assigning standing order to uploader.`;
-          errors.push(msg);
-          console.warn(`[upload-standing-orders] ${msg}`);
-          userEmailToIdCache.set(user_email_from_csv, null);
+      if (user_email_from_csv) {
+        if (userEmailToIdCache.has(user_email_from_csv)) {
+          requesterIdForStandingOrder = userEmailToIdCache.get(user_email_from_csv) || uploaderId;
+          console.log(`[upload-standing-orders] Found user_id for ${user_email_from_csv} in cache: ${requesterIdForStandingOrder}`);
         } else {
-          requesterIdForStandingOrder = profileData.id;
-          userEmailToIdCache.set(user_email_from_csv, profileData.id);
-          console.log(`[upload-standing-orders] Found user_id for ${user_email_from_csv}: ${requesterIdForStandingOrder}`);
+          const { data: profileData, error: profileError } = await supabaseClient
+            .from('profile_with_email')
+            .select('id')
+            .eq('user_email', user_email_from_csv)
+            .eq('country', country)
+            .single();
+
+          if (profileError || !profileData) {
+            const msg = `User with email '${user_email_from_csv}' not found in country ${country}. Assigning standing order to uploader.`;
+            errors.push(msg);
+            console.warn(`[upload-standing-orders] ${msg}`);
+            userEmailToIdCache.set(user_email_from_csv, null);
+          } else {
+            requesterIdForStandingOrder = profileData.id;
+            userEmailToIdCache.set(user_email_from_csv, profileData.id);
+            console.log(`[upload-standing-orders] Found user_id for ${user_email_from_csv}: ${requesterIdForStandingOrder}`);
+          }
         }
+      } else {
+        errors.push(`User Email missing for row. Assigning standing order to uploader.`);
       }
 
       // Construct categories array and calculate total amount
-      const categories = [{ category: category, amount: parsedAmount }];
-      let total_amount = parsedAmount;
+      const categories = [];
+      let total_amount = 0;
+
+      if (category && parsedAmount !== null) {
+        categories.push({ category: category, amount: parsedAmount });
+        total_amount += parsedAmount;
+      } else if (category || parsedAmount !== null) {
+        errors.push(`Missing category or amount for primary category. Skipping primary category.`);
+      }
 
       // Handle additional categories if present in CSV (e.g., Category 2, Amount 2)
       for (let i = 2; ; i++) {
@@ -231,21 +256,21 @@ serve(async (req) => {
 
       standingOrdersToInsert.push({
         requester_id: requesterIdForStandingOrder,
-        payee: payee,
+        payee: payee || null,
         payment_date: payment_date,
         sku: sku || null,
         not_property_related: not_property_related,
-        categories: categories, // Use the new categories array
-        total_amount: total_amount, // Use the calculated total amount
-        account_name: account_name,
+        categories: categories.length > 0 ? categories : [{ category: '974_other', amount: 0 }], // Default if no valid categories
+        total_amount: total_amount,
+        account_name: account_name || null,
         account_address: account_address || null,
         iban_number: iban_number || null,
         sort_code: sort_code || null,
         account_number: account_number || null,
-        from_day: from_day,
-        to_day: to_day,
+        from_day: from_day || 1, // Default to 1 if null
+        to_day: to_day || 31, // Default to 31 if null
         payment_reference: payment_reference || null,
-        status: 'pending',
+        status: 'awaiting_info', // Set status to 'awaiting_info'
         country: country,
         bank_details_verified: bank_details_verified,
       });
@@ -276,9 +301,9 @@ serve(async (req) => {
       console.warn('[upload-standing-orders] No standing orders to insert after processing.');
     }
 
-    let message = `${insertedCount} standing orders inserted successfully.`;
+    let message = `${insertedCount} standing orders inserted successfully with status 'Awaiting Info'.`;
     if (errors.length > 0) {
-      message += ` ${errors.length} records skipped due to errors (e.g., missing data, invalid format, user not found).`;
+      message += ` ${errors.length} warnings/errors encountered during processing.`;
       console.error('[upload-standing-orders] Standing Order processing errors summary:', errors);
       return new Response(JSON.stringify({ message: message, errors: errors }), {
         status: 200,

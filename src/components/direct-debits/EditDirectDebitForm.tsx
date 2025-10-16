@@ -31,7 +31,7 @@ const editDirectDebitFormSchema = z.object({
   category: z.string().min(1, "Category is required."),
   account_number: z.string().min(1, "Account Number is required."),
   payment_reference: z.string().optional(), // Made optional
-  status: z.enum(['active', 'cancelled', 'paused', 'pending'], { // Added 'pending' status
+  status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], { // Added 'awaiting_info' status
     required_error: "Status is required.",
   }).default('active'),
   country: z.string().min(1, "Country is required."),
@@ -328,6 +328,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>

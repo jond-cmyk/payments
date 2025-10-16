@@ -30,9 +30,9 @@ const addDirectDebitFormSchema = z.object({
   category: z.string().min(1, "Category is required."),
   account_number: z.string().min(1, "Account Number is required."),
   payment_reference: z.string().optional(), // Made optional
-  status: z.enum(['active', 'cancelled', 'paused'], {
+  status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], { // Added 'awaiting_info' status
     required_error: "Status is required.",
-  }).default('active'),
+  }).default('awaiting_info'), // Default to 'awaiting_info'
   country: z.string().min(1, "Country is required."),
   bank_account: z.string().optional(), // NEW: Bank Account field, optional initially
 }).superRefine((data, ctx) => {
@@ -88,7 +88,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       category: "",
       account_number: "",
       payment_reference: "", // Ensure default is empty string for optional field
-      status: "active",
+      status: "awaiting_info", // Default to 'awaiting_info'
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
       bank_account: undefined, // NEW: Default value for bank_account
     },
@@ -146,7 +146,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         category: "",
         account_number: "",
         payment_reference: "", // NEW: Reset payment_reference to empty string
-        status: "active",
+        status: "awaiting_info", // Reset to 'awaiting_info'
         country: formCountry,
         bank_account: undefined, // NEW: Reset bank_account
       });
@@ -345,6 +345,8 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
