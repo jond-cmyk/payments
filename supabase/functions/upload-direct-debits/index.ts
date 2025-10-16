@@ -78,8 +78,22 @@ serve(async (req) => {
     const payload = await req.json();
     const { fileName, fileContent, uploaderId, country } = payload;
 
+    console.log(`[upload-direct-debits] Received payload:`, {
+      fileName,
+      fileContentLength: fileContent?.length,
+      uploaderId,
+      country
+    });
+
     if (!fileName || !fileContent || !uploaderId || !country) {
-      return new Response(JSON.stringify({ error: 'Missing file data, uploader ID, or country in payload' }), {
+      const missing = [];
+      if (!fileName) missing.push('fileName');
+      if (!fileContent) missing.push('fileContent');
+      if (!uploaderId) missing.push('uploaderId');
+      if (!country) missing.push('country');
+      
+      console.error(`[upload-direct-debits] Missing required fields: ${missing.join(', ')}`);
+      return new Response(JSON.stringify({ error: `Missing required fields: ${missing.join(', ')}` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -104,6 +118,7 @@ serve(async (req) => {
     }
 
     if (parsedRows.length === 0) {
+      console.error('[upload-direct-debits] CSV file is empty');
       return new Response(JSON.stringify({ error: 'CSV file is empty or contains no data rows.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
