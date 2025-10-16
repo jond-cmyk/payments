@@ -16,9 +16,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
-        auth: {
-          persistSession: false,
-        },
+        auth: { persistSession: false },
       }
     );
 
@@ -32,11 +30,13 @@ serve(async (req) => {
     }
 
     // Search for payees in the standing_orders table
+    // IMPORTANT: select categories (plural) and total_amount (not category)
     const { data, error } = await supabaseClient
       .from('standing_orders')
-      .select('payee, account_name, account_address, iban_number, sort_code, account_number, category, not_property_related, sku, country, currency, bank_account')
-      .ilike('payee', `%${searchTerm}%`) // Dynamic search for variations
-      .eq('country', country); // Filter by country
+      .select('payee, account_name, account_address, iban_number, sort_code, account_number, not_property_related, sku, country, currency, bank_account, categories, total_amount')
+      .ilike('payee', `%${searchTerm}%`)
+      .eq('country', country)
+      .limit(50);
 
     if (error) {
       console.error('Error searching payees:', error);
@@ -48,12 +48,11 @@ serve(async (req) => {
 
     // Process results to get unique suggestions based on bank details only
     const uniqueSuggestionsMap = new Map<string, any>();
-    data.forEach(item => {
+    (data || []).forEach((item) => {
       // Create a unique key based on bank details (and account name)
-      // Exclude payee name, category, sku, not_property_related from the uniqueness key
-      // to ensure that different payee names for the same bank account are treated as duplicates.
+      // Excluding payee/category/sku from key so same bank details dedupe properly
       const bankDetailsKey = `${item.account_name || ''}-${item.account_address || ''}-${item.iban_number || ''}-${item.sort_code || ''}-${item.account_number || ''}-${item.currency || ''}-${item.bank_account || ''}`;
-      
+
       if (!uniqueSuggestionsMap.has(bankDetailsKey)) {
         uniqueSuggestionsMap.set(bankDetailsKey, item);
       }
