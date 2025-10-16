@@ -125,7 +125,7 @@ serve(async (req) => {
 
       try {
         // Minimal inputs expected:
-        // SKU, Payee, Amount, Payment Day, Payment Start Date (DD.MM.YYYY), Comment, Category (3-digit prefix)
+        // SKU, Payee, Amount, Payment Day, Payment Start Date (DD.MM.YYYY or DD/MM/YYYY), Comment, Category (3-digit prefix)
         const payee = (record['Payee'] || '').trim();
         const sku = (record['SKU'] || '').trim();
         const amountStr = (record['Amount'] || record['Total Amount'] || '').trim();
@@ -167,19 +167,16 @@ serve(async (req) => {
           errors.push(`Row ${i + 1}: Missing Payment Start Date`);
           continue;
         }
-        // Expect DD.MM.YYYY -> convert to YYYY-MM-DD
+        // Expect DD.MM.YYYY or DD/MM/YYYY -> convert to YYYY-MM-DD
         let payment_date: string | null = null;
-        const parts = paymentStartDateStr.split('.');
-        if (parts.length === 3) {
-          const [dd, mm, yyyy] = parts;
-          if (/^\d{2}$/.test(dd) && /^\d{2}$/.test(mm) && /^\d{4}$/.test(yyyy)) {
-            payment_date = `${yyyy}-${mm}-${dd}`;
-          } else {
-            errors.push(`Row ${i + 1}: Invalid Payment Start Date '${paymentStartDateStr}' (expected DD.MM.YYYY).`);
-            continue;
-          }
+        const dateRegex = /^(\d{2})[./](\d{2})[./](\d{4})$/;
+        const match = paymentStartDateStr.match(dateRegex);
+
+        if (match) {
+          const [_, dd, mm, yyyy] = match;
+          payment_date = `${yyyy}-${mm}-${dd}`;
         } else {
-          errors.push(`Row ${i + 1}: Invalid Payment Start Date '${paymentStartDateStr}' (expected DD.MM.YYYY).`);
+          errors.push(`Row ${i + 1}: Invalid Payment Start Date '${paymentStartDateStr}' (expected DD.MM.YYYY or DD/MM/YYYY).`);
           continue;
         }
 
