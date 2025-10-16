@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// EMBED: List of common categories - UPDATED with custom sort
+// Simple category mapping
 const categoryOptions = [
   { value: '950_rent', label: '950 - Rent' },
   { value: '952_utilities_el', label: '952 - Electricity' },
@@ -43,21 +43,7 @@ const categoryOptions = [
   { value: '3476_travel_hotels', label: '3476 - Travel and hotels' },
   { value: '3480_marketing', label: '3480 – Marketing' },
   { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
-].sort((a, b) => {
-  // Extract numerical prefix from label
-  const getPrefix = (label: string) => {
-    const match = label.match(/^(\d+)/);
-    return match ? parseInt(match[1], 10) : Infinity; // Use Infinity for items without a numerical prefix to push them to the end
-  };
-
-  const prefixA = getPrefix(a.label);
-  const prefixB = getPrefix(b.label);
-
-  if (prefixA !== prefixB) {
-    return prefixA - prefixB; // Sort by numerical prefix
-  }
-  return a.label.localeCompare(b.label); // Fallback to alphabetical sort
-});
+];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -188,6 +174,7 @@ serve(async (req) => {
         'Payment Reference': payment_reference,
         'Total Amount': total_amount_str,
         'User Email': user_email_from_csv,
+        'Bank Details Verified': bank_details_verified_str,
       } = record;
 
       // Map numeric category to full label
@@ -222,7 +209,7 @@ serve(async (req) => {
       }
 
       const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
-      const bank_details_verified = bank_details_verified_str?.toLowerCase() === 'yes' || bank_details_verified_str?.toLowerCase() === 'true'; // Parse boolean
+      const bank_details_verified = bank_details_verified_str?.toLowerCase() === 'yes' || bank_details_verified_str?.toLowerCase() === 'true';
 
       let from_day: number | null = null;
       if (from_day_str) {
@@ -328,14 +315,14 @@ serve(async (req) => {
         iban_number: iban_number || null,
         sort_code: sort_code || null,
         account_number: account_number || null,
-        from_day: from_day || 1, // Default to 1 if null
-        to_day: to_day || 31, // Default to 31 if null
+        from_day: from_day || 1,
+        to_day: to_day || 31,
         payment_reference: payment_reference || null,
         total_amount: total_amount,
         status: 'pending',
         country: country,
         categories: [],
-        bank_details_verified: false,
+        bank_details_verified: bank_details_verified,
       });
     }
 

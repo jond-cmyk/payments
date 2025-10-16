@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// EMBED: List of common categories - UPDATED with custom sort
+// Simple category mapping
 const categoryOptions = [
   { value: '950_rent', label: '950 - Rent' },
   { value: '952_utilities_el', label: '952 - Electricity' },
@@ -43,21 +43,7 @@ const categoryOptions = [
   { value: '3476_travel_hotels', label: '3476 - Travel and hotels' },
   { value: '3480_marketing', label: '3480 – Marketing' },
   { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
-].sort((a, b) => {
-  // Extract numerical prefix from label
-  const getPrefix = (label: string) => {
-    const match = label.match(/^(\d+)/);
-    return match ? parseInt(match[1], 10) : Infinity; // Use Infinity for items without a numerical prefix to push them to the end
-  };
-
-  const prefixA = getPrefix(a.label);
-  const prefixB = getPrefix(b.label);
-
-  if (prefixA !== prefixB) {
-    return prefixA - prefixB; // Sort by numerical prefix
-  }
-  return a.label.localeCompare(b.label); // Fallback to alphabetical sort
-});
+];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -120,10 +106,9 @@ serve(async (req) => {
     let parsedRows: string[][];
     try {
       parsedRows = await parse(fileContent, {
-        header: false, // We will manually extract headers
+        header: false,
         separator: ',',
         trimLeadingWhitespace: true,
-        // Removed skipFirstNLines to manually handle row indexing
       }) as string[][];
       console.log(`[upload-transactions] CSV parsed successfully. Total raw rows: ${parsedRows.length}`);
       
@@ -143,7 +128,7 @@ serve(async (req) => {
     // Ensure there are enough rows for metadata + headers + at least one data row
     if (parsedRows.length < 4) { 
       const msg = 'CSV file is too short to contain expected metadata and headers.';
-      errors.push(msg);
+      const errors = [msg];
       console.error(`[upload-transactions] Error: ${msg}`);
       return new Response(JSON.stringify({ message: msg, errors: errors }), {
         status: 400,
@@ -151,8 +136,8 @@ serve(async (req) => {
       });
     }
 
-    const headers = parsedRows[3].map(h => h.trim()); // Actual headers are at index 3 (4th row)
-    const dataRows = parsedRows.slice(4); // Data starts from index 4 (5th row)
+    const headers = parsedRows[3].map(h => h.trim());
+    const dataRows = parsedRows.slice(4);
 
     console.log(`[upload-transactions] Extracted headers: ${JSON.stringify(headers)}`);
     console.log(`[upload-transactions] Number of data rows: ${dataRows.length}`);
@@ -218,33 +203,6 @@ serve(async (req) => {
 
       console.log(`[upload-transactions] Processing record: ${JSON.stringify(record)}`);
 
-      let {
-        'Transaction Date': transaction_date_str,
-        'Entry': entry,
-        'Description': description,
-        'Amount': amount_str,
-        'Currency': currency,
-        'Bank': bank,
-        'Contra Account': contra_account,
-        'SKU': sku,
-        'Not SKU Related': not_sku_related_str,
-        'Category': categoryRaw,
-        'Merchant Name': merchant_name,
-        'Reason for Payment': reason_for_payment,
-        'User Email': user_email_from_csv,
-      } = record;
-
-      // Map numeric category to full label
-      let category = categoryRaw || null;
-      if (category && /^\d{3}$/.test(category.trim())) {
-        const found = categoryOptions.find(opt => opt.value.startsWith(category.trim()));
-        if (found) {
-          category = found.value;
-        } else {
-          errors.push(`Unknown category code "${category}" for row: ${JSON.stringify(record)}`);
-        }
-      }
-
       const transaction_date_str = record['Date'];
       const description = record['Text'];
       const amount_str = record['Amount'];
@@ -256,6 +214,10 @@ serve(async (req) => {
       const exchange_rate_str = record['Exchange rate'];
       const comment = record['Payment identifier/Message'];
       const sku = record['Department'];
+      const categoryRaw = record['Category'];
+      const not_sku_related_str = record['Not SKU Related'];
+      const merchant_name = record['Merchant Name'];
+      const reason_for_payment = record['Reason for Payment'];
 
       if (!transaction_date_str || !description || !amount_str || !currency) {
         const msg = `Missing required fields (Date, Text, Amount, or Currency). Skipping record: ${JSON.stringify(record)}`;
@@ -299,22 +261,35 @@ serve(async (req) => {
         }
       }
 
+      // Map numeric category to full label
+      let category = categoryRaw || null;
+      if (category && /^\d{3}$/.test(category.trim())) {
+        const found = categoryOptions.find(opt => opt.value.startsWith(category.trim()));
+        if (found) {
+          category = found.value;
+        } else {
+          errors.push(`Unknown category code "${category}" for row: ${JSON.stringify(record)}`);
+        }
+      }
+
+      const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
+
       const requesterIdForTransaction = uploaderId;
 
       transactionsToInsert.push({
         requester_id: requesterIdForTransaction,
-        original_transaction_id: original_transaction_id || null,
+        original_transaction_id: null,
         status: 'pending_input',
-        type: null,
-        transaction_date: transactionDate,
+        type: type || null,
+        transaction_date: transaction_date,
         entry: entry || null,
         description: description,
-        amount: amount,
+        amount: parsedAmount,
         bank: bank || null,
         contra_account: contra_account || null,
         currency: currency,
-        exchange_rate: null,
-        comment: null,
+        exchange_rate: parsedExchangeRate,
+        comment: comment || null,
         sku: not_sku_related ? null : sku,
         reason_for_payment: reason_for_payment || null,
         receipt_urls: [],
