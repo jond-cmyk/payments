@@ -247,6 +247,10 @@ const StandingOrderDetail = () => {
               <p>{format(new Date(standingOrder.payment_date), 'PPP')}</p>
             </div>
             <div>
+              <p className="font-medium">Payment End Date:</p>
+              <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
+            </div>
+            <div>
               <p className="font-medium">SKU:</p>
               <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
             </div>
@@ -302,6 +306,10 @@ const StandingOrderDetail = () => {
             <div>
               <p className="font-medium">Payment Reference:</p>
               <p>{standingOrder.payment_reference}</p>
+            </div>
+            <div className="md:col-span-2">
+              <p className="font-medium">Comments:</p>
+              <p>{standingOrder.comments || 'No comments'}</p>
             </div>
             <div>
               <p className="font-medium">Status:</p>
