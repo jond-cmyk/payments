@@ -317,6 +317,8 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       });
     }
 
+    console.log("Filtered invoices list:", list);
+
     dismissToast(toastId);
     setLoadingInvoices(false);
 
@@ -413,16 +415,20 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                             </TableCell>
                           </TableRow>
                         )}
-                        {invoices.map((inv: any) => (
-                          <TableRow key={inv?.invoiceNumber ?? inv?.id ?? Math.random()}>
-                            <TableCell>{pick(inv, ["invoiceNumber", "id"]) ?? "-"}</TableCell>
-                            <TableCell>{pick(inv, ["date", "bookedDate", "issueDate"]) ?? "-"}</TableCell>
-                            <TableCell>
-                              {pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat"]) ?? "-"}
-                            </TableCell>
-                            <TableCell>{pick(inv, ["status", "state", "booked"]) ?? "-"}</TableCell>
-                          </TableRow>
-                        ))}
+                        {invoices.map((inv: any) => {
+                          // Log the raw invoice object for debugging
+                          console.log("Raw invoice object:", inv);
+                          return (
+                            <TableRow key={inv?.invoiceNumber ?? inv?.id ?? Math.random()}>
+                              <TableCell>{pick(inv, ["invoiceNumber", "id", "number", "invoiceId", "self"]) ?? "-"}</TableCell>
+                              <TableCell>{pick(inv, ["date", "bookedDate", "issueDate", "invoiceDate", "createdAt"]) ?? "-"}</TableCell>
+                              <TableCell>
+                                {pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat", "total", "netAmount"]) ?? "-"}
+                              </TableCell>
+                              <TableCell>{pick(inv, ["status", "state", "booked", "paymentStatus", "invoiceStatus", "draft", "sent"]) ?? "-"}</TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </div>
