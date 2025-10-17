@@ -217,6 +217,35 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     return undefined;
   };
 
+  // Helper to format a date string to DD-MM-YYYY
+  const formatDate = (dateInput: any): string => {
+    if (!dateInput) return "-";
+    let date: Date;
+    if (typeof dateInput === "string") {
+      date = new Date(dateInput);
+    } else if (dateInput instanceof Date) {
+      date = dateInput;
+    } else {
+      return "-";
+    }
+    if (isNaN(date.getTime())) return "-";
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  // Helper to format amount with thousand separators and two decimal places
+  const formatAmount = (amountInput: any): string => {
+    if (amountInput === null || amountInput === undefined) return "-";
+    const num = typeof amountInput === "number" ? amountInput : parseFloat(String(amountInput));
+    if (isNaN(num)) return "-";
+    return num.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
   // Extract a sensible text/description from common invoice shapes
   const getInvoiceText = (inv: any): string => {
     const direct = pick(inv, [
@@ -227,7 +256,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       "customer.name",
       "recipient.name",
     ]);
-    if (typeof direct === "string" && direct.trim() !== "") return direct;
+    if (typeof direct === "string" && direct.trim() !== "" && !/^\d+$/.test(direct.trim())) return direct;
 
     const arrayPaths = [
       "lines",
@@ -241,10 +270,10 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       const val = path.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), inv);
       if (Array.isArray(val) && val.length > 0) {
         const first = val[0];
-        if (typeof first === "string") return first;
+        if (typeof first === "string" && !/^\d+$/.test(first.trim())) return first;
         if (first && typeof first === "object") {
           const t = pick(first, ["text", "description", "name", "title"]);
-          if (typeof t === "string" && t.trim() !== "") return t;
+          if (typeof t === "string" && t.trim() !== "" && !/^\d+$/.test(t.trim())) return t;
         }
       }
     }
@@ -465,9 +494,9 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                               <TableCell>
                                 {pick(inv, ["invoiceNumber", "bookedInvoiceNumber", "draftInvoiceNumber", "id", "number", "invoiceId", "self"]) ?? "-"}
                               </TableCell>
-                              <TableCell>{pick(inv, ["date", "bookedDate", "issueDate", "invoiceDate", "createdAt"]) ?? "-"}</TableCell>
+                              <TableCell>{formatDate(pick(inv, ["date", "bookedDate", "issueDate", "invoiceDate", "createdAt"]))}</TableCell>
                               <TableCell>
-                                {pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat", "total", "netAmount"]) ?? "-"}
+                                {formatAmount(pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat", "total", "netAmount"]))}
                               </TableCell>
                               <TableCell>{pick(inv, ["status", "state", "booked", "paymentStatus", "invoiceStatus", "draft", "sent"]) ?? "-"}</TableCell>
                               <TableCell>{getInvoiceText(inv)}</TableCell>
