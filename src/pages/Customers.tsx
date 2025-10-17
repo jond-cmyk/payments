@@ -71,18 +71,43 @@ const Customers: React.FC = () => {
   const accountingYearsQuery = useQuery({
     queryKey: ["economicAccountingYears"],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      const { data: proxyResponse, error: invokeError } = await supabase.functions.invoke("economic-proxy", {
         body: { path: `/accounting-years?pagesize=100`, method: "GET" },
       });
-      if (error) throw new Error(error.message || "Failed to load accounting years");
-      const resp = Array.isArray(data) ? data : (data as EconomicProxyResponse<EconomicCollection<EconomicAccountingYear>>)?.data?.collection;
-      const list = Array.isArray(resp) ? resp : [];
+      if (invokeError) {
+        console.error("Error invoking economic-proxy for accounting years:", invokeError);
+        throw new Error(invokeError.message || "Failed to load accounting years (proxy invocation error)");
+      }
+      console.log("Raw proxy response for accounting years:", proxyResponse);
+
+      const resp = proxyResponse as EconomicProxyResponse<EconomicCollection<EconomicAccountingYear>>;
+
+      // Check for e-conomic API errors (e.g., 401, 404)
+      if (resp.status && resp.status >= 400) {
+        const errorMessage = resp.error || `e-conomic API returned status ${resp.status}`;
+        console.error("e-conomic API error for accounting years:", errorMessage, resp);
+        // Provide specific advice for 401/403
+        if (resp.status === 401 || resp.status === 403) {
+          throw new Error("Unauthorized to access e-conomic accounting years. Check ECONOMIC_APP_SECRET_TOKEN and ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.");
+        }
+        throw new Error(errorMessage);
+      }
+
+      let list: EconomicAccountingYear[] = [];
+      if (Array.isArray(resp?.data?.collection)) {
+        list = resp.data.collection;
+      } else if (Array.isArray(resp?.data)) {
+        list = resp.data as EconomicAccountingYear[];
+      } else {
+        console.warn("Unexpected structure for accounting years data:", resp);
+      }
       
       // Sort by year descending and map to { year: string, href: string }
       const sortedYears = list
         .sort((a, b) => b.year - a.year)
         .map(y => ({ year: String(y.year), href: y.self }));
       
+      console.log("Processed accounting years list:", sortedYears);
       return sortedYears;
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
