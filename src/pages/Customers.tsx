@@ -114,17 +114,6 @@ const Customers: React.FC = () => {
     staleTime: 60_000,
   });
 
-  // Debugging logs for Customers page state
-  console.log("Customers Page State:", {
-    isLoading: isLoading,
-    customersQueryLoading: customersQuery.isLoading,
-    accountingYearsQueryLoading: accountingYearsQuery.isLoading,
-    selectedAccountingYear: selectedAccountingYear,
-    availableAccountingYearsLength: availableAccountingYears.length,
-    customersDataLength: customersQuery.data?.length,
-    filteredLength: filtered.length,
-  });
-
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return customersQuery.data || [];
@@ -139,6 +128,17 @@ const Customers: React.FC = () => {
       return fields.some((f) => f.includes(q));
     });
   }, [customersQuery.data, search]);
+
+  // Debugging logs for Customers page state
+  console.log("Customers Page State:", {
+    isLoading: isLoading,
+    customersQueryLoading: customersQuery.isLoading,
+    accountingYearsQueryLoading: accountingYearsQuery.isLoading,
+    selectedAccountingYear: selectedAccountingYear,
+    availableAccountingYearsLength: availableAccountingYears.length,
+    customersDataLength: customersQuery.data?.length,
+    filteredLength: filtered.length,
+  });
 
   if (isLoading || customersQuery.isLoading || accountingYearsQuery.isLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading customers and accounting years...</div>;
@@ -411,6 +411,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
       inv?.text,
       inv?.notes?.text,
       inv?.notes?.heading,
+      inv?.notes?.header,
       inv?.heading,
       inv?.title,
       inv?.header,
