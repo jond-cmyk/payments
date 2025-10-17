@@ -19,6 +19,7 @@ const PleoIntegration = () => {
   const [method, setMethod] = useState<"GET" | "POST">("GET");
   const [requestBody, setRequestBody] = useState<string>("");
   const [result, setResult] = useState<string>("");
+  const [base, setBase] = useState<string>("https://openapi.pleo.io");
 
   const isAdmin = userProfile?.role === "admin";
 
@@ -56,6 +57,7 @@ const PleoIntegration = () => {
           path: endpointPath,
           method,
           body: parsedBody,
+          base,
         },
       });
 
@@ -64,7 +66,15 @@ const PleoIntegration = () => {
       }
 
       setResult(JSON.stringify(data, null, 2));
-      showSuccess("Pleo response received!");
+
+      const resp = data as { ok?: boolean; status?: number; data?: unknown; error?: string };
+      if (resp?.error) {
+        showError(resp.error);
+      } else if (resp?.ok === false || (resp?.status && resp.status >= 400)) {
+        showError(`Pleo returned status ${resp.status}`);
+      } else {
+        showSuccess("Pleo response received!");
+      }
       dismissToast(toastId);
     } catch (e: any) {
       dismissToast(toastId);
@@ -82,7 +92,7 @@ const PleoIntegration = () => {
             <Globe className="mr-2 h-6 w-6" /> Pleo OpenAPI Proxy
           </CardTitle>
           <CardDescription>
-            Use this tool to test the secure proxy to Pleo. Defaults to <code>/v1/me</code>.
+            Use this tool to test the secure proxy to Pleo. Defaults to <code>/v1/me
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -108,35 +118,50 @@ const PleoIntegration = () => {
             </div>
           </div>
 
-          {method === "POST" && (
-            <div>
-              <label className="text-sm font-medium">Request Body (JSON)</label>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-1">
+              <label className="text-sm font-medium">API Host</label>
+              <select
+                className="w-full border rounded-md h-10 px-3 bg-background"
+                value={base}
+                onChange={(e) => setBase(e.target.value)}
+              >
+                <option value="https://openapi.pleo.io">https://openapi.pleo.io</option>
+                <option value="https://api.pleo.io">https://api.pleo.io</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium">Request Body</label>
               <Textarea
                 value={requestBody}
                 onChange={(e) => setRequestBody(e.target.value)}
-                placeholder='{"example":"value"}'
-                className="min-h-[120px]"
+                placeholder="Optional request body (JSON)"
               />
             </div>
-          )}
+          </div>
 
-          <div className="flex justify-end">
-            <Button onClick={handleCallPleo} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm">
-              Test Pleo Connection
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium">Response</label>
+              <Textarea
+                value={result}
+                readOnly
+                className="h-40 bg-muted"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <Button onClick={handleCallPleo} className="flex-1">
+              Call Pleo
             </Button>
           </div>
 
-          <div>
-            <label className="text-sm font-medium">Response</label>
-            <Textarea
-              value={result}
-              readOnly
-              className="min-h-[240px] font-mono text-xs"
-            />
-          </div>
-
           <p className="text-xs text-muted-foreground">
-            Tip: Once verified, we can automate importing Pleo expenses into your Transactions table.
+            Tip: If you see 404, try switching the API Host to https://api.pleo.io and test /v1/expenses?limit=5.
           </p>
         </CardContent>
       </Card>

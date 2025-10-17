@@ -20,7 +20,7 @@ serve(async (req) => {
       );
     }
 
-    const { path, method = "GET", query = {}, body } = await req.json().catch(() => ({}));
+    const { path, method = "GET", query = {}, body, base } = await req.json().catch(() => ({}));
 
     if (!path || typeof path !== "string") {
       return new Response(
@@ -37,7 +37,10 @@ serve(async (req) => {
         ? "?" + new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)])).toString()
         : "";
 
-    const url = `https://openapi.pleo.io${normalizedPath}${qs}`;
+    const allowedBases = ["https://openapi.pleo.io", "https://api.pleo.io"];
+    const baseUrl = (typeof base === "string" && allowedBases.includes(base)) ? base : "https://openapi.pleo.io";
+
+    const url = `${baseUrl}${normalizedPath}${qs}`;
 
     const headers: HeadersInit = {
       "Authorization": `Bearer ${token}`,
