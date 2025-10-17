@@ -13,8 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
-import { List } from "lucide-react";
-import EconomicDetailDialog from "@/components/economic/EconomicDetailDialog"; // Import EconomicDetailDialog
+import { List, FileText } from "lucide-react"; // Import FileText
+import EconomicDetailDialog, { DialogColumn } from "@/components/economic/EconomicDetailDialog"; // Import DialogColumn
 import { cn } from "@/lib/utils"; // Import cn for utility classes
 
 type EconomicProxyResponse<T = any> = {
@@ -161,10 +161,6 @@ const Customers: React.FC = () => {
     </div>
   );
 };
-
-// Define a type for columns that matches the dialog's props
-type DialogColumn = { key: string; header: string; format?: 'date' | 'amount' | 'currencyAmount' | 'boolean' | 'array' | 'object' | 'raw'; path?: string[] };
-
 
 const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
@@ -727,15 +723,31 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   };
 
   // Column definitions for the dialogs
-  const invoiceColumns: DialogColumn[] = [
+  const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
-    { key: 'heading', header: 'Heading', path: ['heading', 'notes.heading', 'notes.header', 'notes.noteHeading', 'title', 'header', 'description', 'text', 'recipient.name', 'customer.name'] }, // Added more paths for heading
+    { key: 'heading', header: 'Heading', path: ['heading', 'notes.heading', 'notes.header', 'notes.noteHeading', 'title', 'header', 'description', 'text', 'recipient.name', 'customer.name'],
+      render: (item) => {
+        const key = getInvoiceKey(item);
+        return invoiceHeadings[key] || getInvoiceText(item);
+      }
+    },
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'bookedDate', 'issueDate', 'invoiceDate', 'createdAt'] },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
     { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
     { key: 'status', header: 'Status', path: ['status.state', 'status.value', 'status', 'state', 'booked', 'paymentStatus', 'invoiceStatus', 'draft', 'sent'] }, // Prioritize specific status fields
-    { key: 'pdf', header: 'PDF', format: 'raw', path: ['pdf.url', 'pdf.href', 'pdf.download', 'pdf.downloadUrl', 'links.pdf.href', 'links.pdf.url'] }, // Added more paths for PDF
-  ];
+    { key: 'pdf', header: 'PDF',
+      render: (item) => (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => viewInvoice(item)} // Call viewInvoice for this item
+          className="flex items-center gap-1"
+        >
+          <FileText className="h-4 w-4" /> View Invoice
+        </Button>
+      ),
+    },
+  ], [invoiceHeadings, viewInvoice]); // Dependencies for useMemo
 
   const transactionColumns: DialogColumn[] = [
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },

@@ -49,13 +49,22 @@ const formatAmount = (amountInput: any): string => {
   });
 };
 
+// Define the DialogColumn type here and export it
+export type DialogColumn = {
+  key: string;
+  header: string;
+  format?: 'date' | 'amount' | 'currencyAmount' | 'boolean' | 'array' | 'object' | 'raw';
+  path?: string[];
+  render?: (item: any, index: number, allData: any[]) => React.ReactNode; // Added render function
+};
+
 interface EconomicDetailDialogProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
   data: any[] | null;
-  columns: { key: string; header: string; format?: 'date' | 'amount' | 'currencyAmount' | 'boolean' | 'array' | 'object' | 'raw'; path?: string[] }[];
+  columns: DialogColumn[]; // Use the exported DialogColumn type
   isLoading?: boolean;
 }
 
@@ -101,7 +110,12 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
     return undefined; // No value found for any candidate path
   };
 
-  const renderCell = (item: any, column: typeof columns[0]) => {
+  const renderCell = (item: any, column: DialogColumn, index: number, allData: any[]) => {
+    // If a custom render function is provided, use it
+    if (column.render) {
+      return column.render(item, index, allData);
+    }
+
     const rawValue = getNestedValue(item, column.path, column.key);
     
     let currencySymbol = '';
@@ -121,14 +135,14 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
       currencySymbol = foundCurrency;
     }
 
-    // Check if the rawValue is a URL for PDF column
+    // The specific 'pdf' column logic is now handled by the custom render function in Customers.tsx
+    // This block is no longer strictly necessary here for the 'pdf' key, but kept for general URL handling if needed elsewhere.
     const isUrl = typeof rawValue === 'string' && (rawValue.startsWith('http://') || rawValue.startsWith('https://'));
-
-    if (column.key === 'pdf' && isUrl) {
+    if (isUrl) { // Removed column.key === 'pdf' condition here
       return (
         <Button asChild variant="link" className="p-0 h-auto">
           <a href={rawValue} target="_blank" rel="noopener noreferrer">
-            <FileText className="mr-1 h-4 w-4" /> View Invoice
+            <FileText className="mr-1 h-4 w-4" /> View Document
           </a>
         </Button>
       );
@@ -180,7 +194,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
                     <TableRow key={item.self || item.customerNumber || item.invoiceNumber || item.entryNumber || index}>
                       {columns.map((col) => (
                         <TableCell key={col.key}>
-                          {renderCell(item, col)}
+                          {renderCell(item, col, index, data)} {/* Pass all arguments */}
                         </TableCell>
                       ))}
                     </TableRow>
