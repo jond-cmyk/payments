@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { User } from '@supabase/supabase-js';
+import { formatAuditDescription } from '@/utils/formatters'; // Import the new formatter
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
@@ -73,7 +74,7 @@ const PaymentRequestCommentsCard: React.FC<PaymentRequestCommentsCardProps> = ({
                 <p className="text-sm text-muted-foreground">
                   {format(new Date(comment.changed_at), 'PPP p')} by {auditUsers?.[comment.changed_by_user_id || ''] || comment.changed_by_user_id || 'System'}
                 </p>
-                <p className="text-base">{comment.change_description.replace('Comment: ', '')}</p>
+                <p className="text-base">{formatAuditDescription(comment.change_description)}</p>
               </div>
             ))
           ) : (

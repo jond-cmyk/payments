@@ -3,6 +3,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { History } from 'lucide-react';
+import { formatAuditDescription } from '@/utils/formatters'; // Import the new formatter
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PaymentRequestAudit } from '@/types/supabase';
@@ -32,7 +33,7 @@ const PaymentRequestAuditTrailCard: React.FC<PaymentRequestAuditTrailCardProps> 
                 <p className="text-sm text-muted-foreground">
                   {format(new Date(audit.changed_at), 'PPP p')} by {auditUsers?.[audit.changed_by_user_id || ''] || audit.changed_by_user_id || 'System'}
                 </p>
-                <p className="text-base">{audit.change_description}</p>
+                <p className="text-base">{formatAuditDescription(audit.change_description)}</p>
               </div>
             ))}
           </div>
