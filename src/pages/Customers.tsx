@@ -177,6 +177,38 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
 
   const num = customer.customerNumber;
 
+  // Helper to extract a list from varied economic response shapes
+  const extractList = (payload: any): any[] => {
+    const root = (payload && payload.data) ? payload.data : payload;
+    if (Array.isArray(root)) return root;
+    const candidates = [
+      root?.collection,
+      root?.items,
+      root?.results,
+      root?.entries,
+      root?.invoices
+    ];
+    for (const c of candidates) {
+      if (Array.isArray(c)) return c;
+    }
+    if (root && typeof root === "object") {
+      for (const k of Object.keys(root)) {
+        const v = (root as any)[k];
+        if (Array.isArray(v)) return v;
+      }
+    }
+    return [];
+  };
+
+  // Generic getter for nested value
+  const pick = (obj: any, keys: string[]) => {
+    for (const k of keys) {
+      const v = k.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
+      if (v !== undefined && v !== null) return v;
+    }
+    return undefined;
+  };
+
   const loadBalance = async () => {
     if (!num) return;
     setLoadingBalance(true);
@@ -243,59 +275,56 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   const loadInvoices = async () => {
     setLoadingInvoices(true);
     const toastId = showLoading("Loading invoices...");
-    try {
-      if (num) {
-        // Try customer-specific invoices endpoint first
-        const { data: custInvData, error: custInvError } = await supabase.functions.invoke("economic-proxy", {
-          body: { path: `/customers/${num}/invoices?pagesize=100`, method: "GET" },
-        });
-        console.log("Customer-specific invoices response:", custInvData);
-        if (!custInvError) {
-          const resp = custInvData as EconomicProxyResponse<EconomicCollection<any>>;
-          const list = Array.isArray(resp?.data?.collection)
-            ? resp.data.collection
-            : Array.isArray(resp?.data)
-            ? (resp.data as any[])
-            : [];
-          if (list.length > 0) {
-            setInvoices(list);
-            showSuccess(`Loaded ${list.length} invoices`);
-            return;
-          }
+    console.log("Loading invoices for customer:", num);
+
+    let list: any[] = [];
+    const paths = num
+      ? [
+          `/customers/${num}/invoices?pagesize=100`,
+          `/customers/${num}/invoices/booked?pagesize=100`,
+          `/invoices?pagesize=100`,
+          `/invoices/booked?pagesize=100`,
+        ]
+      : [
+          `/invoices?pagesize=100`,
+          `/invoices/booked?pagesize=100`,
+        ];
+
+    for (const path of paths) {
+      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+        body: { path, method: "GET" },
+      });
+      console.log(`Invoice response for ${path}:`, data);
+      if (!error && data) {
+        const arr = extractList(data);
+        if (arr.length > 0) {
+          list = arr;
+          break;
         }
       }
+    }
 
-      // Fallback: general invoices list filtered client-side
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/invoices?pagesize=100`, method: "GET" },
+    // If we used a general invoices endpoint, filter by customer number when available
+    if (num != null && list.length > 0) {
+      list = list.filter((inv: any) => {
+        const cn = pick(inv, [
+          "customerNumber",
+          "customer.customerNumber",
+          "customer.number",
+          "customer_id",
+        ]);
+        return String(cn ?? "") === String(num);
       });
-      console.log("General invoices response:", data);
-      if (error) {
-        showError(error.message || "Failed to load invoices");
-        return;
-      }
-      const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
-      const list = Array.isArray(resp?.data?.collection)
-        ? resp.data.collection
-        : Array.isArray(resp?.data)
-        ? (resp.data as any[])
-        : [];
-      const filtered =
-        num != null
-          ? list.filter((inv: any) => {
-              const cn =
-                inv?.customerNumber ??
-                inv?.customer?.customerNumber ??
-                inv?.customer?.number ??
-                inv?.customer_id;
-              return String(cn || "") === String(num);
-            })
-          : list;
-      setInvoices(filtered);
-      showSuccess(`Loaded ${filtered.length} invoices`);
-    } finally {
-      dismissToast(toastId);
-      setLoadingInvoices(false);
+    }
+
+    dismissToast(toastId);
+    setLoadingInvoices(false);
+
+    setInvoices(list);
+    if (list.length > 0) {
+      showSuccess(`Loaded ${list.length} invoices`);
+    } else {
+      showError("No invoices found for this customer");
     }
   };
 
@@ -386,10 +415,12 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                         )}
                         {invoices.map((inv: any) => (
                           <TableRow key={inv?.invoiceNumber ?? inv?.id ?? Math.random()}>
-                            <TableCell>{inv?.invoiceNumber ?? inv?.id ?? "-"}</TableCell>
-                            <TableCell>{inv?.date ?? inv?.bookedDate ?? "-"}</TableCell>
-                            <TableCell>{inv?.amount ?? inv?.totalAmount ?? "-"}</TableCell>
-                            <TableCell>{inv?.status ?? inv?.state ?? "-"}</TableCell>
+                            <TableCell>{pick(inv, ["invoiceNumber", "id"]) ?? "-"}</TableCell>
+                            <TableCell>{pick(inv, ["date", "bookedDate", "issueDate"]) ?? "-"}</TableCell>
+                            <TableCell>
+                              {pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat"]) ?? "-"}
+                            </TableCell>
+                            <TableCell>{pick(inv, ["status", "state", "booked"]) ?? "-"}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
