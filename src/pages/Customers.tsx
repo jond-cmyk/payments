@@ -246,40 +246,19 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     });
   };
 
-  // Extract a sensible text/description from common invoice shapes
+  // Extract the heading field from invoice
   const getInvoiceText = (inv: any): string => {
     // Directly get the heading field
-    const heading = pick(inv, ["heading", "title", "header"]);
+    const heading = inv.heading;
     if (typeof heading === "string" && heading.trim() !== "") return heading;
     
-    // Fallback to other text fields if heading is not available
-    const direct = pick(inv, [
-      "text",
-      "description",
-      "customer.name",
-      "recipient.name",
-    ]);
-    if (typeof direct === "string" && direct.trim() !== "" && !/^\d+$/.test(direct.trim())) return direct;
-
-    const arrayPaths = [
-      "lines",
-      "lineItems",
-      "items",
-      "entries",
-      "textLines",
-      "layout.lines",
-    ];
-    for (const path of arrayPaths) {
-      const val = path.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), inv);
-      if (Array.isArray(val) && val.length > 0) {
-        const first = val[0];
-        if (typeof first === "string" && !/^\d+$/.test(first.trim())) return first;
-        if (first && typeof first === "object") {
-          const t = pick(first, ["text", "description", "name", "title"]);
-          if (typeof t === "string" && t.trim() !== "" && !/^\d+$/.test(t.trim())) return t;
-        }
-      }
+    // Fallback to other common heading field names
+    const fallbackFields = ["title", "header", "description", "text"];
+    for (const field of fallbackFields) {
+      const value = inv[field];
+      if (typeof value === "string" && value.trim() !== "") return value;
     }
+    
     return "-";
   };
 
@@ -479,7 +458,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                           <TableHead>Date</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Text</TableHead>
+                          <TableHead>Heading</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
