@@ -45,45 +45,77 @@ const PleoIntegration = () => {
       if (method === "POST" && requestBody.trim()) {
         try {
           parsedBody = JSON.parse(requestBody);
-        } catch (e) {
+        } catch {
           showError("Request body must be valid JSON.");
           dismissToast(toastId);
           return;
         }
       }
 
-      const { data, error } = await supabase.functions.invoke("pleo-proxy", {
-        body: {
-          path: endpointPath,
-          method,
-          body: parsedBody,
-          base,
-        },
-      });
+      const altBase =
+        base === "https://openapi.pleo.io" ? "https://api.pleo.io" : "https://openapi.pleo.io";
 
-      if (error) {
-        throw new Error(error.message);
+      const normalized = endpointPath.startsWith("/") ? endpointPath : `/${endpointPath}`;
+      const versionless = normalized.replace(/^\/v[0-9]+/, "");
+
+      const attempts = [
+        { path: normalized, base, label: "selected base" },
+        { path: normalized, base: altBase, label: "alternate base" },
+        // If user typed a versioned path, try removing the version
+        ...(versionless !== normalized
+          ? [
+              { path: versionless, base, label: "removed /v* on selected base" },
+              { path: versionless, base: altBase, label: "removed /v* on alternate base" },
+            ]
+          : [
+              // If user typed versionless, also try /v1 on both bases
+              { path: `/v1${versionless}`, base, label: "added /v1 on selected base" },
+              { path: `/v1${versionless}`, base: altBase, label: "added /v1 on alternate base" },
+            ]),
+      ];
+
+      let finalResp: { ok?: boolean; status?: number; data?: any; error?: string } | null = null;
+      let finalAttemptLabel = "";
+      for (const a of attempts) {
+        const { data, error } = await supabase.functions.invoke("pleo-proxy", {
+          body: { path: a.path, method, body: parsedBody, base: a.base },
+        });
+        if (error) {
+          // keep trying next attempt
+          finalResp = { ok: false, status: 500, data: null, error: error.message };
+          finalAttemptLabel = a.label;
+          continue;
+        }
+        finalResp = data as { ok?: boolean; status?: number; data?: any; error?: string };
+        finalAttemptLabel = a.label;
+
+        // Stop if not a 404
+        if (!finalResp || finalResp.status !== 404) break;
       }
 
-      setResult(JSON.stringify(data, null, 2));
+      setResult(JSON.stringify(finalResp, null, 2));
 
-      const resp = data as { ok?: boolean; status?: number; data?: any; error?: string };
-      if (resp?.error) {
-        showError(resp.error);
-      } else if (resp?.ok === false || (resp?.status && resp.status >= 400)) {
-        if (resp?.status === 404) {
-          showError("404 Not Found. Your token may use versionless endpoints. Try removing `/v1` and use paths like `/me`.");
+      if (!finalResp) {
+        showError("No response from Pleo proxy.");
+      } else if (finalResp.error) {
+        showError(finalResp.error);
+      } else if (finalResp.ok === false || (finalResp.status && finalResp.status >= 400)) {
+        if (finalResp.status === 404) {
+          showError("404 Not Found after trying alternate host and path variations.");
         } else {
-          showError(`Pleo returned status ${resp.status}`);
+          showError(`Pleo returned status ${finalResp.status}`);
         }
       } else {
-        const expensesCount = Array.isArray(resp?.data?.expenses) ? resp.data.expenses.length : undefined;
+        const expensesCount = Array.isArray(finalResp?.data?.expenses)
+          ? finalResp.data.expenses.length
+          : undefined;
         if (typeof expensesCount === "number") {
-          showSuccess(`Fetched ${expensesCount} expenses from /me`);
+          showSuccess(`Fetched ${expensesCount} expenses (attempt: ${finalAttemptLabel}).`);
         } else {
-          showSuccess("Pleo response received!");
+          showSuccess(`Pleo response received (attempt: ${finalAttemptLabel}).`);
         }
       }
+
       dismissToast(toastId);
     } catch (e: any) {
       dismissToast(toastId);
@@ -101,7 +133,7 @@ const PleoIntegration = () => {
             <Globe className="mr-2 h-6 w-6" /> Pleo OpenAPI Proxy
           </CardTitle>
           <CardDescription>
-            Use this tool to test the secure proxy to Pleo. Defaults to <code>/me</code>
+            Use this tool to test the secure proxy to Pleo. Defaults to <code>/me</code>. If 404 occurs, we now auto-try the alternate host and path variations.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
