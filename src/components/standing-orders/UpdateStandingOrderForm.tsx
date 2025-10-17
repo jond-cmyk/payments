@@ -141,15 +141,6 @@ const updateStandingOrderFormSchema = z.object({
     }
   }
 
-  // Accruals period validation - REMOVED
-  // if (parseInt(data.from_day) > parseInt(data.to_day)) {
-  //   ctx.addIssue({
-  //     code: z.ZodIssueCode.custom,
-  //     message: "'From Day' cannot be after 'To Day'.",
-  //     path: ['from_day'],
-  //   });
-  // }
-
   // NEW: End date must be after start date if provided
   if (data.payment_end_date && data.payment_end_date < data.payment_date) {
     ctx.addIssue({
@@ -236,10 +227,10 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             account_number: values.account_number?.replace(/\s/g, ''),
           }
         : {
-            account_address: null, // Always null for UK
-            iban_number: null, // Always null for UK
-            sort_code: values.sort_code,
-            account_number: values.account_number?.replace(/\s/g, ''),
+            account_address: values.account_address,
+            iban_number: values.iban_number,
+            sort_code: null,
+            account_number: null,
           };
 
       const { error: updateError } = await supabase

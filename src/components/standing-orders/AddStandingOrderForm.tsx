@@ -144,15 +144,6 @@ const addStandingOrderFormSchema = z.object({
     }
   }
 
-  // Accruals period validation - REMOVED
-  // if (parseInt(data.from_day) > parseInt(data.to_day)) {
-  //   ctx.addIssue({
-  //     code: z.ZodIssueCode.custom,
-  //     message: "'From Day' cannot be after 'To Day'.",
-  //     path: ['from_day'],
-  //   });
-  // }
-
   // NEW: End date must be after start date if provided
   if (data.payment_end_date && data.payment_end_date < data.payment_date) {
     ctx.addIssue({
