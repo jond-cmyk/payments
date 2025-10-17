@@ -651,18 +651,24 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
 
     const allEntries = extractList(data);
-    console.log("All entries fetched:", allEntries); // Debugging
+    console.log("Raw data from economic-proxy for /accounting/entries:", data); // NEW LOG
+    console.log("All entries extracted by extractList:", allEntries); // NEW LOG
 
     // Filter entries by customer number
     const customerTransactions = allEntries.filter(entry => {
       const entryCustomerNumber = pick(entry, [
         'customerNumber',
         'customer.customerNumber',
-        'debtor.customerNumber', // Common for entries
+        'debtor.customerNumber',
         'debtor.number',
-        'creditor.customerNumber', // If it's a credit entry
+        'creditor.customerNumber',
         'creditor.number',
+        'customer.number', // Added for robustness
+        'customer.id', // Added for robustness
+        'debtor.id', // Added for robustness
+        'creditor.id', // Added for robustness
       ]);
+      console.log(`Filtering entry: ${JSON.stringify(entry)}, picked customerNumber: ${entryCustomerNumber}, target customerNumber: ${num}`); // NEW LOG
       return String(entryCustomerNumber ?? "") === String(num);
     });
 
@@ -696,7 +702,8 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
 
     const allEntries = extractList(data);
-    console.log("All entries fetched for outstanding:", allEntries); // Debugging
+    console.log("Raw data from economic-proxy for /accounting/entries (outstanding):", data); // NEW LOG
+    console.log("All entries extracted by extractList (outstanding):", allEntries); // NEW LOG
 
     const outstandingEntries = allEntries.filter(entry => {
       const entryCustomerNumber = pick(entry, [
@@ -706,8 +713,21 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         'debtor.number',
         'creditor.customerNumber',
         'creditor.number',
+        'customer.number', // Added for robustness
+        'customer.id', // Added for robustness
+        'debtor.id', // Added for robustness
+        'creditor.id', // Added for robustness
       ]);
-      const remainingAmount = pick(entry, ['remainingAmount', 'remainingAmount.value', 'amount.remaining', 'balance']); // Added 'balance' as a candidate
+      const remainingAmount = pick(entry, [
+        'remainingAmount',
+        'remainingAmount.value',
+        'amount.remaining',
+        'balance',
+        'outstandingAmount', // Added for robustness
+        'openEntriesAmount', // Added for robustness
+        'dueAmount', // Added for robustness
+      ]);
+      console.log(`Filtering outstanding entry: ${JSON.stringify(entry)}, picked customerNumber: ${entryCustomerNumber}, target customerNumber: ${num}, remainingAmount: ${remainingAmount}`); // NEW LOG
       return String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
     });
 
