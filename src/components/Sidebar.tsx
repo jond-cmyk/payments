@@ -131,6 +131,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
         <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
         <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
         <div className="h-px bg-dyad-blue-foreground my-4" />
+        <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" /> {/* MOVED: Customers Link */}
         <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
         
         <div className="h-px bg-dyad-blue-foreground my-4" /> 
@@ -143,7 +144,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
           )}
         </NavLink>
         <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" />
-        <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" /> {/* MOVED: Statistics Link */}
+        <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" />
         
         {currentRole === 'admin' && (
           <>
@@ -162,7 +163,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                   <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
                   <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" />
                   <NavLink to="/admin/economic-integration" icon={<Globe className="h-5 w-5" />} label="E-conomic Integration" />
-                  <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
