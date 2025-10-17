@@ -18,6 +18,7 @@ import EconomicDetailDialog, { DialogColumn } from "@/components/economic/Econom
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAmount } from "@/components/economic/EconomicDetailDialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -111,6 +112,17 @@ const Customers: React.FC = () => {
       return list as EconomicCustomer[];
     },
     staleTime: 60_000,
+  });
+
+  // Debugging logs for Customers page state
+  console.log("Customers Page State:", {
+    isLoading: isLoading,
+    customersQueryLoading: customersQuery.isLoading,
+    accountingYearsQueryLoading: accountingYearsQuery.isLoading,
+    selectedAccountingYear: selectedAccountingYear,
+    availableAccountingYearsLength: availableAccountingYears.length,
+    customersDataLength: customersQuery.data?.length,
+    filteredLength: filtered.length,
   });
 
   const filtered = useMemo(() => {
@@ -259,6 +271,16 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
 
   const num = customer.customerNumber;
+
+  // Debugging logs for CustomerRow
+  console.log("CustomerRow Props for customer:", customer.customerNumber, {
+    customerNumber: customer.customerNumber,
+    selectedAccountingYear: selectedAccountingYear,
+    isAccountingYearsLoading: isAccountingYearsLoading,
+    loadingInvoices: loadingInvoices,
+    loadingTransactions: loadingTransactions,
+    loadingOutstanding: loadingOutstanding,
+  });
 
   // Helper to extract a list from varied economic response shapes
   const extractList = (payload: any): any[] => {
@@ -859,6 +881,31 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
     { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
   ];
 
+  // Determine disabled states and tooltips for buttons
+  const isCustomerNumberMissing = !customer.customerNumber;
+  const isAccountingYearNotReady = isAccountingYearsLoading || !selectedAccountingYear;
+
+  const getButtonState = (buttonType: 'transactions' | 'outstanding') => {
+    const isLoadingState = buttonType === 'transactions' ? loadingTransactions : loadingOutstanding;
+    let text = isLoadingState ? "Loading..." : (buttonType === 'transactions' ? "All Transactions" : "All Outstanding");
+    let tooltip = "";
+    let isDisabled = isLoadingState;
+
+    if (isCustomerNumberMissing) {
+      text = "No Customer Number";
+      tooltip = "This customer has no associated customer number in e-conomic.";
+      isDisabled = true;
+    } else if (isAccountingYearNotReady) {
+      text = isAccountingYearsLoading ? "Loading Years..." : "No Year Selected";
+      tooltip = isAccountingYearsLoading ? "Accounting years are still loading." : "No accounting year is selected. Please select one from the dropdown above the table.";
+      isDisabled = true;
+    }
+
+    return { text, tooltip, isDisabled };
+  };
+
+  const transactionsButtonState = getButtonState('transactions');
+  const outstandingButtonState = getButtonState('outstanding');
 
   return (
     <>
@@ -885,12 +932,22 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
             <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
-            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadTransactions} disabled={loadingTransactions || !customer.customerNumber || !selectedAccountingYear || isAccountingYearsLoading}>
-              {loadingTransactions ? "Loading..." : "All Transactions"}
-            </Button>
-            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadOutstanding} disabled={loadingOutstanding || !customer.customerNumber || !selectedAccountingYear || isAccountingYearsLoading}>
-              {loadingOutstanding ? "Loading..." : "All Outstanding"}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadTransactions} disabled={transactionsButtonState.isDisabled}>
+                  {transactionsButtonState.text}
+                </Button>
+              </TooltipTrigger>
+              {transactionsButtonState.tooltip && <TooltipContent>{transactionsButtonState.tooltip}</TooltipContent>}
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadOutstanding} disabled={outstandingButtonState.isDisabled}>
+                  {outstandingButtonState.text}
+                </Button>
+              </TooltipTrigger>
+              {outstandingButtonState.tooltip && <TooltipContent>{outstandingButtonState.tooltip}</TooltipContent>}
+            </Tooltip>
           </div>
         </TableCell>
       </TableRow>
