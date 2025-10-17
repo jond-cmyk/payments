@@ -36,9 +36,11 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
   let currentIndex = 0;
 
   // Regex to find status changes: "Status changed from \"OLD\" to \"NEW\"."
-  const statusChangeRegex = /Status changed from \\?"([^"]+)\\?" to \\?"([^"]+)\\?".?/g;
+  // Updated regex to correctly match literal backslash-quote sequence (\\")
+  const statusChangeRegex = /Status changed from \\"([^"]+)\\" to \\"([^"]+)\\"\.?/g;
   // Regex to find new item creation with status: "New X created with status: \"STATUS\"."
-  const newStatusCreationRegex = /New (Standing Order|Direct Debit|transaction) created with status: \\?"([^"]+)\\?".?/g;
+  // Updated regex to correctly match literal backslash-quote sequence (\\")
+  const newStatusCreationRegex = /New (Standing Order|Direct Debit|transaction) created with status: \\"([^"]+)\\"\.?/g;
   // Regex to find simple creation messages: "New X created."
   const simpleCreationRegex = /New (Standing Order|Direct Debit|transaction) created./g;
 
