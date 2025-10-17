@@ -248,11 +248,14 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
 
   // Extract a sensible text/description from common invoice shapes
   const getInvoiceText = (inv: any): string => {
+    // Directly get the heading field
+    const heading = pick(inv, ["heading", "title", "header"]);
+    if (typeof heading === "string" && heading.trim() !== "") return heading;
+    
+    // Fallback to other text fields if heading is not available
     const direct = pick(inv, [
       "text",
       "description",
-      "heading",
-      "title",
       "customer.name",
       "recipient.name",
     ]);
