@@ -19,6 +19,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button'; // Import Button
 import { FileText } from 'lucide-react'; // Import FileText icon
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // NEW: Import Select components
 
 // Helper to format a date string to DD-MM-YYYY
 const formatDate = (dateInput: any): string => {
@@ -66,6 +67,10 @@ interface EconomicDetailDialogProps {
   data: any[] | null;
   columns: DialogColumn[]; // Use the exported DialogColumn type
   isLoading?: boolean;
+  // NEW: Props for accounting year selection
+  accountingYears?: { year: string; href: string }[];
+  selectedAccountingYear?: string | null;
+  onAccountingYearChange?: (year: string) => void;
 }
 
 const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
@@ -76,6 +81,10 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   data,
   columns,
   isLoading,
+  // NEW: Destructure new props
+  accountingYears,
+  selectedAccountingYear,
+  onAccountingYearChange,
 }) => {
   // Generic getter for nested value, now correctly handles dot-separated paths in `paths` array
   const getNestedValue = (obj: any, paths: string[] | undefined, key: string): any => {
@@ -174,6 +183,30 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
+        {/* NEW: Accounting Year Selector */}
+        {accountingYears && accountingYears.length > 0 && selectedAccountingYear !== undefined && onAccountingYearChange && (
+          <div className="flex items-center gap-2 mb-4">
+            <label htmlFor="accounting-year-select" className="text-sm font-medium text-gray-700">
+              Accounting Year:
+            </label>
+            <Select
+              value={selectedAccountingYear || ''}
+              onValueChange={onAccountingYearChange}
+              disabled={isLoading}
+            >
+              <SelectTrigger id="accounting-year-select" className="w-[180px]">
+                <SelectValue placeholder="Select Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {accountingYears.map((year) => (
+                  <SelectItem key={year.year} value={year.year}>
+                    {year.year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full w-full pr-4"> {/* Added pr-4 for scrollbar spacing */}
             {isLoading ? (

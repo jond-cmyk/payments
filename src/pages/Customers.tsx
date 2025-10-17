@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import PageTitle from "@/components/PageTitle";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -46,12 +46,23 @@ type EconomicCustomer = {
   [key: string]: any;
 };
 
+type EconomicAccountingYear = {
+  year: number;
+  from: string;
+  to: string;
+  self: string;
+};
+
 const Customers: React.FC = () => {
   const { session, isLoading } = useSession();
   const navigate = useNavigate();
 
   const [pageSize, setPageSize] = useState<string>("25");
   const [search, setSearch] = useState<string>("");
+
+  // State for Accounting Year selection in dialogs
+  const [selectedAccountingYear, setSelectedAccountingYear] = useState<string | null>(null);
+  const [availableAccountingYears, setAvailableAccountingYears] = useState<{ year: string; href: string }[]>([]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
@@ -60,6 +71,36 @@ const Customers: React.FC = () => {
     navigate("/login");
     return null;
   }
+
+  // Query to fetch available accounting years
+  const accountingYearsQuery = useQuery({
+    queryKey: ["economicAccountingYears"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+        body: { path: `/accounting-years?pagesize=100`, method: "GET" },
+      });
+      if (error) throw new Error(error.message || "Failed to load accounting years");
+      const resp = data as EconomicProxyResponse<EconomicCollection<EconomicAccountingYear>>;
+      const list = Array.isArray(resp?.data?.collection) ? resp.data.collection : [];
+      
+      // Sort by year descending and map to { year: string, href: string }
+      const sortedYears = list
+        .sort((a, b) => b.year - a.year)
+        .map(y => ({ year: String(y.year), href: y.self }));
+      
+      return sortedYears;
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  });
+
+  // Effect to set available accounting years and default selected year
+  useEffect(() => {
+    if (accountingYearsQuery.data && accountingYearsQuery.data.length > 0) {
+      setAvailableAccountingYears(accountingYearsQuery.data);
+      // Set default to the most recent year
+      setSelectedAccountingYear(accountingYearsQuery.data[0].year);
+    }
+  }, [accountingYearsQuery.data]);
 
   const customersQuery = useQuery({
     queryKey: ["economicCustomers", pageSize],
@@ -144,7 +185,13 @@ const Customers: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {filtered.map((c) => (
-                  <CustomerRow key={c.customerNumber ?? c.name} customer={c} />
+                  <CustomerRow 
+                    key={c.customerNumber ?? c.name} 
+                    customer={c} 
+                    availableAccountingYears={availableAccountingYears}
+                    selectedAccountingYear={selectedAccountingYear}
+                    onAccountingYearChange={setSelectedAccountingYear}
+                  />
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
@@ -162,7 +209,14 @@ const Customers: React.FC = () => {
   );
 };
 
-const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => {
+interface CustomerRowProps {
+  customer: EconomicCustomer;
+  availableAccountingYears: { year: string; href: string }[];
+  selectedAccountingYear: string | null;
+  onAccountingYearChange: (year: string) => void;
+}
+
+const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccountingYears, selectedAccountingYear, onAccountingYearChange }) => {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
 
@@ -659,13 +713,19 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
 
   // Load all transactions for a customer
   const loadTransactions = async () => {
-    if (!num) return;
+    if (!num || !selectedAccountingYear) {
+      showError("Please select an accounting year.");
+      return;
+    }
     setLoadingTransactions(true);
-    const toastId = showLoading("Loading all transactions...");
+    const toastId = showLoading(`Loading all transactions for ${selectedAccountingYear}...`);
+
+    // Construct the path with the selected accounting year
+    const path = `/accounting-years/${selectedAccountingYear}/entries`;
 
     // Pass customerNumber as a query parameter to the proxy
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" }, // ADDED query parameter
+      body: { path, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
     });
     dismissToast(toastId);
 
@@ -704,19 +764,25 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     if (customerTransactions.length > 0) {
       showSuccess(`Loaded ${customerTransactions.length} transactions`);
     } else {
-      showError("No transactions found for this customer");
+      showError("No transactions found for this customer in the selected accounting year.");
     }
   };
 
   // Load all outstanding transactions for a customer
   const loadOutstanding = async () => {
-    if (!num) return;
+    if (!num || !selectedAccountingYear) {
+      showError("Please select an accounting year.");
+      return;
+    }
     setLoadingOutstanding(true);
-    const toastId = showLoading("Loading outstanding transactions...");
+    const toastId = showLoading(`Loading outstanding transactions for ${selectedAccountingYear}...`);
+
+    // Construct the path with the selected accounting year
+    const path = `/accounting-years/${selectedAccountingYear}/entries`;
 
     // Pass customerNumber as a query parameter to the proxy
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" }, // ADDED query parameter
+      body: { path, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
     });
     dismissToast(toastId);
 
@@ -762,7 +828,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     if (outstandingEntries.length > 0) {
       showSuccess(`Loaded ${outstandingEntries.length} outstanding transactions`);
     } else {
-      showError("No outstanding transactions found for this customer");
+      showError("No outstanding transactions found for this customer in the selected accounting year.");
     }
   };
 
@@ -839,10 +905,10 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
             <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
-            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadTransactions} disabled={loadingTransactions || !customer.customerNumber}>
+            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadTransactions} disabled={loadingTransactions || !customer.customerNumber || !selectedAccountingYear}>
               {loadingTransactions ? "Loading..." : "All Transactions"}
             </Button>
-            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadOutstanding} disabled={loadingOutstanding || !customer.customerNumber}>
+            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadOutstanding} disabled={loadingOutstanding || !customer.customerNumber || !selectedAccountingYear}>
               {loadingOutstanding ? "Loading..." : "All Outstanding"}
             </Button>
           </div>
@@ -869,6 +935,13 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         data={transactionsData}
         columns={transactionColumns}
         isLoading={loadingTransactions}
+        accountingYears={availableAccountingYears}
+        selectedAccountingYear={selectedAccountingYear}
+        onAccountingYearChange={(year) => {
+          onAccountingYearChange(year); // Update parent state
+          // Re-fetch transactions when year changes
+          loadTransactions();
+        }}
       />
 
       {/* Dialog for All Outstanding */}
@@ -880,6 +953,13 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         data={outstandingData}
         columns={outstandingColumns}
         isLoading={loadingOutstanding}
+        accountingYears={availableAccountingYears}
+        selectedAccountingYear={selectedAccountingYear}
+        onAccountingYearChange={(year) => {
+          onAccountingYearChange(year); // Update parent state
+          // Re-fetch outstanding when year changes
+          loadOutstanding();
+        }}
       />
     </>
   );
