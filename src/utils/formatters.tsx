@@ -1,4 +1,4 @@
-import React from 'react';
+import React from 'react'; // Added React import
 
 /**
  * Cleans up a raw status string by removing backslashes and quotes,
