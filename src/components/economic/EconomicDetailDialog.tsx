@@ -128,7 +128,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
       return (
         <Button asChild variant="link" className="p-0 h-auto">
           <a href={rawValue} target="_blank" rel="noopener noreferrer">
-            <FileText className="mr-1 h-4 w-4" /> View PDF
+            <FileText className="mr-1 h-4 w-4" /> View Invoice
           </a>
         </Button>
       );
