@@ -181,22 +181,57 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     if (!num) return;
     setLoadingBalance(true);
     const toastId = showLoading("Loading balance...");
+    console.log("Loading balance for customer:", num);
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
       body: { path: `/customers/${num}/totals`, method: "GET" },
     });
+    console.log("Balance (totals) response:", data);
+    // Close loading toast
     dismissToast(toastId);
-    setLoadingBalance(false);
+
     if (error) {
+      setLoadingBalance(false);
       showError(error.message || "Failed to load balance");
       return;
     }
+
     const resp = data as EconomicProxyResponse<any>;
-    const val =
-      typeof resp?.data?.balance === "number"
-        ? resp.data.balance
-        : typeof resp?.data?.totals?.balance === "number"
-        ? resp.data.totals.balance
-        : null;
+    console.log("Parsed balance (totals) response:", resp);
+
+    // Helper: get first numeric value from candidate fields
+    const getNumeric = (obj: any, keys: string[]): number | null => {
+      for (const k of keys) {
+        const v = k.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
+        if (typeof v === "number") return v;
+        if (typeof v === "string" && !isNaN(Number(v))) return Number(v);
+      }
+      return null;
+    };
+
+    let val =
+      getNumeric(resp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount", "dueAmount"]) ?? null;
+
+    if (val === null) {
+      // Fallback: fetch customer details to find balance-like fields
+      const { data: detailsData, error: detailsError } = await supabase.functions.invoke("economic-proxy", {
+        body: { path: `/customers/${num}`, method: "GET" },
+      });
+      console.log("Customer details for balance fallback:", detailsData);
+      if (!detailsError) {
+        const detailsResp = detailsData as EconomicProxyResponse<any>;
+        val =
+          getNumeric(detailsResp?.data, [
+            "balance",
+            "totals.balance",
+            "outstandingAmount",
+            "openEntriesAmount",
+            "dueAmount",
+          ]) ?? null;
+      }
+    }
+
+    setLoadingBalance(false);
+
     if (val === null) {
       showError("Balance not available for this customer");
     } else {
@@ -208,35 +243,60 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   const loadInvoices = async () => {
     setLoadingInvoices(true);
     const toastId = showLoading("Loading invoices...");
-    // Fetch a page of invoices, then filter by customerNumber if present
-    const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/invoices?pagesize=100`, method: "GET" },
-    });
-    dismissToast(toastId);
-    setLoadingInvoices(false);
-    if (error) {
-      showError(error.message || "Failed to load invoices");
-      return;
+    try {
+      if (num) {
+        // Try customer-specific invoices endpoint first
+        const { data: custInvData, error: custInvError } = await supabase.functions.invoke("economic-proxy", {
+          body: { path: `/customers/${num}/invoices?pagesize=100`, method: "GET" },
+        });
+        console.log("Customer-specific invoices response:", custInvData);
+        if (!custInvError) {
+          const resp = custInvData as EconomicProxyResponse<EconomicCollection<any>>;
+          const list = Array.isArray(resp?.data?.collection)
+            ? resp.data.collection
+            : Array.isArray(resp?.data)
+            ? (resp.data as any[])
+            : [];
+          if (list.length > 0) {
+            setInvoices(list);
+            showSuccess(`Loaded ${list.length} invoices`);
+            return;
+          }
+        }
+      }
+
+      // Fallback: general invoices list filtered client-side
+      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+        body: { path: `/invoices?pagesize=100`, method: "GET" },
+      });
+      console.log("General invoices response:", data);
+      if (error) {
+        showError(error.message || "Failed to load invoices");
+        return;
+      }
+      const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
+      const list = Array.isArray(resp?.data?.collection)
+        ? resp.data.collection
+        : Array.isArray(resp?.data)
+        ? (resp.data as any[])
+        : [];
+      const filtered =
+        num != null
+          ? list.filter((inv: any) => {
+              const cn =
+                inv?.customerNumber ??
+                inv?.customer?.customerNumber ??
+                inv?.customer?.number ??
+                inv?.customer_id;
+              return String(cn || "") === String(num);
+            })
+          : list;
+      setInvoices(filtered);
+      showSuccess(`Loaded ${filtered.length} invoices`);
+    } finally {
+      dismissToast(toastId);
+      setLoadingInvoices(false);
     }
-    const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
-    const list = Array.isArray(resp?.data?.collection)
-      ? resp.data.collection
-      : Array.isArray(resp?.data)
-      ? (resp.data as any[])
-      : [];
-    const filtered =
-      num != null
-        ? list.filter((inv: any) => {
-            const cn =
-              inv?.customerNumber ??
-              inv?.customer?.customerNumber ??
-              inv?.customer?.number ??
-              inv?.customer_id;
-            return String(cn || "") === String(num);
-          })
-        : list;
-    setInvoices(filtered);
-    showSuccess(`Loaded ${filtered.length} invoices`);
   };
 
   return (
