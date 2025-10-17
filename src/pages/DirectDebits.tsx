@@ -199,9 +199,8 @@ const DirectDebits = () => {
       // NEW: Apply client-side Payment Day filter (day of month from payment_date)
       const filteredData = filterPaymentDay
         ? (data || []).filter(d => {
-            if (!d.payment_date) return false;
-            const day = new Date(d.payment_date).getDate();
-            return day === filterPaymentDay;
+            if (!d.payment_day) return false; // Use payment_day directly
+            return d.payment_day === filterPaymentDay;
           })
         : (data || []);
       setTotalItems(filteredData.length);
@@ -327,8 +326,8 @@ const DirectDebits = () => {
     setCurrentPage(1);
   };
 
-  const handleEditClick = (directDebit: DirectDebit) => {
-    setEditingDirectDebit(directDebit);
+  const handleEditClick = (debit: DirectDebit) => {
+    setEditingDirectDebit(debit);
     setIsEditDirectDebitDialogOpen(true);
   };
 
@@ -342,7 +341,7 @@ const DirectDebits = () => {
   const directDebitExportColumns: (keyof DirectDebit)[] = [
     'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
     'sku', 'not_property_related', 'category', 'account_number', 'payment_reference',
-    'status', 'country', 'bank_account'
+    'status', 'country', 'bank_account', 'payment_day' // Include payment_day in export
   ];
 
   const handleDownloadDirectDebits = () => {
@@ -642,9 +641,9 @@ const DirectDebits = () => {
                       </div>
                     </TableHead>
                     <TableHead>Categories</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
-                        Payment Day {renderSortIcon('payment_date')}
+                        Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
                     <TableHead>Payment Reference</TableHead>
@@ -684,7 +683,7 @@ const DirectDebits = () => {
                           </Badge>
                         ) : 'N/A'}
                       </TableCell>
-                      <TableCell>{debit.payment_date ? new Date(debit.payment_date).getDate() : 'N/A'}</TableCell>
+                      <TableCell>{debit.payment_day !== null && debit.payment_day !== undefined ? debit.payment_day : 'N/A'}</TableCell>
                       <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
                       <TableCell>{debit.country}</TableCell>

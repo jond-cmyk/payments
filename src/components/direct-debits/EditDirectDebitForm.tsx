@@ -88,8 +88,8 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
     resolver: zodResolver(editDirectDebitFormSchema),
     defaultValues: {
       payee: directDebit.payee,
-      // FIX: Extract payment_day using getUTCDate to avoid timezone issues
-      payment_day: directDebit.payment_date ? new Date(directDebit.payment_date + 'T00:00:00Z').getUTCDate() : undefined,
+      // FIX: Initialize payment_day directly from directDebit.payment_day
+      payment_day: directDebit.payment_day !== null && directDebit.payment_day !== undefined ? directDebit.payment_day : undefined,
       sku: directDebit.sku || (directDebit.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: directDebit.not_property_related,
       category: directDebit.category,
@@ -113,6 +113,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
         throw new Error("User not authenticated.");
       }
 
+      // Preserve the month and year from the existing payment_date, but update the day
       const prevDate = directDebit.payment_date ? new Date(directDebit.payment_date + 'T00:00:00Z') : new Date(); // Use UTC parsing for prevDate
       const year = prevDate.getUTCFullYear(); // Use UTC year
       const monthIndex = prevDate.getUTCMonth(); // Use UTC month (0-based)
@@ -138,6 +139,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           country: values.country,
           bank_account: values.country === 'Switzerland' ? values.bank_account : null,
           updated_at: new Date().toISOString(),
+          payment_day: values.payment_day, // Store the payment_day directly
         })
         .eq('id', directDebit.id);
 
