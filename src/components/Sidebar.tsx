@@ -162,6 +162,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                   <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
                   <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" />
                   <NavLink to="/admin/economic-integration" icon={<Globe className="h-5 w-5" />} label="E-conomic Integration" />
+                  <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

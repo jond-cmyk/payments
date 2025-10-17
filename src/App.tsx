@@ -32,6 +32,7 @@ import { SessionContextProvider, useSession } from "./integrations/supabase/Sess
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext";
 import Layout from "./components/Layout";
+import Customers from "./pages/Customers";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ const App = () => {
                       <Route path="/notifications" element={<NotificationsPage />} />
                       <Route path="/admin/feedback" element={<AdminFeedback />} />
                       <Route path="/admin/economic-integration" element={<EconomicIntegration />} />
+                      <Route path="/admin/customers" element={<Customers />} />
                     </Route>
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
