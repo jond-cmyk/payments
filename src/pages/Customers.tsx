@@ -17,6 +17,7 @@ import { List, FileText } from "lucide-react";
 import EconomicDetailDialog, { DialogColumn } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import Alert components
+import { formatAmount } from "@/components/economic/EconomicDetailDialog"; // Import formatAmount
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -73,8 +74,8 @@ const Customers: React.FC = () => {
         body: { path: `/accounting-years?pagesize=100`, method: "GET" },
       });
       if (error) throw new Error(error.message || "Failed to load accounting years");
-      const resp = data as EconomicProxyResponse<EconomicCollection<EconomicAccountingYear>>;
-      const list = Array.isArray(resp?.data?.collection) ? resp.data.collection : [];
+      const resp = Array.isArray(data) ? data : (data as EconomicProxyResponse<EconomicCollection<EconomicAccountingYear>>)?.data?.collection;
+      const list = Array.isArray(resp) ? resp : [];
       
       // Sort by year descending and map to { year: string, href: string }
       const sortedYears = list
@@ -294,6 +295,26 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
     }
     
     return [];
+  };
+
+  // Helper to pick a value from an object given multiple possible keys/paths
+  const pick = (obj: any, keys: string[]): any => {
+    if (!obj) return undefined;
+    for (const key of keys) {
+      const parts = key.split('.');
+      let current = obj;
+      let found = true;
+      for (const part of parts) {
+        if (current && typeof current === 'object' && part in current) {
+          current = current[part];
+        } else {
+          found = false;
+          break;
+        }
+      }
+      if (found) return current;
+    }
+    return undefined;
   };
 
   // Fetch balance automatically using useQuery
