@@ -109,9 +109,9 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
       case 'boolean':
         return rawValue ? 'Yes' : 'No';
       case 'array':
-        return Array.isArray(rawValue) ? rawValue.join(', ') : String(rawValue);
+        return Array.isArray(rawValue) ? rawValue.join(', ') : String(rawValue ?? '-');
       case 'object':
-        return typeof rawValue === 'object' && rawValue !== null ? JSON.stringify(rawValue) : String(rawValue);
+        return typeof rawValue === 'object' && rawValue !== null ? JSON.stringify(rawValue) : String(rawValue ?? '-');
       case 'raw':
       default:
         return String(rawValue ?? '-');

@@ -239,7 +239,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       if (parts.length >= 4) {
         return "/" + parts.slice(3).join("/");
       }
-      return undefined;
+      return "/" + parts.slice(3).join("/"); // Ensure leading slash
     }
     if (self.startsWith("/")) return self;
     return "/" + self;
@@ -595,7 +595,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
         body: { path, method: "GET" },
       });
-      console.log(`Invoice response for ${path}:`, data);
+      console.log(`Invoice response for ${path}:`, data); // Log raw response
       if (!error && data) {
         const arr = extractList(data);
         if (arr.length > 0) {
@@ -729,10 +729,12 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   // Column definitions for the dialogs
   const invoiceColumns: DialogColumn[] = [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
+    { key: 'heading', header: 'Heading', path: ['heading', 'notes.heading', 'notes.header', 'notes.noteHeading', 'title', 'header', 'description', 'text', 'recipient.name', 'customer.name'] }, // Added more paths for heading
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'bookedDate', 'issueDate', 'invoiceDate', 'createdAt'] },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
     { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
     { key: 'status', header: 'Status', path: ['status', 'state', 'booked', 'paymentStatus', 'invoiceStatus', 'draft', 'sent'] },
+    { key: 'pdf', header: 'PDF', format: 'raw', path: ['pdf.url', 'pdf.href', 'pdf.download', 'pdf.downloadUrl', 'links.pdf.href', 'links.pdf.url'] }, // Added more paths for PDF
   ];
 
   const transactionColumns: DialogColumn[] = [
