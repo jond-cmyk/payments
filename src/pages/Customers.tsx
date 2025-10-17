@@ -349,15 +349,106 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     // Directly get the heading field
     const heading = inv.heading;
     if (typeof heading === "string" && heading.trim() !== "") return heading;
-    
-    // Fallback to other common heading field names
     const fallbackFields = ["title", "header", "description", "text"];
     for (const field of fallbackFields) {
       const value = inv[field];
       if (typeof value === "string" && value.trim() !== "") return value;
     }
-    
     return "-";
+  };
+
+  // View invoice: fetch details and open PDF link if available
+  const viewInvoice = async (inv: any) => {
+    const toastId = showLoading("Fetching invoice...");
+    const basePath =
+      pathFromSelf(inv?.self) ??
+      (inv?.bookedInvoiceNumber
+        ? `/invoices/booked/${inv.bookedInvoiceNumber}`
+        : inv?.invoiceNumber
+        ? `/invoices/${inv.invoiceNumber}`
+        : undefined);
+
+    if (!basePath) {
+      dismissToast(toastId);
+      showError("Invoice path not available");
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      body: { path: basePath, method: "GET" },
+    });
+    dismissToast(toastId);
+
+    if (error || !data) {
+      showError(error?.message || "Failed to fetch invoice details");
+      return;
+    }
+
+    const root = (data as any)?.data ?? data;
+
+    const candidates = [
+      root?.pdf,
+      root?.pdf?.url,
+      root?.pdf?.href,
+      root?.pdf?.download,
+      root?.pdf?.downloadUrl,
+      root?.links?.pdf,
+      root?.links?.pdf?.href,
+    ];
+
+    let pdfUrl: string | undefined;
+    for (const c of candidates) {
+      if (typeof c === "string" && c.trim() !== "") {
+        pdfUrl = c;
+        break;
+      }
+    }
+
+    // If pdf is an object, try any string value inside it
+    if (!pdfUrl && typeof root?.pdf === "object" && root?.pdf) {
+      for (const val of Object.values(root.pdf)) {
+        if (typeof val === "string" && val.trim() !== "") {
+          pdfUrl = val as string;
+          break;
+        }
+      }
+    }
+
+    // Fallback: try /pdf subresource
+    if (!pdfUrl) {
+      const pdfPath = basePath.endsWith("/pdf") ? basePath : `${basePath}/pdf`;
+      const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("economic-proxy", {
+        body: { path: pdfPath, method: "GET" },
+      });
+      if (!pdfErr && pdfData) {
+        const root2 = (pdfData as any)?.data ?? pdfData;
+        const moreCandidates = [
+          root2?.url,
+          root2?.href,
+          root2?.download,
+          root2?.downloadUrl,
+          root2?.link,
+        ];
+        for (const c of moreCandidates) {
+          if (typeof c === "string" && c.trim() !== "") {
+            pdfUrl = c;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!pdfUrl) {
+      showError("No PDF link available for this invoice");
+      return;
+    }
+
+    try {
+      window.open(pdfUrl, "_blank");
+      showSuccess("Opening invoice PDF");
+    } catch {
+      showError("Unable to open invoice PDF");
+    }
   };
 
   const loadBalance = async () => {
@@ -560,7 +651,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                           <TableHead>Date</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Heading</TableHead>
+                          <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -576,7 +667,6 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                           console.log("Invoice heading field:", inv.heading);
                           console.log("Invoice layout object:", inv.layout);
                           console.log("All invoice keys:", Object.keys(inv));
-                          const headingText = invoiceHeadings[getInvoiceKey(inv)] ?? getInvoiceText(inv);
                           return (
                             <TableRow key={inv?.invoiceNumber ?? inv?.id ?? Math.random()}>
                               <TableCell>
@@ -587,7 +677,13 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                                 {formatAmount(pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat", "total", "netAmount"]))}
                               </TableCell>
                               <TableCell>{pick(inv, ["status", "state", "booked", "paymentStatus", "invoiceStatus", "draft", "sent"]) ?? "-"}</TableCell>
-                              <TableCell>{headingText || "-"}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Button size="sm" variant="outline" onClick={() => viewInvoice(inv)}>
+                                    View Invoice
+                                  </Button>
+                                </div>
+                              </TableCell>
                             </TableRow>
                           );
                         })}
