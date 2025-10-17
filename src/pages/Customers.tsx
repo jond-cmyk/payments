@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
 import { List } from "lucide-react";
+import EconomicDetailDialog from "@/components/economic/EconomicDetailDialog"; // NEW: Import EconomicDetailDialog
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -172,8 +173,19 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   const [balance, setBalance] = useState<number | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
-  const [invoices, setInvoices] = useState<any[] | null>(null);
+  const [invoiceData, setInvoiceData] = useState<any[] | null>(null); // Renamed from 'invoices'
   const [loadingInvoices, setLoadingInvoices] = useState(false);
+
+  // NEW: States for All Transactions and All Outstanding
+  const [transactionsData, setTransactionsData] = useState<any[] | null>(null);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [outstandingData, setOutstandingData] = useState<any[] | null>(null);
+  const [loadingOutstanding, setLoadingOutstanding] = useState(false);
+
+  // Dialog visibility states
+  const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
+  const [showTransactionsDialog, setShowTransactionsDialog] = useState(false);
+  const [showOutstandingDialog, setShowOutstandingDialog] = useState(false);
 
   // Keep a map of headings for invoices (keyed by self URL or number)
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
@@ -357,6 +369,52 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     return "-";
   };
 
+  // New helper function to handle 401 responses and attempt demo fallbacks
+  const handleUnauthorized = async (economicErrorResponse: any, originalRequestPath: string): Promise<boolean> => {
+    const demoLink = economicErrorResponse?.demoLink;
+    if (typeof demoLink === "string" && demoLink.trim() !== "") {
+      try {
+        window.open(demoLink, "_blank");
+        showSuccess("Opening demo invoice PDF");
+        return true; // Demo link opened
+      } catch (e) {
+        console.error("Failed to open demoLink:", e);
+        // Fall through to try ?demo=true
+      }
+    }
+
+    // If no direct demoLink or opening failed, try fetching with ?demo=true
+    if (originalRequestPath) {
+      const { data: demoData } = await supabase.functions.invoke("economic-proxy", {
+        body: { path: `${originalRequestPath}?demo=true`, method: "GET" },
+      });
+      if (demoData) {
+        const demoResp = demoData as any;
+        const demoRoot = demoResp?.data ?? demoData;
+        const demoCandidates = [demoRoot?.url, demoRoot?.href, demoRoot?.download, demoRoot?.downloadUrl, demoRoot?.link];
+        let demoPdfUrl: string | undefined;
+        for (const c of demoCandidates) {
+          if (typeof c === "string" && c.trim() !== "") {
+            demoPdfUrl = c;
+            break;
+          }
+        }
+        if (demoPdfUrl) {
+          try {
+            window.open(demoPdfUrl, "_blank");
+            showSuccess("Opening demo invoice PDF");
+            return true; // Demo link opened
+          } catch (e) {
+            console.error("Failed to open ?demo=true PDF URL:", e);
+          }
+        }
+      }
+    }
+
+    showError("Unauthorized to access invoice PDF. Check ECONOMIC_APP_SECRET_TOKEN and ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.");
+    return false; // No demo link opened
+  };
+
   // View invoice: fetch details and open PDF link if available
   const viewInvoice = async (inv: any) => {
     const toastId = showLoading("Fetching invoice...");
@@ -374,30 +432,39 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       return;
     }
 
-    const { data, error } = await supabase.functions.invoke("economic-proxy", {
+    // --- First attempt: Fetch invoice details ---
+    const { data: initialProxyResponse, error: initialProxyError } = await supabase.functions.invoke("economic-proxy", {
       body: { path: basePath, method: "GET" },
     });
     dismissToast(toastId);
 
-    if (error || !data) {
-      showError(error?.message || "Failed to fetch invoice details");
+    if (initialProxyError) {
+      showError(initialProxyError.message || "Failed to fetch invoice details via proxy.");
       return;
     }
 
-    const resp = data as any;
-    const root = resp?.data ?? data;
+    const initialEconomicResponse = initialProxyResponse as any;
+    const initialRoot = initialEconomicResponse?.data ?? initialProxyResponse; // This is the actual e-conomic response
+    const economicHttpStatus = initialRoot?.httpStatusCode || initialRoot?.status; // This is the actual e-conomic status
 
-    const candidates = [
-      root?.pdf,
-      root?.pdf?.url,
-      root?.pdf?.href,
-      root?.pdf?.download,
-      root?.pdf?.downloadUrl,
-      root?.links?.pdf,
-      root?.links?.pdf?.href,
-    ];
+    if (economicHttpStatus === 401) {
+      const handled = await handleUnauthorized(initialRoot, basePath);
+      if (handled) return; // If demo was opened, we're done
+      // If not handled, error message already shown by handleUnauthorized
+      return;
+    }
 
     let pdfUrl: string | undefined;
+    const candidates = [
+      initialRoot?.pdf,
+      initialRoot?.pdf?.url,
+      initialRoot?.pdf?.href,
+      initialRoot?.pdf?.download,
+      initialRoot?.pdf?.downloadUrl,
+      initialRoot?.links?.pdf,
+      initialRoot?.links?.pdf?.href,
+    ];
+
     for (const c of candidates) {
       if (typeof c === "string" && c.trim() !== "") {
         pdfUrl = c;
@@ -406,8 +473,8 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
 
     // If pdf is an object, try any string value inside it
-    if (!pdfUrl && typeof root?.pdf === "object" && root?.pdf) {
-      for (const val of Object.values(root.pdf)) {
+    if (!pdfUrl && typeof initialRoot?.pdf === "object" && initialRoot?.pdf) {
+      for (const val of Object.values(initialRoot.pdf)) {
         if (typeof val === "string" && val.trim() !== "") {
           pdfUrl = val as string;
           break;
@@ -415,68 +482,40 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       }
     }
 
-    // Fallback: try /pdf subresource via proxy
+    // --- Fallback: try /pdf subresource via proxy if no PDF URL found yet ---
     if (!pdfUrl) {
       const pdfPath = basePath.endsWith("/pdf") ? basePath : `${basePath}/pdf`;
-      const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("economic-proxy", {
+      const { data: pdfProxyResponse, error: pdfProxyError } = await supabase.functions.invoke("economic-proxy", {
         body: { path: pdfPath, method: "GET" },
       });
-      if (!pdfErr && pdfData) {
-        const resp2 = pdfData as any;
-        const root2 = resp2?.data ?? pdfData;
 
-        const moreCandidates = [
-          root2?.url,
-          root2?.href,
-          root2?.download,
-          root2?.downloadUrl,
-          root2?.link,
-        ];
-        for (const c of moreCandidates) {
-          if (typeof c === "string" && c.trim() !== "") {
-            pdfUrl = c;
-            break;
-          }
-        }
+      if (pdfProxyError) {
+        showError(pdfProxyError.message || "Failed to fetch PDF subresource via proxy.");
+        return;
+      }
 
-        // If Unauthorized, try demo fallback
-        if (!pdfUrl && resp2?.status === 401) {
-          const demoLink = root2?.demoLink;
-          if (typeof demoLink === "string" && demoLink.trim() !== "") {
-            try {
-              window.open(demoLink, "_blank");
-              showSuccess("Opening demo invoice PDF");
-              return;
-            } catch {
-              // ignore window.open errors
-            }
-          }
-          // Attempt fetching with ?demo=true to get a public demo URL
-          const { data: demoData } = await supabase.functions.invoke("economic-proxy", {
-            body: { path: `${pdfPath}?demo=true`, method: "GET" },
-          });
-          if (demoData) {
-            const demoResp = demoData as any;
-            const demoRoot = demoResp?.data ?? demoData;
-            const demoCandidates = [demoRoot?.url, demoRoot?.href, demoRoot?.download, demoRoot?.downloadUrl, demoRoot?.link];
-            for (const c of demoCandidates) {
-              if (typeof c === "string" && c.trim() !== "") {
-                pdfUrl = c;
-                break;
-              }
-            }
-            if (pdfUrl) {
-              try {
-                window.open(pdfUrl, "_blank");
-                showSuccess("Opening demo invoice PDF");
-                return;
-              } catch {
-                // ignore window.open errors
-              }
-            }
-          }
-          showError("Unauthorized to access invoice PDF. Check ECONOMIC_APP_SECRET_TOKEN and ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.");
-          return;
+      const pdfEconomicResponse = pdfProxyResponse as any;
+      const pdfRoot = pdfEconomicResponse?.data ?? pdfProxyResponse; // Actual e-conomic response for /pdf
+      const pdfEconomicHttpStatus = pdfRoot?.httpStatusCode || pdfRoot?.status;
+
+      if (pdfEconomicHttpStatus === 401) {
+        const handled = await handleUnauthorized(pdfRoot, pdfPath);
+        if (handled) return; // If demo was opened, we're done
+        // If not handled, error message already shown by handleUnauthorized
+        return;
+      }
+
+      const moreCandidates = [
+        pdfRoot?.url,
+        pdfRoot?.href,
+        pdfRoot?.download,
+        pdfRoot?.downloadUrl,
+        pdfRoot?.link,
+      ];
+      for (const c of moreCandidates) {
+        if (typeof c === "string" && c.trim() !== "") {
+          pdfUrl = c;
+          break;
         }
       }
     }
@@ -489,7 +528,8 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     try {
       window.open(pdfUrl, "_blank");
       showSuccess("Opening invoice PDF");
-    } catch {
+    } catch (e) {
+      console.error("Error opening PDF URL:", e);
       showError("Unable to open invoice PDF");
     }
   };
@@ -606,7 +646,8 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     dismissToast(toastId);
     setLoadingInvoices(false);
 
-    setInvoices(list);
+    setInvoiceData(list); // Set to invoiceData
+    setShowInvoicesDialog(true); // Open the dialog
     // Start enriching headings (Notes -> Heading) after we set the list
     if (list.length > 0) {
       enrichInvoiceHeadings(list);
@@ -618,6 +659,100 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       showError("No invoices found for this customer");
     }
   };
+
+  // NEW: Load all transactions for a customer
+  const loadTransactions = async () => {
+    if (!num) return;
+    setLoadingTransactions(true);
+    const toastId = showLoading("Loading all transactions...");
+
+    const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      body: { path: `/accounting/entries?customerNumber=${num}&pagesize=100`, method: "GET" },
+    });
+    dismissToast(toastId);
+
+    if (error) {
+      setLoadingTransactions(false);
+      showError(error.message || "Failed to load transactions");
+      return;
+    }
+
+    const list = extractList(data);
+    setTransactionsData(list);
+    setShowTransactionsDialog(true);
+    setLoadingTransactions(false);
+
+    if (list.length > 0) {
+      showSuccess(`Loaded ${list.length} transactions`);
+    } else {
+      showError("No transactions found for this customer");
+    }
+  };
+
+  // NEW: Load all outstanding transactions for a customer
+  const loadOutstanding = async () => {
+    if (!num) return;
+    setLoadingOutstanding(true);
+    const toastId = showLoading("Loading outstanding transactions...");
+
+    // Attempt to fetch entries and filter for outstanding (e.g., remainingAmount > 0)
+    const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      body: { path: `/accounting/entries?customerNumber=${num}&pagesize=100`, method: "GET" },
+    });
+    dismissToast(toastId);
+
+    if (error) {
+      setLoadingOutstanding(false);
+      showError(error.message || "Failed to load outstanding transactions");
+      return;
+    }
+
+    const allEntries = extractList(data);
+    const outstandingEntries = allEntries.filter(entry => {
+      const remainingAmount = pick(entry, ['remainingAmount', 'remainingAmount.value', 'amount.remaining']);
+      return typeof remainingAmount === 'number' && remainingAmount > 0;
+    });
+
+    setOutstandingData(outstandingEntries);
+    setShowOutstandingDialog(true);
+    setLoadingOutstanding(false);
+
+    if (outstandingEntries.length > 0) {
+      showSuccess(`Loaded ${outstandingEntries.length} outstanding transactions`);
+    } else {
+      showError("No outstanding transactions found for this customer");
+    }
+  };
+
+  // Column definitions for the dialogs
+  const invoiceColumns = [
+    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
+    { key: 'date', header: 'Date', format: 'date', path: ['date', 'bookedDate', 'issueDate', 'invoiceDate', 'createdAt'] },
+    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
+    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
+    { key: 'status', header: 'Status', path: ['status', 'state', 'booked', 'paymentStatus', 'invoiceStatus', 'draft', 'sent'] },
+  ];
+
+  const transactionColumns = [
+    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
+    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
+    { key: 'description', header: 'Description', path: ['description', 'text', 'notes.heading', 'notes.text'] },
+    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
+    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
+    { key: 'type', header: 'Type', path: ['type', 'entryType', 'transactionType'] },
+    { key: 'remainingAmount', header: 'Outstanding', format: 'currencyAmount', path: ['remainingAmount', 'remainingAmount.value', 'amount.remaining'] },
+  ];
+
+  const outstandingColumns = [
+    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
+    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
+    { key: 'description', header: 'Description', path: ['description', 'text', 'notes.heading', 'notes.text'] },
+    { key: 'amount', header: 'Total Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
+    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
+    { key: 'remainingAmount', header: 'Outstanding Amount', format: 'currencyAmount', path: ['remainingAmount', 'remainingAmount.value', 'amount.remaining'] },
+    { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
+  ];
+
 
   return (
     <>
@@ -653,9 +788,17 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
             <Button size="sm" variant="secondary" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
+            {/* NEW: All Transactions Button */}
+            <Button size="sm" variant="secondary" onClick={loadTransactions} disabled={loadingTransactions || !customer.customerNumber}>
+              {loadingTransactions ? "Loading..." : "All Transactions"}
+            </Button>
+            {/* NEW: All Outstanding Button */}
+            <Button size="sm" variant="secondary" onClick={loadOutstanding} disabled={loadingOutstanding || !customer.customerNumber}>
+              {loadingOutstanding ? "Loading..." : "All Outstanding"}
+            </Button>
             {balance !== null && (
               <Badge variant="secondary" className="ml-2">
-                Balance: {balance}
+                Balance: {formatAmount(balance)} {customer.currency || ''}
               </Badge>
             )}
           </div>
@@ -682,63 +825,43 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                   <div className="text-sm">{customer.address?.country ?? "-"}</div>
                 </div>
               </div>
-
-              {invoices && (
-                <div className="mt-4">
-                  <div className="font-medium mb-2">Invoices</div>
-                  <div className="relative overflow-x-auto border rounded-md">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Invoice No.</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {invoices.length === 0 && (
-                          <TableRow>
-                            <TableCell colSpan={5} className="text-center text-muted-foreground">
-                              No invoices found for this customer.
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        {invoices.map((inv: any) => {
-                          console.log("Raw invoice object:", inv);
-                          console.log("Invoice heading field:", inv.heading);
-                          console.log("Invoice layout object:", inv.layout);
-                          console.log("All invoice keys:", Object.keys(inv));
-                          return (
-                            <TableRow key={inv?.invoiceNumber ?? inv?.id ?? Math.random()}>
-                              <TableCell>
-                                {pick(inv, ["invoiceNumber", "bookedInvoiceNumber", "draftInvoiceNumber", "id", "number", "invoiceId", "self"]) ?? "-"}
-                              </TableCell>
-                              <TableCell>{formatDate(pick(inv, ["date", "bookedDate", "issueDate", "invoiceDate", "createdAt"]))}</TableCell>
-                              <TableCell>
-                                {formatAmount(pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat", "total", "netAmount"]))}
-                              </TableCell>
-                              <TableCell>{pick(inv, ["status", "state", "booked", "paymentStatus", "invoiceStatus", "draft", "sent"]) ?? "-"}</TableCell>
-                              <TableCell>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => viewInvoice(inv)}>
-                                    View Invoice
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
             </div>
           </TableCell>
         </TableRow>
       )}
+
+      {/* Dialog for Invoices */}
+      <EconomicDetailDialog
+        isOpen={showInvoicesDialog}
+        onOpenChange={setShowInvoicesDialog}
+        title={`Invoices for ${customer.name || 'Customer'}`}
+        description={`Showing all invoices for customer number ${customer.customerNumber}.`}
+        data={invoiceData}
+        columns={invoiceColumns}
+        isLoading={loadingInvoices}
+      />
+
+      {/* Dialog for All Transactions */}
+      <EconomicDetailDialog
+        isOpen={showTransactionsDialog}
+        onOpenChange={setShowTransactionsDialog}
+        title={`All Transactions for ${customer.name || 'Customer'}`}
+        description={`Showing all accounting entries for customer number ${customer.customerNumber}.`}
+        data={transactionsData}
+        columns={transactionColumns}
+        isLoading={loadingTransactions}
+      />
+
+      {/* Dialog for All Outstanding */}
+      <EconomicDetailDialog
+        isOpen={showOutstandingDialog}
+        onOpenChange={setShowOutstandingDialog}
+        title={`Outstanding Transactions for ${customer.name || 'Customer'}`}
+        description={`Showing outstanding accounting entries for customer number ${customer.customerNumber}.`}
+        data={outstandingData}
+        columns={outstandingColumns}
+        isLoading={loadingOutstanding}
+      />
     </>
   );
 };
