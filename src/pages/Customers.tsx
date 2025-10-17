@@ -204,7 +204,15 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   const pick = (obj: any, keys: string[]) => {
     for (const k of keys) {
       const v = k.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
-      if (v !== undefined && v !== null) return v;
+      if (v !== undefined && v !== null) {
+        // If it's a URL, extract the last part (numeric ID)
+        if (typeof v === "string" && v.includes("/")) {
+          const parts = v.split("/");
+          const last = parts[parts.length - 1];
+          if (/^\d+$/.test(last)) return last;
+        }
+        return v;
+      }
     }
     return undefined;
   };
