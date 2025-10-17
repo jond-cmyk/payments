@@ -255,6 +255,21 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
             <Button size="sm" onClick={loadBalance} disabled={loadingBalance || !customer.customerNumber}>
               {loadingBalance ? "Loading..." : "Load Balance"}
             </Button>
+            <Button size="sm" variant="outline" onClick={async () => {
+              if (!num) return;
+              console.log("Testing alternative endpoint for customer:", num);
+              const { data, error } = await supabase.functions.invoke("economic-proxy", {
+                body: { path: `/customers/${num}`, method: "GET" },
+              });
+              console.log("Customer detail response:", data);
+              if (!error) {
+                showSuccess("Customer details loaded - check console");
+              } else {
+                showError(error.message || "Failed to load customer details");
+              }
+            }} disabled={!customer.customerNumber}>
+              Test Details
+            </Button>
             <Button size="sm" variant="secondary" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
