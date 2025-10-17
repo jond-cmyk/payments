@@ -62,7 +62,7 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ status: response.status, data: payload }), {
-      status: 200,
+      status: response.status,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error: any) {
