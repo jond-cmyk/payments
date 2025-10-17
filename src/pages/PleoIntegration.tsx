@@ -92,10 +92,68 @@ const PleoIntegration = () => {
             <Globe className="mr-2 h-6 w-6" /> Pleo OpenAPI Proxy
           </CardTitle>
           <CardDescription>
-            Use this tool to test the secure proxy to Pleo. Defaults to <code>/v1/me
+            Use this tool to test the secure proxy to Pleo. Defaults to <code>/v1/me</code>
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium">Endpoint Path</label>
+              <Input
+                value={endpointPath}
+                onChange={(e) => setEndpointPath(e.target.value)}
+                placeholder="/v1/me or /v1/expenses?limit=10"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium">Method</label>
+              <select
+                className="w-full border rounded-md h-10 px-3 bg-background"
+                value={method}
+                onChange={(e) => setMethod(e.target.value as "GET" | "POST")}
+              >
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-1">
+              <label className="text-sm font-medium">API Host</label>
+              <select
+                className="w-full border rounded-md h-10 px-3 bg-background"
+                value={base}
+                onChange={(e) => setBase(e.target.value)}
+              >
+                <option value="https://openapi.pleo.io">https://openapi.pleo.io</option>
+                <option value="https://api.pleo.io">https://api.pleo.io</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium">Request Body</label>
+              <Textarea
+                value={requestBody}
+                onChange={(e) => setRequestBody(e.target.value)}
+                placeholder="Optional request body (JSON)"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="md:col-span-2">
+              <label className="text-sm font-medium">Response</label>
+              <Textarea
+                value={result}
+                readOnly
+                className="h-40 bg-muted"
+              />
+            </div>
+          </div>
+
           <div className="flex gap-4 flex-wrap">
             <Button onClick={handleCallPleo} className="flex-1">
               Call Pleo
