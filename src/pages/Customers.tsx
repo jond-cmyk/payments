@@ -46,9 +46,8 @@ type EconomicCustomer = {
 };
 
 const Customers: React.FC = () => {
-  const { session, isLoading } = useSession(); // Removed userProfile
+  const { session, isLoading } = useSession();
   const navigate = useNavigate();
-  // Removed isAdmin state
 
   const [pageSize, setPageSize] = useState<string>("25");
   const [search, setSearch] = useState<string>("");
@@ -60,7 +59,6 @@ const Customers: React.FC = () => {
     navigate("/login");
     return null;
   }
-  // Removed isAdmin check
 
   const customersQuery = useQuery({
     queryKey: ["economicCustomers", pageSize],
@@ -84,7 +82,6 @@ const Customers: React.FC = () => {
         String(c.customerNumber || ""),
         c.name || "",
         c.email || "",
-        c.phone || "",
         c.address?.street || "",
         c.address?.city || "",
       ].map((s) => s.toLowerCase());
@@ -139,8 +136,7 @@ const Customers: React.FC = () => {
                   <TableHead className="w-24">Number</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>City</TableHead>
+                  <TableHead>Currency</TableHead> {/* Added Currency column */}
                   <TableHead className="w-64">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -150,7 +146,7 @@ const Customers: React.FC = () => {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground"> {/* Adjusted colSpan */}
                       {customersQuery.isLoading ? "Loading customers..." : "No customers found."}
                     </TableCell>
                   </TableRow>
@@ -169,11 +165,10 @@ type DialogColumn = { key: string; header: string; format?: 'date' | 'amount' | 
 
 
 const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => {
-  const [expanded, setExpanded] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
 
-  const [invoiceData, setInvoiceData] = useState<any[] | null>(null); // Renamed from 'invoices'
+  const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
   // States for All Transactions and All Outstanding
@@ -786,39 +781,18 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         <TableCell>{customer.customerNumber ?? "-"}</TableCell>
         <TableCell className="font-medium">{customer.name ?? "-"}</TableCell>
         <TableCell>{customer.email ?? "-"}</TableCell>
-        <TableCell>{customer.phone ?? "-"}</TableCell>
-        <TableCell>{customer.address?.city ?? "-"}</TableCell>
+        <TableCell>{customer.currency ?? "-"}</TableCell> {/* Display Currency */}
         <TableCell>
           <div className="flex flex-wrap gap-2 items-center">
-            <Button size="sm" variant="outline" onClick={() => setExpanded((e) => !e)}>
-              {expanded ? "Hide" : "Details"}
-            </Button>
             <Button size="sm" onClick={loadBalance} disabled={loadingBalance || !customer.customerNumber}>
               {loadingBalance ? "Loading..." : "Load Balance"}
-            </Button>
-            <Button size="sm" variant="outline" onClick={async () => {
-              if (!num) return;
-              console.log("Testing alternative endpoint for customer:", num);
-              const { data, error } = await supabase.functions.invoke("economic-proxy", {
-                body: { path: `/customers/${num}`, method: "GET" },
-              });
-              console.log("Customer detail response:", data);
-              if (!error) {
-                showSuccess("Customer details loaded - check console");
-              } else {
-                showError(error.message || "Failed to load customer details");
-              }
-            }} disabled={!customer.customerNumber}>
-              Test Details
             </Button>
             <Button size="sm" variant="secondary" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
-            {/* NEW: All Transactions Button */}
             <Button size="sm" variant="secondary" onClick={loadTransactions} disabled={loadingTransactions || !customer.customerNumber}>
               {loadingTransactions ? "Loading..." : "All Transactions"}
             </Button>
-            {/* NEW: All Outstanding Button */}
             <Button size="sm" variant="secondary" onClick={loadOutstanding} disabled={loadingOutstanding || !customer.customerNumber}>
               {loadingOutstanding ? "Loading..." : "All Outstanding"}
             </Button>
@@ -830,31 +804,6 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
           </div>
         </TableCell>
       </TableRow>
-      {expanded && (
-        <TableRow>
-          <TableCell colSpan={6}>
-            <div className="rounded-md bg-muted/30 p-4 space-y-3">
-              <div className="text-sm text-muted-foreground">
-                Source: <a href={customer.self} target="_blank" rel="noreferrer" className="underline">{customer.self || "N/A"}</a>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <div className="text-xs text-muted-foreground">Street</div>
-                  <div className="text-sm">{customer.address?.street ?? "-"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Postal Code</div>
-                  <div className="text-sm">{customer.address?.postalCode ?? "-"}</div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Country</div>
-                  <div className="text-sm">{customer.address?.country ?? "-"}</div>
-                </div>
-              </div>
-            </div>
-          </TableCell>
-        </TableRow>
-      )}
 
       {/* Dialog for Invoices */}
       <EconomicDetailDialog
