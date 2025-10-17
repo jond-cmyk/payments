@@ -640,7 +640,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
 
     // Fetch all accounting entries (or a large page size)
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/accounting/entries?pagesize=1000`, method: "GET" }, // Increased pagesize
+      body: { path: `/entries?pagesize=1000`, method: "GET" }, // Changed from /accounting/entries to /entries
     });
     dismissToast(toastId);
 
@@ -651,7 +651,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
 
     const allEntries = extractList(data);
-    console.log("Raw data from economic-proxy for /accounting/entries:", data); // NEW LOG
+    console.log("Raw data from economic-proxy for /entries:", data); // NEW LOG
     console.log("All entries extracted by extractList:", allEntries); // NEW LOG
 
     // Filter entries by customer number
@@ -691,7 +691,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
 
     // Fetch all accounting entries (or a large page size)
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/accounting/entries?pagesize=1000`, method: "GET" }, // Increased pagesize
+      body: { path: `/entries?pagesize=1000`, method: "GET" }, // Changed from /accounting/entries to /entries
     });
     dismissToast(toastId);
 
@@ -702,7 +702,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
 
     const allEntries = extractList(data);
-    console.log("Raw data from economic-proxy for /accounting/entries (outstanding):", data); // NEW LOG
+    console.log("Raw data from economic-proxy for /entries (outstanding):", data); // NEW LOG
     console.log("All entries extracted by extractList (outstanding):", allEntries); // NEW LOG
 
     const outstandingEntries = allEntries.filter(entry => {
