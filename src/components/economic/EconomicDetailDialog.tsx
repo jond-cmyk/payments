@@ -67,10 +67,11 @@ interface EconomicDetailDialogProps {
   data: any[] | null;
   columns: DialogColumn[];
   isLoading?: boolean;
-  accountingYears?: { year: string; href: string }[];
-  selectedAccountingYear?: string | null;
-  onAccountingYearChange?: (year: string) => void;
-  isAccountingYearsLoading?: boolean; // NEW PROP
+  // Removed accounting year props
+  // accountingYears?: { year: string; href: string }[];
+  // selectedAccountingYear?: string | null;
+  // onAccountingYearChange?: (year: string) => void;
+  // isAccountingYearsLoading?: boolean; // NEW PROP
 }
 
 const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
@@ -81,10 +82,11 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   data,
   columns,
   isLoading,
-  accountingYears,
-  selectedAccountingYear,
-  onAccountingYearChange,
-  isAccountingYearsLoading, // Destructure new prop
+  // Removed accounting year props
+  // accountingYears,
+  // selectedAccountingYear,
+  // onAccountingYearChange,
+  // isAccountingYearsLoading,
 }) => {
   // Generic getter for nested value, now correctly handles dot-separated paths in `paths` array
   const getNestedValue = (obj: any, paths: string[] | undefined, key: string): any => {
@@ -177,7 +179,8 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {accountingYears && accountingYears.length > 0 && selectedAccountingYear !== undefined && onAccountingYearChange && (
+        {/* Removed accounting years selection UI */}
+        {/* {accountingYears && accountingYears.length > 0 && selectedAccountingYear !== undefined && onAccountingYearChange && (
           <div className="flex items-center gap-2 mb-4">
             <label htmlFor="accounting-year-select" className="text-sm font-medium text-gray-700">
               Accounting Year:
@@ -199,7 +202,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
               </SelectContent>
             </Select>
           </div>
-        )}
+        )} */}
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full w-full pr-4">
             {isLoading ? (
