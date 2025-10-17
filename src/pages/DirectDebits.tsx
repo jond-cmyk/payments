@@ -175,8 +175,10 @@ const DirectDebits = () => {
       if (filterAccountNumber) {
         query = query.ilike('account_number', `%${filterAccountNumber}%`);
       }
-      // NEW: Apply Payment Day filter - we'll do this client-side since Supabase doesn't have a direct day-of-month filter
-      // but we'll fetch a broader range to make sure we get all possible matches
+      // NEW: Apply Payment Day filter directly in Supabase query
+      if (filterPaymentDay) {
+        query = query.eq('payment_day', filterPaymentDay);
+      }
 
       // Apply sorting
       if (sortColumn) {
@@ -196,15 +198,8 @@ const DirectDebits = () => {
 
       const { data, error, count } = await query;
       if (error) throw error;
-      // NEW: Apply client-side Payment Day filter (day of month from payment_date)
-      const filteredData = filterPaymentDay
-        ? (data || []).filter(d => {
-            if (!d.payment_day) return false; // Use payment_day directly
-            return d.payment_day === filterPaymentDay;
-          })
-        : (data || []);
-      setTotalItems(filteredData.length);
-      return filteredData;
+      setTotalItems(count || 0); // Set total items for pagination
+      return data;
     },
     enabled: !!session,
   });

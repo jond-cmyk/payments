@@ -257,6 +257,7 @@ serve(async (req) => {
         let paymentReference = '';
         let bankAccount = '';
         let currency = '';
+        let paymentDayRaw = ''; // NEW: Payment Day
 
         if (isDirectDebitHeaders) {
           payee = pick(row, 'Payee');
@@ -269,6 +270,7 @@ serve(async (req) => {
           paymentReference = pick(row, 'Payment Reference');
           bankAccount = pick(row, 'Bank Account');
           currency = pick(row, 'Currency');
+          paymentDayRaw = pick(row, 'Payment Day'); // NEW: Pick Payment Day
         } else if (isUKMinimalHeaders) {
           payee = pick(row, 'Payee');
           paymentDateRaw = '';
@@ -280,6 +282,7 @@ serve(async (req) => {
           paymentReference = pick(row, 'Payment Reference');
           bankAccount = pick(row, 'Bank Account');
           currency = pick(row, 'Currency');
+          paymentDayRaw = pick(row, 'Payment Day'); // NEW: Pick Payment Day
         } else {
           // Transaction CSV fallback mapping to direct debits
           payee = pick(row, 'Text');
@@ -292,6 +295,7 @@ serve(async (req) => {
           paymentReference = pick(row, 'Entry');
           bankAccount = pick(row, 'Bank');
           currency = pick(row, 'Currency');
+          paymentDayRaw = ''; // Not typically in transaction CSV
         }
 
         if (!payee) {
@@ -330,11 +334,23 @@ serve(async (req) => {
         const payment_date = toISODate(paymentDateRaw) || null;
         const category = mapCategory(categoryRaw);
         const not_property_related = parseBoolean(notPropertyRelatedRaw);
+        
+        let payment_day: number | null = null;
+        if (paymentDayRaw) {
+          const parsedDay = parseInt(paymentDayRaw, 10);
+          if (!isNaN(parsedDay) && parsedDay >= 1 && parsedDay <= 31) {
+            payment_day = parsedDay;
+          } else {
+            errors.push(`Row ${i + 1}: Invalid Payment Day '${paymentDayRaw}'. Skipping.`);
+            continue;
+          }
+        }
 
         const directDebitRecord = {
           requester_id: requesterId,
           payee,
           payment_date, // YYYY-MM-DD or null
+          payment_day, // NEW: Include payment_day
           sku: sku || null,
           not_property_related,
           category,

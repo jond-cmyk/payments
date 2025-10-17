@@ -88,7 +88,6 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
     resolver: zodResolver(editDirectDebitFormSchema),
     defaultValues: {
       payee: directDebit.payee,
-      // FIX: Initialize payment_day directly from directDebit.payment_day
       payment_day: directDebit.payment_day !== null && directDebit.payment_day !== undefined ? directDebit.payment_day : undefined,
       sku: directDebit.sku || (directDebit.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: directDebit.not_property_related,

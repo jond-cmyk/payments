@@ -117,7 +117,7 @@ export type DirectDebit = {
   requester_id: string;
   payee: string | null;
   payment_date: string | null;
-  payment_day?: number | null; // ADDED: payment_day
+  payment_day?: number | null;
   sku: string | null;
   not_property_related: boolean;
   category: string | null;
