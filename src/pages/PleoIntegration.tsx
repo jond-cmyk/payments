@@ -92,7 +92,7 @@ const PleoIntegration = () => {
             <Globe className="mr-2 h-6 w-6" /> Pleo OpenAPI Proxy
           </CardTitle>
           <CardDescription>
-            Use this tool to test the secure proxy to Pleo. Defaults to <code>/v1/me
+            Use this tool to test the secure proxy to Pleo. Defaults to <code>/v1/me</code>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
