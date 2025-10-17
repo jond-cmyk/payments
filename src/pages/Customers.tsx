@@ -46,9 +46,9 @@ type EconomicCustomer = {
 };
 
 const Customers: React.FC = () => {
-  const { session, isLoading, userProfile } = useSession();
+  const { session, isLoading } = useSession(); // Removed userProfile
   const navigate = useNavigate();
-  const isAdmin = userProfile?.role === "admin";
+  // Removed isAdmin state
 
   const [pageSize, setPageSize] = useState<string>("25");
   const [search, setSearch] = useState<string>("");
@@ -60,11 +60,7 @@ const Customers: React.FC = () => {
     navigate("/login");
     return null;
   }
-  if (!isAdmin) {
-    showError("You do not have permission to view Customers.");
-    navigate("/dashboard");
-    return null;
-  }
+  // Removed isAdmin check
 
   const customersQuery = useQuery({
     queryKey: ["economicCustomers", pageSize],
