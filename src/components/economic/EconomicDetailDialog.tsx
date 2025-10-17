@@ -70,7 +70,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   const getNestedValue = (obj: any, path: string[] | undefined, key: string): any => {
     if (!obj) return undefined;
     let value = obj;
-    const actualPath = path || [key]; // Use path if provided, otherwise fallback to key
+    const actualPath = path && path.length > 0 ? path : [key]; // Use path if provided and not empty, otherwise fallback to key
 
     for (const p of actualPath) {
       if (value && typeof value === 'object' && p in value) {
@@ -84,7 +84,20 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
 
   const renderCell = (item: any, column: typeof columns[0]) => {
     const rawValue = getNestedValue(item, column.path, column.key);
-    const currencyValue = getNestedValue(item, ['currency'], 'currency'); // Always try to get currency
+    
+    let currencySymbol = '';
+    // Try to get currency from the item itself first, then from related objects
+    const itemCurrency = getNestedValue(item, ['currency', 'currency.code'], 'currency');
+    if (itemCurrency) {
+      currencySymbol = itemCurrency;
+    } else if (item.customer?.currency) { // Fallback to customer's currency if item has a customer object
+      currencySymbol = item.customer.currency;
+    } else if (item.debtor?.currency) { // Fallback for entries
+      currencySymbol = item.debtor.currency;
+    } else if (item.creditor?.currency) { // Fallback for entries
+      currencySymbol = item.creditor.currency;
+    }
+
 
     switch (column.format) {
       case 'date':
@@ -92,7 +105,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
       case 'amount':
         return formatAmount(rawValue);
       case 'currencyAmount':
-        return `${currencyValue || ''} ${formatAmount(rawValue)}`;
+        return `${currencySymbol || ''} ${formatAmount(rawValue)}`; // Use the determined currencySymbol
       case 'boolean':
         return rawValue ? 'Yes' : 'No';
       case 'array':

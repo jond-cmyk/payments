@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
 import { List } from "lucide-react";
-import EconomicDetailDialog from "@/components/economic/EconomicDetailDialog"; // NEW: Import EconomicDetailDialog
+import EconomicDetailDialog from "@/components/economic/EconomicDetailDialog"; // Import EconomicDetailDialog
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -168,6 +168,10 @@ const Customers: React.FC = () => {
   );
 };
 
+// Define a type for columns that matches the dialog's props
+type DialogColumn = { key: string; header: string; format?: 'date' | 'amount' | 'currencyAmount' | 'boolean' | 'array' | 'object' | 'raw'; path?: string[] };
+
+
 const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => {
   const [expanded, setExpanded] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
@@ -176,7 +180,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   const [invoiceData, setInvoiceData] = useState<any[] | null>(null); // Renamed from 'invoices'
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
-  // NEW: States for All Transactions and All Outstanding
+  // States for All Transactions and All Outstanding
   const [transactionsData, setTransactionsData] = useState<any[] | null>(null);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [outstandingData, setOutstandingData] = useState<any[] | null>(null);
@@ -660,14 +664,15 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
   };
 
-  // NEW: Load all transactions for a customer
+  // Load all transactions for a customer
   const loadTransactions = async () => {
     if (!num) return;
     setLoadingTransactions(true);
     const toastId = showLoading("Loading all transactions...");
 
+    // Fetch all accounting entries (or a large page size)
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/accounting/entries?customerNumber=${num}&pagesize=100`, method: "GET" },
+      body: { path: `/accounting/entries?pagesize=1000`, method: "GET" }, // Increased pagesize
     });
     dismissToast(toastId);
 
@@ -677,27 +682,42 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       return;
     }
 
-    const list = extractList(data);
-    setTransactionsData(list);
+    const allEntries = extractList(data);
+    console.log("All entries fetched:", allEntries); // Debugging
+
+    // Filter entries by customer number
+    const customerTransactions = allEntries.filter(entry => {
+      const entryCustomerNumber = pick(entry, [
+        'customerNumber',
+        'customer.customerNumber',
+        'debtor.customerNumber', // Common for entries
+        'debtor.number',
+        'creditor.customerNumber', // If it's a credit entry
+        'creditor.number',
+      ]);
+      return String(entryCustomerNumber ?? "") === String(num);
+    });
+
+    setTransactionsData(customerTransactions);
     setShowTransactionsDialog(true);
     setLoadingTransactions(false);
 
-    if (list.length > 0) {
-      showSuccess(`Loaded ${list.length} transactions`);
+    if (customerTransactions.length > 0) {
+      showSuccess(`Loaded ${customerTransactions.length} transactions`);
     } else {
       showError("No transactions found for this customer");
     }
   };
 
-  // NEW: Load all outstanding transactions for a customer
+  // Load all outstanding transactions for a customer
   const loadOutstanding = async () => {
     if (!num) return;
     setLoadingOutstanding(true);
     const toastId = showLoading("Loading outstanding transactions...");
 
-    // Attempt to fetch entries and filter for outstanding (e.g., remainingAmount > 0)
+    // Fetch all accounting entries (or a large page size)
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/accounting/entries?customerNumber=${num}&pagesize=100`, method: "GET" },
+      body: { path: `/accounting/entries?pagesize=1000`, method: "GET" }, // Increased pagesize
     });
     dismissToast(toastId);
 
@@ -708,9 +728,19 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
 
     const allEntries = extractList(data);
+    console.log("All entries fetched for outstanding:", allEntries); // Debugging
+
     const outstandingEntries = allEntries.filter(entry => {
-      const remainingAmount = pick(entry, ['remainingAmount', 'remainingAmount.value', 'amount.remaining']);
-      return typeof remainingAmount === 'number' && remainingAmount > 0;
+      const entryCustomerNumber = pick(entry, [
+        'customerNumber',
+        'customer.customerNumber',
+        'debtor.customerNumber',
+        'debtor.number',
+        'creditor.customerNumber',
+        'creditor.number',
+      ]);
+      const remainingAmount = pick(entry, ['remainingAmount', 'remainingAmount.value', 'amount.remaining', 'balance']); // Added 'balance' as a candidate
+      return String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
     });
 
     setOutstandingData(outstandingEntries);
@@ -725,7 +755,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   };
 
   // Column definitions for the dialogs
-  const invoiceColumns = [
+  const invoiceColumns: DialogColumn[] = [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'bookedDate', 'issueDate', 'invoiceDate', 'createdAt'] },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
@@ -733,7 +763,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     { key: 'status', header: 'Status', path: ['status', 'state', 'booked', 'paymentStatus', 'invoiceStatus', 'draft', 'sent'] },
   ];
 
-  const transactionColumns = [
+  const transactionColumns: DialogColumn[] = [
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
     { key: 'description', header: 'Description', path: ['description', 'text', 'notes.heading', 'notes.text'] },
@@ -743,7 +773,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     { key: 'remainingAmount', header: 'Outstanding', format: 'currencyAmount', path: ['remainingAmount', 'remainingAmount.value', 'amount.remaining'] },
   ];
 
-  const outstandingColumns = [
+  const outstandingColumns: DialogColumn[] = [
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
     { key: 'description', header: 'Description', path: ['description', 'text', 'notes.heading', 'notes.text'] },
