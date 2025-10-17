@@ -413,12 +413,13 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                           <TableHead>Date</TableHead>
                           <TableHead>Amount</TableHead>
                           <TableHead>Status</TableHead>
+                          <TableHead>Text</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {invoices.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={4} className="text-center text-muted-foreground">
+                            <TableCell colSpan={5} className="text-center text-muted-foreground">
                               No invoices found for this customer.
                             </TableCell>
                           </TableRow>
@@ -434,6 +435,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                                 {pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat", "total", "netAmount"]) ?? "-"}
                               </TableCell>
                               <TableCell>{pick(inv, ["status", "state", "booked", "paymentStatus", "invoiceStatus", "draft", "sent"]) ?? "-"}</TableCell>
+                              <TableCell>{pick(inv, ["text", "description", "notes", "heading", "title", "customerName", "name"]) ?? "-"}</TableCell>
                             </TableRow>
                           );
                         })}
