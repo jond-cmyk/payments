@@ -236,10 +236,10 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             account_number: values.account_number?.replace(/\s/g, ''),
           }
         : {
-            account_address: values.account_address,
-            iban_number: values.iban_number,
-            sort_code: null,
-            account_number: null,
+            account_address: null, // Always null for UK
+            iban_number: null, // Always null for UK
+            sort_code: values.sort_code,
+            account_number: values.account_number?.replace(/\s/g, ''),
           };
 
       const { error: updateError } = await supabase
@@ -385,7 +385,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 <SelectContent>
                   {daysOfMonth.map((day) => (
                     <SelectItem key={day} value={String(day)}>
-                      {day}
+                      Day {day}
                     </SelectItem>
                   ))}
                 </SelectContent>
