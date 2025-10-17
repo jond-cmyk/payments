@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 serve(async (req) => {
@@ -15,7 +16,7 @@ serve(async (req) => {
     if (!token) {
       return new Response(
         JSON.stringify({ error: "PLEO_API_TOKEN is not set. Please configure it in Supabase Secrets." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -24,7 +25,7 @@ serve(async (req) => {
     if (!path || typeof path !== "string") {
       return new Response(
         JSON.stringify({ error: "Missing 'path'. Example: '/v1/me' or '/v1/expenses?limit=10'." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -53,22 +54,33 @@ serve(async (req) => {
     const response = await fetch(url, fetchOptions);
     const text = await response.text();
 
-    // Try to forward JSON, otherwise pass raw text
+    // Try to parse JSON; fall back to raw text
     let payload: unknown = text;
     try {
       payload = JSON.parse(text);
-    } catch (_) {
-      // leave as text if not valid JSON
+    } catch {
+      // keep as text
     }
 
-    return new Response(JSON.stringify({ status: response.status, data: payload }), {
-      status: response.status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Always return 200 so supabase-js doesn't mask the response as an error
+    return new Response(
+      JSON.stringify({
+        ok: response.ok,
+        status: response.status,
+        data: payload,
+      }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error?.message || "Unexpected error calling Pleo API." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: error?.message || "Unexpected error calling Pleo API." }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
