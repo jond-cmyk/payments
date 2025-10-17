@@ -182,6 +182,54 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
 
   const num = customer.customerNumber;
 
+  // Helper to extract a list from varied economic response shapes
+  const extractList = (payload: any): any[] => {
+    // The payload here is the EconomicProxyResponse object
+    const economicResponseData = payload?.data; // This should be the actual e-conomic API response
+    console.log("[extractList] Economic API Response Data (payload.data):", JSON.stringify(economicResponseData, null, 2));
+
+    if (!economicResponseData) {
+      console.log("[extractList] No economicResponseData found. Returning empty array.");
+      return [];
+    }
+
+    // Check for common collection properties
+    const candidates = [
+      economicResponseData.collection,
+      economicResponseData.items,
+      economicResponseData.results,
+      economicResponseData.entries, // Specific for /entries
+      economicResponseData.invoices
+    ];
+
+    for (const c of candidates) {
+      if (Array.isArray(c)) {
+        console.log("[extractList] Found array in candidate:", c.length, "items.");
+        return c;
+      }
+    }
+
+    // If the root itself is an array (less common for collections, but possible)
+    if (Array.isArray(economicResponseData)) {
+      console.log("[extractList] Root economicResponseData is an array:", economicResponseData.length, "items.");
+      return economicResponseData;
+    }
+
+    // If it's an object, check if any direct property is an array
+    if (typeof economicResponseData === "object") {
+      for (const k of Object.keys(economicResponseData)) {
+        const v = (economicResponseData as any)[k];
+        if (Array.isArray(v)) {
+          console.log(`[extractList] Found array in property '${k}':`, v.length, "items.");
+          return v;
+        }
+      }
+    }
+    
+    console.log("[extractList] No array found in economicResponseData or its properties. Returning empty array.");
+    return [];
+  };
+
   // Fetch balance automatically using useQuery
   const { data: balance, isLoading: loadingBalance, error: balanceError } = useQuery<number | null>({
     queryKey: ["customerBalance", num],
@@ -320,29 +368,6 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         }
       }
     }
-  };
-
-  // Helper to extract a list from varied economic response shapes
-  const extractList = (payload: any): any[] => {
-    const root = (payload && payload.data) ? payload.data : payload;
-    if (Array.isArray(root)) return root;
-    const candidates = [
-      root?.collection,
-      root?.items,
-      root?.results,
-      root?.entries,
-      root?.invoices
-    ];
-    for (const c of candidates) {
-      if (Array.isArray(c)) return c;
-    }
-    if (root && typeof root === "object") {
-      for (const k of Object.keys(root)) {
-        const v = (root as any)[k];
-        if (Array.isArray(v)) return v;
-      }
-    }
-    return [];
   };
 
   // Generic getter for nested value
@@ -638,9 +663,9 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     setLoadingTransactions(true);
     const toastId = showLoading("Loading all transactions...");
 
-    // Fetch all accounting entries (or a large page size)
+    // Pass customerNumber as a query parameter to the proxy
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries?pagesize=1000`, method: "GET" }, // Changed from /accounting/entries to /entries
+      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" }, // ADDED query parameter
     });
     dismissToast(toastId);
 
@@ -651,10 +676,11 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
 
     const allEntries = extractList(data);
-    console.log("Raw data from economic-proxy for /entries:", data); // NEW LOG
-    console.log("All entries extracted by extractList:", allEntries); // NEW LOG
+    console.log("Raw data from economic-proxy for /entries:", data);
+    console.log("All entries extracted by extractList:", allEntries);
 
-    // Filter entries by customer number
+    // Client-side filtering might still be needed if API filtering is not exact or for robustness
+    // But with debtorNumber filter, this should be much smaller or unnecessary
     const customerTransactions = allEntries.filter(entry => {
       const entryCustomerNumber = pick(entry, [
         'customerNumber',
@@ -663,12 +689,11 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         'debtor.number',
         'creditor.customerNumber',
         'creditor.number',
-        'customer.number', // Added for robustness
-        'customer.id', // Added for robustness
-        'debtor.id', // Added for robustness
-        'creditor.id', // Added for robustness
+        'customer.number',
+        'customer.id',
+        'debtor.id',
+        'creditor.id',
       ]);
-      console.log(`Filtering entry: ${JSON.stringify(entry)}, picked customerNumber: ${entryCustomerNumber}, target customerNumber: ${num}`); // NEW LOG
       return String(entryCustomerNumber ?? "") === String(num);
     });
 
@@ -689,9 +714,9 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     setLoadingOutstanding(true);
     const toastId = showLoading("Loading outstanding transactions...");
 
-    // Fetch all accounting entries (or a large page size)
+    // Pass customerNumber as a query parameter to the proxy
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries?pagesize=1000`, method: "GET" }, // Changed from /accounting/entries to /entries
+      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" }, // ADDED query parameter
     });
     dismissToast(toastId);
 
@@ -702,8 +727,8 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
 
     const allEntries = extractList(data);
-    console.log("Raw data from economic-proxy for /entries (outstanding):", data); // NEW LOG
-    console.log("All entries extracted by extractList (outstanding):", allEntries); // NEW LOG
+    console.log("Raw data from economic-proxy for /entries (outstanding):", data);
+    console.log("All entries extracted by extractList (outstanding):", allEntries);
 
     const outstandingEntries = allEntries.filter(entry => {
       const entryCustomerNumber = pick(entry, [
@@ -713,21 +738,20 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         'debtor.number',
         'creditor.customerNumber',
         'creditor.number',
-        'customer.number', // Added for robustness
-        'customer.id', // Added for robustness
-        'debtor.id', // Added for robustness
-        'creditor.id', // Added for robustness
+        'customer.number',
+        'customer.id',
+        'debtor.id',
+        'creditor.id',
       ]);
       const remainingAmount = pick(entry, [
         'remainingAmount',
         'remainingAmount.value',
         'amount.remaining',
         'balance',
-        'outstandingAmount', // Added for robustness
-        'openEntriesAmount', // Added for robustness
-        'dueAmount', // Added for robustness
+        'outstandingAmount',
+        'openEntriesAmount',
+        'dueAmount',
       ]);
-      console.log(`Filtering outstanding entry: ${JSON.stringify(entry)}, picked customerNumber: ${entryCustomerNumber}, target customerNumber: ${num}, remainingAmount: ${remainingAmount}`); // NEW LOG
       return String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
     });
 
