@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
 import PageTitle from "@/components/PageTitle";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,8 +16,8 @@ import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast
 import { List, FileText } from "lucide-react";
 import EconomicDetailDialog, { DialogColumn } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Import Alert components
-import { formatAmount } from "@/components/economic/EconomicDetailDialog"; // Import formatAmount
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { formatAmount } from "@/components/economic/EconomicDetailDialog";
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -213,7 +213,7 @@ const Customers: React.FC = () => {
                     availableAccountingYears={availableAccountingYears}
                     selectedAccountingYear={selectedAccountingYear}
                     onAccountingYearChange={setSelectedAccountingYear}
-                    isAccountingYearsLoading={accountingYearsQuery.isLoading} // Pass loading state
+                    isAccountingYearsLoading={accountingYearsQuery.isLoading}
                   />
                 ))}
                 {filtered.length === 0 && (
@@ -237,7 +237,7 @@ interface CustomerRowProps {
   availableAccountingYears: { year: string; href: string }[];
   selectedAccountingYear: string | null;
   onAccountingYearChange: (year: string) => void;
-  isAccountingYearsLoading: boolean; // NEW PROP
+  isAccountingYearsLoading: boolean;
 }
 
 const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccountingYears, selectedAccountingYear, onAccountingYearChange, isAccountingYearsLoading }) => {
@@ -382,8 +382,30 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
     return JSON.stringify(inv);
   };
 
+  // Extract the description field from invoice
+  const getInvoiceDescription = useCallback((inv: any): string => {
+    const candidates = [
+      inv?.description,
+      inv?.text,
+      inv?.notes?.text,
+      inv?.notes?.heading,
+      inv?.heading,
+      inv?.title,
+      inv?.header,
+      inv?.recipient?.name,
+      inv?.customer?.name,
+    ];
+
+    for (const c of candidates) {
+      if (typeof c === "string" && c.trim() !== "") {
+        return c;
+      }
+    }
+    return "-";
+  }, []);
+
   // Try to fetch the detailed invoice and extract the "Notes and references -> Heading"
-  const fetchHeadingForInvoice = async (inv: any) => {
+  const fetchHeadingForInvoice = useCallback(async (inv: any) => {
     const path =
       pathFromSelf(inv?.self) ??
       (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : undefined);
@@ -396,7 +418,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
 
     const root = (data as any)?.data ?? data;
 
-    // Prefer the Notes and references -> Heading
+    // Prioritize specific heading/description fields from the detailed response
     const candidates = [
       root?.notes?.heading,
       root?.notes?.header,
@@ -432,18 +454,24 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
     if (!found && inv?.orderNumber) {
       found = `Order #${inv.orderNumber}`;
     }
-    if (!found) return;
+    
+    // Final fallback: use the generic description getter
+    if (!found) {
+      found = getInvoiceDescription(root);
+    }
+
+    if (!found || found === "-") return;
 
     const key = getInvoiceKey(inv);
     setInvoiceHeadings((prev) => ({ ...prev, [key]: found as string }));
-  };
+  }, [getInvoiceDescription, setInvoiceHeadings]);
 
   // Enrich headings for a list of invoices without blocking UI
-  const enrichInvoiceHeadings = async (list: any[]) => {
+  const enrichInvoiceHeadings = useCallback(async (list: any[]) => {
     for (const inv of list) {
       const key = getInvoiceKey(inv);
       if (!invoiceHeadings[key]) {
-        const basic = getInvoiceText(inv);
+        const basic = getInvoiceDescription(inv);
         if (basic && basic !== "-") {
           setInvoiceHeadings((prev) => ({ ...prev, [key]: basic }));
         } else {
@@ -452,23 +480,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
         }
       }
     }
-  };
-
-  // Extract the heading field from invoice
-  const getInvoiceText = (inv: any): string => {
-    // Directly get the heading field
-    const heading = inv.heading;
-    if (typeof heading === "string" && heading.trim() !== "") return heading;
-    const fallbackFields = ["title", "header", "description", "text"];
-    for (const field of fallbackFields) {
-      const value = inv[field];
-      if (typeof value === "string" && value.trim() !== "") return value;
-    }
-    return "-";
-  };
+  }, [invoiceHeadings, getInvoiceDescription, fetchHeadingForInvoice]);
 
   // New helper function to handle 401 responses and attempt demo fallbacks
-  const handleUnauthorized = async (economicErrorResponse: any, originalRequestPath: string): Promise<boolean> => {
+  const handleUnauthorized = useCallback(async (economicErrorResponse: any, originalRequestPath: string): Promise<boolean> => {
     const demoLink = economicErrorResponse?.demoLink;
     if (typeof demoLink === "string" && demoLink.trim() !== "") {
       try {
@@ -510,10 +525,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
 
     showError("Unauthorized to access invoice PDF. Check ECONOMIC_APP_SECRET_TOKEN and ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.");
     return false;
-  };
+  }, []);
 
   // View invoice: fetch details and open PDF link if available
-  const viewInvoice = async (inv: any) => {
+  const viewInvoice = useCallback(async (inv: any) => {
     const toastId = showLoading("Fetching invoice...");
     const basePath =
       pathFromSelf(inv?.self) ??
@@ -626,9 +641,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
       console.error("Error opening PDF URL:", e);
       showError("Unable to open invoice PDF");
     }
-  };
+  }, [handleUnauthorized]);
 
-  const loadInvoices = async () => {
+  const loadInvoices = useCallback(async () => {
     setLoadingInvoices(true);
     const toastId = showLoading("Loading invoices...");
 
@@ -684,7 +699,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
     } else {
       showError("No invoices found for this customer");
     }
-  };
+  }, [num, enrichInvoiceHeadings]);
 
   // Load all transactions for a customer
   const loadTransactions = async () => {
@@ -800,10 +815,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
   // Column definitions for the dialogs
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
-    { key: 'heading', header: 'Heading', path: ['heading', 'notes.heading', 'notes.header', 'notes.noteHeading', 'title', 'header', 'description', 'text', 'recipient.name', 'customer.name'],
+    { key: 'text', header: 'Text', path: ['description', 'text', 'notes.text', 'notes.heading', 'notes.header', 'notes.noteHeading', 'heading', 'title', 'header', 'recipient.name', 'customer.name'],
       render: (item) => {
         const key = getInvoiceKey(item);
-        return invoiceHeadings[key] || getInvoiceText(item);
+        return invoiceHeadings[key] || getInvoiceDescription(item);
       }
     },
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'bookedDate', 'issueDate', 'invoiceDate', 'createdAt'] },
@@ -822,7 +837,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
         </Button>
       ),
     },
-  ], [invoiceHeadings, viewInvoice]);
+  ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
 
   const transactionColumns: DialogColumn[] = [
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
@@ -906,7 +921,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
           onAccountingYearChange(year);
           loadTransactions();
         }}
-        isAccountingYearsLoading={isAccountingYearsLoading} // Pass loading state
+        isAccountingYearsLoading={isAccountingYearsLoading}
       />
 
       {/* Dialog for All Outstanding */}
@@ -924,7 +939,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, availableAccounting
           onAccountingYearChange(year);
           loadOutstanding();
         }}
-        isAccountingYearsLoading={isAccountingYearsLoading} // Pass loading state
+        isAccountingYearsLoading={isAccountingYearsLoading}
       />
     </>
   );
