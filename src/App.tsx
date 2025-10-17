@@ -27,7 +27,7 @@ import CustomerDepositReturns from "./pages/CustomerDepositReturns";
 import AdminFeedback from "./pages/AdminFeedback";
 import ProfilePage from "./pages/Profile";
 import Statistics from "./pages/Statistics";
-import PleoIntegration from "./pages/PleoIntegration";
+import EconomicIntegration from "./pages/EconomicIntegration";
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext";
@@ -96,7 +96,7 @@ const App = () => {
                       <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
                       <Route path="/notifications" element={<NotificationsPage />} />
                       <Route path="/admin/feedback" element={<AdminFeedback />} />
-                      <Route path="/admin/pleo-integration" element={<PleoIntegration />} />
+                      <Route path="/admin/economic-integration" element={<EconomicIntegration />} />
                     </Route>
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
