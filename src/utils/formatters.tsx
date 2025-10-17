@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 
 /**
@@ -77,6 +79,26 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
       regex: /Payment Approved Date changed from \\"[^"]+\\" to \\"[^"]+\\"\.?/g,
       formatter: (match: RegExpExecArray) => null, // Filter this out
       filter: true,
+    },
+    { // NEW: Handle generic update message for Standing Orders
+      name: 'standingOrderGenericUpdate',
+      regex: /Standing Order updated \(description was unexpectedly null\)\.?/g,
+      formatter: (match: RegExpExecArray) => (
+        <React.Fragment key={`so-generic-update-${match.index}`}>
+          Standing Order updated (no specific field changes detected).
+        </React.Fragment>
+      ),
+      filter: false,
+    },
+    { // NEW: Handle generic update message for Transactions
+      name: 'transactionGenericUpdate',
+      regex: /Transaction updated \(description was unexpectedly null\)\.?/g,
+      formatter: (match: RegExpExecArray) => (
+        <React.Fragment key={`tr-generic-update-${match.index}`}>
+          Transaction updated (no specific field changes detected).
+        </React.Fragment>
+      ),
+      filter: false,
     },
   ];
 
