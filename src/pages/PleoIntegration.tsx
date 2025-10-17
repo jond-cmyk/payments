@@ -15,7 +15,7 @@ import { Globe } from "lucide-react";
 const PleoIntegration = () => {
   const { session, isLoading, userProfile } = useSession();
   const navigate = useNavigate();
-  const [endpointPath, setEndpointPath] = useState<string>("/v1/me");
+  const [endpointPath, setEndpointPath] = useState<string>("/me");
   const [method, setMethod] = useState<"GET" | "POST">("GET");
   const [requestBody, setRequestBody] = useState<string>("");
   const [result, setResult] = useState<string>("");
@@ -67,13 +67,22 @@ const PleoIntegration = () => {
 
       setResult(JSON.stringify(data, null, 2));
 
-      const resp = data as { ok?: boolean; status?: number; data?: unknown; error?: string };
+      const resp = data as { ok?: boolean; status?: number; data?: any; error?: string };
       if (resp?.error) {
         showError(resp.error);
       } else if (resp?.ok === false || (resp?.status && resp.status >= 400)) {
-        showError(`Pleo returned status ${resp.status}`);
+        if (resp?.status === 404) {
+          showError("404 Not Found. Your token may use versionless endpoints. Try removing `/v1` and use paths like `/me`.");
+        } else {
+          showError(`Pleo returned status ${resp.status}`);
+        }
       } else {
-        showSuccess("Pleo response received!");
+        const expensesCount = Array.isArray(resp?.data?.expenses) ? resp.data.expenses.length : undefined;
+        if (typeof expensesCount === "number") {
+          showSuccess(`Fetched ${expensesCount} expenses from /me`);
+        } else {
+          showSuccess("Pleo response received!");
+        }
       }
       dismissToast(toastId);
     } catch (e: any) {
@@ -92,7 +101,7 @@ const PleoIntegration = () => {
             <Globe className="mr-2 h-6 w-6" /> Pleo OpenAPI Proxy
           </CardTitle>
           <CardDescription>
-            Use this tool to test the secure proxy to Pleo. Defaults to <code>/v1/me</code>
+            Use this tool to test the secure proxy to Pleo. Defaults to <code>/me</code>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
