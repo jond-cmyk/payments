@@ -175,6 +175,104 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
   const [invoices, setInvoices] = useState<any[] | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
+  // Keep a map of headings for invoices (keyed by self URL or number)
+  const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
+
+  // Build a path from a 'self' URL to pass through the economic-proxy
+  const pathFromSelf = (self: string): string | undefined => {
+    if (typeof self !== "string" || !self) return undefined;
+    if (self.startsWith("http")) {
+      const parts = self.split("/");
+      if (parts.length >= 4) {
+        return "/" + parts.slice(3).join("/");
+      }
+      return undefined;
+    }
+    if (self.startsWith("/")) return self;
+    return "/" + self;
+  };
+
+  // Stable key for invoice map
+  const getInvoiceKey = (inv: any): string => {
+    if (inv?.self) return String(inv.self);
+    if (inv?.bookedInvoiceNumber) return `booked:${inv.bookedInvoiceNumber}`;
+    if (inv?.invoiceNumber) return `invoice:${inv.invoiceNumber}`;
+    if (inv?.id) return `id:${inv.id}`;
+    return JSON.stringify(inv);
+  };
+
+  // Try to fetch the detailed invoice and extract the "Notes and references -> Heading"
+  const fetchHeadingForInvoice = async (inv: any) => {
+    const path =
+      pathFromSelf(inv?.self) ??
+      (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : undefined);
+    if (!path) return;
+
+    const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      body: { path, method: "GET" },
+    });
+    if (error || !data) return;
+
+    const root = (data as any)?.data ?? data;
+
+    // Prefer the Notes and references -> Heading
+    const candidates = [
+      root?.notes?.heading,
+      root?.notes?.header,
+      root?.notes?.noteHeading,
+      root?.heading,
+      root?.title,
+      root?.header,
+      root?.description,
+      root?.text,
+      root?.recipient?.name,
+      root?.customer?.name,
+    ];
+
+    let found: string | undefined;
+    for (const c of candidates) {
+      if (typeof c === "string" && c.trim() !== "") {
+        found = c;
+        break;
+      }
+    }
+
+    if (!found && root?.references) {
+      const refs = root.references;
+      const refCandidates = [refs?.heading, refs?.other, refs?.text, refs?.note];
+      for (const c of refCandidates) {
+        if (typeof c === "string" && c.trim() !== "") {
+          found = c;
+          break;
+        }
+      }
+    }
+
+    if (!found && inv?.orderNumber) {
+      found = `Order #${inv.orderNumber}`;
+    }
+    if (!found) return;
+
+    const key = getInvoiceKey(inv);
+    setInvoiceHeadings((prev) => ({ ...prev, [key]: found as string }));
+  };
+
+  // Enrich headings for a list of invoices without blocking UI
+  const enrichInvoiceHeadings = async (list: any[]) => {
+    for (const inv of list) {
+      const key = getInvoiceKey(inv);
+      if (!invoiceHeadings[key]) {
+        const basic = getInvoiceText(inv);
+        if (basic && basic !== "-") {
+          setInvoiceHeadings((prev) => ({ ...prev, [key]: basic }));
+        } else {
+          // fire-and-forget detail fetch
+          fetchHeadingForInvoice(inv);
+        }
+      }
+    }
+  };
+
   const num = customer.customerNumber;
 
   // Helper to extract a list from varied economic response shapes
@@ -357,7 +455,6 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       }
     }
 
-    // If we used a general invoices endpoint, filter by customer number when available
     if (num != null && list.length > 0) {
       list = list.filter((inv: any) => {
         const cn = pick(inv, [
@@ -376,6 +473,11 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     setLoadingInvoices(false);
 
     setInvoices(list);
+    // Start enriching headings (Notes -> Heading) after we set the list
+    if (list.length > 0) {
+      enrichInvoiceHeadings(list);
+    }
+
     if (list.length > 0) {
       showSuccess(`Loaded ${list.length} invoices`);
     } else {
@@ -474,6 +576,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                           console.log("Invoice heading field:", inv.heading);
                           console.log("Invoice layout object:", inv.layout);
                           console.log("All invoice keys:", Object.keys(inv));
+                          const headingText = invoiceHeadings[getInvoiceKey(inv)] ?? getInvoiceText(inv);
                           return (
                             <TableRow key={inv?.invoiceNumber ?? inv?.id ?? Math.random()}>
                               <TableCell>
@@ -484,7 +587,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                                 {formatAmount(pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat", "total", "netAmount"]))}
                               </TableCell>
                               <TableCell>{pick(inv, ["status", "state", "booked", "paymentStatus", "invoiceStatus", "draft", "sent"]) ?? "-"}</TableCell>
-                              <TableCell>{getInvoiceText(inv)}</TableCell>
+                              <TableCell>{headingText || "-"}</TableCell>
                             </TableRow>
                           );
                         })}
