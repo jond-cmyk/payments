@@ -71,6 +71,12 @@ serve(async (req) => {
         ok: response.ok,
         status: response.status,
         data: payload,
+        request: {
+          url,
+          baseUrl,
+          path: normalizedPath,
+          method,
+        },
       }),
       {
         status: 200,

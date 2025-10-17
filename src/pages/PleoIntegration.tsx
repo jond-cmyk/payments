@@ -61,35 +61,30 @@ const PleoIntegration = () => {
       const attempts = [
         { path: normalized, base, label: "selected base" },
         { path: normalized, base: altBase, label: "alternate base" },
-        // If user typed a versioned path, try removing the version
         ...(versionless !== normalized
           ? [
               { path: versionless, base, label: "removed /v* on selected base" },
               { path: versionless, base: altBase, label: "removed /v* on alternate base" },
             ]
           : [
-              // If user typed versionless, also try /v1 on both bases
               { path: `/v1${versionless}`, base, label: "added /v1 on selected base" },
               { path: `/v1${versionless}`, base: altBase, label: "added /v1 on alternate base" },
             ]),
       ];
 
-      let finalResp: { ok?: boolean; status?: number; data?: any; error?: string } | null = null;
+      let finalResp: { ok?: boolean; status?: number; data?: any; error?: string; request?: any } | null = null;
       let finalAttemptLabel = "";
       for (const a of attempts) {
         const { data, error } = await supabase.functions.invoke("pleo-proxy", {
           body: { path: a.path, method, body: parsedBody, base: a.base },
         });
         if (error) {
-          // keep trying next attempt
-          finalResp = { ok: false, status: 500, data: null, error: error.message };
+          finalResp = { ok: false, status: 500, data: null, error: error.message, request: { url: `${a.base}${a.path}`, baseUrl: a.base, path: a.path, method } };
           finalAttemptLabel = a.label;
           continue;
         }
-        finalResp = data as { ok?: boolean; status?: number; data?: any; error?: string };
+        finalResp = data as any;
         finalAttemptLabel = a.label;
-
-        // Stop if not a 404
         if (!finalResp || finalResp.status !== 404) break;
       }
 
@@ -124,6 +119,47 @@ const PleoIntegration = () => {
     }
   };
 
+  const handleDiagnose = async () => {
+    const toastId = showLoading("Diagnosing hosts and paths...");
+    const altBase =
+      base === "https://openapi.pleo.io" ? "https://api.pleo.io" : "https://openapi.pleo.io";
+
+    const normalized = endpointPath.startsWith("/") ? endpointPath : `/${endpointPath}`;
+    const versionless = normalized.replace(/^\/v[0-9]+/, "");
+
+    const combos = [
+      { path: normalized, base, label: "selected base" },
+      { path: normalized, base: altBase, label: "alternate base" },
+      { path: versionless, base, label: "removed /v* on selected base" },
+      { path: versionless, base: altBase, label: "removed /v* on alternate base" },
+      { path: `/v1${versionless}`, base, label: "added /v1 on selected base" },
+      { path: `/v1${versionless}`, base: altBase, label: "added /v1 on alternate base" },
+    ];
+
+    const results: Array<{ label: string; status?: number; ok?: boolean; url: string; note?: string }> = [];
+    for (const c of combos) {
+      const { data, error } = await supabase.functions.invoke("pleo-proxy", {
+        body: { path: c.path, method, base: c.base },
+      });
+      if (error) {
+        results.push({ label: c.label, status: 500, ok: false, url: `${c.base}${c.path}`, note: error.message });
+      } else {
+        const r = data as any;
+        results.push({ label: c.label, status: r?.status, ok: r?.ok, url: r?.request?.url || `${c.base}${c.path}` });
+      }
+    }
+
+    setResult(JSON.stringify({ diagnose: results }, null, 2));
+    dismissToast(toastId);
+
+    const any200 = results.find((r) => r.status === 200 && r.ok === true);
+    if (any200) {
+      showSuccess(`Found a working combo: ${any200.label}`);
+    } else {
+      showError("No working combination found. Please confirm your token environment and endpoint paths with Pleo.");
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <PageTitle title="Pleo Integration - KH Payments" />
@@ -133,117 +169,7 @@ const PleoIntegration = () => {
             <Globe className="mr-2 h-6 w-6" /> Pleo OpenAPI Proxy
           </CardTitle>
           <CardDescription>
-            Use this tool to test the secure proxy to Pleo. Defaults to <code>/me</code>. If 404 occurs, we now auto-try the alternate host and path variations.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium">Endpoint Path</label>
-              <Input
-                value={endpointPath}
-                onChange={(e) => setEndpointPath(e.target.value)}
-                placeholder="/v1/me or /v1/expenses?limit=10"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Method</label>
-              <select
-                className="w-full border rounded-md h-10 px-3 bg-background"
-                value={method}
-                onChange={(e) => setMethod(e.target.value as "GET" | "POST")}
-              >
-                <option value="GET">GET</option>
-                <option value="POST">POST</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-1">
-              <label className="text-sm font-medium">API Host</label>
-              <select
-                className="w-full border rounded-md h-10 px-3 bg-background"
-                value={base}
-                onChange={(e) => setBase(e.target.value)}
-              >
-                <option value="https://openapi.pleo.io">https://openapi.pleo.io</option>
-                <option value="https://api.pleo.io">https://api.pleo.io</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium">Request Body</label>
-              <Textarea
-                value={requestBody}
-                onChange={(e) => setRequestBody(e.target.value)}
-                placeholder="Optional request body (JSON)"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium">Response</label>
-              <Textarea
-                value={result}
-                readOnly
-                className="h-40 bg-muted"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-4 flex-wrap">
-            <Button onClick={handleCallPleo} className="flex-1">
-              Call Pleo
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEndpointPath("/v1/me");
-                setTimeout(handleCallPleo, 0);
-              }}
-            >
-              Test /v1/me
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEndpointPath("/v1/expenses?limit=5");
-                setTimeout(handleCallPleo, 0);
-              }}
-            >
-              Test /v1/expenses
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEndpointPath("/me");
-                setTimeout(handleCallPleo, 0);
-              }}
-            >
-              Test /me
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEndpointPath("/expenses?limit=5");
-                setTimeout(handleCallPleo, 0);
-              }}
-            >
-              Test /expenses
-            </Button>
-          </div>
-
-          <p className="text-xs text-muted-foreground">
-            If you see 404, your token may be tied to a different API version or region. Try the quick test buttons above or contact Pleo support to confirm the correct base URL and paths for your API token.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+            Use this tool to test the secure proxy to Pleo. Defaults to <code>/me
+</div>
   );
 };
-
-export default PleoIntegration;
