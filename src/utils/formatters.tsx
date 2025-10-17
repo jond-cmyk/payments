@@ -1,4 +1,4 @@
-import React from 'react'; // Added React import
+import React from 'react';
 
 /**
  * Cleans up a raw status string by removing backslashes and quotes,
@@ -25,6 +25,11 @@ export const cleanAndCapitalizeStatus = (status: string): string => {
  */
 export const formatAuditDescription = (description: string): React.ReactNode => {
   if (!description) return '';
+
+  // Filter out specific redundant messages
+  if (description.includes('Payment Approved Date changed') || description.includes('Payment Setup Date changed')) {
+    return null; // Return null to indicate this audit should not be displayed
+  }
 
   // Handle comments first, as they are a distinct type of entry
   const commentMatch = description.match(/^Comment: (.*)/);
