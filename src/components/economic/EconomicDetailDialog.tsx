@@ -40,7 +40,7 @@ const formatDate = (dateInput: any): string => {
 };
 
 // Helper to format amount with thousand separators and two decimal places
-const formatAmount = (amountInput: any): string => {
+export const formatAmount = (amountInput: any): string => {
   if (amountInput === null || amountInput === undefined) return "-";
   const num = typeof amountInput === "number" ? amountInput : parseFloat(String(amountInput));
   if (isNaN(num)) return "-";
