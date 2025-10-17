@@ -1,4 +1,5 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+/// <reference lib="deno.ns" />
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -21,7 +22,7 @@ serve(async (req) => {
           error:
             "Missing ECONOMIC_APP_SECRET_TOKEN or ECONOMIC_AGREEMENT_GRANT_TOKEN. Set both in Supabase → Edge Functions → Manage Secrets.",
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -30,7 +31,7 @@ serve(async (req) => {
     if (!path || typeof path !== "string") {
       return new Response(
         JSON.stringify({ error: "Missing 'path'. Example: '/self' or '/customers?pagesize=10'." }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -38,7 +39,6 @@ serve(async (req) => {
     const baseUrl =
       typeof base === "string" && base.length > 0 ? base : "https://restapi.e-conomic.com";
 
-    // Build query string from provided query object
     const qs =
       query && typeof query === "object" && Object.keys(query).length
         ? "?" + new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)])).toString()
@@ -84,12 +84,12 @@ serve(async (req) => {
           method: methodUpper,
         },
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: any) {
     return new Response(
       JSON.stringify({ error: error?.message || "Unexpected error calling e-conomic API." }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
