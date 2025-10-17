@@ -205,16 +205,50 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     for (const k of keys) {
       const v = k.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
       if (v !== undefined && v !== null) {
-        // If it's a URL, extract the last part (numeric ID)
+        // If it's a URL-like string, extract the last segment
         if (typeof v === "string" && v.includes("/")) {
-          const parts = v.split("/");
+          const parts = v.split("/").filter(Boolean);
           const last = parts[parts.length - 1];
-          if (/^\d+$/.test(last)) return last;
+          return last ?? v;
         }
         return v;
       }
     }
     return undefined;
+  };
+
+  // Extract a sensible text/description from common invoice shapes
+  const getInvoiceText = (inv: any): string => {
+    const direct = pick(inv, [
+      "text",
+      "description",
+      "heading",
+      "title",
+      "customer.name",
+      "recipient.name",
+    ]);
+    if (typeof direct === "string" && direct.trim() !== "") return direct;
+
+    const arrayPaths = [
+      "lines",
+      "lineItems",
+      "items",
+      "entries",
+      "textLines",
+      "layout.lines",
+    ];
+    for (const path of arrayPaths) {
+      const val = path.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), inv);
+      if (Array.isArray(val) && val.length > 0) {
+        const first = val[0];
+        if (typeof first === "string") return first;
+        if (first && typeof first === "object") {
+          const t = pick(first, ["text", "description", "name", "title"]);
+          if (typeof t === "string" && t.trim() !== "") return t;
+        }
+      }
+    }
+    return "-";
   };
 
   const loadBalance = async () => {
@@ -425,17 +459,18 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                           </TableRow>
                         )}
                         {invoices.map((inv: any) => {
-                          // Log the raw invoice object for debugging
                           console.log("Raw invoice object:", inv);
                           return (
                             <TableRow key={inv?.invoiceNumber ?? inv?.id ?? Math.random()}>
-                              <TableCell>{pick(inv, ["invoiceNumber", "id", "number", "invoiceId", "self"]) ?? "-"}</TableCell>
+                              <TableCell>
+                                {pick(inv, ["invoiceNumber", "bookedInvoiceNumber", "draftInvoiceNumber", "id", "number", "invoiceId", "self"]) ?? "-"}
+                              </TableCell>
                               <TableCell>{pick(inv, ["date", "bookedDate", "issueDate", "invoiceDate", "createdAt"]) ?? "-"}</TableCell>
                               <TableCell>
                                 {pick(inv, ["amount", "totalAmount", "amount.value", "grossAmount", "amountIncludingVat", "total", "netAmount"]) ?? "-"}
                               </TableCell>
                               <TableCell>{pick(inv, ["status", "state", "booked", "paymentStatus", "invoiceStatus", "draft", "sent"]) ?? "-"}</TableCell>
-                              <TableCell>{pick(inv, ["text", "description", "notes", "heading", "title", "customerName", "name"]) ?? "-"}</TableCell>
+                              <TableCell>{getInvoiceText(inv)}</TableCell>
                             </TableRow>
                           );
                         })}
