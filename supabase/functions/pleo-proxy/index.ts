@@ -44,7 +44,8 @@ serve(async (req) => {
 
     const headers: HeadersInit = {
       "Authorization": `Bearer ${token}`,
-      "Accept": "application/vnd.pleo.v1+json",
+      "Accept": "application/json, application/vnd.pleo.v1+json",
+      "User-Agent": "SupabaseEdge/1.0"
     };
 
     // Only send JSON body for non-GET methods
