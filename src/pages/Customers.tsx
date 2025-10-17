@@ -15,6 +15,7 @@ import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
 import { List } from "lucide-react";
 import EconomicDetailDialog from "@/components/economic/EconomicDetailDialog"; // Import EconomicDetailDialog
+import { cn } from "@/lib/utils"; // Import cn for utility classes
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -768,7 +769,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
           ) : balanceError ? (
             <span className="text-red-500">Error</span>
           ) : balance !== null ? (
-            <Badge variant="secondary">
+            <Badge className={cn("bg-dyad-blue text-white", "transform translate-x-0 translate-y-0")}>
               {formatAmount(balance)} {customer.currency || ''}
             </Badge>
           ) : (
@@ -777,13 +778,13 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         </TableCell>
         <TableCell>
           <div className="flex flex-wrap gap-2 items-center">
-            <Button size="sm" variant="secondary" onClick={loadInvoices} disabled={loadingInvoices}>
+            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
-            <Button size="sm" variant="secondary" onClick={loadTransactions} disabled={loadingTransactions || !customer.customerNumber}>
+            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadTransactions} disabled={loadingTransactions || !customer.customerNumber}>
               {loadingTransactions ? "Loading..." : "All Transactions"}
             </Button>
-            <Button size="sm" variant="secondary" onClick={loadOutstanding} disabled={loadingOutstanding || !customer.customerNumber}>
+            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadOutstanding} disabled={loadingOutstanding || !customer.customerNumber}>
               {loadingOutstanding ? "Loading..." : "All Outstanding"}
             </Button>
           </div>
