@@ -769,7 +769,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
           ) : balanceError ? (
             <span className="text-red-500">Error</span>
           ) : balance !== null ? (
-            <Badge className={cn("bg-dyad-blue text-white", "transform translate-x-0 translate-y-0")}>
+            <Badge className={cn("bg-dyad-blue text-white text-base px-3 py-2", "transform translate-x-0 translate-y-0")}>
               {formatAmount(balance)} {customer.currency || ''}
             </Badge>
           ) : (
