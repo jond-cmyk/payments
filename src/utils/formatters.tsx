@@ -26,11 +26,6 @@ export const cleanAndCapitalizeStatus = (status: string): string => {
 export const formatAuditDescription = (description: string): React.ReactNode => {
   if (!description) return '';
 
-  // Filter out specific redundant messages
-  if (description.includes('Payment Approved Date changed') || description.includes('Payment Setup Date changed')) {
-    return null; // Return null to indicate this audit should not be displayed
-  }
-
   // Handle comments first, as they are a distinct type of entry
   const commentMatch = description.match(/^Comment: (.*)/);
   if (commentMatch) {
@@ -38,73 +33,111 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
   }
 
   let formattedParts: (string | React.ReactNode)[] = [];
+
+  // Define all patterns we care about, including the ones to filter out
+  const patterns = [
+    {
+      name: 'statusChange',
+      regex: /Status changed from \\"([^"]+)\\" to \\"([^"]+)\\"\.?/g,
+      formatter: (match: RegExpExecArray) => (
+        <React.Fragment key={`status-change-${match.index}`}>
+          Status changed from <strong>{cleanAndCapitalizeStatus(match[1])}</strong> to <strong>{cleanAndCapitalizeStatus(match[2])}</strong>.
+        </React.Fragment>
+      ),
+      filter: false,
+    },
+    {
+      name: 'newStatusCreation',
+      regex: /New (Standing Order|Direct Debit|transaction) created with status: \\"([^"]+)\\"\.?/g,
+      formatter: (match: RegExpExecArray) => (
+        <React.Fragment key={`new-status-creation-${match.index}`}>
+          New {match[1]} created with status: <strong>{cleanAndCapitalizeStatus(match[2])}</strong>.
+        </React.Fragment>
+      ),
+      filter: false,
+    },
+    {
+      name: 'simpleCreation',
+      regex: /New (Standing Order|Direct Debit|transaction) created./g,
+      formatter: (match: RegExpExecArray) => (
+        <React.Fragment key={`simple-creation-${match.index}`}>
+          New {match[1]} created.
+        </React.Fragment>
+      ),
+      filter: false,
+    },
+    {
+      name: 'paymentSetupDateChange',
+      regex: /Payment Setup Date changed from \\"[^"]+\\" to \\"[^"]+\\"\.?/g,
+      formatter: (match: RegExpExecArray) => null, // Filter this out
+      filter: true,
+    },
+    {
+      name: 'paymentApprovedDateChange',
+      regex: /Payment Approved Date changed from \\"[^"]+\\" to \\"[^"]+\\"\.?/g,
+      formatter: (match: RegExpExecArray) => null, // Filter this out
+      filter: true,
+    },
+  ];
+
+  const allMatches: {
+    index: number;
+    length: number;
+    formatted: React.ReactNode | null;
+    originalText: string;
+  }[] = [];
+
+  for (const pattern of patterns) {
+    let match;
+    pattern.regex.lastIndex = 0; // Reset for each pattern
+    while ((match = pattern.regex.exec(description)) !== null) {
+      if (!pattern.filter) { // Only add if not meant to be filtered
+        allMatches.push({
+          index: match.index,
+          length: match[0].length,
+          formatted: pattern.formatter(match),
+          originalText: match[0],
+        });
+      }
+    }
+  }
+
+  // Sort all matches by their starting index
+  allMatches.sort((a, b) => a.index - b.index);
+
   let currentIndex = 0;
-
-  // Regex to find status changes: "Status changed from \"OLD\" to \"NEW\"."
-  // Updated regex to correctly match literal backslash-quote sequence (\\")
-  const statusChangeRegex = /Status changed from \\"([^"]+)\\" to \\"([^"]+)\\"\.?/g;
-  // Regex to find new item creation with status: "New X created with status: \"STATUS\"."
-  // Updated regex to correctly match literal backslash-quote sequence (\\")
-  const newStatusCreationRegex = /New (Standing Order|Direct Debit|transaction) created with status: \\"([^"]+)\\"\.?/g;
-  // Regex to find simple creation messages: "New X created."
-  const simpleCreationRegex = /New (Standing Order|Direct Debit|transaction) created./g;
-
-  // Process status changes
-  let match;
-  while ((match = statusChangeRegex.exec(description)) !== null) {
-    if (match.index > currentIndex) {
-      formattedParts.push(description.substring(currentIndex, match.index).replace(/\\"/g, '"').replace(/\\/g, ''));
+  for (const matchInfo of allMatches) {
+    // Add text before the current match
+    if (matchInfo.index > currentIndex) {
+      const precedingText = description.substring(currentIndex, matchInfo.index).replace(/\\"/g, '"').replace(/\\/g, '');
+      if (precedingText.trim().length > 0) { // Only add if there's meaningful text
+        formattedParts.push(precedingText);
+      }
     }
-    const oldStatus = cleanAndCapitalizeStatus(match[1]);
-    const newStatus = cleanAndCapitalizeStatus(match[2]);
-    formattedParts.push(
-      <React.Fragment key={`status-change-${match.index}`}>
-        Status changed from <strong>{oldStatus}</strong> to <strong>{newStatus}</strong>.
-      </React.Fragment>
-    );
-    currentIndex = match.index + match[0].length;
+
+    // Add the formatted match
+    if (matchInfo.formatted !== null) {
+      formattedParts.push(matchInfo.formatted);
+    }
+    
+    currentIndex = matchInfo.index + matchInfo.length;
   }
 
-  // Process new status creations
-  newStatusCreationRegex.lastIndex = 0; // Reset regex for new pass
-  while ((match = newStatusCreationRegex.exec(description)) !== null) {
-    if (match.index > currentIndex) {
-      formattedParts.push(description.substring(currentIndex, match.index).replace(/\\"/g, '"').replace(/\\/g, ''));
-    }
-    const itemType = match[1];
-    const status = cleanAndCapitalizeStatus(match[2]);
-    formattedParts.push(
-      <React.Fragment key={`new-status-creation-${match.index}`}>
-        New {itemType} created with status: <strong>{status}</strong>.
-      </React.Fragment>
-    );
-    currentIndex = match.index + match[0].length;
-  }
-
-  // Process simple creation messages
-  simpleCreationRegex.lastIndex = 0; // Reset regex for new pass
-  while ((match = simpleCreationRegex.exec(description)) !== null) {
-    if (match.index > currentIndex) {
-      formattedParts.push(description.substring(currentIndex, match.index).replace(/\\"/g, '"').replace(/\\/g, ''));
-    }
-    const itemType = match[1];
-    formattedParts.push(
-      <React.Fragment key={`simple-creation-${match.index}`}>
-        New {itemType} created.
-      </React.Fragment>
-    );
-    currentIndex = match.index + match[0].length;
-  }
-
-  // Add any remaining text after processing all patterns
+  // Add any remaining text after the last match
   if (currentIndex < description.length) {
-    formattedParts.push(description.substring(currentIndex).replace(/\\"/g, '"').replace(/\\/g, ''));
+    const remainingText = description.substring(currentIndex).replace(/\\"/g, '"').replace(/\\/g, '');
+    if (remainingText.trim().length > 0) { // Only add if there's meaningful text
+      formattedParts.push(remainingText);
+    }
   }
 
-  // If no specific patterns were found, just clean up the whole string
-  if (formattedParts.length === 0 && description.length > 0) {
-    return description.replace(/\\"/g, '"').replace(/\\/g, '');
+  // Filter out any nulls that might have been added by formatter returning null
+  const finalParts = formattedParts.filter(part => part !== null);
+
+  // If after all processing, there are no parts to display, return null
+  if (finalParts.length === 0) {
+    return null;
   }
 
-  return <>{formattedParts}</>;
+  return <>{finalParts}</>;
 };
