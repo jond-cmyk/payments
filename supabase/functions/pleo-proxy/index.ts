@@ -44,7 +44,7 @@ serve(async (req) => {
 
     const headers: HeadersInit = {
       "Authorization": `Bearer ${token}`,
-      "Accept": "application/json",
+      "Accept": "application/vnd.pleo.v1+json",
     };
 
     // Only send JSON body for non-GET methods
