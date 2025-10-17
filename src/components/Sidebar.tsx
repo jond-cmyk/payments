@@ -161,6 +161,7 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
                   <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" />
                   <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
                   <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" />
+                  <NavLink to="/admin/pleo-integration" icon={<Globe className="h-5 w-5" />} label="Pleo Integration" />
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
