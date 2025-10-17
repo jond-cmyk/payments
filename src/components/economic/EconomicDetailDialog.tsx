@@ -17,6 +17,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from '@/components/ui/button'; // Import Button
+import { FileText } from 'lucide-react'; // Import FileText icon
 
 // Helper to format a date string to DD-MM-YYYY
 const formatDate = (dateInput: any): string => {
@@ -86,6 +88,13 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
       }
 
       if (value !== undefined) {
+        // If the value is a string that looks like a URL, extract the last segment for display
+        if (typeof value === "string" && value.startsWith("http") && value.includes("/")) {
+          const urlParts = value.split("/");
+          const lastSegment = urlParts[urlParts.length - 1];
+          // If the last segment is empty (e.g., URL ends with /), try the second to last
+          return lastSegment || urlParts[urlParts.length - 2] || value;
+        }
         return value; // Found a value for this path
       }
     }
@@ -112,6 +121,19 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
       currencySymbol = foundCurrency;
     }
 
+    // Check if the rawValue is a URL for PDF column
+    const isUrl = typeof rawValue === 'string' && (rawValue.startsWith('http://') || rawValue.startsWith('https://'));
+
+    if (column.key === 'pdf' && isUrl) {
+      return (
+        <Button asChild variant="link" className="p-0 h-auto">
+          <a href={rawValue} target="_blank" rel="noopener noreferrer">
+            <FileText className="mr-1 h-4 w-4" /> View PDF
+          </a>
+        </Button>
+      );
+    }
+
     switch (column.format) {
       case 'date':
         return formatDate(rawValue);
@@ -133,7 +155,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col"> {/* Increased max-w to 5xl */}
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

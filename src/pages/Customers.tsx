@@ -733,7 +733,7 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'bookedDate', 'issueDate', 'invoiceDate', 'createdAt'] },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
     { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
-    { key: 'status', header: 'Status', path: ['status', 'state', 'booked', 'paymentStatus', 'invoiceStatus', 'draft', 'sent'] },
+    { key: 'status', header: 'Status', path: ['status.state', 'status.value', 'status', 'state', 'booked', 'paymentStatus', 'invoiceStatus', 'draft', 'sent'] }, // Prioritize specific status fields
     { key: 'pdf', header: 'PDF', format: 'raw', path: ['pdf.url', 'pdf.href', 'pdf.download', 'pdf.downloadUrl', 'links.pdf.href', 'links.pdf.url'] }, // Added more paths for PDF
   ];
 
