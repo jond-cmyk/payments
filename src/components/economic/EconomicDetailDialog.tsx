@@ -66,38 +66,51 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   columns,
   isLoading,
 }) => {
-  // Generic getter for nested value
-  const getNestedValue = (obj: any, path: string[] | undefined, key: string): any => {
+  // Generic getter for nested value, now correctly handles dot-separated paths in `paths` array
+  const getNestedValue = (obj: any, paths: string[] | undefined, key: string): any => {
     if (!obj) return undefined;
-    let value = obj;
-    const actualPath = path && path.length > 0 ? path : [key]; // Use path if provided and not empty, otherwise fallback to key
 
-    for (const p of actualPath) {
-      if (value && typeof value === 'object' && p in value) {
-        value = value[p];
-      } else {
-        return undefined; // Path not found
+    const candidatePaths = paths && paths.length > 0 ? paths : [key];
+
+    for (const pathStr of candidatePaths) {
+      let value = obj;
+      const parts = pathStr.split('.'); // Split by dot for nested properties
+
+      for (const part of parts) {
+        if (value && typeof value === 'object' && part in value) {
+          value = value[part];
+        } else {
+          value = undefined; // Path segment not found
+          break;
+        }
+      }
+
+      if (value !== undefined) {
+        return value; // Found a value for this path
       }
     }
-    return value;
+    return undefined; // No value found for any candidate path
   };
 
   const renderCell = (item: any, column: typeof columns[0]) => {
     const rawValue = getNestedValue(item, column.path, column.key);
     
     let currencySymbol = '';
-    // Try to get currency from the item itself first, then from related objects
-    const itemCurrency = getNestedValue(item, ['currency', 'currency.code'], 'currency');
-    if (itemCurrency) {
-      currencySymbol = itemCurrency;
-    } else if (item.customer?.currency) { // Fallback to customer's currency if item has a customer object
-      currencySymbol = item.customer.currency;
-    } else if (item.debtor?.currency) { // Fallback for entries
-      currencySymbol = item.debtor.currency;
-    } else if (item.creditor?.currency) { // Fallback for entries
-      currencySymbol = item.creditor.currency;
+    // Use getNestedValue for robust currency extraction
+    const currencyCandidates = [
+      'currency',
+      'currency.code',
+      'customer.currency',
+      'customer.currency.code',
+      'debtor.currency',
+      'debtor.currency.code',
+      'creditor.currency',
+      'creditor.currency.code',
+    ];
+    const foundCurrency = getNestedValue(item, currencyCandidates, 'currency');
+    if (foundCurrency) {
+      currencySymbol = foundCurrency;
     }
-
 
     switch (column.format) {
       case 'date':
