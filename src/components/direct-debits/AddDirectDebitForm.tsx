@@ -126,14 +126,16 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       const monthIndex = now.getMonth(); // 0-based
       const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
       const safeDay = Math.min(values.payment_day, lastDayOfMonth);
-      const paymentDate = new Date(year, monthIndex, safeDay).toISOString().split('T')[0];
+      
+      // FIX: Use Date.UTC to prevent timezone shifting the date
+      const paymentDate = new Date(Date.UTC(year, monthIndex, safeDay)).toISOString().split('T')[0];
 
       const { error: insertError } = await supabase
         .from('direct_debits')
         .insert({
           requester_id: user.id,
           payee: values.payee,
-          payment_date: paymentDate,
+          payment_date: paymentDate, // Store the UTC-safe date
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           category: values.category,

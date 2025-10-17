@@ -88,7 +88,8 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
     resolver: zodResolver(editDirectDebitFormSchema),
     defaultValues: {
       payee: directDebit.payee,
-      payment_day: new Date(directDebit.payment_date).getDate(),
+      // FIX: Extract payment_day using getUTCDate to avoid timezone issues
+      payment_day: directDebit.payment_date ? new Date(directDebit.payment_date + 'T00:00:00Z').getUTCDate() : undefined,
       sku: directDebit.sku || (directDebit.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: directDebit.not_property_related,
       category: directDebit.category,
@@ -112,18 +113,22 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
         throw new Error("User not authenticated.");
       }
 
-      const prevDate = new Date(directDebit.payment_date);
-      const year = prevDate.getFullYear();
-      const monthIndex = prevDate.getMonth(); // 0-based
-      const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
+      const prevDate = directDebit.payment_date ? new Date(directDebit.payment_date + 'T00:00:00Z') : new Date(); // Use UTC parsing for prevDate
+      const year = prevDate.getUTCFullYear(); // Use UTC year
+      const monthIndex = prevDate.getUTCMonth(); // Use UTC month (0-based)
+      
+      // Calculate last day of month in UTC
+      const lastDayOfMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
       const safeDay = Math.min(values.payment_day, lastDayOfMonth);
-      const paymentDate = new Date(year, monthIndex, safeDay).toISOString().split('T')[0];
+      
+      // FIX: Use Date.UTC to prevent timezone shifting the date
+      const paymentDate = new Date(Date.UTC(year, monthIndex, safeDay)).toISOString().split('T')[0];
 
       const { error: updateError } = await supabase
         .from('direct_debits')
         .update({
           payee: values.payee,
-          payment_date: paymentDate,
+          payment_date: paymentDate, // Store the UTC-safe date
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           category: values.category,
