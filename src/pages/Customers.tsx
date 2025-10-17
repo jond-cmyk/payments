@@ -471,6 +471,8 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
                         )}
                         {invoices.map((inv: any) => {
                           console.log("Raw invoice object:", inv);
+                          console.log("Invoice heading field:", inv.heading);
+                          console.log("All invoice keys:", Object.keys(inv));
                           return (
                             <TableRow key={inv?.invoiceNumber ?? inv?.id ?? Math.random()}>
                               <TableCell>
