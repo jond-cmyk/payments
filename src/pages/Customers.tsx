@@ -384,7 +384,8 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       return;
     }
 
-    const root = (data as any)?.data ?? data;
+    const resp = data as any;
+    const root = resp?.data ?? data;
 
     const candidates = [
       root?.pdf,
@@ -414,14 +415,16 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       }
     }
 
-    // Fallback: try /pdf subresource
+    // Fallback: try /pdf subresource via proxy
     if (!pdfUrl) {
       const pdfPath = basePath.endsWith("/pdf") ? basePath : `${basePath}/pdf`;
       const { data: pdfData, error: pdfErr } = await supabase.functions.invoke("economic-proxy", {
         body: { path: pdfPath, method: "GET" },
       });
       if (!pdfErr && pdfData) {
-        const root2 = (pdfData as any)?.data ?? pdfData;
+        const resp2 = pdfData as any;
+        const root2 = resp2?.data ?? pdfData;
+
         const moreCandidates = [
           root2?.url,
           root2?.href,
@@ -434,6 +437,46 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
             pdfUrl = c;
             break;
           }
+        }
+
+        // If Unauthorized, try demo fallback
+        if (!pdfUrl && resp2?.status === 401) {
+          const demoLink = root2?.demoLink;
+          if (typeof demoLink === "string" && demoLink.trim() !== "") {
+            try {
+              window.open(demoLink, "_blank");
+              showSuccess("Opening demo invoice PDF");
+              return;
+            } catch {
+              // ignore window.open errors
+            }
+          }
+          // Attempt fetching with ?demo=true to get a public demo URL
+          const { data: demoData } = await supabase.functions.invoke("economic-proxy", {
+            body: { path: `${pdfPath}?demo=true`, method: "GET" },
+          });
+          if (demoData) {
+            const demoResp = demoData as any;
+            const demoRoot = demoResp?.data ?? demoData;
+            const demoCandidates = [demoRoot?.url, demoRoot?.href, demoRoot?.download, demoRoot?.downloadUrl, demoRoot?.link];
+            for (const c of demoCandidates) {
+              if (typeof c === "string" && c.trim() !== "") {
+                pdfUrl = c;
+                break;
+              }
+            }
+            if (pdfUrl) {
+              try {
+                window.open(pdfUrl, "_blank");
+                showSuccess("Opening demo invoice PDF");
+                return;
+              } catch {
+                // ignore window.open errors
+              }
+            }
+          }
+          showError("Unauthorized to access invoice PDF. Check ECONOMIC_APP_SECRET_TOKEN and ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.");
+          return;
         }
       }
     }
