@@ -17,9 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from '@/components/ui/button'; // Import Button
-import { FileText } from 'lucide-react'; // Import FileText icon
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'; // NEW: Import Select components
+import { Button } from '@/components/ui/button';
+import { FileText } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Helper to format a date string to DD-MM-YYYY
 const formatDate = (dateInput: any): string => {
@@ -56,7 +56,7 @@ export type DialogColumn = {
   header: string;
   format?: 'date' | 'amount' | 'currencyAmount' | 'boolean' | 'array' | 'object' | 'raw';
   path?: string[];
-  render?: (item: any, index: number, allData: any[]) => React.ReactNode; // Added render function
+  render?: (item: any, index: number, allData: any[]) => React.ReactNode;
 };
 
 interface EconomicDetailDialogProps {
@@ -65,12 +65,12 @@ interface EconomicDetailDialogProps {
   title: string;
   description?: string;
   data: any[] | null;
-  columns: DialogColumn[]; // Use the exported DialogColumn type
+  columns: DialogColumn[];
   isLoading?: boolean;
-  // NEW: Props for accounting year selection
   accountingYears?: { year: string; href: string }[];
   selectedAccountingYear?: string | null;
   onAccountingYearChange?: (year: string) => void;
+  isAccountingYearsLoading?: boolean; // NEW PROP
 }
 
 const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
@@ -81,10 +81,10 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   data,
   columns,
   isLoading,
-  // NEW: Destructure new props
   accountingYears,
   selectedAccountingYear,
   onAccountingYearChange,
+  isAccountingYearsLoading, // Destructure new prop
 }) => {
   // Generic getter for nested value, now correctly handles dot-separated paths in `paths` array
   const getNestedValue = (obj: any, paths: string[] | undefined, key: string): any => {
@@ -94,33 +94,30 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
 
     for (const pathStr of candidatePaths) {
       let value = obj;
-      const parts = pathStr.split('.'); // Split by dot for nested properties
+      const parts = pathStr.split('.');
 
       for (const part of parts) {
         if (value && typeof value === 'object' && part in value) {
           value = value[part];
         } else {
-          value = undefined; // Path segment not found
+          value = undefined;
           break;
         }
       }
 
       if (value !== undefined) {
-        // If the value is a string that looks like a URL, extract the last segment for display
         if (typeof value === "string" && value.startsWith("http") && value.includes("/")) {
           const urlParts = value.split("/");
           const lastSegment = urlParts[urlParts.length - 1];
-          // If the last segment is empty (e.g., URL ends with /), try the second to last
           return lastSegment || urlParts[urlParts.length - 2] || value;
         }
-        return value; // Found a value for this path
+        return value;
       }
     }
-    return undefined; // No value found for any candidate path
+    return undefined;
   };
 
   const renderCell = (item: any, column: DialogColumn, index: number, allData: any[]) => {
-    // If a custom render function is provided, use it
     if (column.render) {
       return column.render(item, index, allData);
     }
@@ -128,7 +125,6 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
     const rawValue = getNestedValue(item, column.path, column.key);
     
     let currencySymbol = '';
-    // Use getNestedValue for robust currency extraction
     const currencyCandidates = [
       'currency',
       'currency.code',
@@ -144,10 +140,8 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
       currencySymbol = foundCurrency;
     }
 
-    // The specific 'pdf' column logic is now handled by the custom render function in Customers.tsx
-    // This block is no longer strictly necessary here for the 'pdf' key, but kept for general URL handling if needed elsewhere.
     const isUrl = typeof rawValue === 'string' && (rawValue.startsWith('http://') || rawValue.startsWith('https://'));
-    if (isUrl) { // Removed column.key === 'pdf' condition here
+    if (isUrl) {
       return (
         <Button asChild variant="link" className="p-0 h-auto">
           <a href={rawValue} target="_blank" rel="noopener noreferrer">
@@ -163,7 +157,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
       case 'amount':
         return formatAmount(rawValue);
       case 'currencyAmount':
-        return `${currencySymbol || ''} ${formatAmount(rawValue)}`; // Use the determined currencySymbol
+        return `${currencySymbol || ''} ${formatAmount(rawValue)}`;
       case 'boolean':
         return rawValue ? 'Yes' : 'No';
       case 'array':
@@ -178,12 +172,11 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col"> {/* Increased max-w to 5xl */}
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {/* NEW: Accounting Year Selector */}
         {accountingYears && accountingYears.length > 0 && selectedAccountingYear !== undefined && onAccountingYearChange && (
           <div className="flex items-center gap-2 mb-4">
             <label htmlFor="accounting-year-select" className="text-sm font-medium text-gray-700">
@@ -192,7 +185,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
             <Select
               value={selectedAccountingYear || ''}
               onValueChange={onAccountingYearChange}
-              disabled={isLoading}
+              disabled={isLoading || isAccountingYearsLoading} // Combine loading states
             >
               <SelectTrigger id="accounting-year-select" className="w-[180px]">
                 <SelectValue placeholder="Select Year" />
@@ -208,7 +201,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           </div>
         )}
         <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-full w-full pr-4"> {/* Added pr-4 for scrollbar spacing */}
+          <ScrollArea className="h-full w-full pr-4">
             {isLoading ? (
               <div className="text-center text-muted-foreground py-8">Loading data...</div>
             ) : !data || data.length === 0 ? (
@@ -227,7 +220,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
                     <TableRow key={item.self || item.customerNumber || item.invoiceNumber || item.entryNumber || index}>
                       {columns.map((col) => (
                         <TableCell key={col.key}>
-                          {renderCell(item, col, index, data)} {/* Pass all arguments */}
+                          {renderCell(item, col, index, data)}
                         </TableCell>
                       ))}
                     </TableRow>
