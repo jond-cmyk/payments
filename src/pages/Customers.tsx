@@ -136,7 +136,8 @@ const Customers: React.FC = () => {
                   <TableHead className="w-24">Number</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Currency</TableHead> {/* Added Currency column */}
+                  <TableHead>Currency</TableHead>
+                  <TableHead>Balance</TableHead> {/* NEW: Balance column header */}
                   <TableHead className="w-64">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -146,7 +147,7 @@ const Customers: React.FC = () => {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground"> {/* Adjusted colSpan */}
+                    <TableCell colSpan={6} className="text-center text-muted-foreground"> {/* Adjusted colSpan */}
                       {customersQuery.isLoading ? "Loading customers..." : "No customers found."}
                     </TableCell>
                   </TableRow>
@@ -165,11 +166,8 @@ type DialogColumn = { key: string; header: string; format?: 'date' | 'amount' | 
 
 
 const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => {
-  const [balance, setBalance] = useState<number | null>(null);
-  const [loadingBalance, setLoadingBalance] = useState(false);
-
-  const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
   const [loadingInvoices, setLoadingInvoices] = useState(false);
+  const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
 
   // States for All Transactions and All Outstanding
   const [transactionsData, setTransactionsData] = useState<any[] | null>(null);
@@ -184,6 +182,53 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
 
   // Keep a map of headings for invoices (keyed by self URL or number)
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
+
+  const num = customer.customerNumber;
+
+  // Fetch balance automatically using useQuery
+  const { data: balance, isLoading: loadingBalance, error: balanceError } = useQuery<number | null>({
+    queryKey: ["customerBalance", num],
+    queryFn: async () => {
+      if (!num) return null;
+      console.log("Loading balance for customer:", num);
+      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+        body: { path: `/customers/${num}/totals`, method: "GET" },
+      });
+
+      if (error) {
+        console.error("Failed to load balance:", error);
+        throw new Error(error.message || "Failed to load balance");
+      }
+
+      const resp = data as EconomicProxyResponse<any>;
+      console.log("Parsed balance (totals) response:", resp);
+
+      const getNumeric = (obj: any, keys: string[]): number | null => {
+        for (const k of keys) {
+          const v = k.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
+          if (typeof v === "number") return v;
+          if (typeof v === "string" && !isNaN(Number(v))) return Number(v);
+        }
+        return null;
+      };
+
+      let val = getNumeric(resp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount", "dueAmount"]) ?? null;
+
+      if (val === null) {
+        const { data: detailsData, error: detailsError } = await supabase.functions.invoke("economic-proxy", {
+          body: { path: `/customers/${num}`, method: "GET" },
+        });
+        console.log("Customer details for balance fallback:", detailsData);
+        if (!detailsError) {
+          const detailsResp = detailsData as EconomicProxyResponse<any>;
+          val = getNumeric(detailsResp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount", "dueAmount"]) ?? null;
+        }
+      }
+      return val;
+    },
+    enabled: !!num, // Only run query if customerNumber is available
+    staleTime: 5 * 60 * 1000, // Balance can be considered fresh for 5 minutes
+  });
 
   // Build a path from a 'self' URL to pass through the economic-proxy
   const pathFromSelf = (self: string): string | undefined => {
@@ -279,8 +324,6 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
       }
     }
   };
-
-  const num = customer.customerNumber;
 
   // Helper to extract a list from varied economic response shapes
   const extractList = (payload: any): any[] => {
@@ -529,69 +572,6 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
     }
   };
 
-  const loadBalance = async () => {
-    if (!num) return;
-    setLoadingBalance(true);
-    const toastId = showLoading("Loading balance...");
-    console.log("Loading balance for customer:", num);
-    const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/customers/${num}/totals`, method: "GET" },
-    });
-    console.log("Balance (totals) response:", data);
-    // Close loading toast
-    dismissToast(toastId);
-
-    if (error) {
-      setLoadingBalance(false);
-      showError(error.message || "Failed to load balance");
-      return;
-    }
-
-    const resp = data as EconomicProxyResponse<any>;
-    console.log("Parsed balance (totals) response:", resp);
-
-    // Helper: get first numeric value from candidate fields
-    const getNumeric = (obj: any, keys: string[]): number | null => {
-      for (const k of keys) {
-        const v = k.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
-        if (typeof v === "number") return v;
-        if (typeof v === "string" && !isNaN(Number(v))) return Number(v);
-      }
-      return null;
-    };
-
-    let val =
-      getNumeric(resp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount", "dueAmount"]) ?? null;
-
-    if (val === null) {
-      // Fallback: fetch customer details to find balance-like fields
-      const { data: detailsData, error: detailsError } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/customers/${num}`, method: "GET" },
-      });
-      console.log("Customer details for balance fallback:", detailsData);
-      if (!detailsError) {
-        const detailsResp = detailsData as EconomicProxyResponse<any>;
-        val =
-          getNumeric(detailsResp?.data, [
-            "balance",
-            "totals.balance",
-            "outstandingAmount",
-            "openEntriesAmount",
-            "dueAmount",
-          ]) ?? null;
-      }
-    }
-
-    setLoadingBalance(false);
-
-    if (val === null) {
-      showError("Balance not available for this customer");
-    } else {
-      setBalance(val);
-      showSuccess("Balance loaded");
-    }
-  };
-
   const loadInvoices = async () => {
     setLoadingInvoices(true);
     const toastId = showLoading("Loading invoices...");
@@ -781,12 +761,22 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
         <TableCell>{customer.customerNumber ?? "-"}</TableCell>
         <TableCell className="font-medium">{customer.name ?? "-"}</TableCell>
         <TableCell>{customer.email ?? "-"}</TableCell>
-        <TableCell>{customer.currency ?? "-"}</TableCell> {/* Display Currency */}
+        <TableCell>{customer.currency ?? "-"}</TableCell>
+        <TableCell>
+          {loadingBalance ? (
+            "Loading..."
+          ) : balanceError ? (
+            <span className="text-red-500">Error</span>
+          ) : balance !== null ? (
+            <Badge variant="secondary">
+              {formatAmount(balance)} {customer.currency || ''}
+            </Badge>
+          ) : (
+            "N/A"
+          )}
+        </TableCell>
         <TableCell>
           <div className="flex flex-wrap gap-2 items-center">
-            <Button size="sm" onClick={loadBalance} disabled={loadingBalance || !customer.customerNumber}>
-              {loadingBalance ? "Loading..." : "Load Balance"}
-            </Button>
             <Button size="sm" variant="secondary" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
@@ -796,11 +786,6 @@ const CustomerRow: React.FC<{ customer: EconomicCustomer }> = ({ customer }) => 
             <Button size="sm" variant="secondary" onClick={loadOutstanding} disabled={loadingOutstanding || !customer.customerNumber}>
               {loadingOutstanding ? "Loading..." : "All Outstanding"}
             </Button>
-            {balance !== null && (
-              <Badge variant="secondary" className="ml-2">
-                Balance: {formatAmount(balance)} {customer.currency || ''}
-              </Badge>
-            )}
           </div>
         </TableCell>
       </TableRow>
