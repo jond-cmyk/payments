@@ -626,7 +626,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     try {
       // Corrected path to use /customer-ledger-entries with customerNumber filter
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`, method: "GET" },
+        body: { path: `/customer-ledger-entries?filter=customer.customerNumber eq ${num}&pagesize=1000`, method: "GET" },
       });
 
       if (error) throw new Error(error.message || "Failed to load customer ledger card");
