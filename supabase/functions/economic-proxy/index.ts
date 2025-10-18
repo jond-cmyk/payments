@@ -17,6 +17,7 @@ serve(async (req) => {
     const agreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
 
     if (!appSecretToken || !agreementGrantToken) {
+      console.error("[economic-proxy] Missing ECONOMIC_APP_SECRET_TOKEN or ECONOMIC_AGREEMENT_GRANT_TOKEN.");
       return new Response(
         JSON.stringify({
           error:
@@ -29,6 +30,7 @@ serve(async (req) => {
     const { path, method = "GET", query = {}, body, base } = await req.json().catch(() => ({}));
 
     if (!path || typeof path !== "string") {
+      console.error("[economic-proxy] Missing or invalid 'path' in request body.");
       return new Response(
         JSON.stringify({ error: "Missing 'path'. Example: '/self' or '/customers?pagesize=10'." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -62,8 +64,14 @@ serve(async (req) => {
       body: isGetLike ? undefined : body ? JSON.stringify(body) : undefined,
     };
 
+    console.log(`[economic-proxy] Fetching URL: ${url}`);
+    console.log(`[economic-proxy] Fetch options: ${JSON.stringify({ method: fetchOptions.method, headers: fetchOptions.headers, body: fetchOptions.body ? '[body present]' : '[no body]' })}`);
+
     const response = await fetch(url, fetchOptions);
     const text = await response.text();
+
+    console.log(`[economic-proxy] e-conomic API response status: ${response.status} ${response.statusText}`);
+    console.log(`[economic-proxy] e-conomic API response body (first 500 chars): ${text.substring(0, 500)}`);
 
     let payload: unknown = text;
     try {
@@ -87,6 +95,7 @@ serve(async (req) => {
       { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: any) {
+    console.error(`[economic-proxy] Unhandled error: ${error?.message || "Unknown error"}`, error);
     return new Response(
       JSON.stringify({ error: error?.message || "Unexpected error calling e-conomic API." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
