@@ -47,7 +47,7 @@ const updateStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().optional(),
-  comments: z.string().optional(),
+  // REMOVED: comments: z.string().optional(),
   status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], {
     required_error: "Status is required.",
   }).default('active'),
@@ -74,7 +74,7 @@ const updateStandingOrderFormSchema = z.object({
     } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `SKU must be '${skuPrefix}' followed by numbers.`,
+        message: `SKU must be '${skuPrefix}' followed by numbers.` ,
         path: ['sku'],
       });
     }
@@ -178,7 +178,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       from_day: String(standingOrder.from_day),
       to_day: String(standingOrder.to_day),
       payment_reference: standingOrder.payment_reference,
-      comments: standingOrder.comments || "",
+      // REMOVED: comments: standingOrder.comments || "",
       status: standingOrder.status,
       country: standingOrder.country,
       bank_details_verified: standingOrder.bank_details_verified,
@@ -248,7 +248,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           from_day: parseInt(values.from_day),
           to_day: parseInt(values.to_day),
           payment_reference: values.payment_reference || null,
-          comments: values.comments || null,
+          // REMOVED: comments: values.comments || null,
           status: values.status,
           country: values.country,
           bank_details_verified: values.bank_details_verified,
@@ -726,20 +726,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="comments"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Comments</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Add any notes or context for this standing order" {...field} disabled={!isAdmin} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
+        {/* REMOVED: Comments field */}
+        
         <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
           <Edit className="mr-2 h-4 w-4" />
           {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}

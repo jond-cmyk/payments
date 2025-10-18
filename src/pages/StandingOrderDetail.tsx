@@ -6,7 +6,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StandingOrder, StandingOrderAudit } from '@/types/supabase';
-import { showSuccess, showError } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
 import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, CalendarDays, UserCircle2 } from 'lucide-react'; // Added new icons for sections
 import { useCountry } from '@/integrations/supabase/CountryContext';
@@ -30,6 +30,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm';
 import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOrderAuditTrailCard';
+import StandingOrderCommentsCard from '@/components/standing-orders/StandingOrderCommentsCard'; // NEW: Import StandingOrderCommentsCard
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
@@ -37,7 +38,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 const StandingOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { session, isLoading: isSessionLoading, userProfile } = useSession();
+  const { session, isLoading: isSessionLoading, user, userProfile } = useSession(); // Added user
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -83,6 +84,10 @@ const StandingOrderDetail = () => {
     },
     enabled: !!id,
   });
+
+  // Filter audits into general audit trail and comments
+  const generalAudits = audits?.filter(audit => !audit.change_description.startsWith('Comment: ')) || [];
+  const comments = audits?.filter(audit => audit.change_description.startsWith('Comment: ')) || [];
 
   // Fetch user names and emails for audit trail
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
@@ -131,6 +136,40 @@ const StandingOrderDetail = () => {
       console.error("Delete Standing Order error:", error);
     },
   });
+
+  // NEW: Mutation for adding comments
+  const addCommentMutation = useMutation({
+    mutationFn: async (commentText: string) => {
+      if (!id || !user?.id) throw new Error("Standing Order ID or user ID missing.");
+      const { error } = await supabase
+        .from('standing_order_audits')
+        .insert({
+          standing_order_id: id,
+          changed_by_user_id: user.id,
+          change_description: `Comment: ${commentText}`,
+        });
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['standingOrderAudits', id] });
+      showSuccess("Comment added successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to add comment.");
+      console.error("Add comment error:", error);
+    },
+  });
+
+  const handleAddComment = async (commentText: string) => {
+    const toastId = showLoading("Adding comment...");
+    try {
+      await addCommentMutation.mutateAsync(commentText);
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
+  };
 
   const getStatusBadge = (status: StandingOrder['status']) => {
     let className = '';
@@ -314,10 +353,6 @@ const StandingOrderDetail = () => {
                 <p className="font-medium">Accruals Period:</p>
                 <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
               </div>
-              <div className="md:col-span-2">
-                <p className="font-medium">Comments:</p>
-                <p>{standingOrder.comments || 'No comments'}</p>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -411,7 +446,17 @@ const StandingOrderDetail = () => {
         </Card>
       </div>
 
-      <StandingOrderAuditTrailCard audits={audits} auditUsers={auditUsers || {}} />
+      {/* NEW: Comments Card */}
+      <StandingOrderCommentsCard
+        standingOrderId={standingOrder.id}
+        comments={comments}
+        auditUsers={auditUsers}
+        currentUser={user}
+        onAddComment={handleAddComment}
+        isAddingComment={addCommentMutation.isPending}
+      />
+
+      <StandingOrderAuditTrailCard audits={generalAudits} auditUsers={auditUsers || {}} />
 
       {standingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>

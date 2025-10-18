@@ -48,7 +48,7 @@ const addStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().optional(),
-  comments: z.string().optional(), // NEW
+  // REMOVED: comments: z.string().optional(), // NEW
   status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], { // Added 'awaiting_info' status
     required_error: "Status is required.",
   }).default('awaiting_info'), // Default to 'awaiting_info'
@@ -183,7 +183,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       from_day: "1", // Default to 1st day
       to_day: "31", // Default to 31st day
       payment_reference: "",
-      comments: "", // NEW
+      // REMOVED: comments: "", // NEW
       status: "awaiting_info", // Default to 'awaiting_info'
       country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
       bank_details_verified: false,
@@ -338,7 +338,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           from_day: parseInt(values.from_day),
           to_day: parseInt(values.to_day),
           payment_reference: values.payment_reference || null,
-          comments: values.comments || null, // NEW
+          // REMOVED: comments: values.comments || null, // NEW
           status: values.status,
           country: values.country,
           bank_details_verified: values.bank_details_verified,
@@ -367,7 +367,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         from_day: "1",
         to_day: "31",
         payment_reference: "",
-        comments: "", // NEW
+        // REMOVED: comments: "", // NEW
         status: "awaiting_info",
         country: formCountry,
         bank_details_verified: false,
@@ -489,7 +489,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <SelectContent>
                   {daysOfMonth.map((day) => (
                     <SelectItem key={day} value={day}>
-                      {day}
+                        Day {day}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -799,20 +799,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
               <FormLabel className="font-semibold">Payment Reference</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., SO-RENT-001" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="comments"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Comments</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Add any notes or context for this standing order" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
