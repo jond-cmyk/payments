@@ -624,23 +624,26 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // Fetch all customer ledger entries (or a large page size)
+      const customerSpecificPath = `/customers/${num}/customer-ledger-entries?pagesize=1000`;
+      console.log(`[Customers] Attempting to fetch ledger entries from: ${customerSpecificPath}`);
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/customer-ledger-entries?pagesize=1000`, method: "GET" }, // Removed filter from path
+        body: { path: customerSpecificPath, method: "GET" },
       });
 
-      if (error) throw new Error(error.message || "Failed to load customer ledger card");
-      const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
-      let list = extractList(resp?.data);
-      
-      // Apply client-side filter by customerNumber
-      if (num) {
-        list = list.filter(entry => {
-          const entryCustomerNumber = pick(entry, ["customer.customerNumber", "customer.number", "entryCustomerNumber"]);
-          return String(entryCustomerNumber) === String(num);
-        });
+      if (error) {
+        console.error(`[Customers] Failed to fetch customer-specific ledger entries for ${num}:`, error);
+        throw new Error(error.message || "Failed to load customer ledger card.");
       }
 
+      const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
+      // Check for e-conomic API specific errors (e.g., 404 from e-conomic itself)
+      if (resp?.status && resp.status >= 400) {
+        console.error(`[Customers] e-conomic API returned error status ${resp.status} for ${customerSpecificPath}:`, resp.data);
+        throw new Error(`e-conomic API Error: ${resp.data?.message || resp.data?.developerHint || 'Unknown error'}`);
+      }
+
+      const list = extractList(resp?.data);
+      
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
       showSuccess(`Loaded ${list.length} ledger entries.`);
