@@ -606,8 +606,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, enrichInvoiceHeadings]);
 
-  const loadLedgerCard = useCallback(async () => { // No arguments needed, captures num from scope
-    console.log(`[CustomerRow] loadLedgerCard (v6): customerNumber=${num}, customerName=${customer.name}`);
+  const loadLedgerCard = useCallback(async () => {
+    console.log(`[CustomerRow] loadLedgerCard (v7): customerNumber=${num}, customerName=${customer.name}`);
     if (!num) {
       showError("Customer number is missing.");
       return;
@@ -616,17 +616,18 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      const pathForProxy = `/customer-ledger-entries?pagesize=1000`; // This is the correct general endpoint
-      console.log(`[CustomerRow] loadLedgerCard (v6): Path to send to proxy: ${pathForProxy}`);
+      // CORRECTED PATH: Include the customer number in the path
+      const pathForProxy = `/customers/${num}/customer-ledger-entries?pagesize=1000`;
+      console.log(`[CustomerRow] loadLedgerCard (v7): Path to send to proxy: ${pathForProxy}`);
       const requestBodyForProxy = { path: pathForProxy, method: "GET" };
-      console.log(`[CustomerRow] loadLedgerCard (v6): Request body for proxy: ${JSON.stringify(requestBodyForProxy)}`);
+      console.log(`[CustomerRow] loadLedgerCard (v7): Request body for proxy: ${JSON.stringify(requestBodyForProxy)}`);
 
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
         body: requestBodyForProxy,
       });
 
       if (error) {
-        console.error(`[CustomerRow] Failed to fetch all ledger entries:`, error);
+        console.error(`[CustomerRow] Failed to fetch ledger entries for customer ${num}:`, error);
         throw new Error(error.message || "Failed to load customer ledger card.");
       }
 
@@ -636,19 +637,12 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         throw new Error(`e-conomic API Error: ${resp.data?.message || resp.data?.developerHint || 'Unknown error'}`);
       }
 
-      const allList = extractList(resp?.data);
-      console.log(`[CustomerRow] loadLedgerCard (v6): Fetched ${allList.length} total ledger entries.`);
-
-      // Filter client-side by customerNumber
-      const filteredList = allList.filter((entry: any) => {
-        const entryCustomerNumber = pick(entry, ['customer.customerNumber', 'customerNumber', 'customer.number']);
-        return String(entryCustomerNumber) === String(num);
-      });
-      console.log(`[CustomerRow] loadLedgerCard (v6): Filtered to ${filteredList.length} entries for customer ${num}.`);
+      const list = extractList(resp?.data); // This should now directly return the filtered list for the customer
+      console.log(`[CustomerRow] loadLedgerCard (v7): Fetched ${list.length} ledger entries for customer ${num}.`);
       
-      setLedgerCardData(filteredList);
+      setLedgerCardData(list); // No need for client-side filtering anymore if the API endpoint is correct
       setShowLedgerCardDialog(true);
-      showSuccess(`Loaded ${filteredList.length} ledger entries.`);
+      showSuccess(`Loaded ${list.length} ledger entries.`);
     } catch (err: any) {
       console.error("Error loading ledger card:", err);
       showError("Failed to load ledger card: " + err.message);
