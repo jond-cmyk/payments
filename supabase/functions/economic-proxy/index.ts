@@ -8,6 +8,9 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log("[economic-proxy] START: Request URL:", req.url); // NEW LOG
+  console.log("[economic-proxy] START: Request Method:", req.method); // NEW LOG
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

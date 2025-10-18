@@ -214,27 +214,19 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
 
-  // Removed transactionsData, setLoadingTransactions, showTransactionsDialog
-  // Removed outstandingData, setLoadingOutstanding, showOutstandingDialog
-
   const [ledgerCardData, setLedgerCardData] = useState<any[] | null>(null);
   const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
   const [showLedgerCardDialog, setShowLedgerCardDialog] = useState(false);
 
   const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
-  // Removed showTransactionsDialog
-  // Removed showOutstandingDialog
 
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
 
-  // Removed `const num = customer.customerNumber;` from here
-  const num = customer.customerNumber; // Keep num here for the balance query and initial checks
+  const num = customer.customerNumber;
 
   console.log("CustomerRow Props for customer:", customer.customerNumber, {
     customerNumber: customer.customerNumber,
     loadingInvoices: loadingInvoices,
-    // Removed loadingTransactions
-    // Removed loadingOutstanding
     loadingLedgerCard: loadingLedgerCard,
   });
 
@@ -614,46 +606,45 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, enrichInvoiceHeadings]);
 
-  // Removed loadTransactions
-  // Removed loadOutstanding
-
-  const loadLedgerCard = useCallback(async (customerNumber: number | undefined, customerName: string | undefined) => {
-    console.log(`[Customers] loadLedgerCard (v4): customerNumber=${customerNumber}, customerName=${customerName}`);
-    if (!customerNumber) {
+  const loadLedgerCard = useCallback(async () => { // No arguments needed, captures num from scope
+    console.log(`[CustomerRow] loadLedgerCard (v6): customerNumber=${num}, customerName=${customer.name}`);
+    if (!num) {
       showError("Customer number is missing.");
       return;
     }
     setLoadingLedgerCard(true);
-    const toastId = showLoading(`Loading ledger card for ${customerName || 'customer'}...`);
+    const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // Fetch all ledger entries from the top-level endpoint
-      const allLedgerEntriesPath = `/customer-ledger-entries?pagesize=1000`;
-      console.log(`[Customers] loadLedgerCard (v4): Invoking economic-proxy with path: ${allLedgerEntriesPath}`);
+      const pathForProxy = `/customer-ledger-entries?pagesize=1000`; // This is the correct general endpoint
+      console.log(`[CustomerRow] loadLedgerCard (v6): Path to send to proxy: ${pathForProxy}`);
+      const requestBodyForProxy = { path: pathForProxy, method: "GET" };
+      console.log(`[CustomerRow] loadLedgerCard (v6): Request body for proxy: ${JSON.stringify(requestBodyForProxy)}`);
+
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: allLedgerEntriesPath, method: "GET" },
+        body: requestBodyForProxy,
       });
 
       if (error) {
-        console.error(`[Customers] Failed to fetch all ledger entries:`, error);
+        console.error(`[CustomerRow] Failed to fetch all ledger entries:`, error);
         throw new Error(error.message || "Failed to load customer ledger card.");
       }
 
       const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
       if (resp?.status && resp.status >= 400) {
-        console.error(`[Customers] e-conomic API returned error status ${resp.status} for ${allLedgerEntriesPath}:`, resp.data);
+        console.error(`[CustomerRow] e-conomic API returned error status ${resp.status} for ${pathForProxy}:`, resp.data);
         throw new Error(`e-conomic API Error: ${resp.data?.message || resp.data?.developerHint || 'Unknown error'}`);
       }
 
       const allList = extractList(resp?.data);
-      console.log(`[Customers] loadLedgerCard (v4): Fetched ${allList.length} total ledger entries.`);
+      console.log(`[CustomerRow] loadLedgerCard (v6): Fetched ${allList.length} total ledger entries.`);
 
       // Filter client-side by customerNumber
       const filteredList = allList.filter((entry: any) => {
         const entryCustomerNumber = pick(entry, ['customer.customerNumber', 'customerNumber', 'customer.number']);
-        return String(entryCustomerNumber) === String(customerNumber);
+        return String(entryCustomerNumber) === String(num);
       });
-      console.log(`[Customers] loadLedgerCard (v4): Filtered to ${filteredList.length} entries for customer ${customerNumber}.`);
+      console.log(`[CustomerRow] loadLedgerCard (v6): Filtered to ${filteredList.length} entries for customer ${num}.`);
       
       setLedgerCardData(filteredList);
       setShowLedgerCardDialog(true);
@@ -665,7 +656,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       dismissToast(toastId);
       setLoadingLedgerCard(false);
     }
-  }, []);
+  }, [num, customer.name]); // Dependencies for useCallback
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
@@ -692,9 +683,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       ),
     },
   ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
-
-  // Removed transactionColumns
-  // Removed outstandingColumns
 
   const ledgerCardColumns: DialogColumn[] = [
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
@@ -724,8 +712,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     return { text, tooltip, isDisabled };
   };
 
-  // Removed transactionsButtonState
-  // Removed outstandingButtonState
   const ledgerCardButtonState = getButtonState('ledgerCard');
 
   return (
@@ -766,11 +752,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
             <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
-            {/* Removed All Transactions Button */}
-            {/* Removed All Outstanding Button */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={() => loadLedgerCard(customer.customerNumber, customer.name)} disabled={ledgerCardButtonState.isDisabled}> {/* UPDATED onClick */}
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={ledgerCardButtonState.isDisabled}> {/* UPDATED onClick */}
                   <BookText className="h-4 w-4 mr-1" /> {ledgerCardButtonState.text}
                 </Button>
               </TooltipTrigger>
@@ -789,9 +773,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         columns={invoiceColumns}
         isLoading={loadingInvoices}
       />
-
-      {/* Removed EconomicDetailDialog for showTransactionsDialog */}
-      {/* Removed EconomicDetailDialog for showOutstandingDialog */}
 
       <EconomicDetailDialog
         isOpen={showLedgerCardDialog}
