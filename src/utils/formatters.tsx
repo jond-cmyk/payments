@@ -100,6 +100,16 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
       ),
       filter: false,
     },
+    { // NEW: Handle generic update message for Direct Debits
+      name: 'directDebitGenericUpdate',
+      regex: /Direct Debit updated \(description was unexpectedly null\)\.?/g,
+      formatter: (match: RegExpExecArray) => (
+        <React.Fragment key={`dd-generic-update-${match.index}`}>
+          Direct Debit updated (no specific field changes detected).
+        </React.Fragment>
+      ),
+      filter: false,
+    },
   ];
 
   const allMatches: {

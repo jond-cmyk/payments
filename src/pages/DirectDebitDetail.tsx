@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DirectDebit, DirectDebitAudit, Profile } from '@/types/supabase'; // Import DirectDebitAudit and Profile
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
-import { Edit, Trash2, Banknote, AlertTriangle } from 'lucide-react';
+import { Edit, Trash2, Banknote, Info, CalendarDays, UserCircle2, MessageSquareText } from 'lucide-react'; // Added new icons for sections
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 
@@ -30,11 +30,12 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
 import { cn } from '@/lib/utils';
 import DirectDebitAuditTrailCard from '@/components/direct-debits/DirectDebitAuditTrailCard'; // Import the new audit card
+import DirectDebitCommentsCard from '@/components/direct-debits/DirectDebitCommentsCard'; // NEW: Import DirectDebitCommentsCard
 import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm'; // Import the EditDirectDebitForm
 
 const DirectDebitDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { session, isLoading: isSessionLoading, userProfile } = useSession();
+  const { session, isLoading: isSessionLoading, user, userProfile } = useSession(); // Added user
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -84,6 +85,10 @@ const DirectDebitDetail = () => {
     },
     enabled: !!id,
   });
+
+  // Filter audits into general audit trail and comments
+  const generalAudits = audits?.filter(audit => !audit.change_description.startsWith('Comment: ')) || [];
+  const comments = audits?.filter(audit => audit.change_description.startsWith('Comment: ')) || [];
 
   // Fetch user names and emails for audit trail
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
@@ -137,6 +142,40 @@ const DirectDebitDetail = () => {
     },
   });
 
+  // NEW: Mutation for adding comments
+  const addCommentMutation = useMutation({
+    mutationFn: async (commentText: string) => {
+      if (!id || !user?.id) throw new Error("Direct Debit ID or user ID missing.");
+      const { error } = await supabase
+        .from('direct_debit_audits')
+        .insert({
+          direct_debit_id: id,
+          changed_by_user_id: user.id,
+          change_description: `Comment: ${commentText}`,
+        });
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['directDebitAudits', id] });
+      showSuccess("Comment added successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to add comment.");
+      console.error("Add comment error:", error);
+    },
+  });
+
+  const handleAddComment = async (commentText: string) => {
+    const toastId = showLoading("Adding comment...");
+    try {
+      await addCommentMutation.mutateAsync(commentText);
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
+  };
+
   const getStatusBadge = (status: DirectDebit['status']) => {
     let className = '';
     switch (status) {
@@ -149,12 +188,16 @@ const DirectDebitDetail = () => {
       case 'cancelled':
         className = 'bg-red-500 text-red-50';
         break;
+      case 'pending':
+      case 'awaiting_info': // Added awaiting_info
+        className = 'bg-orange-500 text-orange-50';
+        break;
       default:
         className = 'bg-gray-500 text-gray-50';
     }
     return (
       <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
       </Badge>
     );
   };
@@ -169,6 +212,7 @@ const DirectDebitDetail = () => {
     setEditingDirectDebit(null);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] }); // Invalidate list
     queryClient.invalidateQueries({ queryKey: ['directDebit', id] }); // Invalidate detail view
+    queryClient.invalidateQueries({ queryKey: ['directDebitAudits', id] }); // Invalidate audits
   };
 
   if (isSessionLoading || isDirectDebitLoading || isAuditsLoading || isAuditUsersLoading) {
@@ -188,11 +232,13 @@ const DirectDebitDetail = () => {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Direct debit not found.</div>;
   }
 
+  const isCH = directDebit.country === 'Switzerland';
+
   return (
     <div className="container mx-auto py-8">
       <PageTitle title={`Direct Debit ${directDebit.payee} - KH Payments`} />
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Direct Debit #{directDebit.id.substring(0, 0)}</h1>
+        <h1 className="text-3xl font-bold">Direct Debit #{directDebit.id.substring(0, 8)}</h1>
         {isAdmin && (
           <div className="flex space-x-2">
             <Button
@@ -233,75 +279,133 @@ const DirectDebitDetail = () => {
         )}
       </div>
 
-      <Card className="mb-8 shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Banknote className="mr-2 h-5 w-5" /> Direct Debit Details
-          </CardTitle>
-          <CardDescription>Detailed information about this direct debit.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="font-bold">Payee:</p>
-              <p>{directDebit.payee}</p>
-            </div>
-            <div>
-              <p className="font-bold">Payment Day:</p>
-              <p>{directDebit.payment_day !== null && directDebit.payment_day !== undefined ? directDebit.payment_day : '—'}</p>
-            </div>
-            <div>
-              <p className="font-bold">SKU:</p>
-              <p>{directDebit.not_property_related ? 'N/A (Not Property Related)' : (directDebit.sku || 'N/A')}</p>
-            </div>
-            <div>
-              <p className="font-bold">Category:</p>
-              <p>{categoryOptions.find(c => c.value === directDebit.category)?.label || directDebit.category}</p>
-            </div>
-            <div>
-              <p className="font-bold">Account Number:</p>
-              <p>{directDebit.account_number}</p>
-            </div>
-            <div>
-              <p className="font-bold">Payment Reference:</p>
-              <p>{directDebit.payment_reference}</p>
-            </div>
-            <div>
-              <p className="font-bold">Status:</p>
-              <p>{getStatusBadge(directDebit.status)}</p>
-            </div>
-            <div>
-              <p className="font-bold">Country:</p>
-              <p>{directDebit.country}</p>
-            </div>
-            {directDebit.bank_account && (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Section 1: Overview */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Info className="mr-2 h-5 w-5" /> Overview
+            </CardTitle>
+            <CardDescription>Key details of the direct debit.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-bold">Bank Account:</p>
-                <p>{directDebit.bank_account}</p>
+                <p className="font-bold">Country:</p>
+                <p>{directDebit.country}</p>
               </div>
-            )}
-            <div>
-              <p className="font-bold">Created At:</p>
-              <p>{format(new Date(directDebit.created_at), 'PPP p')}</p>
+              <div>
+                <p className="font-bold">Status:</p>
+                <p>{getStatusBadge(directDebit.status)}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="font-bold">Payee:</p>
+                <p>{directDebit.payee}</p>
+              </div>
+              <div>
+                <p className="font-bold">Payment Day:</p>
+                <p>{directDebit.payment_day !== null && directDebit.payment_day !== undefined ? `Day ${directDebit.payment_day}` : 'N/A'}</p>
+              </div>
+              <div>
+                <p className="font-bold">SKU:</p>
+                <p>{directDebit.not_property_related ? 'N/A (Not Property Related)' : (directDebit.sku || 'N/A')}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-bold">Last Updated:</p>
-              <p>{format(new Date(directDebit.updated_at), 'PPP p')}</p>
+          </CardContent>
+        </Card>
+
+        {/* Section 2: Payment Details */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <CalendarDays className="mr-2 h-5 w-5" /> Payment Details
+            </CardTitle>
+            <CardDescription>Information about the payment structure.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-bold">Category:</p>
+                <p>{categoryOptions.find(c => c.value === directDebit.category)?.label || directDebit.category}</p>
+              </div>
+              <div>
+                <p className="font-bold">Payment Reference:</p>
+                <p>{directDebit.payment_reference || 'N/A'}</p>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      <DirectDebitAuditTrailCard audits={audits} auditUsers={auditUsers} />
+        {/* Section 3: Bank Details */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Banknote className="mr-2 h-5 w-5" /> Bank Details
+            </CardTitle>
+            <CardDescription>Account information for the payee.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-bold">Account Number:</p>
+                <p>{directDebit.account_number || 'N/A'}</p>
+              </div>
+              {isCH && (
+                <div>
+                  <p className="font-bold">Bank Account:</p>
+                  <p>{directDebit.bank_account || 'N/A'}</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Add the Edit Direct Debit Dialog */}
-      {editingDirectDebit && (
+        {/* Section 4: Metadata */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <UserCircle2 className="mr-2 h-5 w-5" /> Metadata
+            </CardTitle>
+            <CardDescription>Administrative information.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-bold">Requested By:</p>
+                <p>{auditUsers?.[directDebit.requester_id] || directDebit.requester_id}</p>
+              </div>
+              <div>
+                <p className="font-bold">Created At:</p>
+                <p>{format(new Date(directDebit.created_at), 'PPP p')}</p>
+              </div>
+              <div>
+                <p className="font-bold">Last Updated:</p>
+                <p>{format(new Date(directDebit.updated_at), 'PPP p')}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* NEW: Comments Card */}
+      <DirectDebitCommentsCard
+        directDebitId={directDebit.id}
+        comments={comments}
+        auditUsers={auditUsers}
+        currentUser={user}
+        onAddComment={handleAddComment}
+        isAddingComment={addCommentMutation.isPending}
+      />
+
+      <DirectDebitAuditTrailCard audits={generalAudits} auditUsers={auditUsers || {}} />
+
+      {directDebit && (
         <Dialog open={isEditDirectDebitDialogOpen} onOpenChange={setIsEditDirectDebitDialogOpen}>
           <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Direct Debit: {editingDirectDebit.payee}</DialogTitle>
+              <DialogTitle>Edit Direct Debit: {directDebit.payee}</DialogTitle>
             </DialogHeader>
-            <EditDirectDebitForm directDebit={editingDirectDebit} onDirectDebitUpdated={handleDirectDebitUpdated} />
+            <EditDirectDebitForm directDebit={directDebit} onDirectDebitUpdated={handleDirectDebitUpdated} />
           </DialogContent>
         </Dialog>
       )}
