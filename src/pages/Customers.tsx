@@ -56,6 +56,80 @@ type EconomicAccountingYear = {
   self: string;
 };
 
+// Utility function to extract a list from varied economic response shapes
+const extractList = (payload: any): any[] => {
+  if (!payload) {
+    return [];
+  }
+
+  const economicResponseData = payload?.data;
+  if (!economicResponseData) {
+    return [];
+  }
+
+  const candidates = [
+    economicResponseData.collection,
+    economicResponseData.items,
+    economicResponseData.results,
+    economicResponseData.entries,
+    economicResponseData.invoices,
+    economicResponseData.accountingYears?.collection, // NEW: Check for nested collection
+  ];
+
+  for (const c of candidates) {
+    if (Array.isArray(c)) {
+      return c;
+    }
+  }
+  
+  if (Array.isArray(economicResponseData)) {
+    return economicResponseData;
+  }
+
+  if (typeof economicResponseData === "object") {
+    for (const k of Object.keys(economicResponseData)) {
+      const v = (economicResponseData as any)[k];
+      if (Array.isArray(v)) {
+        return v;
+      }
+    }
+  }
+  
+  return [];
+};
+
+// Helper to pick a value from an object given multiple possible keys/paths
+const pick = (obj: any, keys: string[]): any => {
+  if (!obj) return undefined;
+  for (const key of keys) {
+    const parts = key.split('.');
+    let current = obj;
+    let found = true;
+    for (const part of parts) {
+      if (current && typeof current === 'object' && part in current) {
+        current = current[part];
+      } else {
+        current = undefined;
+        found = false;
+        break;
+      }
+    }
+    if (found) {
+      // If the found value is an object with a 'value' property, use that
+      if (typeof current === 'object' && current !== null && 'value' in current && typeof current.value === 'number') {
+        return current.value;
+      }
+      // Attempt to parse to number if it looks like one
+      if (typeof current === 'string' && !isNaN(parseFloat(current))) {
+        return parseFloat(current);
+      }
+      return current;
+    }
+  }
+  return undefined;
+};
+
+
 const Customers: React.FC = () => {
   const { session, isLoading } = useSession();
   const navigate = useNavigate();
@@ -71,7 +145,7 @@ const Customers: React.FC = () => {
       });
       if (error) throw new Error(error.message || "Failed to load customers");
       const resp = data as EconomicProxyResponse<EconomicCollection<EconomicCustomer>>;
-      const list = Array.isArray(resp?.data?.collection) ? resp.data.collection : Array.isArray(resp?.data) ? (resp.data as any[]) : [];
+      const list = extractList(resp?.data);
       return list as EconomicCustomer[];
     },
     staleTime: 60_000,
@@ -210,6 +284,11 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   // Keep a map of headings for invoices (keyed by self URL or number)
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
 
+  // NEW: State for accounting years
+  const [accountingYears, setAccountingYears] = useState<{ year: string; href: string }[]>([]);
+  const [selectedAccountingYear, setSelectedAccountingYear] = useState<string | null>(null);
+  const [isAccountingYearsLoading, setIsAccountingYearsLoading] = useState(false);
+
   const num = customer.customerNumber;
 
   // Debugging logs for CustomerRow
@@ -220,79 +299,37 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     loadingOutstanding: loadingOutstanding,
   });
 
-  // Helper to extract a list from varied economic response shapes
-  const extractList = (payload: any): any[] => {
-    if (!payload) {
-      return [];
-    }
-
-    const economicResponseData = payload?.data;
-    // NEW LOG: Log the raw economicResponseData to understand its structure
-    console.log("[extractList] Raw economicResponseData for entries:", economicResponseData); 
-    if (!economicResponseData) {
-      return [];
-    }
-
-    const candidates = [
-      economicResponseData.collection,
-      economicResponseData.items,
-      economicResponseData.results,
-      economicResponseData.entries,
-      economicResponseData.invoices
-    ];
-
-    for (const c of candidates) {
-      if (Array.isArray(c)) {
-        return c;
-      }
-    }
-    
-    if (Array.isArray(economicResponseData)) {
-      return economicResponseData;
-    }
-
-    if (typeof economicResponseData === "object") {
-      for (const k of Object.keys(economicResponseData)) {
-        const v = (economicResponseData as any)[k];
-        if (Array.isArray(v)) {
-          return v;
+  // NEW: Fetch available accounting years
+  useEffect(() => {
+    const fetchAccountingYears = async () => {
+      if (!num) return;
+      setIsAccountingYearsLoading(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("economic-proxy", {
+          body: { path: `/accounting-years?pagesize=100`, method: "GET" },
+        });
+        if (error) throw new Error(error.message || "Failed to load accounting years");
+        const resp = data as EconomicProxyResponse<EconomicCollection<EconomicAccountingYear>>;
+        const years = extractList(resp?.data).map(y => ({
+          year: String(y.year),
+          href: y.self,
+        }));
+        setAccountingYears(years);
+        if (years.length > 0) {
+          // Default to the latest year
+          const latestYear = years.sort((a, b) => parseInt(b.year) - parseInt(a.year))[0].year;
+          setSelectedAccountingYear(latestYear);
         }
+      } catch (err: any) {
+        console.error("Error fetching accounting years:", err);
+        showError("Failed to load accounting years: " + err.message);
+      } finally {
+        setIsAccountingYearsLoading(false);
       }
-    }
-    
-    return [];
-  };
+    };
+    fetchAccountingYears();
+  }, [num]);
 
-  // Helper to pick a value from an object given multiple possible keys/paths
-  const pick = (obj: any, keys: string[]): any => {
-    if (!obj) return undefined;
-    for (const key of keys) {
-      const parts = key.split('.');
-      let current = obj;
-      let found = true;
-      for (const part of parts) {
-        if (current && typeof current === 'object' && part in current) {
-          current = current[part];
-        } else {
-          current = undefined;
-          found = false;
-          break;
-        }
-      }
-      if (found) {
-        // If the found value is an object with a 'value' property, use that
-        if (typeof current === 'object' && current !== null && 'value' in current && typeof current.value === 'number') {
-          return current.value;
-        }
-        // Attempt to parse to number if it looks like one
-        if (typeof current === 'string' && !isNaN(parseFloat(current))) {
-          return parseFloat(current);
-        }
-        return current;
-      }
-    }
-    return undefined;
-  };
 
   // Fetch balance and overdue amount automatically using useQuery
   const { data: balanceData, isLoading: loadingBalance, error: balanceError } = useQuery<{ balance: number | null, dueAmount: number | null }>({
@@ -685,22 +722,22 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   }, [num, enrichInvoiceHeadings]);
 
   // Load all transactions for a customer
-  const loadTransactions = async () => {
-    if (!num) {
-      showError("Customer number is missing.");
+  const loadTransactions = useCallback(async () => {
+    if (!num || !selectedAccountingYear) {
+      showError("Customer number or accounting year is missing.");
       return;
     }
     setLoadingTransactions(true);
-    const toastId = showLoading(`Loading all transactions...`);
+    const toastId = showLoading(`Loading all transactions for ${selectedAccountingYear}...`);
 
     let allEntries: any[] = [];
     let debtorEntries: any[] = [];
     let creditorEntries: any[] = [];
 
     // Attempt to fetch as debtor
-    console.log(`[loadTransactions] Attempting to fetch entries as debtor for customer ${num}...`);
+    console.log(`[loadTransactions] Attempting to fetch entries as debtor for customer ${num} in year ${selectedAccountingYear}...`);
     const { data: debtorData, error: debtorError } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
+      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num, accountingYear: selectedAccountingYear }, method: "GET" },
     });
     console.log(`[loadTransactions] Debtor entries raw response:`, debtorData); // ADDED LOG
     if (debtorError) {
@@ -711,9 +748,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
 
     // Attempt to fetch as creditor
-    console.log(`[loadTransactions] Attempting to fetch entries as creditor for customer ${num}...`);
+    console.log(`[loadTransactions] Attempting to fetch entries as creditor for customer ${num} in year ${selectedAccountingYear}...`);
     const { data: creditorData, error: creditorError } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num }, method: "GET" },
+      body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num, accountingYear: selectedAccountingYear }, method: "GET" },
     });
     console.log(`[loadTransactions] Creditor entries raw response:`, creditorData); // ADDED LOG
     if (creditorError) {
@@ -763,25 +800,25 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     } else {
       showError("No transactions found for this customer.");
     }
-  };
+  }, [num, selectedAccountingYear]);
 
   // Load all outstanding transactions for a customer
-  const loadOutstanding = async () => {
-    if (!num) {
-      showError("Customer number is missing.");
+  const loadOutstanding = useCallback(async () => {
+    if (!num || !selectedAccountingYear) {
+      showError("Customer number or accounting year is missing.");
       return;
     }
     setLoadingOutstanding(true);
-    const toastId = showLoading(`Loading outstanding transactions...`);
+    const toastId = showLoading(`Loading outstanding transactions for ${selectedAccountingYear}...`);
 
     let allEntries: any[] = [];
     let debtorEntries: any[] = [];
     let creditorEntries: any[] = [];
 
     // Attempt to fetch as debtor
-    console.log(`[loadOutstanding] Attempting to fetch entries as debtor for customer ${num}...`);
+    console.log(`[loadOutstanding] Attempting to fetch entries as debtor for customer ${num} in year ${selectedAccountingYear}...`);
     const { data: debtorData, error: debtorError } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
+      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num, accountingYear: selectedAccountingYear }, method: "GET" },
     });
     console.log(`[loadOutstanding] Debtor entries raw response:`, debtorData); // ADDED LOG
     if (debtorError) {
@@ -792,9 +829,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
 
     // Attempt to fetch as creditor
-    console.log(`[loadOutstanding] Attempting to fetch entries as creditor for customer ${num}...`);
+    console.log(`[loadOutstanding] Attempting to fetch entries as creditor for customer ${num} in year ${selectedAccountingYear}...`);
     const { data: creditorData, error: creditorError } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num }, method: "GET" },
+      body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num, accountingYear: selectedAccountingYear }, method: "GET" },
     });
     console.log(`[loadOutstanding] Creditor entries raw response:`, creditorData); // ADDED LOG
     if (creditorError) {
@@ -858,7 +895,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     } else {
       showError("No outstanding transactions found for this customer.");
     }
-  };
+  }, [num, selectedAccountingYear]);
 
   // Column definitions for the dialogs
   const invoiceColumns: DialogColumn[] = useMemo(() => [
@@ -909,18 +946,23 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   // Determine disabled states and tooltips for buttons
   const isCustomerNumberMissing = !customer.customerNumber;
+  const isAccountingYearMissing = !selectedAccountingYear;
 
   const getButtonState = (buttonType: 'transactions' | 'outstanding') => {
     const isLoadingState = buttonType === 'transactions' ? loadingTransactions : loadingOutstanding;
     let text = isLoadingState ? "Loading..." : (buttonType === 'transactions' ? "All Transactions" : "All Outstanding");
     let tooltip = "";
-    let isDisabled = isLoadingState;
+    let isDisabled = isLoadingState || isAccountingYearsLoading;
 
     if (isCustomerNumberMissing) {
       text = "No Customer Number";
       tooltip = "This customer has no associated customer number in e-conomic.";
       isDisabled = true;
-    } 
+    } else if (isAccountingYearMissing) {
+      text = "Select Year";
+      tooltip = "Please select an accounting year to view transactions.";
+      isDisabled = true;
+    }
 
     return { text, tooltip, isDisabled };
   };
@@ -1006,6 +1048,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         data={transactionsData}
         columns={transactionColumns}
         isLoading={loadingTransactions}
+        accountingYears={accountingYears}
+        selectedAccountingYear={selectedAccountingYear}
+        onAccountingYearChange={setSelectedAccountingYear}
+        isAccountingYearsLoading={isAccountingYearsLoading}
       />
 
       {/* Dialog for All Outstanding */}
@@ -1017,6 +1063,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         data={outstandingData}
         columns={outstandingColumns}
         isLoading={loadingOutstanding}
+        accountingYears={accountingYears}
+        selectedAccountingYear={selectedAccountingYear}
+        onAccountingYearChange={setSelectedAccountingYear}
+        isAccountingYearsLoading={isAccountingYearsLoading}
       />
     </>
   );
