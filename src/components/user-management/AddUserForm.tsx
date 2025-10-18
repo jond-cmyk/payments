@@ -147,8 +147,11 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="requester">Requester</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  {availableCountries.map((country) => (
+                    <SelectItem key={country.value} value={country.value}>
+                      {country.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <FormMessage />

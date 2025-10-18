@@ -107,8 +107,8 @@
     @apply bg-background text-foreground antialiased font-sans; /* Added font-sans here */
   }
 
-  /* Apply dyad-blue to all header tags */
+  /* Apply dyad-blue and font-bold to all header tags */
   h1, h2, h3, h4, h5, h6 {
-    @apply text-dyad-blue;
+    @apply text-dyad-blue font-bold;
   }
 }

@@ -838,7 +838,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Existing Payee Suggestions</DialogTitle>
+            <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {payeeSuggestions.length > 0 ? (
