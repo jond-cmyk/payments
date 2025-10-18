@@ -24,19 +24,19 @@ const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm"> {/* Increased gap for better spacing */}
           <div className="space-y-1"> {/* Added space-y-1 for vertical spacing */}
-            <p className="font-medium">Transaction Date:</p>
+            <p className="font-bold">Transaction Date:</p>
             <p>{format(new Date(transaction.transaction_date), 'PPP')}</p>
           </div>
           <div className="space-y-1">
-            <p className="font-medium">Description:</p>
+            <p className="font-bold">Description:</p>
             <p>{transaction.description}</p>
           </div>
           <div className="space-y-1">
-            <p className="font-medium">Amount:</p>
+            <p className="font-bold">Amount:</p>
             <p>{transaction.currency} {transaction.amount.toFixed(2)}</p>
           </div>
           <div className="space-y-1">
-            <p className="font-medium">Status:</p>
+            <p className="font-bold">Status:</p>
             <p className={`font-semibold ${
               transaction.status === 'pending_input' ? 'text-yellow-600' :
               transaction.status === 'completed' ? 'text-blue-600' :
@@ -48,62 +48,62 @@ const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps
             </p>
           </div>
           <div className="space-y-1">
-            <p className="font-medium">Category:</p>
+            <p className="font-bold">Category:</p>
             <p>{transaction.category || 'N/A'}</p>
           </div>
           <div className="space-y-1">
-            <p className="font-medium">Merchant Name:</p>
+            <p className="font-bold">Merchant Name:</p>
             <p>{transaction.merchant_name || 'N/A'}</p>
           </div>
           {transaction.original_transaction_id && (
             <div className="space-y-1">
-              <p className="font-medium">Original Transaction ID:</p>
+              <p className="font-bold">Original Transaction ID:</p>
               <p>{transaction.original_transaction_id}</p>
             </div>
           )}
           {transaction.type && (
             <div className="space-y-1">
-              <p className="font-medium">Type:</p>
+              <p className="font-bold">Type:</p>
               <p>{transaction.type}</p>
             </div>
           )}
           {transaction.entry && (
             <div className="space-y-1">
-              <p className="font-medium">Entry:</p>
+              <p className="font-bold">Entry:</p>
               <p>{transaction.entry}</p>
             </div>
           )}
           {transaction.bank && (
             <div className="space-y-1">
-              <p className="font-medium">Bank:</p>
+              <p className="font-bold">Bank:</p>
               <p>{transaction.bank}</p>
             </div>
           )}
           {transaction.bank_account && ( // NEW: Display Bank Account
             <div className="space-y-1">
-              <p className="font-medium">Bank Account:</p>
+              <p className="font-bold">Bank Account:</p>
               <p>{transaction.bank_account}</p>
             </div>
           )}
           {transaction.contra_account && (
             <div className="space-y-1">
-              <p className="font-medium">Contra Account:</p>
+              <p className="font-bold">Contra Account:</p>
               <p>{transaction.contra_account}</p>
             </div>
           )}
           {transaction.exchange_rate && (
             <div className="space-y-1">
-              <p className="font-medium">Exchange Rate:</p>
+              <p className="font-bold">Exchange Rate:</p>
               <p>{transaction.exchange_rate}</p>
             </div>
           )}
           <div className="space-y-1">
-            <p className="font-medium">SKU:</p>
+            <p className="font-bold">SKU:</p>
             <p>{transaction.not_sku_related ? 'N/A (Not SKU Related)' : (transaction.sku || 'N/A')}</p>
           </div>
           {transaction.receipt_urls && transaction.receipt_urls.length > 0 && (
             <div className="space-y-1 md:col-span-2"> {/* Span two columns for receipts if needed */}
-              <p className="font-medium">Receipt PDF(s):</p>
+              <p className="font-bold">Receipt PDF(s):</p>
               <div className="space-y-1">
                 {transaction.receipt_urls.map((url, index) => (
                   <Button asChild variant="link" className="p-0 h-auto block" key={index}>

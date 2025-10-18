@@ -281,27 +281,27 @@ const StandingOrderDetail = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-medium">Country:</p>
+                <p className="font-bold">Country:</p>
                 <p>{standingOrder.country}</p>
               </div>
               <div>
-                <p className="font-medium">Status:</p>
+                <p className="font-bold">Status:</p>
                 <p>{getStatusBadge(standingOrder.status)}</p>
               </div>
               <div className="md:col-span-2">
-                <p className="font-medium">Payee:</p>
+                <p className="font-bold">Payee:</p>
                 <p>{standingOrder.payee}</p>
               </div>
               <div>
-                <p className="font-medium">Payment Start Date:</p>
+                <p className="font-bold">Payment Start Date:</p>
                 <p>{format(new Date(standingOrder.payment_date), 'PPP')}</p>
               </div>
               <div>
-                <p className="font-medium">Payment End Date:</p>
+                <p className="font-bold">Payment End Date:</p>
                 <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
               </div>
               <div>
-                <p className="font-medium">Payment Day:</p>
+                <p className="font-bold">Payment Day:</p>
                 <p>{standingOrder.payment_day ? `Day ${standingOrder.payment_day}` : 'N/A'}</p>
               </div>
             </div>
@@ -319,7 +319,7 @@ const StandingOrderDetail = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="md:col-span-2">
-                <p className="font-medium flex items-center mb-2">
+                <p className="font-bold flex items-center mb-2">
                   Categories & Amounts:
                 </p>
                 {standingOrder.categories && standingOrder.categories.length > 0 ? (
@@ -350,11 +350,11 @@ const StandingOrderDetail = () => {
                 )}
               </div>
               <div>
-                <p className="font-medium">SKU:</p>
+                <p className="font-bold">SKU:</p>
                 <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
               </div>
               <div>
-                <p className="font-medium">Accruals Period:</p>
+                <p className="font-bold">Accruals Period:</p>
                 <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
               </div>
             </div>
@@ -372,38 +372,38 @@ const StandingOrderDetail = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-medium">Account Name:</p>
+                <p className="font-bold">Account Name:</p>
                 <p>{standingOrder.account_name || 'N/A'}</p>
               </div>
               {isUK ? (
                 <>
                   <div>
-                    <p className="font-medium">Sort Code:</p>
+                    <p className="font-bold">Sort Code:</p>
                     <p>{standingOrder.sort_code || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="font-medium">Account Number:</p>
+                    <p className="font-bold">Account Number:</p>
                     <p>{standingOrder.account_number ? standingOrder.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
                   </div>
                 </>
               ) : (
                 <>
                   <div>
-                    <p className="font-medium">Account Address:</p>
+                    <p className="font-bold">Account Address:</p>
                     <p>{standingOrder.account_address || 'N/A'}</p>
                   </div>
                   <div>
-                    <p className="font-medium">IBAN Number:</p>
+                    <p className="font-bold">IBAN Number:</p>
                     <p>{standingOrder.iban_number || 'N/A'}</p>
                   </div>
                   {isCH && (
                     <>
                       <div>
-                        <p className="font-medium">Bank Account:</p>
+                        <p className="font-bold">Bank Account:</p>
                         <p>{standingOrder.bank_account || 'N/A'}</p>
                       </div>
                       <div>
-                        <p className="font-medium">Currency:</p>
+                        <p className="font-bold">Currency:</p>
                         <p>{standingOrder.currency || 'N/A'}</p>
                       </div>
                     </>
@@ -412,11 +412,11 @@ const StandingOrderDetail = () => {
               )}
               {/* MOVED: Payment Reference */}
               <div>
-                <p className="font-medium">Payment Reference:</p>
+                <p className="font-bold">Payment Reference:</p>
                 <p>{standingOrder.payment_reference || 'N/A'}</p>
               </div>
               <div className="md:col-span-2">
-                <p className="font-medium">Bank Details Verified:</p>
+                <p className="font-bold">Bank Details Verified:</p>
                 <p>{standingOrder.bank_details_verified ? 'Yes' : 'No'}</p>
               </div>
             </div>
@@ -434,15 +434,15 @@ const StandingOrderDetail = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-medium">Requested By:</p>
+                <p className="font-bold">Requested By:</p>
                 <p>{auditUsers?.[standingOrder.requester_id] || standingOrder.requester_id}</p>
               </div>
               <div>
-                <p className="font-medium">Created At:</p>
+                <p className="font-bold">Created At:</p>
                 <p>{format(new Date(standingOrder.created_at), 'PPP p')}</p>
               </div>
               <div>
-                <p className="font-medium">Last Updated:</p>
+                <p className="font-bold">Last Updated:</p>
                 <p>{format(new Date(standingOrder.updated_at), 'PPP p')}</p>
               </div>
             </div>

@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'; // Added missing import
 import * as z from 'zod';
 import { Download, AlertTriangle } from 'lucide-react'; // Import AlertTriangle icon
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
-import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
+import { categoryOptions } from '@/lib/constants';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -561,7 +561,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
                     <FormMessage />
                     {request.invoice_pdf_urls && request.invoice_pdf_urls.length > 0 && (
                       <div className="mt-2 space-y-1">
-                        <p className="text-sm font-medium text-muted-foreground">Current Invoices:</p>
+                        <p className="font-medium">Current Invoices:</p>
                         {request.invoice_pdf_urls.map((url, index) => (
                           <Button asChild variant="link" className="p-0 h-auto block" key={index}>
                             <a href={url} target="_blank" rel="noopener noreferrer">
@@ -623,72 +623,72 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="font-medium">Requested By:</p>
+              <p className="font-bold">Requested By:</p>
               <p>{auditUsers?.[request.requester_id] || request.requester_id}</p>
             </div>
             <div>
-              <p className="font-medium">Supplier Name:</p>
+              <p className="font-bold">Supplier Name:</p>
               <p>{request.supplier_name}</p>
             </div>
             <div>
-              <p className="font-medium">Category:</p>
+              <p className="font-bold">Category:</p>
               <p>{categoryOptions.find(c => c.value === request.category)?.label || request.category}</p>
             </div>
             <div>
-              <p className="font-medium">SKU Number:</p>
+              <p className="font-bold">SKU Number:</p>
               <p>{request.not_sku_related ? 'N/A (Not SKU Related)' : request.sku_number}</p>
             </div>
             <div>
-              <p className="font-medium">Lease ID:</p>
+              <p className="font-bold">Lease ID:</p>
               <p>{request.lease_id || 'N/A'}</p>
             </div>
             <div>
-              <p className="font-medium">Supplier Address:</p>
+              <p className="font-bold">Supplier Address:</p>
               <p>{request.supplier_address}</p>
             </div>
             <div>
-              <p className="font-medium">Country:</p>
+              <p className="font-bold">Country:</p>
               <p>{request.country}</p>
             </div>
             {request.country === 'United Kingdom' ? (
               <>
                 <div>
-                  <p className="font-medium">Sort Code:</p>
+                  <p className="font-bold">Sort Code:</p>
                   <p>{request.sort_code || 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="font-medium">Account Number:</p>
+                  <p className="font-bold">Account Number:</p>
                   <p>{request.account_number ? request.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
                 </div>
                 <div>
-                  <p className="font-medium">Bank Account Name:</p>
+                  <p className="font-bold">Bank Account Name:</p>
                   <p>{request.bank_account_name || 'N/A'}</p>
                 </div>
               </>
             ) : (
               <div>
-                <p className="font-medium">IBAN Number:</p>
+                <p className="font-bold">IBAN Number:</p>
                 <p>{request.iban_number || 'N/A'}</p>
               </div>
             )}
             <div>
-              <p className="font-medium">Currency:</p>
+              <p className="font-bold">Currency:</p>
               <p>{request.currency}</p>
             </div>
             <div>
-              <p className="font-medium">Payment Amount:</p>
+              <p className="font-bold">Payment Amount:</p>
               <p>{request.payment_amount?.toFixed(2) || '0.00'}</p>
             </div>
             <div>
-              <p className="font-medium">Reason for Payment:</p>
+              <p className="font-bold">Reason for Payment:</p>
               <p>{request.reason_for_payment}</p>
             </div>
             <div>
-              <p className="font-medium">Date Payment Required:</p>
+              <p className="font-bold">Date Payment Required:</p>
               <p>{format(new Date(request.date_payment_required), 'PPP')}</p>
             </div>
             <div>
-              <p className="font-medium">Invoice PDF(s):</p>
+              <p className="font-bold">Invoice PDF(s):</p>
               {request.invoice_pdf_urls && request.invoice_pdf_urls.length > 0 ? (
                 <div className="space-y-1">
                   {request.invoice_pdf_urls.map((url, index) => (
@@ -705,7 +705,7 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
             </div>
             {request.receipt_pdf_url && (
               <div>
-                <p className="font-medium">Receipt PDF:</p>
+                <p className="font-bold">Receipt PDF:</p>
                 <Button asChild variant="link" className="p-0 h-auto">
                   <a href={request.receipt_pdf_url} target="_blank" rel="noopener noreferrer">
                         <Download className="mr-1 h-4 w-4" /> Download Receipt
@@ -717,44 +717,44 @@ const PaymentRequestDetailsCard: React.FC<PaymentRequestDetailsCardProps> = ({
               "space-y-1",
               request.receipt_required && "bg-dyad-blue text-white p-4 rounded-md" // Apply solid dyad blue with white text only if receipt_required is true
             )}>
-              <p className="font-medium">Payment Receipt Required:</p>
+              <p className="font-bold">Payment Receipt Required:</p>
               <p>{request.receipt_required ? 'Yes' : 'No'}</p>
             </div>
             <div>
-              <p className="font-medium">Created At:</p>
+              <p className="font-bold">Created At:</p>
               <p>{format(new Date(request.created_at), 'PPP p')}</p>
             </div>
             <div>
-              <p className="font-medium">Last Updated:</p>
+              <p className="font-bold">Last Updated:</p>
               <p>{format(new Date(request.updated_at), 'PPP p')}</p>
             </div>
             {request.payment_setup_date && (
               <div>
-                <p className="font-medium">Payment Setup Date:</p>
+                <p className="font-bold">Payment Setup Date:</p>
                 <p>{format(new Date(request.payment_setup_date), 'PPP p')}</p>
               </div>
             )}
             {request.payment_approved_date && (
               <div>
-                <p className="font-medium">Payment Approved Date:</p>
+                <p className="font-bold">Payment Approved Date:</p>
                 <p>{format(new Date(request.payment_approved_date), 'PPP p')}</p>
               </div>
             )}
             {request.admin_action_by && (
               <div>
-                <p className="font-medium">Admin Action By:</p>
+                <p className="font-bold">Admin Action By:</p>
                 <p>{auditUsers?.[request.admin_action_by] || request.admin_action_by}</p>
               </div>
             )}
             {request.admin_action_reason && (
               <div>
-                <p className="font-medium">Admin Reason:</p>
+                <p className="font-bold">Admin Reason:</p>
                 <p>{request.admin_action_reason}</p>
               </div>
             )}
             {request.last_reminder_sent_at && (
               <div>
-                <p className="font-medium">Last Reminder Sent:</p>
+                <p className="font-bold">Last Reminder Sent:</p>
                 <p>{format(new Date(request.last_reminder_sent_at), 'PPP p')}</p>
               </div>
             )}

@@ -192,7 +192,7 @@ const DirectDebitDetail = () => {
     <div className="container mx-auto py-8">
       <PageTitle title={`Direct Debit ${directDebit.payee} - KH Payments`} />
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Direct Debit #{directDebit.id.substring(0, 8)}</h1>
+        <h1 className="text-3xl font-bold">Direct Debit #{directDebit.id.substring(0, 0)}</h1>
         {isAdmin && (
           <div className="flex space-x-2">
             <Button
@@ -243,49 +243,49 @@ const DirectDebitDetail = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
-              <p className="font-medium">Payee:</p>
+              <p className="font-bold">Payee:</p>
               <p>{directDebit.payee}</p>
             </div>
             <div>
-              <p className="font-medium">Payment Day:</p>
+              <p className="font-bold">Payment Day:</p>
               <p>{directDebit.payment_day !== null && directDebit.payment_day !== undefined ? directDebit.payment_day : '—'}</p>
             </div>
             <div>
-              <p className="font-medium">SKU:</p>
+              <p className="font-bold">SKU:</p>
               <p>{directDebit.not_property_related ? 'N/A (Not Property Related)' : (directDebit.sku || 'N/A')}</p>
             </div>
             <div>
-              <p className="font-medium">Category:</p>
+              <p className="font-bold">Category:</p>
               <p>{categoryOptions.find(c => c.value === directDebit.category)?.label || directDebit.category}</p>
             </div>
             <div>
-              <p className="font-medium">Account Number:</p>
+              <p className="font-bold">Account Number:</p>
               <p>{directDebit.account_number}</p>
             </div>
             <div>
-              <p className="font-medium">Payment Reference:</p>
+              <p className="font-bold">Payment Reference:</p>
               <p>{directDebit.payment_reference}</p>
             </div>
             <div>
-              <p className="font-medium">Status:</p>
+              <p className="font-bold">Status:</p>
               <p>{getStatusBadge(directDebit.status)}</p>
             </div>
             <div>
-              <p className="font-medium">Country:</p>
+              <p className="font-bold">Country:</p>
               <p>{directDebit.country}</p>
             </div>
             {directDebit.bank_account && (
               <div>
-                <p className="font-medium">Bank Account:</p>
+                <p className="font-bold">Bank Account:</p>
                 <p>{directDebit.bank_account}</p>
               </div>
             )}
             <div>
-              <p className="font-medium">Created At:</p>
+              <p className="font-bold">Created At:</p>
               <p>{format(new Date(directDebit.created_at), 'PPP p')}</p>
             </div>
             <div>
-              <p className="font-medium">Last Updated:</p>
+              <p className="font-bold">Last Updated:</p>
               <p>{format(new Date(directDebit.updated_at), 'PPP p')}</p>
             </div>
           </div>
