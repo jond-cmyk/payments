@@ -12,6 +12,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { exportToCsv } from '@/utils/exportToCsv';
+import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -731,7 +732,7 @@ const StandingOrders = () => {
                           </div>
                         ) : 'N/A'}
                       </TableCell>
-                      <TableCell>{order.total_amount.toFixed(2)}</TableCell>
+                      <TableCell>{formatAmount(order.total_amount)}</TableCell> {/* Applied formatAmount here */}
                       <TableCell>{format(new Date(order.payment_date), 'PPP')}</TableCell>
                       <TableCell>{order.payment_end_date ? format(new Date(order.payment_end_date), 'PPP') : 'No end date'}</TableCell>
                       <TableCell>{order.payment_day ? `Day ${order.payment_day}` : 'N/A'}</TableCell>
