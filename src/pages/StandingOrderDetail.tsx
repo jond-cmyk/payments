@@ -378,13 +378,13 @@ const StandingOrderDetail = () => {
               {isUK ? (
                 <>
                   <div>
-                    <p className className="font-medium">Sort Code:</p>
+                    <p className="font-medium">Sort Code:</p>
                     <p>{standingOrder.sort_code || 'N/A'}</p>
                   </div>
                   <div>
                     <p className="font-medium">Account Number:</p>
                     <p>{standingOrder.account_number ? standingOrder.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
-                  </div >
+                  </div>
                 </>
               ) : (
                 <>
@@ -405,7 +405,8 @@ const StandingOrderDetail = () => {
                       <div>
                         <p className="font-medium">Currency:</p>
                         <p>{standingOrder.currency || 'N/A'}</p>
-                      </>
+                      </div>
+                    </>
                   )}
                 </>
               )}
