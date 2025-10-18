@@ -770,6 +770,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         'outstandingAmount',
         'openEntriesAmount',
         'dueAmount',
+        'amount.value', // NEW: Fallback to amount.value
       ]);
 
       // Log the extracted remainingAmount and its type
