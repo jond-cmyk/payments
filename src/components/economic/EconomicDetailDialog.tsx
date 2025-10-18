@@ -65,7 +65,8 @@ interface EconomicDetailDialogProps {
   isLoading?: boolean;
 }
 
-const extractList = (payload: any): any[] => {
+// Utility function to extract a list from varied economic response shapes
+export const extractList = (payload: any): any[] => {
   if (!payload) {
     console.log("[extractList] Payload is null or undefined.");
     return [];
@@ -75,9 +76,10 @@ const extractList = (payload: any): any[] => {
     payload.collection,
     payload.items,
     payload.results,
-    payload.entries,
+    payload.entries, // Added back
     payload.invoices,
-    payload.customerLedgerEntries?.collection,
+    payload.accountingYears?.collection,
+    payload.customerLedgerEntries?.collection, // Added back
   ];
 
   for (const c of candidates) {

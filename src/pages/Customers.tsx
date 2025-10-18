@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
 import { List, FileText, BookText } from "lucide-react";
-import EconomicDetailDialog, { DialogColumn } from "@/components/economic/EconomicDetailDialog";
+import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog"; // Import extractList
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAmount } from "@/components/economic/EconomicDetailDialog";
@@ -46,49 +46,6 @@ type EconomicCustomer = {
   currency?: string;
   self?: string;
   [key: string]: any;
-};
-
-// Utility function to extract a list from varied economic response shapes
-const extractList = (payload: any): any[] => {
-  if (!payload) {
-    console.log("[extractList] Payload is null or undefined.");
-    return [];
-  }
-
-  const candidates = [
-    payload.collection,
-    payload.items,
-    payload.results,
-    // Removed payload.entries
-    payload.invoices,
-    payload.accountingYears?.collection,
-    // Removed payload.customerLedgerEntries?.collection
-  ];
-
-  for (const c of candidates) {
-    if (Array.isArray(c)) {
-      console.log(`[extractList] Found array in candidate: ${JSON.stringify(c.slice(0, 2))}...`);
-      return c;
-    }
-  }
-  
-  if (Array.isArray(payload)) {
-    console.log(`[extractList] Payload is an array: ${JSON.stringify(payload.slice(0, 2))}...`);
-    return payload;
-  }
-
-  if (typeof payload === "object") {
-    for (const k of Object.keys(payload)) {
-      const v = (payload as any)[k];
-      if (Array.isArray(v)) {
-        console.log(`[extractList] Found array in object key '${k}': ${JSON.stringify(v.slice(0, 2))}...`);
-        return v;
-      }
-    }
-  }
-  
-  console.log("[extractList] No list found in payload. Full payload:", JSON.stringify(payload, null, 2));
-  return [];
 };
 
 // Helper to pick a value from an object given multiple possible keys/paths
@@ -666,9 +623,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // Corrected path to use /customer-ledger-entries with customerNumber as a query parameter
+      // Corrected path to use /customers/{num}/customer-ledger-entries
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/customer-ledger-entries`, query: { pagesize: 1000, customerNumber: num }, method: "GET" },
+        body: { path: `/customers/${num}/customer-ledger-entries`, query: { pagesize: 1000 }, method: "GET" },
       });
 
       if (error) throw new Error(error.message || "Failed to load customer ledger card");
