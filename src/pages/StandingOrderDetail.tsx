@@ -314,10 +314,6 @@ const StandingOrderDetail = () => {
                 <p className="font-medium">Accruals Period:</p>
                 <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
               </div>
-              <div>
-                <p className="font-medium">Payment Reference:</p>
-                <p>{standingOrder.payment_reference || 'N/A'}</p>
-              </div>
               <div className="md:col-span-2">
                 <p className="font-medium">Comments:</p>
                 <p>{standingOrder.comments || 'No comments'}</p>
@@ -375,6 +371,11 @@ const StandingOrderDetail = () => {
                   )}
                 </>
               )}
+              {/* MOVED: Payment Reference */}
+              <div>
+                <p className="font-medium">Payment Reference:</p>
+                <p>{standingOrder.payment_reference || 'N/A'}</p>
+              </div>
               <div className="md:col-span-2">
                 <p className="font-medium">Bank Details Verified:</p>
                 <p>{standingOrder.bank_details_verified ? 'Yes' : 'No'}</p>
