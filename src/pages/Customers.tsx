@@ -63,68 +63,6 @@ const Customers: React.FC = () => {
   const [pageSize, setPageSize] = useState<string>("25");
   const [search, setSearch] = useState<string>("");
 
-  // Removed state for Accounting Year selection in dialogs
-  // const [selectedAccountingYear, setSelectedAccountingYear] = useState<string | null>(null);
-  // const [availableAccountingYears, setAvailableAccountingYears] = useState<{ year: string; href: string }[]>([]);
-
-  // Removed query to fetch available accounting years
-  // const accountingYearsQuery = useQuery({
-  //   queryKey: ["economicAccountingYears"],
-  //   queryFn: async () => {
-  //     const { data: proxyResponse, error: invokeError } = await supabase.functions.invoke("economic-proxy", {
-  //       body: { path: `/accounting-years?pagesize=100`, method: "GET" },
-  //     });
-  //     if (invokeError) {
-  //       console.error("Error invoking economic-proxy for accounting years:", invokeError);
-  //       throw new Error(invokeError.message || "Failed to load accounting years (proxy invocation error)");
-  //     }
-  //     console.log("Raw proxy response for accounting years:", proxyResponse);
-
-  //     const resp = proxyResponse as EconomicProxyResponse<EconomicCollection<EconomicAccountingYear>>;
-
-  //     // Check for e-conomic API errors (e.g., 401, 404)
-  //     if (resp.status && resp.status >= 400) {
-  //       const errorMessage = resp.error || `e-conomic API returned status ${resp.status}`;
-  //       console.error("e-conomic API error for accounting years:", errorMessage, resp);
-  //       // Provide specific advice for 401/403
-  //       if (resp.status === 401 || resp.status === 403) {
-  //         throw new Error("Unauthorized to access e-conomic accounting years. Check ECONOMIC_APP_SECRET_TOKEN and ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.");
-  //       }
-  //       throw new Error(errorMessage);
-  //     }
-
-  //     let list: EconomicAccountingYear[] = [];
-  //     if (Array.isArray(resp?.data?.collection)) {
-  //       list = resp.data.collection;
-  //     } else if (Array.isArray(resp?.data)) {
-  //       list = resp.data as EconomicAccountingYear[];
-  //     } else {
-  //       console.warn("Unexpected structure for accounting years data:", resp);
-  //     }
-      
-  //     // Sort by year descending and map to { year: string, href: string }
-  //     const sortedYears = list
-  //       .sort((a, b) => b.year - a.year)
-  //       .map(y => ({ year: String(y.year), href: y.self }));
-      
-  //     console.log("Processed accounting years list:", sortedYears);
-  //     return sortedYears;
-  //   },
-  //   staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-  // });
-
-  // Removed effect to set available accounting years and default selected year
-  // useEffect(() => {
-  //   if (accountingYearsQuery.data && accountingYearsQuery.data.length > 0) {
-  //     setAvailableAccountingYears(accountingYearsQuery.data);
-  //     // Set default to the most recent year
-  //     setSelectedAccountingYear(accountingYearsQuery.data[0].year);
-  //   } else if (accountingYearsQuery.data && accountingYearsQuery.data.length === 0) {
-  //     // If no accounting years are found, ensure selectedAccountingYear is null
-  //     setSelectedAccountingYear(null);
-  //   }
-  // }, [accountingYearsQuery.data]);
-
   const customersQuery = useQuery({
     queryKey: ["economicCustomers", pageSize],
     queryFn: async () => {
@@ -158,14 +96,10 @@ const Customers: React.FC = () => {
   console.log("Customers Page State:", {
     isLoading: isLoading,
     customersQueryLoading: customersQuery.isLoading,
-    // accountingYearsQueryLoading: accountingYearsQuery.isLoading, // Removed
-    // selectedAccountingYear: selectedAccountingYear, // Removed
-    // availableAccountingYearsLength: availableAccountingYears.length, // Removed
     customersDataLength: customersQuery.data?.length,
     filteredLength: filtered.length,
   });
 
-  // Removed accountingYearsQuery.isLoading from combined loading state
   if (isLoading || customersQuery.isLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading customers...</div>;
   }
@@ -177,11 +111,6 @@ const Customers: React.FC = () => {
   if (customersQuery.error) {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading customers: {customersQuery.error.message}</div>;
   }
-
-  // Removed accountingYearsQuery.error check
-  // if (accountingYearsQuery.error) {
-  //   return <div className="flex items-center justify-center h-full text-red-500">Error loading accounting years: {accountingYearsQuery.error.message}</div>;
-  // }
 
   return (
     <div className="container mx-auto py-8">
@@ -223,16 +152,6 @@ const Customers: React.FC = () => {
             </Button>
           </div>
 
-          {/* Removed Accounting Years Alert */}
-          {/* {availableAccountingYears.length === 0 && (
-            <Alert className="mb-4">
-              <AlertTitle>No Accounting Years Found</AlertTitle>
-              <AlertDescription>
-                No accounting years were found in e-conomic. You might need to configure them in your e-conomic account to view transactions and outstanding items.
-              </AlertDescription>
-            </Alert>
-          )} */}
-
           <div className="relative overflow-x-auto border rounded-md">
             <Table>
               <TableHeader>
@@ -242,6 +161,7 @@ const Customers: React.FC = () => {
                   <TableHead>Email</TableHead>
                   <TableHead>Currency</TableHead>
                   <TableHead>Balance</TableHead>
+                  <TableHead>Overdue</TableHead> {/* NEW: Overdue column header */}
                   <TableHead className="w-64">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -250,16 +170,11 @@ const Customers: React.FC = () => {
                   <CustomerRow 
                     key={c.customerNumber ?? c.name} 
                     customer={c} 
-                    // Removed accounting year props
-                    // availableAccountingYears={availableAccountingYears}
-                    // selectedAccountingYear={selectedAccountingYear}
-                    // onAccountingYearChange={setSelectedAccountingYear}
-                    // isAccountingYearsLoading={accountingYearsQuery.isLoading}
                   />
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground"> {/* Updated colSpan */}
                       {customersQuery.isFetching ? "Loading customers..." : "No customers found."}
                     </TableCell>
                   </TableRow>
@@ -275,14 +190,9 @@ const Customers: React.FC = () => {
 
 interface CustomerRowProps {
   customer: EconomicCustomer;
-  // Removed accounting year props
-  // availableAccountingYears: { year: string; href: string }[];
-  // selectedAccountingYear: string | null;
-  // onAccountingYearChange: (year: string) => void;
-  // isAccountingYearsLoading: boolean;
 }
 
-const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accounting year props */ }) => {
+const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
 
@@ -305,8 +215,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
   // Debugging logs for CustomerRow
   console.log("CustomerRow Props for customer:", customer.customerNumber, {
     customerNumber: customer.customerNumber,
-    // selectedAccountingYear: selectedAccountingYear, // Removed
-    // isAccountingYearsLoading: isAccountingYearsLoading, // Removed
     loadingInvoices: loadingInvoices,
     loadingTransactions: loadingTransactions,
     loadingOutstanding: loadingOutstanding,
@@ -369,18 +277,18 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
     return undefined;
   };
 
-  // Fetch balance automatically using useQuery
-  const { data: balance, isLoading: loadingBalance, error: balanceError } = useQuery<number | null>({
-    queryKey: ["customerBalance", num],
+  // Fetch balance and overdue amount automatically using useQuery
+  const { data: balanceData, isLoading: loadingBalance, error: balanceError } = useQuery<{ balance: number | null, dueAmount: number | null }>({
+    queryKey: ["customerBalanceAndOverdue", num],
     queryFn: async () => {
-      if (!num) return null;
+      if (!num) return { balance: null, dueAmount: null };
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
         body: { path: `/customers/${num}/totals`, method: "GET" },
       });
 
       if (error) {
-        console.error("Failed to load balance:", error);
-        throw new Error(error.message || "Failed to load balance");
+        console.error("Failed to load balance/overdue:", error);
+        throw new Error(error.message || "Failed to load balance/overdue");
       }
 
       const resp = data as EconomicProxyResponse<any>;
@@ -394,22 +302,27 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
         return null;
       };
 
-      let val = getNumeric(resp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount", "dueAmount"]) ?? null;
+      let balanceVal = getNumeric(resp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount"]) ?? null;
+      let dueAmountVal = getNumeric(resp?.data, ["dueAmount", "totals.dueAmount"]) ?? null;
 
-      if (val === null) {
+      // Fallback to /customers/{num} if /totals doesn't provide enough info
+      if (balanceVal === null || dueAmountVal === null) {
         const { data: detailsData, error: detailsError } = await supabase.functions.invoke("economic-proxy", {
           body: { path: `/customers/${num}`, method: "GET" },
         });
         if (!detailsError) {
           const detailsResp = detailsData as EconomicProxyResponse<any>;
-          val = getNumeric(detailsResp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount", "dueAmount"]) ?? null;
+          balanceVal = balanceVal ?? (getNumeric(detailsResp?.data, ["balance", "outstandingAmount", "openEntriesAmount"]) ?? null);
+          dueAmountVal = dueAmountVal ?? (getNumeric(detailsResp?.data, ["dueAmount"]) ?? null);
         }
       }
-      return val;
+      return { balance: balanceVal, dueAmount: dueAmountVal };
     },
     enabled: !!num,
     staleTime: 5 * 60 * 1000,
   });
+
+  const { balance, dueAmount } = balanceData || { balance: null, dueAmount: null };
 
   // Build a path from a 'self' URL to pass through the economic-proxy
   const pathFromSelf = (self: string): string | undefined => {
@@ -442,6 +355,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
       inv?.notes?.text,
       inv?.notes?.heading,
       inv?.notes?.header,
+      inv?.notes?.noteHeading,
       inv?.heading,
       inv?.title,
       inv?.header,
@@ -756,15 +670,14 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
 
   // Load all transactions for a customer
   const loadTransactions = async () => {
-    if (!num) { // Removed selectedAccountingYear check
+    if (!num) {
       showError("Customer number is missing.");
       return;
     }
     setLoadingTransactions(true);
-    const toastId = showLoading(`Loading all transactions...`); // Removed accounting year from message
+    const toastId = showLoading(`Loading all transactions...`);
 
-    // Removed accounting year from path
-    const path = `/entries`; // Fetch all entries, then filter by customer number
+    const path = `/entries`;
 
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
       body: { path, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
@@ -802,21 +715,20 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
     if (customerTransactions.length > 0) {
       showSuccess(`Loaded ${customerTransactions.length} transactions`);
     } else {
-      showError("No transactions found for this customer."); // Removed accounting year from message
+      showError("No transactions found for this customer.");
     }
   };
 
   // Load all outstanding transactions for a customer
   const loadOutstanding = async () => {
-    if (!num) { // Removed selectedAccountingYear check
+    if (!num) {
       showError("Customer number is missing.");
       return;
     }
     setLoadingOutstanding(true);
-    const toastId = showLoading(`Loading outstanding transactions...`); // Removed accounting year from message
+    const toastId = showLoading(`Loading outstanding transactions...`);
 
-    // Removed accounting year from path
-    const path = `/entries`; // Fetch all entries, then filter by customer number
+    const path = `/entries`;
 
     const { data, error } = await supabase.functions.invoke("economic-proxy", {
       body: { path, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
@@ -863,7 +775,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
     if (outstandingEntries.length > 0) {
       showSuccess(`Loaded ${outstandingEntries.length} outstanding transactions`);
     } else {
-      showError("No outstanding transactions found for this customer."); // Removed accounting year from message
+      showError("No outstanding transactions found for this customer.");
     }
   };
 
@@ -916,8 +828,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
 
   // Determine disabled states and tooltips for buttons
   const isCustomerNumberMissing = !customer.customerNumber;
-  // Removed isAccountingYearNotReady
-  // const isAccountingYearNotReady = isAccountingYearsLoading || !selectedAccountingYear;
 
   const getButtonState = (buttonType: 'transactions' | 'outstanding') => {
     const isLoadingState = buttonType === 'transactions' ? loadingTransactions : loadingOutstanding;
@@ -930,12 +840,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
       tooltip = "This customer has no associated customer number in e-conomic.";
       isDisabled = true;
     } 
-    // Removed accounting year check
-    // else if (isAccountingYearNotReady) {
-    //   text = isAccountingYearsLoading ? "Loading Years..." : "No Year Selected";
-    //   tooltip = isAccountingYearsLoading ? "Accounting years are still loading." : "No accounting year is selected. Please select one from the dropdown above the table.";
-    //   isDisabled = true;
-    // }
 
     return { text, tooltip, isDisabled };
   };
@@ -961,6 +865,19 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
             </Badge>
           ) : (
             "N/A"
+          )}
+        </TableCell>
+        <TableCell> {/* NEW: Overdue column cell */}
+          {loadingBalance ? (
+            "Loading..."
+          ) : balanceError ? (
+            <span className="text-red-500">Error</span>
+          ) : (dueAmount !== null && dueAmount > 0) ? (
+            <Badge className={cn("bg-red-600 text-white text-base px-3 py-2", "transform translate-x-0 translate-y-0")}>
+              {formatAmount(dueAmount)} {customer.currency || ''}
+            </Badge>
+          ) : (
+            "-"
           )}
         </TableCell>
         <TableCell>
@@ -997,14 +914,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
         data={invoiceData}
         columns={invoiceColumns}
         isLoading={loadingInvoices}
-        // Removed accounting year props
-        // accountingYears={availableAccountingYears}
-        // selectedAccountingYear={selectedAccountingYear}
-        // onAccountingYearChange={(year) => {
-        //   onAccountingYearChange(year);
-        //   loadInvoices();
-        // }}
-        // isAccountingYearsLoading={isAccountingYearsLoading}
       />
 
       {/* Dialog for All Transactions */}
@@ -1016,14 +925,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
         data={transactionsData}
         columns={transactionColumns}
         isLoading={loadingTransactions}
-        // Removed accounting year props
-        // accountingYears={availableAccountingYears}
-        // selectedAccountingYear={selectedAccountingYear}
-        // onAccountingYearChange={(year) => {
-        //   onAccountingYearChange(year);
-        //   loadTransactions();
-        // }}
-        // isAccountingYearsLoading={isAccountingYearsLoading}
       />
 
       {/* Dialog for All Outstanding */}
@@ -1035,14 +936,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer /* Removed accountin
         data={outstandingData}
         columns={outstandingColumns}
         isLoading={loadingOutstanding}
-        // Removed accounting year props
-        // accountingYears={availableAccountingYears}
-        // selectedAccountingYear={selectedAccountingYear}
-        // onAccountingYearChange={(year) => {
-        //   onAccountingYearChange(year);
-        //   loadOutstanding();
-        // }}
-        // isAccountingYearsLoading={isAccountingYearsLoading}
       />
     </>
   );
