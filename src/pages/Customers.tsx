@@ -13,12 +13,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
-import { List, FileText } from "lucide-react";
+import { List, FileText, BookText } from "lucide-react"; // Import BookText icon
 import EconomicDetailDialog, { DialogColumn } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAmount } from "@/components/economic/EconomicDetailDialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"; // Import Tooltip components
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -74,6 +74,7 @@ const extractList = (payload: any): any[] => {
     payload.entries,
     payload.invoices,
     payload.accountingYears?.collection,
+    payload.customerLedgerEntries?.collection, // NEW: For customer ledger entries
   ];
 
   for (const c of candidates) {
@@ -275,6 +276,11 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   const [outstandingData, setOutstandingData] = useState<any[] | null>(null);
   const [loadingOutstanding, setLoadingOutstanding] = useState(false);
 
+  // NEW: States for Customer Ledger Card
+  const [ledgerCardData, setLedgerCardData] = useState<any[] | null>(null);
+  const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
+  const [showLedgerCardDialog, setShowLedgerCardDialog] = useState(false);
+
   // Dialog visibility states
   const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
   const [showTransactionsDialog, setShowTransactionsDialog] = useState(false);
@@ -283,7 +289,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   // Keep a map of headings for invoices (keyed by self URL or number)
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
 
-  // NEW: State for the latest accounting year (default for transactions/outstanding)
+  // NEW: State for the latest accounting year (default for transactions/outstanding/ledger card)
   const [latestAccountingYear, setLatestAccountingYear] = useState<string | null>(null);
   const [isAccountingYearsLoading, setIsAccountingYearsLoading] = useState(false); // Keep this for initial fetch state
 
@@ -295,6 +301,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     loadingInvoices: loadingInvoices,
     loadingTransactions: loadingTransactions,
     loadingOutstanding: loadingOutstanding,
+    loadingLedgerCard: loadingLedgerCard, // NEW: Add ledger card loading state
   });
 
   // NEW: Fetch available accounting years and set the latest one as default
@@ -895,6 +902,36 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, latestAccountingYear]); // Depend on latestAccountingYear
 
+  // NEW: Load Customer Ledger Card
+  const loadLedgerCard = useCallback(async () => {
+    if (!num || !latestAccountingYear) {
+      showError("Customer number or accounting year is missing.");
+      return;
+    }
+    setLoadingLedgerCard(true);
+    const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+        body: { path: `/customer-ledger-entries`, query: { customerNumber: num, accountingYear: latestAccountingYear, pagesize: 1000 }, method: "GET" },
+      });
+
+      if (error) throw new Error(error.message || "Failed to load customer ledger card");
+      const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
+      const list = extractList(resp?.data);
+      
+      setLedgerCardData(list);
+      setShowLedgerCardDialog(true);
+      showSuccess(`Loaded ${list.length} ledger entries.`);
+    } catch (err: any) {
+      console.error("Error loading ledger card:", err);
+      showError("Failed to load ledger card: " + err.message);
+    } finally {
+      dismissToast(toastId);
+      setLoadingLedgerCard(false);
+    }
+  }, [num, customer.name, latestAccountingYear]);
+
   // Column definitions for the dialogs
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
@@ -942,13 +979,25 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
   ];
 
+  // NEW: Columns for Customer Ledger Card
+  const ledgerCardColumns: DialogColumn[] = [
+    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
+    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
+    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoice.invoiceNumber', 'invoice.bookedInvoiceNumber', 'invoice.draftInvoiceNumber', 'invoice.id', 'invoice.number'] },
+    { key: 'text', header: 'Text', path: ['text', 'description', 'notes.text', 'notes.heading'] },
+    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
+    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
+    { key: 'balance', header: 'Balance', format: 'currencyAmount', path: ['balance', 'balance.value'] },
+    { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
+  ];
+
   // Determine disabled states and tooltips for buttons
   const isCustomerNumberMissing = !customer.customerNumber;
   const isAccountingYearMissing = !latestAccountingYear; // Use latestAccountingYear
 
-  const getButtonState = (buttonType: 'transactions' | 'outstanding') => {
-    const isLoadingState = buttonType === 'transactions' ? loadingTransactions : loadingOutstanding;
-    let text = isLoadingState ? "Loading..." : (buttonType === 'transactions' ? "All Transactions" : "All Outstanding");
+  const getButtonState = (buttonType: 'transactions' | 'outstanding' | 'ledgerCard') => {
+    const isLoadingState = buttonType === 'transactions' ? loadingTransactions : buttonType === 'outstanding' ? loadingOutstanding : loadingLedgerCard;
+    let text = isLoadingState ? "Loading..." : (buttonType === 'transactions' ? "All Transactions" : buttonType === 'outstanding' ? "All Outstanding" : "Ledger Card");
     let tooltip = "";
     let isDisabled = isLoadingState || isAccountingYearsLoading;
 
@@ -967,6 +1016,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   const transactionsButtonState = getButtonState('transactions');
   const outstandingButtonState = getButtonState('outstanding');
+  const ledgerCardButtonState = getButtonState('ledgerCard'); // NEW: Ledger Card button state
 
   return (
     <>
@@ -1022,6 +1072,15 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
               </TooltipTrigger>
               {outstandingButtonState.tooltip && <TooltipContent>{outstandingButtonState.tooltip}</TooltipContent>}
             </Tooltip>
+            {/* NEW: Ledger Card Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={ledgerCardButtonState.isDisabled}>
+                  <BookText className="h-4 w-4 mr-1" /> {ledgerCardButtonState.text}
+                </Button>
+              </TooltipTrigger>
+              {ledgerCardButtonState.tooltip && <TooltipContent>{ledgerCardButtonState.tooltip}</TooltipContent>}
+            </Tooltip>
           </div>
         </TableCell>
       </TableRow>
@@ -1046,7 +1105,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         data={transactionsData}
         columns={transactionColumns}
         isLoading={loadingTransactions}
-        // Removed accountingYears, selectedAccountingYear, onAccountingYearChange, isAccountingYearsLoading
       />
 
       {/* Dialog for All Outstanding */}
@@ -1058,7 +1116,17 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         data={outstandingData}
         columns={outstandingColumns}
         isLoading={loadingOutstanding}
-        // Removed accountingYears, selectedAccountingYear, onAccountingYearChange, isAccountingYearsLoading
+      />
+
+      {/* NEW: Dialog for Customer Ledger Card */}
+      <EconomicDetailDialog
+        isOpen={showLedgerCardDialog}
+        onOpenChange={setShowLedgerCardDialog}
+        title={`Ledger Card for ${customer.name || 'Customer'}`}
+        description={`Showing all ledger entries for customer number ${customer.customerNumber} for the latest accounting year.`}
+        data={ledgerCardData}
+        columns={ledgerCardColumns}
+        isLoading={loadingLedgerCard}
       />
     </>
   );
