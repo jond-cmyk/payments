@@ -33,6 +33,7 @@ import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOr
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Import Table components
 
 const StandingOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -275,18 +276,31 @@ const StandingOrderDetail = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="md:col-span-2">
-                <p className="font-medium flex items-center">
+                <p className="font-medium flex items-center mb-2">
                   Categories & Amounts:
                 </p>
                 {standingOrder.categories && standingOrder.categories.length > 0 ? (
-                  <div className="space-y-1 mt-1">
-                    {standingOrder.categories.map((cat, index) => (
-                      <p key={index} className="ml-2">
-                        - {categoryOptions.find(c => c.value === cat.category)?.label || cat.category}: {formatAmount(cat.amount)}
-                      </p>
-                    ))}
-                    <Separator className="my-2" />
-                    <p className="font-bold text-base">Total Amount: {formatAmount(standingOrder.total_amount)}</p>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Category</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {standingOrder.categories.map((cat, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
+                            <TableCell className="text-right">{formatAmount(cat.amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="font-bold bg-muted/50">
+                          <TableCell>Total Amount:</TableCell>
+                          <TableCell className="text-right">{formatAmount(standingOrder.total_amount)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
                   </div>
                 ) : (
                   <p className="ml-2">No categories defined.</p>
@@ -335,7 +349,7 @@ const StandingOrderDetail = () => {
                   <div>
                     <p className="font-medium">Account Number:</p>
                     <p>{standingOrder.account_number ? standingOrder.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
-                  </div>
+                  </div >
                 </>
               ) : (
                 <>
