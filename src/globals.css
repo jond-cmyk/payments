@@ -104,11 +104,26 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased font-sans; /* Added font-sans here */
+    @apply bg-background text-foreground antialiased font-sans;
   }
 
   /* Apply dyad-blue and font-bold to all header tags */
-  h1, h2, h3, h4, h5, h6 {
-    @apply text-dyad-blue font-bold;
+  h1 {
+    @apply text-3xl text-dyad-blue font-bold;
+  }
+  h2 {
+    @apply text-2xl text-dyad-blue font-bold;
+  }
+  h3 {
+    @apply text-xl text-dyad-blue font-bold;
+  }
+  h4 {
+    @apply text-lg text-dyad-blue font-bold;
+  }
+  h5 {
+    @apply text-base text-dyad-blue font-bold;
+  }
+  h6 {
+    @apply text-sm text-dyad-blue font-bold;
   }
 }
