@@ -14,7 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
 import { List, FileText, BookText } from "lucide-react";
-import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog"; // Import extractList
+import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAmount } from "@/components/economic/EconomicDetailDialog";
@@ -31,6 +31,8 @@ type EconomicProxyResponse<T = any> = {
 type EconomicCollection<T = any> = {
   collection?: T[];
   pagination?: any;
+  message?: string; // Added for error handling
+  developerHint?: string; // Added for error handling
 };
 
 type EconomicCustomer = {
@@ -89,7 +91,7 @@ const Customers: React.FC = () => {
     queryKey: ["economicCustomers", pageSize],
     queryFn: async () => {
       const path = `/customers?pagesize=${pageSize}`;
-      console.log(`[Customers] Invoking economic-proxy for path: ${path}`); // Added console log
+      console.log(`[Customers] Invoking economic-proxy for path: ${path}`);
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
         body: { path: path, method: "GET" },
       });
@@ -124,7 +126,7 @@ const Customers: React.FC = () => {
     customersDataLength: customersQuery.data?.length,
     filteredLength: filtered.length,
   });
-  console.log("[Customers] Component rendered. customersQuery.data:", customersQuery.data?.map(c => ({ num: c.customerNumber, name: c.name }))); // ADDED DEBUG LOG
+  console.log("[Customers] Component rendered. customersQuery.data:", customersQuery.data?.map(c => ({ num: c.customerNumber, name: c.name })));
 
   if (isLoading || customersQuery.isLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading customers...</div>;
@@ -634,7 +636,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
       if (resp?.status && resp.status >= 400) {
         console.error(`[CustomerRow] e-conomic API returned error status ${resp.status} for ${pathForProxy}:`, resp.data);
-        throw new Error(`e-conomic API Error: ${resp.data?.message || resp.data?.developerHint || 'Unknown error'}`);
+        // Safely access message/developerHint from resp.data if it's an object, or from resp.error
+        const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
+        throw new Error(`e-conomic API Error: ${errorMessage}`);
       }
 
       const list = extractList(resp?.data); // This should now directly return the filtered list for the customer
@@ -691,9 +695,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   const isCustomerNumberMissing = !customer.customerNumber;
 
-  const getButtonState = (buttonType: 'ledgerCard') => { // Updated type
-    const isLoadingState = loadingLedgerCard; // Only ledgerCard loading state
-    let text = isLoadingState ? "Loading..." : "Ledger Card"; // Only ledgerCard text
+  const getButtonState = (buttonType: 'ledgerCard') => {
+    const isLoadingState = loadingLedgerCard;
+    let text = isLoadingState ? "Loading..." : "Ledger Card";
     let tooltip = "";
     let isDisabled = isLoadingState;
 
@@ -748,7 +752,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={ledgerCardButtonState.isDisabled}> {/* UPDATED onClick */}
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={ledgerCardButtonState.isDisabled}>
                   <BookText className="h-4 w-4 mr-1" /> {ledgerCardButtonState.text}
                 </Button>
               </TooltipTrigger>

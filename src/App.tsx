@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { ThemeProvider } from "next-themes"; // NEW: Import ThemeProvider
+import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
@@ -24,6 +24,7 @@ import StandingOrderDetail from "./pages/StandingOrderDetail";
 import AdminUploadDirectDebits from "./pages/AdminUploadDirectDebits";
 import AdminUploadStandingOrders from "./pages/AdminUploadStandingOrders";
 import CustomerDepositReturns from "./pages/CustomerDepositReturns";
+import PropertyReports from "./pages/PropertyReports"; // NEW: Import PropertyReports
 import AdminFeedback from "./pages/AdminFeedback";
 import ProfilePage from "./pages/Profile";
 import Statistics from "./pages/Statistics";
@@ -58,7 +59,7 @@ const ApprovedRoute = ({ children }: { children: React.ReactNode }) => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="system" attribute="class"> {/* NEW: ThemeProvider wrapper */}
+      <ThemeProvider defaultTheme="system" attribute="class">
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -82,7 +83,7 @@ const App = () => {
                       <Route path="/standing-order/:id" element={<StandingOrderDetail />} />
                       <Route path="/profile" element={<ProfilePage />} />
                       <Route path="/admin/statistics" element={<Statistics />} />
-                      <Route path="/admin/customers" element={<Customers />} /> {/* MOVED: Customers route */}
+                      <Route path="/admin/customers" element={<Customers />} />
                     </Route>
 
                     {/* Protected routes requiring approval */}
@@ -96,6 +97,7 @@ const App = () => {
                       <Route path="/admin/upload-direct-debits" element={<AdminUploadDirectDebits />} />
                       <Route path="/admin/upload-standing-orders" element={<AdminUploadStandingOrders />} />
                       <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
+                      <Route path="/property-reports" element={<PropertyReports />} /> {/* NEW: Property Reports route */}
                       <Route path="/notifications" element={<NotificationsPage />} />
                       <Route path="/admin/feedback" element={<AdminFeedback />} />
                       <Route path="/admin/economic-integration" element={<EconomicIntegration />} />
@@ -109,7 +111,7 @@ const App = () => {
             </SessionContextProvider>
           </BrowserRouter>
         </TooltipProvider>
-      </ThemeProvider> {/* NEW: Close ThemeProvider */}
+      </ThemeProvider>
     </QueryClientProvider>
   );
 };
