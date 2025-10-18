@@ -1,4 +1,4 @@
-/// <reference lib="deno.ns" />
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 const corsHeaders = {
@@ -8,15 +8,16 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log("[economic-proxy] START: Request URL:", req.url); // NEW LOG
-  console.log("[economic-proxy] START: Request Method:", req.method); // NEW LOG
+  console.log("[economic-proxy] --- FUNCTION START ---"); // NEW: Very first log
+  console.log("[economic-proxy] Request URL:", req.url);
+  console.log("[economic-proxy] Request Method:", req.method);
 
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.5"); 
+    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.6"); // Updated version
     console.log("[economic-proxy] Incoming request headers:", JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
 
     const rawBody = await req.text();
@@ -46,7 +47,9 @@ serve(async (req) => {
       );
     }
 
+    // @ts-ignore
     const appSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
+    // @ts-ignore
     const agreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
 
     if (!appSecretToken || !agreementGrantToken) {
