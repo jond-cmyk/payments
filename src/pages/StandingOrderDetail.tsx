@@ -89,6 +89,10 @@ const StandingOrderDetail = () => {
   const generalAudits = audits?.filter(audit => !audit.change_description.startsWith('Comment: ')) || [];
   const comments = audits?.filter(audit => audit.change_description.startsWith('Comment: ')) || [];
 
+  // NEW: Console logs to inspect audit data and filtered comments
+  console.log("[StandingOrderDetail] Raw audits data:", audits);
+  console.log("[StandingOrderDetail] Filtered comments for card:", comments);
+
   // Fetch user names and emails for audit trail
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
     queryKey: ['auditUsers', currentCountry],
@@ -401,8 +405,7 @@ const StandingOrderDetail = () => {
                       <div>
                         <p className="font-medium">Currency:</p>
                         <p>{standingOrder.currency || 'N/A'}</p>
-                      </div>
-                    </>
+                      </>
                   )}
                 </>
               )}
