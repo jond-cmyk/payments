@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StandingOrder, StandingOrderAudit } from '@/types/supabase';
 import { showSuccess, showError } from '@/utils/toast';
 import { format } from 'date-fns';
-import { Edit, Trash2, Repeat, DollarSign } from 'lucide-react';
+import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, CalendarDays, UserCircle2 } from 'lucide-react'; // Added new icons for sections
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 
@@ -32,6 +32,7 @@ import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStanding
 import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOrderAuditTrailCard';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
 
 const StandingOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -143,6 +144,7 @@ const StandingOrderDetail = () => {
         className = 'bg-red-500 text-red-50';
         break;
       case 'pending':
+      case 'awaiting_info': // Added awaiting_info
         className = 'bg-orange-500 text-orange-50';
         break;
       default:
@@ -150,7 +152,7 @@ const StandingOrderDetail = () => {
     }
     return (
       <Badge className={cn(className, "transform translate-x-0 translate-y-0")}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
       </Badge>
     );
   };
@@ -223,135 +225,176 @@ const StandingOrderDetail = () => {
         )}
       </div>
 
-      <Card className="mb-8 shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Repeat className="mr-2 h-5 w-5" /> Standing Order Details
-          </CardTitle>
-          <CardDescription>Detailed information about this standing order.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="font-medium">Requested By:</p>
-              <p>{standingOrder.requester_id}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Section 1: Overview */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Info className="mr-2 h-5 w-5" /> Overview
+            </CardTitle>
+            <CardDescription>Key details of the standing order.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Country:</p>
+                <p>{standingOrder.country}</p>
+              </div>
+              <div>
+                <p className="font-medium">Status:</p>
+                <p>{getStatusBadge(standingOrder.status)}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="font-medium">Payee:</p>
+                <p>{standingOrder.payee}</p>
+              </div>
+              <div>
+                <p className="font-medium">Payment Start Date:</p>
+                <p>{format(new Date(standingOrder.payment_date), 'PPP')}</p>
+              </div>
+              <div>
+                <p className="font-medium">Payment End Date:</p>
+                <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Payment Day:</p>
+                <p>{standingOrder.payment_day ? `Day ${standingOrder.payment_day}` : 'N/A'}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium">Payee:</p>
-              <p>{standingOrder.payee}</p>
-            </div>
-            <div>
-              <p className="font-medium">Payment Start Date:</p>
-              <p>{format(new Date(standingOrder.payment_date), 'PPP')}</p>
-            </div>
-            <div>
-              <p className="font-medium">Payment End Date:</p>
-              <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
-            </div>
-            <div>
-              <p className="font-medium">Payment Day:</p>
-              <p>{standingOrder.payment_day ? `Day ${standingOrder.payment_day}` : 'N/A'}</p>
-            </div>
-            <div>
-              <p className="font-medium">SKU:</p>
-              <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
-            </div>
+          </CardContent>
+        </Card>
 
-            <div className="md:col-span-2">
-              <p className="font-medium flex items-center">
-                <DollarSign className="mr-1 h-4 w-4" /> Categories & Amounts:
-              </p>
-              {standingOrder.categories && standingOrder.categories.length > 0 ? (
-                <div className="space-y-1 mt-1">
-                  {standingOrder.categories.map((cat, index) => (
-                    <p key={index} className="ml-2">
-                      - {categoryOptions.find(c => c.value === cat.category)?.label || cat.category}: {cat.amount.toFixed(2)}
-                    </p>
-                  ))}
-                  <Separator className="my-2" />
-                  <p className="font-bold text-base">Total Amount: {standingOrder.total_amount.toFixed(2)}</p>
-                </div>
-              ) : (
-                <p className="ml-2">No categories defined.</p>
-              )}
-            </div>
-
-            <div>
-              <p className="font-medium">Account Name:</p>
-              <p>{standingOrder.account_name || 'N/A'}</p>
-            </div>
-
-            {isUK ? (
-              <>
-                <div>
-                  <p className="font-medium">Sort Code:</p>
-                  <p>{standingOrder.sort_code || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Account Number:</p>
-                  <p>{standingOrder.account_number ? standingOrder.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <p className="font-medium">Account Address:</p>
-                  <p>{standingOrder.account_address || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="font-medium">IBAN Number:</p>
-                  <p>{standingOrder.iban_number || 'N/A'}</p>
-                </div>
-                {isCH && (
-                  <>
-                    <div>
-                      <p className="font-medium">Bank Account:</p>
-                      <p>{standingOrder.bank_account || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium">Currency:</p>
-                      <p>{standingOrder.currency || 'N/A'}</p>
-                    </div>
-                  </>
+        {/* Section 2: Payment Details */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <DollarSign className="mr-2 h-5 w-5" /> Payment Details
+            </CardTitle>
+            <CardDescription>Information about the payment structure.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="md:col-span-2">
+                <p className="font-medium flex items-center">
+                  Categories & Amounts:
+                </p>
+                {standingOrder.categories && standingOrder.categories.length > 0 ? (
+                  <div className="space-y-1 mt-1">
+                    {standingOrder.categories.map((cat, index) => (
+                      <p key={index} className="ml-2">
+                        - {categoryOptions.find(c => c.value === cat.category)?.label || cat.category}: {formatAmount(cat.amount)}
+                      </p>
+                    ))}
+                    <Separator className="my-2" />
+                    <p className="font-bold text-base">Total Amount: {formatAmount(standingOrder.total_amount)}</p>
+                  </div>
+                ) : (
+                  <p className="ml-2">No categories defined.</p>
                 )}
-              </>
-            )}
+              </div>
+              <div>
+                <p className="font-medium">SKU:</p>
+                <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
+              </div>
+              <div>
+                <p className="font-medium">Accruals Period:</p>
+                <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
+              </div>
+              <div>
+                <p className="font-medium">Payment Reference:</p>
+                <p>{standingOrder.payment_reference || 'N/A'}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="font-medium">Comments:</p>
+                <p>{standingOrder.comments || 'No comments'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-            <div>
-              <p className="font-medium">Accruals Period:</p>
-              <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
+        {/* Section 3: Bank Details */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Banknote className="mr-2 h-5 w-5" /> Bank Details
+            </CardTitle>
+            <CardDescription>Account information for the payee.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Account Name:</p>
+                <p>{standingOrder.account_name || 'N/A'}</p>
+              </div>
+              {isUK ? (
+                <>
+                  <div>
+                    <p className="font-medium">Sort Code:</p>
+                    <p>{standingOrder.sort_code || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Account Number:</p>
+                    <p>{standingOrder.account_number ? standingOrder.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p className="font-medium">Account Address:</p>
+                    <p>{standingOrder.account_address || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">IBAN Number:</p>
+                    <p>{standingOrder.iban_number || 'N/A'}</p>
+                  </div>
+                  {isCH && (
+                    <>
+                      <div>
+                        <p className="font-medium">Bank Account:</p>
+                        <p>{standingOrder.bank_account || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Currency:</p>
+                        <p>{standingOrder.currency || 'N/A'}</p>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+              <div className="md:col-span-2">
+                <p className="font-medium">Bank Details Verified:</p>
+                <p>{standingOrder.bank_details_verified ? 'Yes' : 'No'}</p>
+              </div>
             </div>
-            <div>
-              <p className="font-medium">Payment Reference:</p>
-              <p>{standingOrder.payment_reference || 'N/A'}</p>
+          </CardContent>
+        </Card>
+
+        {/* Section 4: Metadata */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <UserCircle2 className="mr-2 h-5 w-5" /> Metadata
+            </CardTitle>
+            <CardDescription>Administrative information.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Requested By:</p>
+                <p>{auditUsers?.[standingOrder.requester_id] || standingOrder.requester_id}</p>
+              </div>
+              <div>
+                <p className="font-medium">Created At:</p>
+                <p>{format(new Date(standingOrder.created_at), 'PPP p')}</p>
+              </div>
+              <div>
+                <p className="font-medium">Last Updated:</p>
+                <p>{format(new Date(standingOrder.updated_at), 'PPP p')}</p>
+              </div>
             </div>
-            <div className="md:col-span-2">
-              <p className="font-medium">Comments:</p>
-              <p>{standingOrder.comments || 'No comments'}</p>
-            </div>
-            <div>
-              <p className="font-medium">Status:</p>
-              <p>{getStatusBadge(standingOrder.status)}</p>
-            </div>
-            <div>
-              <p className="font-medium">Country:</p>
-              <p>{standingOrder.country}</p>
-            </div>
-            <div>
-              <p className="font-medium">Bank Details Verified:</p>
-              <p>{standingOrder.bank_details_verified ? 'Yes' : 'No'}</p>
-            </div>
-            <div>
-              <p className="font-medium">Created At:</p>
-              <p>{format(new Date(standingOrder.created_at), 'PPP p')}</p>
-            </div>
-            <div>
-              <p className="font-medium">Last Updated:</p>
-              <p>{format(new Date(standingOrder.updated_at), 'PPP p')}</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       <StandingOrderAuditTrailCard audits={audits} auditUsers={auditUsers || {}} />
 
