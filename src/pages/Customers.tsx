@@ -618,8 +618,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // CORRECTED PATH: Use the /customer-ledger-entries endpoint with customerNumber filter
-      const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
+      // CORRECTED PATH: Use the /customers/{customerNumber}/customer-ledger-entries endpoint
+      const pathForProxy = `/customers/${num}/customer-ledger-entries?pagesize=1000`;
       console.log(`[CustomerRow] loadLedgerCard (v7): Path to send to proxy: ${pathForProxy}`);
       const requestBodyForProxy = { path: pathForProxy, method: "GET" };
       console.log(`[CustomerRow] loadLedgerCard (v7): Request body for proxy: ${JSON.stringify(requestBodyForProxy)}`);
