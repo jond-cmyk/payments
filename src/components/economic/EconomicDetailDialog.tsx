@@ -73,6 +73,52 @@ interface EconomicDetailDialogProps {
   isAccountingYearsLoading?: boolean; // NEW PROP
 }
 
+// Utility function to extract a list from varied economic response shapes
+const extractList = (payload: any): any[] => {
+  if (!payload) {
+    console.log("[extractList] Payload is null or undefined.");
+    return [];
+  }
+
+  // The payload *is* the economicResponseData from the proxy, which contains the e-conomic API's direct response.
+  // For /customers, this payload will be an object like { collection: [...], pagination: {...} }
+  // For /entries, it might be { collection: [...] } or directly an array if no pagination.
+
+  const candidates = [
+    payload.collection, // This is the primary candidate for e-conomic lists
+    payload.items,
+    payload.results,
+    payload.entries,
+    payload.invoices,
+    payload.accountingYears?.collection,
+  ];
+
+  for (const c of candidates) {
+    if (Array.isArray(c)) {
+      console.log(`[extractList] Found array in candidate: ${JSON.stringify(c.slice(0, 2))}...`);
+      return c;
+    }
+  }
+  
+  if (Array.isArray(payload)) { // If the payload itself is an array
+    console.log(`[extractList] Payload is an array: ${JSON.stringify(payload.slice(0, 2))}...`);
+    return payload;
+  }
+
+  if (typeof payload === "object") {
+    for (const k of Object.keys(payload)) {
+      const v = (payload as any)[k];
+      if (Array.isArray(v)) {
+        console.log(`[extractList] Found array in object key '${k}': ${JSON.stringify(v.slice(0, 2))}...`);
+        return v;
+      }
+    }
+  }
+  
+  console.log("[extractList] No list found in payload. Full payload:", JSON.stringify(payload, null, 2));
+  return [];
+};
+
 const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   isOpen,
   onOpenChange,

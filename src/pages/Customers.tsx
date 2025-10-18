@@ -63,19 +63,17 @@ const extractList = (payload: any): any[] => {
     return [];
   }
 
-  const economicResponseData = payload?.data;
-  if (!economicResponseData) {
-    console.log("[extractList] economicResponseData is null or undefined.");
-    return [];
-  }
+  // The payload *is* the economicResponseData from the proxy, which contains the e-conomic API's direct response.
+  // For /customers, this payload will be an object like { collection: [...], pagination: {...} }
+  // For /entries, it might be { collection: [...] } or directly an array if no pagination.
 
   const candidates = [
-    economicResponseData.collection,
-    economicResponseData.items,
-    economicResponseData.results,
-    economicResponseData.entries,
-    economicResponseData.invoices,
-    economicResponseData.accountingYears?.collection, // NEW: Check for nested collection
+    payload.collection, // This is the primary candidate for e-conomic lists
+    payload.items,
+    payload.results,
+    payload.entries,
+    payload.invoices,
+    payload.accountingYears?.collection,
   ];
 
   for (const c of candidates) {
@@ -85,14 +83,14 @@ const extractList = (payload: any): any[] => {
     }
   }
   
-  if (Array.isArray(economicResponseData)) {
-    console.log(`[extractList] economicResponseData is an array: ${JSON.stringify(economicResponseData.slice(0, 2))}...`);
-    return economicResponseData;
+  if (Array.isArray(payload)) { // If the payload itself is an array
+    console.log(`[extractList] Payload is an array: ${JSON.stringify(payload.slice(0, 2))}...`);
+    return payload;
   }
 
-  if (typeof economicResponseData === "object") {
-    for (const k of Object.keys(economicResponseData)) {
-      const v = (economicResponseData as any)[k];
+  if (typeof payload === "object") {
+    for (const k of Object.keys(payload)) {
+      const v = (payload as any)[k];
       if (Array.isArray(v)) {
         console.log(`[extractList] Found array in object key '${k}': ${JSON.stringify(v.slice(0, 2))}...`);
         return v;
@@ -100,7 +98,7 @@ const extractList = (payload: any): any[] => {
     }
   }
   
-  console.log("[extractList] No list found in payload. Full economicResponseData:", JSON.stringify(economicResponseData, null, 2)); // ADDED LOG
+  console.log("[extractList] No list found in payload. Full payload:", JSON.stringify(payload, null, 2));
   return [];
 };
 
