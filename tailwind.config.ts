@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { fontFamily } from "tailwindcss/defaultTheme"; // Import fontFamily from defaultTheme
 
 export default {
   darkMode: ["class"],
@@ -18,6 +19,9 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        sans: ["Red Hat Display", ...fontFamily.sans], // Set Red Hat Display as the primary sans-serif font
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
