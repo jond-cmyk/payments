@@ -742,6 +742,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
 
     const allEntries = extractList(data);
+    console.log(`[loadOutstanding] Fetched ${allEntries.length} entries for customer ${num}.`);
 
     const outstandingEntries = allEntries.filter(entry => {
       const entryCustomerNumber = pick(entry, [
@@ -756,6 +757,11 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         'debtor.id',
         'creditor.id',
       ]);
+      
+      // Log each entry's customer number and the target customer number
+      console.log(`[loadOutstanding] Processing entry: ${JSON.stringify(entry)}`);
+      console.log(`[loadOutstanding] Entry customer number: ${entryCustomerNumber}, Target customer number: ${num}`);
+
       const remainingAmount = pick(entry, [
         'remainingAmount',
         'remainingAmount.value',
@@ -765,7 +771,14 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         'openEntriesAmount',
         'dueAmount',
       ]);
-      return String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
+
+      // Log the extracted remainingAmount and its type
+      console.log(`[loadOutstanding] Extracted remainingAmount: ${remainingAmount}, Type: ${typeof remainingAmount}`);
+      
+      const isOutstanding = String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
+      console.log(`[loadOutstanding] Is outstanding: ${isOutstanding}`);
+      
+      return isOutstanding;
     });
 
     setOutstandingData(outstandingEntries);
