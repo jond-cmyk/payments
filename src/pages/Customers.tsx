@@ -88,9 +88,10 @@ const Customers: React.FC = () => {
   const customersQuery = useQuery({
     queryKey: ["economicCustomers", pageSize],
     queryFn: async () => {
-      console.log(`[Customers] Invoking economic-proxy for /customers?pagesize=${pageSize}`);
+      const path = `/customers?pagesize=${pageSize}`;
+      console.log(`[Customers] Invoking economic-proxy for path: ${path}`); // Added console log
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/customers?pagesize=${pageSize}`, method: "GET" },
+        body: { path: path, method: "GET" },
       });
       console.log("[Customers] Raw response from economic-proxy:", { data, error });
       if (error) throw new Error(error.message || "Failed to load customers");
