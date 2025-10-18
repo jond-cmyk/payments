@@ -338,7 +338,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           name="account_number"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
                 <Input placeholder="e.g., 1234567890" {...field} />
               </FormControl>
