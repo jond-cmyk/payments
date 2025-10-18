@@ -124,6 +124,7 @@ const Customers: React.FC = () => {
     customersDataLength: customersQuery.data?.length,
     filteredLength: filtered.length,
   });
+  console.log("[Customers] Component rendered. customersQuery.data:", customersQuery.data?.map(c => ({ num: c.customerNumber, name: c.name }))); // ADDED DEBUG LOG
 
   if (isLoading || customersQuery.isLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading customers...</div>;
@@ -226,7 +227,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
 
-  const num = customer.customerNumber;
+  // Removed `const num = customer.customerNumber;` from here
+  const num = customer.customerNumber; // Keep num here for the balance query and initial checks
 
   console.log("CustomerRow Props for customer:", customer.customerNumber, {
     customerNumber: customer.customerNumber,
@@ -615,23 +617,24 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   // Removed loadTransactions
   // Removed loadOutstanding
 
-  const loadLedgerCard = useCallback(async () => {
-    if (!num) {
+  const loadLedgerCard = useCallback(async (customerNumber: number | undefined, customerName: string | undefined) => { // ADDED customerName parameter
+    console.log(`[Customers] loadLedgerCard (v3): customerNumber=${customerNumber}, customerName=${customerName}`); // ADDED DEBUG LOG
+    if (!customerNumber) {
       showError("Customer number is missing.");
       return;
     }
     setLoadingLedgerCard(true);
-    const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
+    const toastId = showLoading(`Loading ledger card for ${customerName || 'customer'}...`); // Use customerName
 
     try {
-      const customerSpecificPath = `/customers/${num}/customer-ledger-entries?pagesize=1000`;
-      console.log(`[Customers] Attempting to fetch ledger entries from: ${customerSpecificPath}`);
+      const customerSpecificPath = `/customers/${customerNumber}/customer-ledger-entries?pagesize=1000`;
+      console.log(`[Customers] loadLedgerCard (v3): Invoking economic-proxy with path: ${customerSpecificPath}`); // ADDED DEBUG LOG
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
         body: { path: customerSpecificPath, method: "GET" },
       });
 
       if (error) {
-        console.error(`[Customers] Failed to fetch customer-specific ledger entries for ${num}:`, error);
+        console.error(`[Customers] Failed to fetch customer-specific ledger entries for ${customerNumber}:`, error);
         throw new Error(error.message || "Failed to load customer ledger card.");
       }
 
@@ -654,7 +657,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       dismissToast(toastId);
       setLoadingLedgerCard(false);
     }
-  }, [num, customer.name]);
+  }, []); // REMOVED dependencies, now all dynamic data is passed as arguments
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
@@ -759,7 +762,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
             {/* Removed All Outstanding Button */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={ledgerCardButtonState.isDisabled}>
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={() => loadLedgerCard(customer.customerNumber, customer.name)} disabled={ledgerCardButtonState.isDisabled}> {/* UPDATED onClick */}
                   <BookText className="h-4 w-4 mr-1" /> {ledgerCardButtonState.text}
                 </Button>
               </TooltipTrigger>
