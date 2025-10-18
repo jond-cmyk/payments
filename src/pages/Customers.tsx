@@ -272,12 +272,16 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         if (current && typeof current === 'object' && part in current) {
           current = current[part];
         } else {
-          current = undefined; // FIX: Changed 'value' to 'current'
+          current = undefined;
           found = false;
           break;
         }
       }
       if (found) {
+        // If the found value is an object with a 'value' property, use that
+        if (typeof current === 'object' && current !== null && 'value' in current && typeof current.value === 'number') {
+          return current.value;
+        }
         // Attempt to parse to number if it looks like one
         if (typeof current === 'string' && !isNaN(parseFloat(current))) {
           return parseFloat(current);
@@ -717,27 +721,11 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       ]);
       
       // Log each entry's customer number and the target customer number
-      console.log(`[loadOutstanding] Processing entry: ${JSON.stringify(entry)}`);
-      console.log(`[loadOutstanding] Entry customer number: ${entryCustomerNumber}, Target customer number: ${num}`);
+      console.log(`[loadTransactions] Processing entry: ${JSON.stringify(entry)}`);
+      console.log(`[loadTransactions] Entry customer number: ${entryCustomerNumber}, Target customer number: ${num}`);
 
-      const remainingAmount = pick(entry, [
-        'remainingAmount',
-        'remainingAmount.value',
-        'amount.remaining',
-        'balance',
-        'outstandingAmount',
-        'openEntriesAmount',
-        'dueAmount',
-        // Removed 'amount.value' as it's likely the total amount, not remaining
-      ]);
-
-      // Log the extracted remainingAmount and its type
-      console.log(`[loadOutstanding] Extracted remainingAmount (after pick): ${remainingAmount}, Type: ${typeof remainingAmount}`);
-      
-      const isOutstanding = String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
-      console.log(`[loadOutstanding] Is outstanding: ${isOutstanding}`);
-      
-      return isOutstanding;
+      // The condition for filtering transactions should be based on customer number match, not outstanding amount
+      return String(entryCustomerNumber ?? "") === String(num);
     });
 
     setTransactionsData(customerTransactions);
