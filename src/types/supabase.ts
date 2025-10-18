@@ -165,7 +165,6 @@ export type StandingOrder = {
   from_day: number;
   to_day: number;
   payment_reference: string;
-  comments?: string | null;
   status: StandingOrderStatus;
   country: string;
   bank_details_verified: boolean;

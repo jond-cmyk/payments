@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
-import { Globe } from "lucide-react";
+import { Globe, Database } from "lucide-react"; // Import Database icon
 
 const EconomicIntegration = () => {
   const { session, isLoading, userProfile } = useSession();
@@ -147,6 +147,27 @@ const EconomicIntegration = () => {
     }
   };
 
+  const handleMigrateStandingOrderComments = async () => {
+    const toastId = showLoading("Migrating standing order comments...");
+    try {
+      const { data, error } = await supabase.rpc('migrate_standing_order_comments_to_audits');
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      dismissToast(toastId);
+      showSuccess(data || "Standing order comments migration initiated.");
+      // You might want to invalidate relevant queries here if the UI needs to reflect changes immediately
+      // queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+      // queryClient.invalidateQueries({ queryKey: ['standingOrderAudits'] });
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to migrate standing order comments.");
+      console.error("Migration error:", error);
+    }
+  };
+
   return (
     <div className="container mx-auto py-8">
       <PageTitle title="Visma e-conomic Integration - KH Payments" />
@@ -243,6 +264,31 @@ const EconomicIntegration = () => {
               <Textarea rows={10} readOnly value={result} />
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* NEW: Standing Order Comments Migration Card */}
+      <Card className="max-w-3xl mx-auto shadow-sm mt-8 border-l-4 border-blue-500">
+        <CardHeader>
+          <CardTitle className="flex items-center text-2xl font-bold text-blue-700">
+            <Database className="mr-2 h-6 w-6" /> Standing Order Comments Migration
+          </CardTitle>
+          <CardDescription>
+            This utility will migrate existing comments from the old 'comments' field in standing orders to the new audit trail system.
+            This is a one-time operation.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            onClick={handleMigrateStandingOrderComments}
+            disabled={false} // Enable this button for the one-off migration
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+          >
+            Run Comments Migration
+          </Button>
+          <p className="text-sm text-muted-foreground mt-2">
+            Clicking this will move all non-empty 'comments' from the `standing_orders` table to `standing_order_audits` and then clear the original field.
+          </p>
         </CardContent>
       </Card>
     </div>
