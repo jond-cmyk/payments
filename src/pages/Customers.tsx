@@ -624,15 +624,23 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // Corrected path to use /customer-ledger-entries with customerNumber filter
+      // Fetch all customer ledger entries (or a large page size)
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/customer-ledger-entries?filter=customer.customerNumber eq ${num}&pagesize=1000`, method: "GET" },
+        body: { path: `/customer-ledger-entries?pagesize=1000`, method: "GET" }, // Removed filter from path
       });
 
       if (error) throw new Error(error.message || "Failed to load customer ledger card");
       const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
-      const list = extractList(resp?.data);
+      let list = extractList(resp?.data);
       
+      // Apply client-side filter by customerNumber
+      if (num) {
+        list = list.filter(entry => {
+          const entryCustomerNumber = pick(entry, ["customer.customerNumber", "customer.number", "entryCustomerNumber"]);
+          return String(entryCustomerNumber) === String(num);
+        });
+      }
+
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
       showSuccess(`Loaded ${list.length} ledger entries.`);
