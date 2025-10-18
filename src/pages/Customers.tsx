@@ -700,6 +700,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const { data: debtorData, error: debtorError } = await supabase.functions.invoke("economic-proxy", {
       body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
     });
+    console.log(`[loadTransactions] Debtor entries raw response:`, debtorData); // ADDED LOG
     if (debtorError) {
       console.error(`[loadTransactions] Error fetching as debtor: ${debtorError.message}`);
     } else {
@@ -712,6 +713,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const { data: creditorData, error: creditorError } = await supabase.functions.invoke("economic-proxy", {
       body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num }, method: "GET" },
     });
+    console.log(`[loadTransactions] Creditor entries raw response:`, creditorData); // ADDED LOG
     if (creditorError) {
       console.error(`[loadTransactions] Error fetching as creditor: ${creditorError.message}`);
     } else {
@@ -779,6 +781,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const { data: debtorData, error: debtorError } = await supabase.functions.invoke("economic-proxy", {
       body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
     });
+    console.log(`[loadOutstanding] Debtor entries raw response:`, debtorData); // ADDED LOG
     if (debtorError) {
       console.error(`[loadOutstanding] Error fetching as debtor: ${debtorError.message}`);
     } else {
@@ -791,6 +794,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const { data: creditorData, error: creditorError } = await supabase.functions.invoke("economic-proxy", {
       body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num }, method: "GET" },
     });
+    console.log(`[loadOutstanding] Creditor entries raw response:`, creditorData); // ADDED LOG
     if (creditorError) {
       console.error(`[loadOutstanding] Error fetching as creditor: ${creditorError.message}`);
     } else {
@@ -831,6 +835,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         'remainingAmount.value',
         'dueAmount',
         'dueAmount.value',
+        'amount', // ADDED: Fallback to 'amount'
+        'amount.value', // ADDED: Fallback to 'amount.value'
       ]);
 
       console.log(`[loadOutstanding] Extracted remainingAmount (after pick): ${remainingAmount}, Type: ${typeof remainingAmount}`);
