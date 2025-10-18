@@ -19,9 +19,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
-// Removed Select import as it's no longer needed in this component
 
-// Helper to format a date string to DD-MM-YYYY
 const formatDate = (dateInput: any): string => {
   if (!dateInput) return "-";
   let date: Date;
@@ -39,7 +37,6 @@ const formatDate = (dateInput: any): string => {
   return `${day}-${month}-${year}`;
 };
 
-// Helper to format amount with thousand separators and two decimal places
 export const formatAmount = (amountInput: any): string => {
   if (amountInput === null || amountInput === undefined) return "-";
   const num = typeof amountInput === "number" ? amountInput : parseFloat(String(amountInput));
@@ -50,7 +47,6 @@ export const formatAmount = (amountInput: any): string => {
   });
 };
 
-// Define the DialogColumn type here and export it
 export type DialogColumn = {
   key: string;
   header: string;
@@ -67,27 +63,21 @@ interface EconomicDetailDialogProps {
   data: any[] | null;
   columns: DialogColumn[];
   isLoading?: boolean;
-  // Removed accountingYears, selectedAccountingYear, onAccountingYearChange, isAccountingYearsLoading props
 }
 
-// Utility function to extract a list from varied economic response shapes
 const extractList = (payload: any): any[] => {
   if (!payload) {
     console.log("[extractList] Payload is null or undefined.");
     return [];
   }
 
-  // The payload *is* the economicResponseData from the proxy, which contains the e-conomic API's direct response.
-  // For /customers, this payload will be an object like { collection: [...], pagination: {...} }
-  // For /entries, it might be { collection: [...] } or directly an array if no pagination.
-
   const candidates = [
-    payload.collection, // This is the primary candidate for e-conomic lists
+    payload.collection,
     payload.items,
     payload.results,
     payload.entries,
     payload.invoices,
-    payload.accountingYears?.collection,
+    payload.customerLedgerEntries?.collection,
   ];
 
   for (const c of candidates) {
@@ -97,7 +87,7 @@ const extractList = (payload: any): any[] => {
     }
   }
   
-  if (Array.isArray(payload)) { // If the payload itself is an array
+  if (Array.isArray(payload)) {
     console.log(`[extractList] Payload is an array: ${JSON.stringify(payload.slice(0, 2))}...`);
     return payload;
   }
@@ -124,9 +114,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   data,
   columns,
   isLoading,
-  // Removed accountingYears, selectedAccountingYear, onAccountingYearChange, isAccountingYearsLoading from destructuring
 }) => {
-  // Generic getter for nested value, now correctly handles dot-separated paths in `paths` array
   const getNestedValue = (obj: any, paths: string[] | undefined, key: string): any => {
     if (!obj) return undefined;
 
@@ -217,7 +205,6 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {/* Removed conditional rendering of accountingYears selector */}
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full w-full pr-4">
             {isLoading ? (
