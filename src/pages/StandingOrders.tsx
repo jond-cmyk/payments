@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { StandingOrder } from '@/types/supabase';
 import { format } from 'date-fns';
-import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown, DollarSign } from 'lucide-react'; // Import DollarSign
+import { Repeat, PlusCircle, Filter, RotateCcw, ArrowUp, ArrowDown, Edit, Trash2, Eye, FileDown, DollarSign } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -330,7 +330,7 @@ const StandingOrders = () => {
     'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
     'sku', 'not_property_related', 'categories', 'total_amount', 'account_name', 'account_address',
     'iban_number', 'sort_code', 'account_number', 'from_day', 'to_day',
-    'payment_reference', 'status', 'country', 'bank_details_verified'
+    'payment_reference', 'status', 'country', 'bank_details_verified', 'payment_day', 'currency', 'bank_account'
   ];
 
   const handleDownloadStandingOrders = () => {
@@ -340,14 +340,13 @@ const StandingOrders = () => {
         const base = { ...order };
         // Remove original categories and total_amount for flattening
         delete (base as any).categories;
-        delete (base as any).total_amount;
+        // total_amount is now explicitly included in the export columns, so no need to delete it here.
 
         // Add flattened categories
         order.categories.forEach((cat, index) => {
           (base as any)[`category_${index + 1}`] = categoryOptions.find(c => c.value === cat.category)?.label || cat.category;
           (base as any)[`amount_${index + 1}`] = cat.amount;
         });
-        (base as any)['total_amount'] = order.total_amount; // Add total amount back
         return base;
       });
 
@@ -369,7 +368,7 @@ const StandingOrders = () => {
         'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
         'sku', 'not_property_related', ...dynamicCategoryHeaders, 'total_amount', 'account_name', 'account_address',
         'iban_number', 'sort_code', 'account_number', 'from_day', 'to_day',
-        'payment_reference', 'status', 'country', 'bank_details_verified'
+        'payment_reference', 'status', 'country', 'bank_details_verified', 'payment_day', 'currency', 'bank_account'
       ];
 
       exportToCsv(
@@ -672,6 +671,11 @@ const StandingOrders = () => {
                       </div>
                     </TableHead>
                     <TableHead>Categories</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('total_amount')}>
+                      <div className="flex items-center">
+                        Amount {renderSortIcon('total_amount')}
+                      </div>
+                    </TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
                       <div className="flex items-center">
                         Start Date {renderSortIcon('payment_date')}
@@ -727,6 +731,7 @@ const StandingOrders = () => {
                           </div>
                         ) : 'N/A'}
                       </TableCell>
+                      <TableCell>{order.total_amount.toFixed(2)}</TableCell>
                       <TableCell>{format(new Date(order.payment_date), 'PPP')}</TableCell>
                       <TableCell>{order.payment_end_date ? format(new Date(order.payment_end_date), 'PPP') : 'No end date'}</TableCell>
                       <TableCell>{order.payment_day ? `Day ${order.payment_day}` : 'N/A'}</TableCell>
