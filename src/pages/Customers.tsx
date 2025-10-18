@@ -42,7 +42,6 @@ type EconomicCustomer = {
     street?: string;
     postalCode?: string;
     city?: string;
-    country?: string;
   };
   currency?: string;
   self?: string;
@@ -836,8 +835,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
+      // Updated path to include customer number directly
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/customer-ledger-entries`, query: { customerNumber: num, pagesize: 1000 }, method: "GET" },
+        body: { path: `/customers/${num}/customer-ledger-entries`, query: { pagesize: 1000 }, method: "GET" },
       });
 
       if (error) throw new Error(error.message || "Failed to load customer ledger card");
