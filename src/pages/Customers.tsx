@@ -691,20 +691,44 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     setLoadingTransactions(true);
     const toastId = showLoading(`Loading all transactions...`);
 
-    const path = `/entries`;
+    let allEntries: any[] = [];
+    let debtorEntries: any[] = [];
+    let creditorEntries: any[] = [];
 
-    const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
+    // Attempt to fetch as debtor
+    console.log(`[loadTransactions] Attempting to fetch entries as debtor for customer ${num}...`);
+    const { data: debtorData, error: debtorError } = await supabase.functions.invoke("economic-proxy", {
+      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
     });
-    dismissToast(toastId);
-
-    if (error) {
-      setLoadingTransactions(false);
-      showError(error.message || "Failed to load transactions");
-      return;
+    if (debtorError) {
+      console.error(`[loadTransactions] Error fetching as debtor: ${debtorError.message}`);
+    } else {
+      debtorEntries = extractList(debtorData);
+      console.log(`[loadTransactions] Fetched ${debtorEntries.length} entries as debtor.`);
     }
 
-    const allEntries = extractList(data);
+    // Attempt to fetch as creditor
+    console.log(`[loadTransactions] Attempting to fetch entries as creditor for customer ${num}...`);
+    const { data: creditorData, error: creditorError } = await supabase.functions.invoke("economic-proxy", {
+      body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num }, method: "GET" },
+    });
+    if (creditorError) {
+      console.error(`[loadTransactions] Error fetching as creditor: ${creditorError.message}`);
+    } else {
+      creditorEntries = extractList(creditorData);
+      console.log(`[loadTransactions] Fetched ${creditorEntries.length} entries as creditor.`);
+    }
+
+    allEntries = [...debtorEntries, ...creditorEntries];
+    console.log(`[loadTransactions] Combined allEntries count: ${allEntries.length}`);
+
+    dismissToast(toastId);
+
+    if (debtorError && creditorError) {
+      setLoadingTransactions(false);
+      showError(debtorError.message || creditorError.message || "Failed to load transactions");
+      return;
+    }
 
     const customerTransactions = allEntries.filter(entry => {
       const entryCustomerNumber = pick(entry, [
@@ -720,11 +744,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         'creditor.id',
       ]);
       
-      // Log each entry's customer number and the target customer number
       console.log(`[loadTransactions] Processing entry: ${JSON.stringify(entry)}`);
       console.log(`[loadTransactions] Entry customer number: ${entryCustomerNumber}, Target customer number: ${num}`);
 
-      // The condition for filtering transactions should be based on customer number match, not outstanding amount
       return String(entryCustomerNumber ?? "") === String(num);
     });
 
@@ -748,21 +770,44 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     setLoadingOutstanding(true);
     const toastId = showLoading(`Loading outstanding transactions...`);
 
-    const path = `/entries`;
+    let allEntries: any[] = [];
+    let debtorEntries: any[] = [];
+    let creditorEntries: any[] = [];
 
-    const { data, error } = await supabase.functions.invoke("economic-proxy", {
-      body: { path, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
+    // Attempt to fetch as debtor
+    console.log(`[loadOutstanding] Attempting to fetch entries as debtor for customer ${num}...`);
+    const { data: debtorData, error: debtorError } = await supabase.functions.invoke("economic-proxy", {
+      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
     });
-    dismissToast(toastId);
-
-    if (error) {
-      setLoadingOutstanding(false);
-      showError(error.message || "Failed to load outstanding transactions");
-      return;
+    if (debtorError) {
+      console.error(`[loadOutstanding] Error fetching as debtor: ${debtorError.message}`);
+    } else {
+      debtorEntries = extractList(debtorData);
+      console.log(`[loadOutstanding] Fetched ${debtorEntries.length} entries as debtor.`);
     }
 
-    const allEntries = extractList(data);
-    console.log(`[loadOutstanding] Fetched ${allEntries.length} entries for customer ${num}.`);
+    // Attempt to fetch as creditor
+    console.log(`[loadOutstanding] Attempting to fetch entries as creditor for customer ${num}...`);
+    const { data: creditorData, error: creditorError } = await supabase.functions.invoke("economic-proxy", {
+      body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num }, method: "GET" },
+    });
+    if (creditorError) {
+      console.error(`[loadOutstanding] Error fetching as creditor: ${creditorError.message}`);
+    } else {
+      creditorEntries = extractList(creditorData);
+      console.log(`[loadOutstanding] Fetched ${creditorEntries.length} entries as creditor.`);
+    }
+
+    allEntries = [...debtorEntries, ...creditorEntries];
+    console.log(`[loadOutstanding] Combined allEntries count: ${allEntries.length}`);
+
+    dismissToast(toastId);
+
+    if (debtorError && creditorError) {
+      setLoadingOutstanding(false);
+      showError(debtorError.message || creditorError.message || "Failed to load outstanding transactions");
+      return;
+    }
 
     const outstandingEntries = allEntries.filter(entry => {
       const entryCustomerNumber = pick(entry, [
@@ -778,22 +823,16 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         'creditor.id',
       ]);
       
-      // Log each entry's customer number and the target customer number
       console.log(`[loadOutstanding] Processing entry: ${JSON.stringify(entry)}`);
       console.log(`[loadOutstanding] Entry customer number: ${entryCustomerNumber}, Target customer number: ${num}`);
 
       const remainingAmount = pick(entry, [
         'remainingAmount',
         'remainingAmount.value',
-        'amount.remaining',
-        'balance',
-        'outstandingAmount',
-        'openEntriesAmount',
         'dueAmount',
-        // Removed 'amount.value' as it's likely the total amount, not remaining
+        'dueAmount.value',
       ]);
 
-      // Log the extracted remainingAmount and its type
       console.log(`[loadOutstanding] Extracted remainingAmount (after pick): ${remainingAmount}, Type: ${typeof remainingAmount}`);
       
       const isOutstanding = String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
