@@ -59,10 +59,10 @@ const extractList = (payload: any): any[] => {
     payload.collection,
     payload.items,
     payload.results,
-    payload.entries,
+    // Removed payload.entries
     payload.invoices,
     payload.accountingYears?.collection,
-    payload.customerLedgerEntries?.collection,
+    // Removed payload.customerLedgerEntries?.collection
   ];
 
   for (const c of candidates) {
@@ -255,18 +255,16 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
 
-  const [transactionsData, setTransactionsData] = useState<any[] | null>(null);
-  const [loadingTransactions, setLoadingTransactions] = useState(false);
-  const [outstandingData, setOutstandingData] = useState<any[] | null>(null);
-  const [loadingOutstanding, setLoadingOutstanding] = useState(false);
+  // Removed transactionsData, setLoadingTransactions, showTransactionsDialog
+  // Removed outstandingData, setLoadingOutstanding, showOutstandingDialog
 
   const [ledgerCardData, setLedgerCardData] = useState<any[] | null>(null);
   const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
   const [showLedgerCardDialog, setShowLedgerCardDialog] = useState(false);
 
   const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
-  const [showTransactionsDialog, setShowTransactionsDialog] = useState(false);
-  const [showOutstandingDialog, setShowOutstandingDialog] = useState(false);
+  // Removed showTransactionsDialog
+  // Removed showOutstandingDialog
 
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
 
@@ -275,8 +273,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   console.log("CustomerRow Props for customer:", customer.customerNumber, {
     customerNumber: customer.customerNumber,
     loadingInvoices: loadingInvoices,
-    loadingTransactions: loadingTransactions,
-    loadingOutstanding: loadingOutstanding,
+    // Removed loadingTransactions
+    // Removed loadingOutstanding
     loadingLedgerCard: loadingLedgerCard,
   });
 
@@ -656,175 +654,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, enrichInvoiceHeadings]);
 
-  const loadTransactions = useCallback(async () => {
-    if (!num) {
-      showError("Customer number is missing.");
-      return;
-    }
-    setLoadingTransactions(true);
-    const toastId = showLoading(`Loading all transactions...`);
-
-    let allEntries: any[] = [];
-    let debtorEntries: any[] = [];
-    let creditorEntries: any[] = [];
-
-    console.log(`[loadTransactions] Attempting to fetch entries as debtor for customer ${num}...`);
-    const { data: debtorData, error: debtorError } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
-    });
-    console.log(`[loadTransactions] Debtor entries raw response:`, debtorData);
-    if (debtorError) {
-      console.error(`[loadTransactions] Error fetching as debtor: ${debtorError.message}`);
-    } else {
-      debtorEntries = extractList(debtorData);
-      console.log(`[loadTransactions] Fetched ${debtorEntries.length} entries as debtor.`);
-    }
-
-    console.log(`[loadTransactions] Attempting to fetch entries as creditor for customer ${num}...`);
-    const { data: creditorData, error: creditorError } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num }, method: "GET" },
-    });
-    console.log(`[loadTransactions] Creditor entries raw response:`, creditorData);
-    if (creditorError) {
-      console.error(`[loadTransactions] Error fetching as creditor: ${creditorError.message}`);
-    } else {
-      creditorEntries = extractList(creditorData);
-      console.log(`[loadTransactions] Fetched ${creditorEntries.length} entries as creditor.`);
-    }
-
-    allEntries = [...debtorEntries, ...creditorEntries];
-    console.log(`[loadTransactions] Combined allEntries count: ${allEntries.length}`);
-
-    dismissToast(toastId);
-
-    if (debtorError && creditorError) {
-      setLoadingTransactions(false);
-      showError(debtorError.message || creditorError.message || "Failed to load transactions");
-      return;
-    }
-
-    const customerTransactions = allEntries.filter(entry => {
-      const entryCustomerNumber = pick(entry, [
-        'customerNumber',
-        'customer.customerNumber',
-        'debtor.customerNumber',
-        'debtor.number',
-        'creditor.customerNumber',
-        'creditor.number',
-        'customer.number',
-        'customer.id',
-        'debtor.id',
-        'creditor.id',
-      ]);
-      
-      console.log(`[loadTransactions] Processing entry: ${JSON.stringify(entry)}`);
-      console.log(`[loadTransactions] Entry customer number: ${entryCustomerNumber}, Target customer number: ${num}`);
-
-      return String(entryCustomerNumber ?? "") === String(num);
-    });
-
-    setTransactionsData(customerTransactions);
-    setShowTransactionsDialog(true);
-    setLoadingTransactions(false);
-
-    if (customerTransactions.length > 0) {
-      showSuccess(`Loaded ${customerTransactions.length} transactions`);
-    } else {
-      showError("No transactions found for this customer.");
-    }
-  }, [num]);
-
-  const loadOutstanding = useCallback(async () => {
-    if (!num) {
-      showError("Customer number is missing.");
-      return;
-    }
-    setLoadingOutstanding(true);
-    const toastId = showLoading(`Loading outstanding transactions...`);
-
-    let allEntries: any[] = [];
-    let debtorEntries: any[] = [];
-    let creditorEntries: any[] = [];
-
-    console.log(`[loadOutstanding] Attempting to fetch entries as debtor for customer ${num}...`);
-    const { data: debtorData, error: debtorError } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, debtorNumber: num }, method: "GET" },
-    });
-    console.log(`[loadOutstanding] Debtor entries raw response:`, debtorData);
-    if (debtorError) {
-      console.error(`[loadOutstanding] Error fetching as debtor: ${debtorError.message}`);
-    } else {
-      debtorEntries = extractList(debtorData);
-      console.log(`[loadOutstanding] Fetched ${debtorEntries.length} entries as debtor.`);
-    }
-
-    console.log(`[loadOutstanding] Attempting to fetch entries as creditor for customer ${num}...`);
-    const { data: creditorData, error: creditorError } = await supabase.functions.invoke("economic-proxy", {
-      body: { path: `/entries`, query: { pagesize: 1000, creditorNumber: num }, method: "GET" },
-    });
-    console.log(`[loadOutstanding] Creditor entries raw response:`, creditorData);
-    if (creditorError) {
-      console.error(`[loadOutstanding] Error fetching as creditor: ${creditorError.message}`);
-    } else {
-      creditorEntries = extractList(creditorData);
-      console.log(`[loadOutstanding] Fetched ${creditorEntries.length} entries as creditor.`);
-    }
-
-    allEntries = [...debtorEntries, ...creditorEntries];
-    console.log(`[loadOutstanding] Combined allEntries count: ${allEntries.length}`);
-
-    dismissToast(toastId);
-
-    if (debtorError && creditorError) {
-      setLoadingOutstanding(false);
-      showError(debtorError.message || creditorError.message || "Failed to load outstanding transactions");
-      return;
-    }
-
-    const outstandingEntries = allEntries.filter(entry => {
-      const entryCustomerNumber = pick(entry, [
-        'customerNumber',
-        'customer.customerNumber',
-        'debtor.customerNumber',
-        'debtor.number',
-        'creditor.customerNumber',
-        'creditor.number',
-        'customer.number',
-        'customer.id',
-        'debtor.id',
-        'creditor.id',
-      ]);
-      
-      console.log(`[loadOutstanding] Processing entry: ${JSON.stringify(entry)}`);
-      console.log(`[loadOutstanding] Entry customer number: ${entryCustomerNumber}, Target customer number: ${num}`);
-
-      const remainingAmount = pick(entry, [
-        'remainingAmount',
-        'remainingAmount.value',
-        'dueAmount',
-        'dueAmount.value',
-        'amount',
-        'amount.value',
-      ]);
-
-      console.log(`[loadOutstanding] Extracted remainingAmount (after pick): ${remainingAmount}, Type: ${typeof remainingAmount}`);
-      
-      const isOutstanding = String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
-      console.log(`[loadOutstanding] Is outstanding: ${isOutstanding}`);
-      
-      return isOutstanding;
-    });
-
-    setOutstandingData(outstandingEntries);
-    setShowOutstandingDialog(true);
-    setLoadingOutstanding(false);
-
-    if (outstandingEntries.length > 0) {
-      showSuccess(`Loaded ${outstandingEntries.length} outstanding transactions`);
-    } else {
-      showError("No outstanding transactions found for this customer.");
-    }
-  }, [num]);
+  // Removed loadTransactions
+  // Removed loadOutstanding
 
   const loadLedgerCard = useCallback(async () => {
     if (!num) {
@@ -882,25 +713,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     },
   ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
 
-  const transactionColumns: DialogColumn[] = [
-    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
-    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
-    { key: 'description', header: 'Description', path: ['description', 'text', 'notes.heading', 'notes.text'] },
-    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
-    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
-    { key: 'type', header: 'Type', path: ['type', 'entryType', 'transactionType'] },
-    { key: 'remainingAmount', header: 'Outstanding', format: 'currencyAmount', path: ['remainingAmount', 'remainingAmount.value', 'amount.remaining'] },
-  ];
-
-  const outstandingColumns: DialogColumn[] = [
-    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
-    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
-    { key: 'description', header: 'Description', path: ['description', 'text', 'notes.heading', 'notes.text'] },
-    { key: 'amount', header: 'Total Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
-    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
-    { key: 'remainingAmount', header: 'Outstanding Amount', format: 'currencyAmount', path: ['remainingAmount', 'remainingAmount.value', 'amount.remaining'] },
-    { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
-  ];
+  // Removed transactionColumns
+  // Removed outstandingColumns
 
   const ledgerCardColumns: DialogColumn[] = [
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
@@ -915,9 +729,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   const isCustomerNumberMissing = !customer.customerNumber;
 
-  const getButtonState = (buttonType: 'transactions' | 'outstanding' | 'ledgerCard') => {
-    const isLoadingState = buttonType === 'transactions' ? loadingTransactions : buttonType === 'outstanding' ? loadingOutstanding : loadingLedgerCard;
-    let text = isLoadingState ? "Loading..." : (buttonType === 'transactions' ? "All Transactions" : buttonType === 'outstanding' ? "All Outstanding" : "Ledger Card");
+  const getButtonState = (buttonType: 'ledgerCard') => { // Updated type
+    const isLoadingState = loadingLedgerCard; // Only ledgerCard loading state
+    let text = isLoadingState ? "Loading..." : "Ledger Card"; // Only ledgerCard text
     let tooltip = "";
     let isDisabled = isLoadingState;
 
@@ -930,8 +744,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     return { text, tooltip, isDisabled };
   };
 
-  const transactionsButtonState = getButtonState('transactions');
-  const outstandingButtonState = getButtonState('outstanding');
+  // Removed transactionsButtonState
+  // Removed outstandingButtonState
   const ledgerCardButtonState = getButtonState('ledgerCard');
 
   return (
@@ -972,22 +786,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
             <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadTransactions} disabled={transactionsButtonState.isDisabled}>
-                  {transactionsButtonState.text}
-                </Button>
-              </TooltipTrigger>
-              {transactionsButtonState.tooltip && <TooltipContent>{transactionsButtonState.tooltip}</TooltipContent>}
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadOutstanding} disabled={outstandingButtonState.isDisabled}>
-                  {outstandingButtonState.text}
-                </Button>
-              </TooltipTrigger>
-              {outstandingButtonState.tooltip && <TooltipContent>{outstandingButtonState.tooltip}</TooltipContent>}
-            </Tooltip>
+            {/* Removed All Transactions Button */}
+            {/* Removed All Outstanding Button */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={ledgerCardButtonState.isDisabled}>
@@ -1010,25 +810,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         isLoading={loadingInvoices}
       />
 
-      <EconomicDetailDialog
-        isOpen={showTransactionsDialog}
-        onOpenChange={setShowTransactionsDialog}
-        title={`All Transactions for ${customer.name || 'Customer'}`}
-        description={`Showing all accounting entries for customer number ${customer.customerNumber}.`}
-        data={transactionsData}
-        columns={transactionColumns}
-        isLoading={loadingTransactions}
-      />
-
-      <EconomicDetailDialog
-        isOpen={showOutstandingDialog}
-        onOpenChange={setShowOutstandingDialog}
-        title={`Outstanding Transactions for ${customer.name || 'Customer'}`}
-        description={`Showing outstanding accounting entries for customer number ${customer.customerNumber}.`}
-        data={outstandingData}
-        columns={outstandingColumns}
-        isLoading={loadingOutstanding}
-      />
+      {/* Removed EconomicDetailDialog for showTransactionsDialog */}
+      {/* Removed EconomicDetailDialog for showOutstandingDialog */}
 
       <EconomicDetailDialog
         isOpen={showLedgerCardDialog}
