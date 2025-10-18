@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react'; // Ensure React is imported
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -229,251 +229,249 @@ const StandingOrderDetail = () => {
   const isCH = standingOrder.country === 'Switzerland';
 
   return (
-    <React.Fragment>
-      <div className="container mx-auto py-8">
-        <PageTitle title={`Standing Order ${standingOrder.payee} - KH Payments`} />
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Standing Order #{standingOrder.id.substring(0, 8)}</h1>
-          {isAdmin && (
-            <div className="flex space-x-2">
-              <Button variant="outline" className="shadow-sm" onClick={() => setIsEditStandingOrderDialogOpen(true)}>
-                <Edit className="mr-2 h-4 w-4" /> Edit Standing Order
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    className="shadow-sm"
-                    disabled={deleteStandingOrderMutation.isPending}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" /> Delete Standing Order
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete the standing order for <strong>{standingOrder.payee}</strong>.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => deleteStandingOrderMutation.mutate(standingOrder.id)} asChild>
-                      <Button variant="destructive">
-                        Delete
-                      </Button>
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Section 1: Overview */}
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Info className="mr-2 h-5 w-5" /> Overview
-              </CardTitle>
-              <CardDescription>Key details of the standing order.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-medium">Country:</p>
-                  <p>{standingOrder.country}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Status:</p>
-                  <p>{getStatusBadge(standingOrder.status)}</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="font-medium">Payee:</p>
-                  <p>{standingOrder.payee}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Payment Start Date:</p>
-                  <p>{format(new Date(standingOrder.payment_date), 'PPP')}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Payment End Date:</p>
-                  <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Payment Day:</p>
-                  <p>{standingOrder.payment_day ? `Day ${standingOrder.payment_day}` : 'N/A'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Section 2: Payment Details */}
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <DollarSign className="mr-2 h-5 w-5" /> Payment Details
-              </CardTitle>
-              <CardDescription>Information about the payment structure.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="md:col-span-2">
-                  <p className="font-medium flex items-center mb-2">
-                    Categories & Amounts:
-                  </p>
-                  {standingOrder.categories && standingOrder.categories.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Category</TableHead>
-                            <TableHead className="text-right">Amount</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {standingOrder.categories.map((cat, index) => (
-                            <TableRow key={index}>
-                              <TableCell>{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
-                              <TableCell className="text-right">{formatAmount(cat.amount)}</TableCell>
-                            </TableRow>
-                          ))}
-                          <TableRow className="font-bold bg-muted/50">
-                            <TableCell>Total Amount:</TableCell>
-                            <TableCell className="text-right">{formatAmount(standingOrder.total_amount)}</TableCell>
-                          </TableRow>
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ) : (
-                    <p className="ml-2">No categories defined.</p>
-                  )}
-                </div>
-                <div>
-                  <p className="font-medium">SKU:</p>
-                  <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Accruals Period:</p>
-                  <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Section 3: Bank Details */}
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Banknote className="mr-2 h-5 w-5" /> Bank Details
-              </CardTitle>
-              <CardDescription>Account information for the payee.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-medium">Account Name:</p>
-                  <p>{standingOrder.account_name || 'N/A'}</p>
-                </div>
-                {isUK ? (
-                  <>
-                    <div>
-                      <p className="font-medium">Sort Code:</p>
-                      <p>{standingOrder.sort_code || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium">Account Number:</p>
-                      <p>{standingOrder.account_number ? standingOrder.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
-                    </div >
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <p className="font-medium">Account Address:</p>
-                      <p>{standingOrder.account_address || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="font-medium">IBAN Number:</p>
-                      <p>{standingOrder.iban_number || 'N/A'}</p>
-                    </div>
-                    {isCH && (
-                      <>
-                        <div>
-                          <p className="font-medium">Bank Account:</p>
-                          <p>{standingOrder.bank_account || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Currency:</p>
-                          <p>{standingOrder.currency || 'N/A'}</p>
-                        </>
-                    )}
-                  </>
-                )}
-                {/* MOVED: Payment Reference */}
-                <div>
-                  <p className="font-medium">Payment Reference:</p>
-                  <p>{standingOrder.payment_reference || 'N/A'}</p>
-                </div>
-                <div className="md:col-span-2">
-                  <p className="font-medium">Bank Details Verified:</p>
-                  <p>{standingOrder.bank_details_verified ? 'Yes' : 'No'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Section 4: Metadata */}
-          <Card className="shadow-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <UserCircle2 className="mr-2 h-5 w-5" /> Metadata
-              </CardTitle>
-              <CardDescription>Administrative information.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="font-medium">Requested By:</p>
-                  <p>{auditUsers?.[standingOrder.requester_id] || standingOrder.requester_id}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Created At:</p>
-                  <p>{format(new Date(standingOrder.created_at), 'PPP p')}</p>
-                </div>
-                <div>
-                  <p className="font-medium">Last Updated:</p>
-                  <p>{format(new Date(standingOrder.updated_at), 'PPP p')}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* NEW: Comments Card */}
-        <StandingOrderCommentsCard
-          standingOrderId={standingOrder.id}
-          comments={comments}
-          auditUsers={auditUsers}
-          currentUser={user}
-          onAddComment={handleAddComment}
-          isAddingComment={addCommentMutation.isPending}
-        />
-
-        <StandingOrderAuditTrailCard audits={generalAudits} auditUsers={auditUsers || {}} />
-
-        {standingOrder && (
-          <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
-            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Edit Standing Order: {standingOrder.payee}</DialogTitle>
-              </DialogHeader>
-              <UpdateStandingOrderForm standingOrder={standingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
-            </DialogContent>
-          </Dialog>
+    <div className="container mx-auto py-8">
+      <PageTitle title={`Standing Order ${standingOrder.payee} - KH Payments`} />
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Standing Order #{standingOrder.id.substring(0, 8)}</h1>
+        {isAdmin && (
+          <div className="flex space-x-2">
+            <Button variant="outline" className="shadow-sm" onClick={() => setIsEditStandingOrderDialogOpen(true)}>
+              <Edit className="mr-2 h-4 w-4" /> Edit Standing Order
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="destructive"
+                  className="shadow-sm"
+                  disabled={deleteStandingOrderMutation.isPending}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Standing Order
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete the standing order for <strong>{standingOrder.payee}</strong>.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteStandingOrderMutation.mutate(standingOrder.id)} asChild>
+                    <Button variant="destructive">
+                      Delete
+                    </Button>
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         )}
       </div>
-    </React.Fragment>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Section 1: Overview */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Info className="mr-2 h-5 w-5" /> Overview
+            </CardTitle>
+            <CardDescription>Key details of the standing order.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Country:</p>
+                <p>{standingOrder.country}</p>
+              </div>
+              <div>
+                <p className="font-medium">Status:</p>
+                <p>{getStatusBadge(standingOrder.status)}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="font-medium">Payee:</p>
+                <p>{standingOrder.payee}</p>
+              </div>
+              <div>
+                <p className="font-medium">Payment Start Date:</p>
+                <p>{format(new Date(standingOrder.payment_date), 'PPP')}</p>
+              </div>
+              <div>
+                <p className="font-medium">Payment End Date:</p>
+                <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
+              </div>
+              <div>
+                <p className="font-medium">Payment Day:</p>
+                <p>{standingOrder.payment_day ? `Day ${standingOrder.payment_day}` : 'N/A'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Section 2: Payment Details */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <DollarSign className="mr-2 h-5 w-5" /> Payment Details
+            </CardTitle>
+            <CardDescription>Information about the payment structure.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="md:col-span-2">
+                <p className="font-medium flex items-center mb-2">
+                  Categories & Amounts:
+                </p>
+                {standingOrder.categories && standingOrder.categories.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Category</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {standingOrder.categories.map((cat, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
+                            <TableCell className="text-right">{formatAmount(cat.amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="font-bold bg-muted/50">
+                          <TableCell>Total Amount:</TableCell>
+                          <TableCell className="text-right">{formatAmount(standingOrder.total_amount)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="ml-2">No categories defined.</p>
+                )}
+              </div>
+              <div>
+                <p className="font-medium">SKU:</p>
+                <p>{standingOrder.not_property_related ? 'N/A (Not Property Related)' : (standingOrder.sku || 'N/A')}</p>
+              </div>
+              <div>
+                <p className="font-medium">Accruals Period:</p>
+                <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Section 3: Bank Details */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Banknote className="mr-2 h-5 w-5" /> Bank Details
+            </CardTitle>
+            <CardDescription>Account information for the payee.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Account Name:</p>
+                <p>{standingOrder.account_name || 'N/A'}</p>
+              </div>
+              {isUK ? (
+                <>
+                  <div>
+                    <p className className="font-medium">Sort Code:</p>
+                    <p>{standingOrder.sort_code || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">Account Number:</p>
+                    <p>{standingOrder.account_number ? standingOrder.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                  </div >
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p className="font-medium">Account Address:</p>
+                    <p>{standingOrder.account_address || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">IBAN Number:</p>
+                    <p>{standingOrder.iban_number || 'N/A'}</p>
+                  </div>
+                  {isCH && (
+                    <>
+                      <div>
+                        <p className="font-medium">Bank Account:</p>
+                        <p>{standingOrder.bank_account || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="font-medium">Currency:</p>
+                        <p>{standingOrder.currency || 'N/A'}</p>
+                      </>
+                  )}
+                </>
+              )}
+              {/* MOVED: Payment Reference */}
+              <div>
+                <p className="font-medium">Payment Reference:</p>
+                <p>{standingOrder.payment_reference || 'N/A'}</p>
+              </div>
+              <div className="md:col-span-2">
+                <p className="font-medium">Bank Details Verified:</p>
+                <p>{standingOrder.bank_details_verified ? 'Yes' : 'No'}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Section 4: Metadata */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <UserCircle2 className="mr-2 h-5 w-5" /> Metadata
+            </CardTitle>
+            <CardDescription>Administrative information.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-medium">Requested By:</p>
+                <p>{auditUsers?.[standingOrder.requester_id] || standingOrder.requester_id}</p>
+              </div>
+              <div>
+                <p className="font-medium">Created At:</p>
+                <p>{format(new Date(standingOrder.created_at), 'PPP p')}</p>
+              </div>
+              <div>
+                <p className="font-medium">Last Updated:</p>
+                <p>{format(new Date(standingOrder.updated_at), 'PPP p')}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* NEW: Comments Card */}
+      <StandingOrderCommentsCard
+        standingOrderId={standingOrder.id}
+        comments={comments}
+        auditUsers={auditUsers}
+        currentUser={user}
+        onAddComment={handleAddComment}
+        isAddingComment={addCommentMutation.isPending}
+      />
+
+      <StandingOrderAuditTrailCard audits={generalAudits} auditUsers={auditUsers || {}} />
+
+      {standingOrder && (
+        <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Standing Order: {standingOrder.payee}</DialogTitle>
+            </DialogHeader>
+            <UpdateStandingOrderForm standingOrder={standingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
   );
 };
 
