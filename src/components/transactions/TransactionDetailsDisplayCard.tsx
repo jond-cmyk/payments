@@ -79,6 +79,12 @@ const TransactionDetailsDisplayCard: React.FC<TransactionDetailsDisplayCardProps
               <p>{transaction.bank}</p>
             </div>
           )}
+          {transaction.bank_account && ( // NEW: Display Bank Account
+            <div className="space-y-1">
+              <p className="font-medium">Bank Account:</p>
+              <p>{transaction.bank_account}</p>
+            </div>
+          )}
           {transaction.contra_account && (
             <div className="space-y-1">
               <p className="font-medium">Contra Account:</p>

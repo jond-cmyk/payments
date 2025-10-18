@@ -96,6 +96,7 @@ export type Transaction = {
   updated_at: string;
   not_sku_related: boolean;
   country: string;
+  bank_account: string | null; // NEW: Added bank_account
 };
 
 /** Transaction Audits */
