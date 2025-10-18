@@ -617,25 +617,20 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   // Removed loadTransactions
   // Removed loadOutstanding
 
-  const loadLedgerCard = useCallback(async (customerNumber: number | undefined, customerName: string | undefined) => {
-    console.log(`[Customers] loadLedgerCard (v3): customerNumber=${customerNumber}, customerName=${customerName}`);
+  const loadLedgerCard = useCallback(async (customerNumber: number | undefined, customerName: string | undefined) => { // ADDED customerName parameter
+    console.log(`[Customers] loadLedgerCard (v3): customerNumber=${customerNumber}, customerName=${customerName}`); // ADDED DEBUG LOG
     if (!customerNumber) {
       showError("Customer number is missing.");
       return;
     }
     setLoadingLedgerCard(true);
-    const toastId = showLoading(`Loading ledger card for ${customerName || 'customer'}...`);
+    const toastId = showLoading(`Loading ledger card for ${customerName || 'customer'}...`); // Use customerName
 
     try {
-      // Corrected path to use top-level /customer-ledger-entries with query parameter
-      const path = `/customer-ledger-entries`;
-      const queryParams = {
-        customerNumber: customerNumber,
-        pagesize: 1000,
-      };
-      console.log(`[Customers] loadLedgerCard (v3): Invoking economic-proxy with path: ${path}, query: ${JSON.stringify(queryParams)}`);
+      const customerSpecificPath = `/customers/${customerNumber}/customer-ledger-entries?pagesize=1000`;
+      console.log(`[Customers] loadLedgerCard (v3): Invoking economic-proxy with path: ${customerSpecificPath}`); // ADDED DEBUG LOG
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: path, method: "GET", query: queryParams }, // Pass query parameters
+        body: { path: customerSpecificPath, method: "GET" },
       });
 
       if (error) {
@@ -646,7 +641,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
       // Check for e-conomic API specific errors (e.g., 404 from e-conomic itself)
       if (resp?.status && resp.status >= 400) {
-        console.error(`[Customers] e-conomic API returned error status ${resp.status} for ${path} with customerNumber ${customerNumber}:`, resp.data);
+        console.error(`[Customers] e-conomic API returned error status ${resp.status} for ${customerSpecificPath}:`, resp.data);
         throw new Error(`e-conomic API Error: ${resp.data?.message || resp.data?.developerHint || 'Unknown error'}`);
       }
 
@@ -662,7 +657,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       dismissToast(toastId);
       setLoadingLedgerCard(false);
     }
-  }, []);
+  }, []); // REMOVED dependencies, now all dynamic data is passed as arguments
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
@@ -767,7 +762,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
             {/* Removed All Outstanding Button */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={() => loadLedgerCard(customer.customerNumber, customer.name)} disabled={ledgerCardButtonState.isDisabled}>
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={() => loadLedgerCard(customer.customerNumber, customer.name)} disabled={ledgerCardButtonState.isDisabled}> {/* UPDATED onClick */}
                   <BookText className="h-4 w-4 mr-1" /> {ledgerCardButtonState.text}
                 </Button>
               </TooltipTrigger>
