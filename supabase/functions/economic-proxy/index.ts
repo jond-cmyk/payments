@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.4"); 
+    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.5"); 
     console.log("[economic-proxy] Incoming request headers:", JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
 
     const rawBody = await req.text();
@@ -27,6 +27,18 @@ serve(async (req) => {
       console.error("[economic-proxy] Failed to parse request body as JSON:", jsonParseError);
       return new Response(
         JSON.stringify({ error: "Invalid JSON in request body." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // NEW: Specific check for the problematic payload
+    if (parsedPayload && typeof parsedPayload === 'object' && parsedPayload.name === 'Functions' && Object.keys(parsedPayload).length === 1) {
+      console.error("[economic-proxy] Received generic 'Functions' payload. This indicates an incorrect invocation or missing body from the client.");
+      return new Response(
+        JSON.stringify({
+          error: "Incorrect invocation payload. The client did not send the expected 'path' and 'method' in the request body. Please ensure the client-side `supabase.functions.invoke` call is correctly structured.",
+          receivedPayload: parsedPayload,
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
