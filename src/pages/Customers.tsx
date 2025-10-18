@@ -268,11 +268,18 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         if (current && typeof current === 'object' && part in current) {
           current = current[part];
         } else {
+          value = undefined; // Reset value if path is broken
           found = false;
           break;
         }
       }
-      if (found) return current;
+      if (found) {
+        // Attempt to parse to number if it looks like one
+        if (typeof current === 'string' && !isNaN(parseFloat(current))) {
+          return parseFloat(current);
+        }
+        return current;
+      }
     }
     return undefined;
   };
@@ -295,9 +302,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
       const getNumeric = (obj: any, keys: string[]): number | null => {
         for (const k of keys) {
-          const v = k.split(".").reduce((acc: any, part: string) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
+          const v = pick(obj, [k]); // Use the enhanced pick function
           if (typeof v === "number") return v;
-          if (typeof v === "string" && !isNaN(Number(v))) return Number(v);
         }
         return null;
       };
@@ -770,11 +776,11 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         'outstandingAmount',
         'openEntriesAmount',
         'dueAmount',
-        'amount.value', // NEW: Fallback to amount.value
+        // Removed 'amount.value' as it's likely the total amount, not remaining
       ]);
 
       // Log the extracted remainingAmount and its type
-      console.log(`[loadOutstanding] Extracted remainingAmount: ${remainingAmount}, Type: ${typeof remainingAmount}`);
+      console.log(`[loadOutstanding] Extracted remainingAmount (after pick): ${remainingAmount}, Type: ${typeof remainingAmount}`);
       
       const isOutstanding = String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
       console.log(`[loadOutstanding] Is outstanding: ${isOutstanding}`);
