@@ -620,7 +620,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     try {
       // CORRECTED PATH: Use the /customer-ledger-entries endpoint with customerNumber as a query parameter
       const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
+      const invocationUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-proxy`; // Explicitly log the full invocation URL
       console.log(`[CustomerRow] loadLedgerCard (v7): Path to send to proxy: ${pathForProxy}`);
+      console.log(`[CustomerRow] loadLedgerCard (v7): Full Edge Function invocation URL: ${invocationUrl}`); // NEW LOG
       const requestBodyForProxy = { path: pathForProxy, method: "GET" };
       console.log(`[CustomerRow] loadLedgerCard (v7): Request body for proxy: ${JSON.stringify(requestBodyForProxy)}`);
 
