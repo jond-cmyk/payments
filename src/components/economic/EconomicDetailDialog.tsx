@@ -67,6 +67,9 @@ interface EconomicDetailDialogProps {
 
 // Utility function to extract a list from varied economic response shapes
 export const extractList = (payload: any): any[] => {
+  console.log("[extractList] DEBUG: Received payload type:", typeof payload);
+  console.log("[extractList] DEBUG: Received payload:", JSON.stringify(payload, null, 2));
+
   if (!payload) {
     console.log("[extractList] Payload is null or undefined.");
     return [];
@@ -74,34 +77,34 @@ export const extractList = (payload: any): any[] => {
 
   // First, check if payload itself is an array
   if (Array.isArray(payload)) {
-    console.log(`[extractList] Payload is an array: ${JSON.stringify(payload.slice(0, 2))}...`);
+    console.log(`[extractList] Found array as direct payload. Length: ${payload.length}`);
     return payload;
   }
 
   // If payload is an object, check common keys for arrays, including nested 'data' field
   if (typeof payload === "object" && payload !== null) {
     const potentialLists = [
-      payload.collection,
-      payload.items,
-      payload.results,
-      payload.entries, // Added back
-      payload.invoices,
-      payload.accountingYears?.collection,
-      payload.customerLedgerEntries?.collection, // Added back
+      { key: 'collection', value: payload.collection },
+      { key: 'items', value: payload.items },
+      { key: 'results', value: payload.results },
+      { key: 'entries', value: payload.entries },
+      { key: 'invoices', value: payload.invoices },
+      { key: 'accountingYears.collection', value: payload.accountingYears?.collection },
+      { key: 'customerLedgerEntries.collection', value: payload.customerLedgerEntries?.collection },
       // NEW: Check if the payload has a 'data' field which itself contains a collection
-      payload.data?.collection,
-      payload.data?.items,
-      payload.data?.results,
-      payload.data?.entries,
-      payload.data?.invoices,
-      payload.data?.accountingYears?.collection,
-      payload.data?.customerLedgerEntries?.collection,
+      { key: 'data.collection', value: payload.data?.collection },
+      { key: 'data.items', value: payload.data?.items },
+      { key: 'data.results', value: payload.data?.results },
+      { key: 'data.entries', value: payload.data?.entries },
+      { key: 'data.invoices', value: payload.data?.invoices },
+      { key: 'data.accountingYears.collection', value: payload.data?.accountingYears?.collection },
+      { key: 'data.customerLedgerEntries.collection', value: payload.data?.customerLedgerEntries?.collection },
     ];
 
-    for (const listCandidate of potentialLists) {
-      if (Array.isArray(listCandidate)) {
-        console.log(`[extractList] Found array in candidate: ${JSON.stringify(listCandidate.slice(0, 2))}...`);
-        return listCandidate;
+    for (const { key, value } of potentialLists) {
+      if (Array.isArray(value)) {
+        console.log(`[extractList] Found array in candidate '${key}'. Length: ${value.length}`);
+        return value;
       }
     }
 
@@ -109,7 +112,7 @@ export const extractList = (payload: any): any[] => {
     for (const k of Object.keys(payload)) {
       const v = (payload as any)[k];
       if (Array.isArray(v)) {
-        console.log(`[extractList] Found array in object key '${k}': ${JSON.stringify(v.slice(0, 2))}...`);
+        console.log(`[extractList] Found array in object key '${k}'. Length: ${v.length}`);
         return v;
       }
     }
@@ -166,19 +169,33 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
     const rawValue = getNestedValue(item, column.path, column.key);
     
     let currencySymbol = '';
-    const currencyCandidates = [
-      'currency',
-      'currency.code',
-      'customer.currency',
-      'customer.currency.code',
-      'debtor.currency',
-      'debtor.currency.code',
-      'creditor.currency',
-      'creditor.currency.code',
-    ];
-    const foundCurrency = getNestedValue(item, currencyCandidates, 'currency');
-    if (foundCurrency) {
-      currencySymbol = foundCurrency;
+    // Determine currency symbol based on column key or general item properties
+    if (column.format === 'currencyAmount') {
+      // Try to find currency directly related to the amount field
+      const amountCurrencyCandidates = [
+        `${column.key}.currency.code`, // e.g., 'amount.currency.code'
+        `${column.key}.currency`,     // e.g., 'amount.currency'
+        'currency.code',              // general currency code
+        'currency',                   // general currency
+        'customer.currency.code',
+        'customer.currency',
+      ];
+      const foundAmountCurrency = getNestedValue(item, amountCurrencyCandidates, ''); // Pass empty string as key to force path usage
+      if (foundAmountCurrency) {
+        currencySymbol = foundAmountCurrency;
+      }
+    } else {
+      // For other columns, use general currency candidates
+      const generalCurrencyCandidates = [
+        'currency.code',
+        'currency',
+        'customer.currency.code',
+        'customer.currency',
+      ];
+      const foundGeneralCurrency = getNestedValue(item, generalCurrencyCandidates, '');
+      if (foundGeneralCurrency) {
+        currencySymbol = foundGeneralCurrency;
+      }
     }
 
     const isUrl = typeof rawValue === 'string' && (rawValue.startsWith('http://') || rawValue.startsWith('https://'));
