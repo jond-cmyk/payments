@@ -617,39 +617,47 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   // Removed loadTransactions
   // Removed loadOutstanding
 
-  const loadLedgerCard = useCallback(async (customerNumber: number | undefined, customerName: string | undefined) => { // ADDED customerName parameter
-    console.log(`[Customers] loadLedgerCard (v3): customerNumber=${customerNumber}, customerName=${customerName}`); // ADDED DEBUG LOG
+  const loadLedgerCard = useCallback(async (customerNumber: number | undefined, customerName: string | undefined) => {
+    console.log(`[Customers] loadLedgerCard (v4): customerNumber=${customerNumber}, customerName=${customerName}`);
     if (!customerNumber) {
       showError("Customer number is missing.");
       return;
     }
     setLoadingLedgerCard(true);
-    const toastId = showLoading(`Loading ledger card for ${customerName || 'customer'}...`); // Use customerName
+    const toastId = showLoading(`Loading ledger card for ${customerName || 'customer'}...`);
 
     try {
-      const customerSpecificPath = `/customers/${customerNumber}/customer-ledger-entries?pagesize=1000`;
-      console.log(`[Customers] loadLedgerCard (v3): Invoking economic-proxy with path: ${customerSpecificPath}`); // ADDED DEBUG LOG
+      // Fetch all ledger entries from the top-level endpoint
+      const allLedgerEntriesPath = `/customer-ledger-entries?pagesize=1000`;
+      console.log(`[Customers] loadLedgerCard (v4): Invoking economic-proxy with path: ${allLedgerEntriesPath}`);
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: customerSpecificPath, method: "GET" },
+        body: { path: allLedgerEntriesPath, method: "GET" },
       });
 
       if (error) {
-        console.error(`[Customers] Failed to fetch customer-specific ledger entries for ${customerNumber}:`, error);
+        console.error(`[Customers] Failed to fetch all ledger entries:`, error);
         throw new Error(error.message || "Failed to load customer ledger card.");
       }
 
       const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
-      // Check for e-conomic API specific errors (e.g., 404 from e-conomic itself)
       if (resp?.status && resp.status >= 400) {
-        console.error(`[Customers] e-conomic API returned error status ${resp.status} for ${customerSpecificPath}:`, resp.data);
+        console.error(`[Customers] e-conomic API returned error status ${resp.status} for ${allLedgerEntriesPath}:`, resp.data);
         throw new Error(`e-conomic API Error: ${resp.data?.message || resp.data?.developerHint || 'Unknown error'}`);
       }
 
-      const list = extractList(resp?.data);
+      const allList = extractList(resp?.data);
+      console.log(`[Customers] loadLedgerCard (v4): Fetched ${allList.length} total ledger entries.`);
+
+      // Filter client-side by customerNumber
+      const filteredList = allList.filter((entry: any) => {
+        const entryCustomerNumber = pick(entry, ['customer.customerNumber', 'customerNumber', 'customer.number']);
+        return String(entryCustomerNumber) === String(customerNumber);
+      });
+      console.log(`[Customers] loadLedgerCard (v4): Filtered to ${filteredList.length} entries for customer ${customerNumber}.`);
       
-      setLedgerCardData(list);
+      setLedgerCardData(filteredList);
       setShowLedgerCardDialog(true);
-      showSuccess(`Loaded ${list.length} ledger entries.`);
+      showSuccess(`Loaded ${filteredList.length} ledger entries.`);
     } catch (err: any) {
       console.error("Error loading ledger card:", err);
       showError("Failed to load ledger card: " + err.message);
@@ -657,7 +665,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       dismissToast(toastId);
       setLoadingLedgerCard(false);
     }
-  }, []); // REMOVED dependencies, now all dynamic data is passed as arguments
+  }, []);
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
