@@ -13,8 +13,24 @@ serve(async (req) => {
   }
 
   try {
-    // Dyad: Triggering re-deployment with a minor change. (v1.0.3)
-    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.3"); 
+    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.4"); 
+    console.log("[economic-proxy] Incoming request headers:", JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
+
+    const rawBody = await req.text();
+    console.log("[economic-proxy] Raw request body:", rawBody);
+
+    let parsedPayload: any;
+    try {
+      parsedPayload = JSON.parse(rawBody);
+      console.log("[economic-proxy] Parsed request body:", JSON.stringify(parsedPayload, null, 2));
+    } catch (jsonParseError) {
+      console.error("[economic-proxy] Failed to parse request body as JSON:", jsonParseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const appSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
     const agreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
 
@@ -29,10 +45,10 @@ serve(async (req) => {
       );
     }
 
-    const { path, method = "GET", query = {}, body, base } = await req.json().catch(() => ({}));
+    const { path, method = "GET", query = {}, body, base } = parsedPayload;
 
     if (!path || typeof path !== "string") {
-      console.error("[economic-proxy] Missing or invalid 'path' in request body.");
+      console.error("[economic-proxy] Missing or invalid 'path' in request body. Parsed payload:", JSON.stringify(parsedPayload, null, 2));
       return new Response(
         JSON.stringify({ error: "Missing 'path'. Example: '/self' or '/customers?pagesize=10'." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
