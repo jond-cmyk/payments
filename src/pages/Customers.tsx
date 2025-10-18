@@ -628,6 +628,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         body: requestBodyForProxy,
       });
 
+      console.log(`[CustomerRow] loadLedgerCard (v7): Raw response data from proxy:`, data); // NEW LOG
+
       if (error) {
         console.error(`[CustomerRow] Failed to fetch ledger entries for customer ${num}:`, error);
         throw new Error(error.message || "Failed to load customer ledger card.");

@@ -102,6 +102,7 @@ export const extractList = (payload: any): any[] => {
     ];
 
     for (const { key, value } of potentialLists) {
+      console.log(`[extractList] Checking candidate '${key}'. Value type: ${typeof value}, isArray: ${Array.isArray(value)}`);
       if (Array.isArray(value)) {
         console.log(`[extractList] Found array in candidate '${key}'. Length: ${value.length}`);
         return value;
@@ -111,6 +112,7 @@ export const extractList = (payload: any): any[] => {
     // Fallback: if no specific list key, check if any direct property is an array
     for (const k of Object.keys(payload)) {
       const v = (payload as any)[k];
+      console.log(`[extractList] Checking direct property '${k}'. Value type: ${typeof v}, isArray: ${Array.isArray(v)}`);
       if (Array.isArray(v)) {
         console.log(`[extractList] Found array in object key '${k}'. Length: ${v.length}`);
         return v;
