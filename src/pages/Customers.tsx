@@ -59,11 +59,13 @@ type EconomicAccountingYear = {
 // Utility function to extract a list from varied economic response shapes
 const extractList = (payload: any): any[] => {
   if (!payload) {
+    console.log("[extractList] Payload is null or undefined.");
     return [];
   }
 
   const economicResponseData = payload?.data;
   if (!economicResponseData) {
+    console.log("[extractList] economicResponseData is null or undefined.");
     return [];
   }
 
@@ -78,11 +80,13 @@ const extractList = (payload: any): any[] => {
 
   for (const c of candidates) {
     if (Array.isArray(c)) {
+      console.log(`[extractList] Found array in candidate: ${JSON.stringify(c.slice(0, 2))}...`);
       return c;
     }
   }
   
   if (Array.isArray(economicResponseData)) {
+    console.log(`[extractList] economicResponseData is an array: ${JSON.stringify(economicResponseData.slice(0, 2))}...`);
     return economicResponseData;
   }
 
@@ -90,11 +94,13 @@ const extractList = (payload: any): any[] => {
     for (const k of Object.keys(economicResponseData)) {
       const v = (economicResponseData as any)[k];
       if (Array.isArray(v)) {
+        console.log(`[extractList] Found array in object key '${k}': ${JSON.stringify(v.slice(0, 2))}...`);
         return v;
       }
     }
   }
   
+  console.log("[extractList] No list found in payload.");
   return [];
 };
 
@@ -116,11 +122,11 @@ const pick = (obj: any, keys: string[]): any => {
     }
     if (found) {
       // If the found value is an object with a 'value' property, use that
-      if (typeof current === 'object' && current !== null && 'value' in current && typeof current.value === 'number') {
+      if (typeof current === "object" && current !== null && "value" in current && typeof current.value === "number") {
         return current.value;
       }
       // Attempt to parse to number if it looks like one
-      if (typeof current === 'string' && !isNaN(parseFloat(current))) {
+      if (typeof current === "string" && !isNaN(parseFloat(current))) {
         return parseFloat(current);
       }
       return current;
@@ -140,12 +146,15 @@ const Customers: React.FC = () => {
   const customersQuery = useQuery({
     queryKey: ["economicCustomers", pageSize],
     queryFn: async () => {
+      console.log(`[Customers] Invoking economic-proxy for /customers?pagesize=${pageSize}`);
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
         body: { path: `/customers?pagesize=${pageSize}`, method: "GET" },
       });
+      console.log("[Customers] Raw response from economic-proxy:", { data, error });
       if (error) throw new Error(error.message || "Failed to load customers");
       const resp = data as EconomicProxyResponse<EconomicCollection<EconomicCustomer>>;
       const list = extractList(resp?.data);
+      console.log("[Customers] Extracted list from response:", list);
       return list as EconomicCustomer[];
     },
     staleTime: 60_000,

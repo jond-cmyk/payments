@@ -219,9 +219,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
                   {data.map((item, index) => (
                     <TableRow key={item.self || item.customerNumber || item.invoiceNumber || item.entryNumber || index}>
                       {columns.map((col) => (
-                        <TableCell key={col.key}>
-                          {renderCell(item, col, index, data)}
-                        </TableCell>
+                        <TableCell key={col.key}>{renderCell(item, col, index, data)}</TableCell>
                       ))}
                     </TableRow>
                   ))}
