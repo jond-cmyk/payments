@@ -835,9 +835,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // Updated path to include customer number directly
+      // Corrected path to use /customer-ledger-entries with customerNumber as a query parameter
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: `/customers/${num}/customer-ledger-entries`, query: { pagesize: 1000 }, method: "GET" },
+        body: { path: `/customer-ledger-entries`, query: { pagesize: 1000, customerNumber: num }, method: "GET" },
       });
 
       if (error) throw new Error(error.message || "Failed to load customer ledger card");
