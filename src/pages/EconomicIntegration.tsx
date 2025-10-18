@@ -113,14 +113,16 @@ const EconomicIntegration = () => {
       { label: "Self", path: "/self" },
       { label: "Customers (5)", path: "/customers?pagesize=5" },
       { label: "Invoices (5)", path: "/invoices?pagesize=5" },
-      { label: "Customer Ledger Entries (5)", path: "/customer-ledger-entries?pagesize=5" }, // NEW
+      { label: "Customer Ledger Entries (5)", path: "/customer-ledger-entries?pagesize=5" },
+      // NEW: Add test for Department Profit/Loss Report
+      { label: "Dept. Profit/Loss (Demo)", path: "/reports/department-profit-loss?from=2023-01-01&to=2023-01-31" },
     ];
 
     const results: Array<{ label: string; status?: number; ok?: boolean; url: string; note?: string }> = [];
 
     for (const t of tests) {
       const { data, error } = await supabase.functions.invoke("economic-proxy", {
-        body: { path: t.path, method: "GET", base },
+        body: { path: t.path, method: "GET" },
       });
       if (error) {
         results.push({ label: t.label, status: 500, ok: false, url: `${base}${t.path}`, note: error.message });
