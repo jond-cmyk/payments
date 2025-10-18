@@ -19,7 +19,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+// Removed Select import as it's no longer needed in this component
 
 // Helper to format a date string to DD-MM-YYYY
 const formatDate = (dateInput: any): string => {
@@ -67,10 +67,7 @@ interface EconomicDetailDialogProps {
   data: any[] | null;
   columns: DialogColumn[];
   isLoading?: boolean;
-  accountingYears?: { year: string; href: string }[];
-  selectedAccountingYear?: string | null;
-  onAccountingYearChange?: (year: string) => void;
-  isAccountingYearsLoading?: boolean; // NEW PROP
+  // Removed accountingYears, selectedAccountingYear, onAccountingYearChange, isAccountingYearsLoading props
 }
 
 // Utility function to extract a list from varied economic response shapes
@@ -127,10 +124,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   data,
   columns,
   isLoading,
-  accountingYears,
-  selectedAccountingYear,
-  onAccountingYearChange,
-  isAccountingYearsLoading,
+  // Removed accountingYears, selectedAccountingYear, onAccountingYearChange, isAccountingYearsLoading from destructuring
 }) => {
   // Generic getter for nested value, now correctly handles dot-separated paths in `paths` array
   const getNestedValue = (obj: any, paths: string[] | undefined, key: string): any => {
@@ -223,29 +217,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {accountingYears && accountingYears.length > 0 && selectedAccountingYear !== undefined && onAccountingYearChange && (
-          <div className="flex items-center gap-2 mb-4">
-            <label htmlFor="accounting-year-select" className="text-sm font-medium text-gray-700">
-              Accounting Year:
-            </label>
-            <Select
-              value={selectedAccountingYear || ''}
-              onValueChange={onAccountingYearChange}
-              disabled={isLoading || isAccountingYearsLoading} // Combine loading states
-            >
-              <SelectTrigger id="accounting-year-select" className="w-[180px]">
-                <SelectValue placeholder="Select Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {accountingYears.map((year) => (
-                  <SelectItem key={year.year} value={year.year}>
-                    {year.year}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        {/* Removed conditional rendering of accountingYears selector */}
         <div className="flex-1 overflow-hidden">
           <ScrollArea className="h-full w-full pr-4">
             {isLoading ? (
