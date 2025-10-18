@@ -13,8 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    // Dyad: Triggering re-deployment with a minor change. (v1.0.2)
-    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.2"); 
+    // Dyad: Triggering re-deployment with a minor change. (v1.0.3)
+    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.3"); 
     const appSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
     const agreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
 
