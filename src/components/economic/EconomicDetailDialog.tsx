@@ -72,29 +72,40 @@ export const extractList = (payload: any): any[] => {
     return [];
   }
 
-  const candidates = [
-    payload.collection,
-    payload.items,
-    payload.results,
-    payload.entries, // Added back
-    payload.invoices,
-    payload.accountingYears?.collection,
-    payload.customerLedgerEntries?.collection, // Added back
-  ];
-
-  for (const c of candidates) {
-    if (Array.isArray(c)) {
-      console.log(`[extractList] Found array in candidate: ${JSON.stringify(c.slice(0, 2))}...`);
-      return c;
-    }
-  }
-  
+  // First, check if payload itself is an array
   if (Array.isArray(payload)) {
     console.log(`[extractList] Payload is an array: ${JSON.stringify(payload.slice(0, 2))}...`);
     return payload;
   }
 
-  if (typeof payload === "object") {
+  // If payload is an object, check common keys for arrays, including nested 'data' field
+  if (typeof payload === "object" && payload !== null) {
+    const potentialLists = [
+      payload.collection,
+      payload.items,
+      payload.results,
+      payload.entries, // Added back
+      payload.invoices,
+      payload.accountingYears?.collection,
+      payload.customerLedgerEntries?.collection, // Added back
+      // NEW: Check if the payload has a 'data' field which itself contains a collection
+      payload.data?.collection,
+      payload.data?.items,
+      payload.data?.results,
+      payload.data?.entries,
+      payload.data?.invoices,
+      payload.data?.accountingYears?.collection,
+      payload.data?.customerLedgerEntries?.collection,
+    ];
+
+    for (const listCandidate of potentialLists) {
+      if (Array.isArray(listCandidate)) {
+        console.log(`[extractList] Found array in candidate: ${JSON.stringify(listCandidate.slice(0, 2))}...`);
+        return listCandidate;
+      }
+    }
+
+    // Fallback: if no specific list key, check if any direct property is an array
     for (const k of Object.keys(payload)) {
       const v = (payload as any)[k];
       if (Array.isArray(v)) {

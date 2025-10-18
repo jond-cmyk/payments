@@ -113,6 +113,7 @@ const EconomicIntegration = () => {
       { label: "Self", path: "/self" },
       { label: "Customers (5)", path: "/customers?pagesize=5" },
       { label: "Invoices (5)", path: "/invoices?pagesize=5" },
+      { label: "Customer Ledger Entries (5)", path: "/customer-ledger-entries?pagesize=5" }, // NEW
     ];
 
     const results: Array<{ label: string; status?: number; ok?: boolean; url: string; note?: string }> = [];
