@@ -222,6 +222,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   // Helper to extract a list from varied economic response shapes
   const extractList = (payload: any): any[] => {
+    if (!payload) {
+      return [];
+    }
+
     const economicResponseData = payload?.data;
     if (!economicResponseData) {
       return [];
@@ -268,7 +272,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         if (current && typeof current === 'object' && part in current) {
           current = current[part];
         } else {
-          value = undefined; // Reset value if path is broken
+          current = undefined; // FIX: Changed 'value' to 'current'
           found = false;
           break;
         }
@@ -711,7 +715,29 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         'debtor.id',
         'creditor.id',
       ]);
-      return String(entryCustomerNumber ?? "") === String(num);
+      
+      // Log each entry's customer number and the target customer number
+      console.log(`[loadOutstanding] Processing entry: ${JSON.stringify(entry)}`);
+      console.log(`[loadOutstanding] Entry customer number: ${entryCustomerNumber}, Target customer number: ${num}`);
+
+      const remainingAmount = pick(entry, [
+        'remainingAmount',
+        'remainingAmount.value',
+        'amount.remaining',
+        'balance',
+        'outstandingAmount',
+        'openEntriesAmount',
+        'dueAmount',
+        // Removed 'amount.value' as it's likely the total amount, not remaining
+      ]);
+
+      // Log the extracted remainingAmount and its type
+      console.log(`[loadOutstanding] Extracted remainingAmount (after pick): ${remainingAmount}, Type: ${typeof remainingAmount}`);
+      
+      const isOutstanding = String(entryCustomerNumber ?? "") === String(num) && typeof remainingAmount === 'number' && remainingAmount > 0;
+      console.log(`[loadOutstanding] Is outstanding: ${isOutstanding}`);
+      
+      return isOutstanding;
     });
 
     setTransactionsData(customerTransactions);
