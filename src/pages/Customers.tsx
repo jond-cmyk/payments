@@ -100,7 +100,7 @@ const extractList = (payload: any): any[] => {
     }
   }
   
-  console.log("[extractList] No list found in payload.");
+  console.log("[extractList] No list found in payload. Full economicResponseData:", JSON.stringify(economicResponseData, null, 2)); // ADDED LOG
   return [];
 };
 
@@ -238,15 +238,7 @@ const Customers: React.FC = () => {
           <div className="relative overflow-x-auto border rounded-md">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead className="w-24">Number</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Currency</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Overdue</TableHead> {/* NEW: Overdue column header */}
-                  <TableHead className="w-64">Actions</TableHead>
-                </TableRow>
+                <TableRow><TableHead className="w-24">Number</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Currency</TableHead><TableHead>Balance</TableHead><TableHead>Overdue</TableHead><TableHead className="w-64">Actions</TableHead></TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((c) => (
@@ -257,7 +249,7 @@ const Customers: React.FC = () => {
                 ))}
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground"> {/* Updated colSpan */}
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       {customersQuery.isFetching ? "Loading customers..." : "No customers found."}
                     </TableCell>
                   </TableRow>
@@ -319,7 +311,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         });
         if (error) throw new Error(error.message || "Failed to load accounting years");
         const resp = data as EconomicProxyResponse<EconomicCollection<EconomicAccountingYear>>;
-        const years = extractList(resp?.data).map(y => ({
+        const list = extractList(resp?.data);
+        const years = list.map(y => ({
           year: String(y.year),
           href: y.self,
         }));
