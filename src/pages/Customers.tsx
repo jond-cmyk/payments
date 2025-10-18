@@ -227,6 +227,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
 
     const economicResponseData = payload?.data;
+    // NEW LOG: Log the raw economicResponseData to understand its structure
+    console.log("[extractList] Raw economicResponseData for entries:", economicResponseData); 
     if (!economicResponseData) {
       return [];
     }
