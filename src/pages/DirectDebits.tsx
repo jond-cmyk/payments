@@ -182,7 +182,7 @@ const DirectDebits = () => {
       }
       
       // Multi-select Status filter
-      const nonAllStatuses = filterStatuses.filter(s => s !== 'all');
+      const nonAllStatuses = (filterStatuses as string[]).filter(s => s !== 'all');
       if (nonAllStatuses.length > 0) {
         query = query.in('status', nonAllStatuses);
       }
@@ -371,7 +371,7 @@ const DirectDebits = () => {
     }
   };
 
-  const totalPages = Math.ceil(totalItems / (itemsPerPage === 'all' ? 1000000000 : itemsPerPage as number));
+  const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / (itemsPerPage as number));
 
   const renderPaginationItems = () => {
     if (itemsPerPage === 'all' || totalPages <= 1) return null;

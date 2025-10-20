@@ -175,7 +175,7 @@ const StandingOrders = () => {
       }
       
       // Multi-select Status filter
-      const nonAllStatuses = filterStatuses.filter(s => s !== 'all' as string);
+      const nonAllStatuses = (filterStatuses as string[]).filter(s => s !== 'all');
       if (nonAllStatuses.length > 0) {
         query = query.in('status', nonAllStatuses);
       }
