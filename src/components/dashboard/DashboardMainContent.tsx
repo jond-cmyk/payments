@@ -211,8 +211,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       queried: 0,
       missing_receipts: allMissingReceiptsCountForSummaryQuery.data || 0,
       pending_standing_orders: allPendingStandingOrdersCountForSummaryQuery.data || 0,
-      active_direct_debits: allActiveDirectDebitsCountForSummaryQuery.data || 0, // NEW
-      active_standing_orders: allActiveStandingOrdersCountForSummaryQuery.data || 0, // NEW
+      active_direct_debits: allActiveDirectDebitsCountForSummaryQuery.data || 0,
+      active_standing_orders: allActiveStandingOrdersCountForSummaryQuery.data || 0,
       total: 0,
     };
 
@@ -229,8 +229,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     allPaymentRequestsForSummaryQuery.data, 
     allMissingReceiptsCountForSummaryQuery.data, 
     allPendingStandingOrdersCountForSummaryQuery.data,
-    allActiveDirectDebitsCountForSummaryQuery.data, // NEW dependency
-    allActiveStandingOrdersCountForSummaryQuery.data // NEW dependency
+    allActiveDirectDebitsCountForSummaryQuery.data,
+    allActiveStandingOrdersCountForSummaryQuery.data
   ]);
 
   // Fetch all user profiles for the requester dropdown filter
@@ -472,8 +472,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     allPaymentRequestsForSummaryQuery.isLoading || 
     allMissingReceiptsCountForSummaryQuery.isLoading || 
     allPendingStandingOrdersCountForSummaryQuery.isLoading || 
-    allActiveDirectDebitsCountForSummaryQuery.isLoading || // NEW check
-    allActiveStandingOrdersCountForSummaryQuery.isLoading || // NEW check
+    allActiveDirectDebitsCountForSummaryQuery.isLoading ||
+    allActiveStandingOrdersCountForSummaryQuery.isLoading ||
     isRequestsTableLoading || 
     (isAllRequestsPage && isProfilesLoading)
   ) {
@@ -492,18 +492,11 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const hasUrgentRequests = paymentRequestsForTable?.some(req => req.is_urgent);
   const hasRemindedRequests = paymentRequestsForTable?.some(req => req.is_reminded);
 
+  // Instantiate DashboardSummaryCards to get render functions
+  const { renderPaymentRequests, renderTransactionManagement, renderRecurringPayments } = DashboardSummaryCards({ counts });
+
   return (
     <>
-      {/* Summary cards always show on /dashboard for both requester and admin */}
-      {!isAllRequestsPage && (
-        <DashboardSummaryCards counts={counts} />
-      )}
-
-      {/* New title for Priority Payment Requests, shown only if there are urgent or reminded requests */}
-      {!isAllRequestsPage && (hasUrgentRequests || hasRemindedRequests) && (
-        <h2 className="text-2xl font-bold mb-4 mt-8">Priority Payment Requests</h2>
-      )}
-
       {/* Filters only show on /admin/requests */}
       {isAllRequestsPage && (
         <PaymentRequestFilters
@@ -526,6 +519,27 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
           hasActiveFilters={hasActiveFilters}
           handleTextFilterChange={handleTextFilterChange}
         />
+      )}
+
+      {/* Summary cards always show on /dashboard for both requester and admin */}
+      {!isAllRequestsPage && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Column 1: Payment Requests (5 cards) */}
+          <div>
+            {renderPaymentRequests()}
+          </div>
+          
+          {/* Column 2: Transaction Management (1 card) and Recurring Payments (3 cards) */}
+          <div className="space-y-6">
+            {renderTransactionManagement()}
+            {renderRecurringPayments()}
+          </div>
+        </div>
+      )}
+
+      {/* New title for Priority Payment Requests, shown only if there are urgent or reminded requests */}
+      {!isAllRequestsPage && (hasUrgentRequests || hasRemindedRequests) && (
+        <h2 className="text-2xl font-bold mb-4 mt-8">Priority Payment Requests</h2>
       )}
 
       {paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (

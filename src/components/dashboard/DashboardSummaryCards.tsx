@@ -65,7 +65,7 @@ const SummaryCardItem: React.FC<{
           textClass: 'text-red-600',
           icon: <Ban className="h-4 w-4" />,
           title: 'Declined Requests',
-          description: 'Requests that were rejected',
+          description: 'Requests rejected',
           link: `/admin/requests?status=declined`,
         };
       case 'approved':
@@ -148,7 +148,7 @@ const SummaryCardItem: React.FC<{
 };
 
 
-const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts }) => {
+const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
   const { currentCountry } = useCountry();
 
   const paymentRequestKeys: (keyof DashboardSummaryCardsProps['counts'])[] = [
@@ -169,69 +169,70 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
     'active_direct_debits',
   ];
 
-  return (
-    <div className="space-y-6">
-      {/* Group 1: Payment Requests */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Payment Request Statuses</CardTitle>
-          <CardDescription>Overview of the payment request pipeline.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
-            {paymentRequestKeys.map((key) => (
-              <SummaryCardItem
-                key={key}
-                statusKey={key}
-                count={counts[key]}
-                currentCountry={currentCountry}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Group 2: Transactions & Receipts */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Transaction Management</CardTitle>
-          <CardDescription>Status of transactions requiring user input.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
-            {transactionKeys.map((key) => (
-              <SummaryCardItem
-                key={key}
-                statusKey={key}
-                count={counts[key]}
-                currentCountry={currentCountry}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Group 3: Recurring Payments */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Recurring Payments</CardTitle>
-          <CardDescription>Status of standing orders and direct debits.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
-            {recurringPaymentKeys.map((key) => (
-              <SummaryCardItem
-                key={key}
-                statusKey={key}
-                count={counts[key]}
-                currentCountry={currentCountry}
-              />
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+  const renderPaymentRequests = () => (
+    <Card className="shadow-sm h-full">
+      <CardHeader>
+        <CardTitle className="text-xl font-bold">Payment Requests</CardTitle>
+        <CardDescription>Overview of the payment request pipeline.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          {paymentRequestKeys.map((key) => (
+            <SummaryCardItem
+              key={key}
+              statusKey={key}
+              count={counts[key]}
+              currentCountry={currentCountry}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
+
+  const renderTransactionManagement = () => (
+    <Card className="shadow-sm h-full">
+      <CardHeader>
+        <CardTitle className="text-xl font-bold">Transaction Management</CardTitle>
+        <CardDescription>Status of transactions requiring user input.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          {transactionKeys.map((key) => (
+            <SummaryCardItem
+              key={key}
+              statusKey={key}
+              count={counts[key]}
+              currentCountry={currentCountry}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderRecurringPayments = () => (
+    <Card className="shadow-sm h-full">
+      <CardHeader>
+        <CardTitle className="text-xl font-bold">Recurring Payments</CardTitle>
+        <CardDescription>Status of standing orders and direct debits.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          {recurringPaymentKeys.map((key) => (
+            <SummaryCardItem
+              key={key}
+              statusKey={key}
+              count={counts[key]}
+              currentCountry={currentCountry}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  return { renderPaymentRequests, renderTransactionManagement, renderRecurringPayments };
 };
 
 export default DashboardSummaryCards;
