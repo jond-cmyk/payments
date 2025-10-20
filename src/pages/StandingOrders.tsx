@@ -86,7 +86,7 @@ const StandingOrders = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [itemsPerPage, setItemsPerPage] = useState(10); // Default to 10 items per page
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(ITEMS_PER_PAGE); // Default to 10 items per page
 
   // NEW: Bulk selection state
   const [selectedStandingOrderIds, setSelectedStandingOrderIds] = useState<string[]>([]);
@@ -155,8 +155,8 @@ const StandingOrders = () => {
     queryFn: async () => {
       if (!session) return [];
 
-      const from = (currentPage - 1) * itemsPerPage; // Use itemsPerPage instead of ITEMS_PER_PAGE
-      const to = itemsPerPage === -1 ? -1 : from + itemsPerPage - 1; // Handle show all case
+      const from = itemsPerPage === 'all' ? 0 : (currentPage - 1) * (itemsPerPage as number); // Use itemsPerPage instead of ITEMS_PER_PAGE
+      const to = itemsPerPage === 'all' ? null : from + (itemsPerPage as number) - 1; // Handle show all case
 
       let query = supabase
         .from('standing_orders')
@@ -180,11 +180,17 @@ const StandingOrders = () => {
         query = query.in('status', nonAllStatuses);
       }
 
-      // Multi-select Category filter
+      // Multi-select Category filter (FIXED JSONB QUERY LOGIC)
       const nonAllCategories = filterCategories.filter(c => c !== 'all');
       if (nonAllCategories.length > 0) {
-        // Filter by category within the JSONB array
-        query = query.contains('categories', nonAllCategories.map(category => ({ category })));
+        // Build an OR condition for each selected category using the JSONB containment operator (@>)
+        // We check if the 'categories' array contains an object where the 'category' key matches the filter value.
+        const categoryFilters = nonAllCategories.map(category => 
+          `categories.cs.[{"category": "${category}"}]` // Use .cs (contains) with the specific object structure
+        ).join(',');
+        
+        // Use .or() to combine the filters
+        query = query.or(categoryFilters);
       }
 
       // NEW: Apply date range filters
@@ -208,7 +214,7 @@ const StandingOrders = () => {
 
       // Apply sorting
       if (sortColumn) {
-        query = query.order(sortColumn, { ascending: sortDirection === 'asc' });
+        query = query.order(sortColumn as string, { ascending: sortDirection === 'asc' });
       }
       if (sortColumn !== 'created_at') {
         query = query.order('created_at', { ascending: false });
@@ -217,7 +223,7 @@ const StandingOrders = () => {
         query = query.order('id', { ascending: false });
       }
 
-      if (itemsPerPage !== -1) { // Only apply range if not showing all
+      if (itemsPerPage !== 'all') { // Only apply range if not showing all
         query = query.range(from, to);
       }
 
@@ -255,7 +261,7 @@ const StandingOrders = () => {
       setSelectedStandingOrderIds([]);
       queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
       queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] });
-      showSuccess("Selected standing orders deleted successfully!");
+      showSuccess(`Deleted ${selectedStandingOrderIds.length} standing order(s) successfully!`);
     },
     onError: (error: any) => {
       showError(error.message || "Failed to bulk delete standing orders.");
@@ -417,10 +423,10 @@ const StandingOrders = () => {
     }
   };
 
-  const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(totalItems / itemsPerPage); // Handle show all case
+  const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / (itemsPerPage as number)); // Handle show all case
 
   const renderPaginationItems = () => {
-    if (itemsPerPage === -1 || totalPages <= 1) return null; // No pagination if showing all
+    if (itemsPerPage === 'all' || totalPages <= 1) return null; // No pagination if showing all
 
     const items = [];
     const maxPagesToShow = 5;
@@ -556,7 +562,7 @@ const StandingOrders = () => {
                 <Select
                   value={itemsPerPage.toString()}
                   onValueChange={(value) => {
-                    const newItemsPerPage = parseInt(value);
+                    const newItemsPerPage = value === 'all' ? 'all' : parseInt(value);
                     setItemsPerPage(newItemsPerPage);
                     setCurrentPage(1); // Reset to first page when changing items per page
                   }}
@@ -569,7 +575,7 @@ const StandingOrders = () => {
                     <SelectItem value="25">25</SelectItem>
                     <SelectItem value="50">50</SelectItem>
                     <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="-1">Show All</SelectItem>
+                    <SelectItem value="all">Show All</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

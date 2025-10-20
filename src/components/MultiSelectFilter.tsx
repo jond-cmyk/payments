@@ -105,10 +105,8 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
         <PopoverContent 
           className="w-[300px] p-0" 
           align="start"
-          // FIX: Prevent the popover from closing by stopping the blur event on the trigger
-          onMouseDown={(e) => e.preventDefault()}
         >
-          <Command>
+          <Command onMouseDown={(e) => e.preventDefault()}> {/* FIX: Prevent blur/close on mouse down */}
             <CommandInput placeholder={`Search ${label}...`} />
             <CommandList>
               <CommandGroup>
@@ -119,11 +117,7 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
                       key={option.value}
                       value={option.label}
                       onSelect={() => handleSelect(option.value)}
-                      // Use onPointerDown to prevent the popover from closing immediately.
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation(); // Stop propagation to prevent the click from closing the popover
-                      }}
+                      // Removed onPointerDown here, relying on Command's onMouseDown
                       className="flex items-center justify-between"
                     >
                       <div className="flex items-center space-x-2">
