@@ -135,19 +135,7 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
           </Command>
         </PopoverContent>
       </Popover>
-      {selectedValues.length > 0 && !selectedValues.includes('all') && (
-        <div className="flex flex-wrap gap-1 mt-1">
-          {selectedValues.map(value => {
-            const option = options.find(o => o.value === value);
-            return option ? (
-              <Badge key={value} variant="secondary" className="flex items-center">
-                {option.label}
-                <X className="ml-1 h-3 w-3 cursor-pointer" onClick={() => handleSelect(value)} />
-              </Badge>
-            ) : null;
-          })}
-        </div>
-      )}
+      {/* Removed the selected values badge display block */}
     </div>
   );
 };
