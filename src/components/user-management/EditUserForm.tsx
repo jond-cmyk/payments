@@ -33,6 +33,11 @@ interface EditUserFormProps {
   isSaving: boolean;
 }
 
+const roleOptions = [
+  { value: 'requester', label: 'Requester' },
+  { value: 'admin', label: 'Admin' },
+];
+
 const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSave, isSaving }) => {
   const { availableCountries } = useCountry(); // Use availableCountries from context
 
@@ -105,9 +110,9 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCountries.map((country) => (
-                    <SelectItem key={country.value} value={country.value}>
-                      {country.label}
+                  {roleOptions.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -129,7 +134,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCountries.map((country) => (
+                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
                     <SelectItem key={country.value} value={country.value}>
                       {country.label}
                     </SelectItem>

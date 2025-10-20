@@ -33,6 +33,11 @@ interface AddUserFormProps {
   onUserAdded: () => void; // Callback to refresh user list and close dialog
 }
 
+const roleOptions = [
+  { value: 'requester', label: 'Requester' },
+  { value: 'admin', label: 'Admin' },
+];
+
 const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
   const { availableCountries } = useCountry(); // Use availableCountries from context
 
@@ -147,9 +152,9 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCountries.map((country) => (
-                    <SelectItem key={country.value} value={country.value}>
-                      {country.label}
+                  {roleOptions.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      {role.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -171,7 +176,7 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCountries.map((country) => (
+                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
                     <SelectItem key={country.value} value={country.value}>
                       {country.label}
                     </SelectItem>
