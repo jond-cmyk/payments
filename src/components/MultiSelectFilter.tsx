@@ -106,7 +106,7 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
           className="w-[300px] p-0" 
           align="start"
         >
-          <Command onMouseDown={(e) => e.preventDefault()}> {/* FIX: Prevent blur/close on mouse down */}
+          <Command>
             <CommandInput placeholder={`Search ${label}...`} />
             <CommandList>
               <CommandGroup>
@@ -117,7 +117,10 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
                       key={option.value}
                       value={option.label}
                       onSelect={() => handleSelect(option.value)}
-                      // Removed onPointerDown here, relying on Command's onMouseDown
+                      // FIX: Prevent the popover from closing by stopping the pointer down event
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                      }}
                       className="flex items-center justify-between"
                     >
                       <div className="flex items-center space-x-2">
