@@ -1,29 +1,27 @@
 "use client";
 
-import React, { useEffect, useState } from 'react'; // Import useState
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PaymentRequest, PaymentRequestAudit } from '@/types/supabase';
+import { PaymentRequest, PaymentRequestAudit, PaymentRequestCategoryItem } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod'; // Keep z for other Zod usage if any
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
-import { categoryOptions } from '@/lib/constants'; // Import categoryOptions from constants
+import * as z from 'zod';
+import { useCountry } from '@/integrations/supabase/CountryContext';
 
-// NEW IMPORTS
-import { editFormSchema, EditFormSchema } from '@/schemas/paymentRequestSchema'; // Import centralized schema
-import PaymentRequestDisplayCards from '@/components/payment-requests/PaymentRequestDisplayCards'; // Import new display component
-import PaymentRequestEditFormCard from '@/components/payment-requests/PaymentRequestEditFormCard'; // Import new edit component
+import { editFormSchema, EditFormSchema } from '@/schemas/paymentRequestSchema';
+import PaymentRequestDisplayCards from '@/components/payment-requests/PaymentRequestDisplayCards';
+import PaymentRequestEditFormCard from '@/components/payment-requests/PaymentRequestEditFormCard';
 
 import AdminActionsCard from '@/components/payment-requests/AdminActionsCard';
 import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUploadCard';
 import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentRequestAuditTrailCard';
 import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard';
-import { Button } from '@/components/ui/button'; // Import Button
-import { Card } from '@/components/ui/card'; // Import Card
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 
 // Zod schema for admin query note (kept here as it's admin-specific)
 const queryFormSchema = z.object({
@@ -147,14 +145,15 @@ const PaymentRequestDetail = () => {
       account_number: "",
       bank_account_name: "",
       currency: "CHF", // Default to CHF
-      payment_amount: 0.00,
+      total_amount: 0.00,
       reason_for_payment: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
       receipt_required: false,
       is_urgent: false, // Default to not urgent
-      country: request?.country || "Switzerland", // ADDED: Set default country from request
-      category: "", // ADDED: Default category
+      country: request?.country || "Switzerland",
+      categories: [{ category: "", amount: 0 }], // Default categories
+      bank_details_verified: false,
     },
   });
 
@@ -173,14 +172,15 @@ const PaymentRequestDetail = () => {
         account_number: request.account_number || "",
         bank_account_name: request.bank_account_name || "",
         currency: request.currency || "CHF",
-        payment_amount: request.payment_amount || 0.00,
+        total_amount: request.total_amount || 0.00,
         reason_for_payment: request.reason_for_payment,
         date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
         invoice_pdf: undefined,
         receipt_required: request.receipt_required,
         is_urgent: request.is_urgent,
         country: request.country, // Ensure form's country field is updated
-        category: request.category || "", // ADDED: Set category from request
+        categories: request.categories.length > 0 ? request.categories : [{ category: "", amount: 0 }], // Set categories from request
+        bank_details_verified: request.bank_details_verified,
       });
     }
   }, [request, isEditing, editForm]);
@@ -349,13 +349,13 @@ const PaymentRequestDetail = () => {
         lease_id: values.lease_id || null, // Include lease_id, set to null if empty
         supplier_address: values.supplier_address,
         currency: values.currency,
-        payment_amount: values.payment_amount,
+        total_amount: values.total_amount,
         reason_for_payment: values.reason_for_payment,
         date_payment_required: values.date_payment_required.toISOString().split('T')[0],
         receipt_required: values.receipt_required,
         is_urgent: values.is_urgent, // Include urgent status
         country: values.country, // Include country from form values
-        category: values.category, // ADDED: category to updated fields
+        categories: values.categories as PaymentRequestCategoryItem[], // Explicitly cast here
       };
 
       // Conditionally add bank details to updatedFields

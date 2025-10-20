@@ -22,6 +22,7 @@ import { format } from 'date-fns';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { Button } from '@/components/ui/button';
 import { exportToCsv } from '@/utils/exportToCsv';
+import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 
 interface DashboardMainContentProps {
   debouncedSearchTerm: string;
@@ -455,16 +456,61 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const paymentRequestExportColumns: (keyof PaymentRequest)[] = [
     'id', 'created_at', 'updated_at', 'requester_id', 'supplier_name', 'sku_number',
     'not_sku_related', 'lease_id', 'supplier_address', 'iban_number', 'sort_code',
-    'account_number', 'bank_account_name', 'currency', 'payment_amount',
+    'account_number', 'bank_account_name', 'currency', 'total_amount',
     'reason_for_payment', 'date_payment_required', 'invoice_pdf_urls', 'status',
     'admin_action_by', 'admin_action_reason', 'receipt_pdf_url', 'payment_setup_date',
     'payment_approved_date', 'receipt_required', 'is_urgent', 'country',
-    'last_reminder_sent_at', 'is_reminded', 'category', 'bank_details_verified'
+    'last_reminder_sent_at', 'is_reminded', 'categories', 'bank_details_verified'
   ];
 
   const handleDownloadPaymentRequests = () => {
     if (paymentRequestsForTable) {
-      exportToCsv(paymentRequestsForTable, `payment_requests_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`, paymentRequestExportColumns);
+      // Flatten categories for CSV export
+      const flattenedData = paymentRequestsForTable.map(request => {
+        const base = { ...request };
+        // Remove original categories for flattening
+        delete (base as any).categories;
+        delete (base as any).requester_profile; // Remove nested object
+
+        // Add flattened categories
+        request.categories.forEach((cat, index) => {
+          (base as any)[`category_${index + 1}`] = categoryOptions.find(c => c.value === cat.category)?.label || cat.category;
+          (base as any)[`amount_${index + 1}`] = cat.amount;
+        });
+        return base;
+      });
+
+      // Dynamically generate headers for flattened categories
+      const dynamicCategoryHeaders: string[] = [];
+      let maxCategories = 0;
+      paymentRequestsForTable.forEach(request => {
+        if (request.categories.length > maxCategories) {
+          maxCategories = request.categories.length;
+        }
+      });
+      for (let i = 1; i <= maxCategories; i++) {
+        dynamicCategoryHeaders.push(`category_${i}`);
+        dynamicCategoryHeaders.push(`amount_${i}`);
+      }
+
+      // Construct the final column order for CSV
+      const baseColumns = [
+        'id', 'created_at', 'updated_at', 'requester_id', 'supplier_name', 'sku_number',
+        'not_sku_related', 'lease_id', 'supplier_address', 'iban_number', 'sort_code',
+        'account_number', 'bank_account_name', 'currency', 'total_amount',
+        'reason_for_payment', 'date_payment_required', 'invoice_pdf_urls', 'status',
+        'admin_action_by', 'admin_action_reason', 'receipt_pdf_url', 'payment_setup_date',
+        'payment_approved_date', 'receipt_required', 'is_urgent', 'country',
+        'last_reminder_sent_at', 'is_reminded', 'bank_details_verified'
+      ];
+
+      const finalExportColumns = [...baseColumns, ...dynamicCategoryHeaders];
+
+      exportToCsv(
+        flattenedData,
+        `payment_requests_${currentCountry}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`,
+        finalExportColumns as unknown as (keyof PaymentRequest)[]
+      );
     }
   };
 

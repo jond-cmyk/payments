@@ -53,7 +53,7 @@ export const editFormSchema = z.object({
   account_number: z.string().optional(), // New field
   bank_account_name: z.string().optional(), // New field
   currency: z.string().min(1, "Currency is required"),
-  payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"),
+  total_amount: z.coerce.number().min(0.01, "Total Amount must be positive."), // CHANGED: Use total_amount
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
@@ -65,7 +65,11 @@ export const editFormSchema = z.object({
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false), // New field
   country: z.string().min(1, "Country is required"), // ADDED: country field to schema
-  category: z.string().min(1, "Category is required"), // ADDED: category field to schema
+  categories: z.array(z.object({ // CHANGED: Use categories array
+    category: z.string().min(1, "Category is required."),
+    amount: z.coerce.number().min(0.01, "Amount must be positive."),
+  })).min(1, "At least one category with an amount is required."),
+  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
 }).superRefine((data, ctx) => {
   // Determine SKU prefix based on the request's country
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';

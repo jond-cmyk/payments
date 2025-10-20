@@ -1,9 +1,9 @@
 "use client";
 
 import React from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import * as z from 'zod';
-import { Download } from 'lucide-react';
+import { Download, PlusCircle, MinusCircle, DollarSign } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import FileInput from '@/components/FileInput';
 import { PaymentRequest } from '@/types/supabase';
 import { categoryOptions } from '@/lib/constants';
 import { majorCurrencies, EditFormSchema } from '@/schemas/paymentRequestSchema';
+import { Separator } from '@/components/ui/separator';
 
 interface PaymentRequestEditFormCardProps {
   request: PaymentRequest;
@@ -33,10 +34,30 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
 }) => {
   const { availableCountries, isCountryLocked } = useCountry();
 
-  // Watch the not_sku_related field to dynamically update validation and input state
+  const { fields, append, remove } = useFieldArray({
+    control: editForm.control,
+    name: "categories",
+  });
+
+  // Watch fields
   const notSkuRelated = editForm.watch("not_sku_related");
-  const formCountry = editForm.watch("country"); // Watch the country field in the form
-  const skuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for display and PrefixedInput
+  const formCountry = editForm.watch("country");
+  const skuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
+
+  const watchedCategories = useWatch({
+    control: editForm.control,
+    name: "categories",
+    defaultValue: editForm.getValues("categories"),
+  });
+
+  // Calculate total amount whenever categories array changes
+  React.useEffect(() => {
+    const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
+      const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
+      return sum + parsedAmount;
+    }, 0);
+    editForm.setValue("total_amount", newTotal, { shouldValidate: true });
+  }, [watchedCategories, editForm]);
 
   // Filter category options based on the selected country in the form
   const filteredCategoryOptions = categoryOptions.filter(option =>
@@ -96,30 +117,88 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 </FormItem>
               )}
             />
-            <FormField
-              control={editForm.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <SelectTrigger id={field.name}>
+            
+            {/* Dynamic Categories Section */}
+            <Card className="p-4 shadow-sm">
+              <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+                <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+              </CardTitle>
+              <div className="space-y-4">
+                {fields.map((item, index) => (
+                  <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                    <FormField
+                      control={editForm.control}
+                      name={`categories.${index}.category`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1 w-full">
+                          <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <SelectTrigger>
+                              <FormControl>
+                                <SelectValue placeholder="Select a category" />
+                              </FormControl>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredCategoryOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={editForm.control}
+                      name={`categories.${index}.amount`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1 w-full">
+                          <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="Amount" {...field}
+                              onChange={(e) => field.onChange(parseFloat(e.target.value))} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {fields.length > 1 && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
+                        <MinusCircle className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => append({ category: "", amount: 0 })}
+                  className="w-full"
+                >
+                  <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
+                </Button>
+                <Separator className="my-4" />
+                <div className="flex justify-between items-center text-lg font-bold">
+                  <span>Total Amount:</span>
+                  <span>{editForm.getValues('total_amount').toFixed(2)}</span>
+                </div>
+                <FormField
+                  control={editForm.control}
+                  name="total_amount"
+                  render={({ field }) => (
+                    <FormItem className="hidden"> {/* Hidden field for Zod validation */}
                       <FormControl>
-                        <SelectValue placeholder="Select a category" />
+                        <Input type="hidden" {...field} />
                       </FormControl>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {filteredCategoryOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </Card>
+
             <FormField
               control={editForm.control}
               name="sku_number"
@@ -276,6 +355,30 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
 
             <FormField
               control={editForm.control}
+              name="bank_details_verified"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="text-blue-700">
+                      I have verified these bank details with the payee.<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+                    </FormLabel>
+                    <FormDescription className="text-blue-600">
+                      Please ensure the bank details are correct to avoid payment delays or errors.
+                    </FormDescription>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={editForm.control}
               name="currency"
               render={({ field }) => (
                 <FormItem>
@@ -294,19 +397,6 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       ))}
                     </SelectContent>
                   </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={editForm.control}
-              name="payment_amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">Payment Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <FormControl>
-                    <Input type="number" step="0.01" {...field} />
-                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

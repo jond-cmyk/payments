@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +12,7 @@ import { useCountry } from '@/integrations/supabase/CountryContext'; // Import u
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 import { PaymentRequest } from '@/types/supabase'; // Import PaymentRequest type for suggestions
 import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // NEW IMPORT
+import { PlusCircle, MinusCircle, DollarSign } from 'lucide-react'; // Import icons
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,38 +25,42 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
-// Define the Zod schema for form validation
+// Define the Zod schema for form validation (replicated from schema file for local use)
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
-  sku_number: z.string().optional(), // Make optional initially, then refine
-  not_sku_related: z.boolean().default(false), // New field
-  lease_id: z.string().optional().refine((val) => { // New field
-    if (val === undefined || val === null || val.trim() === '') return true; // Optional, so empty is fine
-    return /^\d+$/.test(val); // Must be numerical if present
+  sku_number: z.string().optional(),
+  not_sku_related: z.boolean().default(false),
+  lease_id: z.string().optional().refine((val) => {
+    if (val === undefined || val === null || val.trim() === '') return true;
+    return /^\d+$/.test(val);
   }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
-  iban_number: z.string().optional(), // Made optional
-  sort_code: z.string().optional(), // New field
-  account_number: z.string().optional(), // New field
-  bank_account_name: z.string().optional(), // New field
+  iban_number: z.string().optional(),
+  sort_code: z.string().optional(),
+  account_number: z.string().optional(),
+  bank_account_name: z.string().optional(),
   currency: z.string().min(1, "Currency is required"),
-  payment_amount: z.coerce.number().min(0.01, "Payment Amount must be positive"),
+  total_amount: z.coerce.number().min(0.01, "Total Amount must be positive."), // CHANGED
   reason_for_payment: z.string().min(1, "Reason for Payment is required"),
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
   }),
   invoice_pdf: z.any()
     .refine((files) => files?.length > 0, "At least one Invoice document is required.")
-    .refine((files) => Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024, "Max file size is 5MB per file.")) // 5MB limit per file
+    .refine((files) => Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024, "Max file size is 5MB per file."))
     .refine((files) => Array.from(files as FileList).every(file => file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png"), "Only .pdf, .jpg, .jpeg, .png files are accepted."),
   receipt_required: z.boolean().default(false),
-  is_urgent: z.boolean().default(false), // New field
-  country: z.string().min(1, "Country is required"), // ADDED: country field to schema
-  category: z.string().min(1, "Category is required"), // ADDED: category field to schema
-  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
+  is_urgent: z.boolean().default(false),
+  country: z.string().min(1, "Country is required"),
+  categories: z.array(z.object({ // CHANGED
+    category: z.string().min(1, "Category is required."),
+    amount: z.coerce.number().min(0.01, "Amount must be positive."),
+  })).min(1, "At least one category with an amount is required."),
+  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
 }).superRefine((data, ctx) => {
-  const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH'; // Determine prefix for validation
+  const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
   if (!data.not_sku_related) {
     if (!data.sku_number || data.sku_number.trim() === '') {
@@ -79,7 +84,6 @@ const formSchema = z.object({
     }
   }
 
-  // Conditional validation for bank details based on country
   if (data.country === 'United Kingdom') {
     if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
       ctx.addIssue({
@@ -102,7 +106,6 @@ const formSchema = z.object({
         path: ['bank_account_name'],
       });
     }
-    // Ensure IBAN is not provided for UK
     if (data.iban_number && data.iban_number.trim() !== '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -118,7 +121,6 @@ const formSchema = z.object({
         path: ['iban_number'],
       });
     }
-    // Ensure UK bank details are not provided for non-UK countries
     if (data.sort_code && data.sort_code.trim() !== '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -144,8 +146,8 @@ const formSchema = z.object({
 });
 
 const NewPaymentRequest = () => {
-  const { session, isLoading, user, userProfile } = useSession(); // Added userProfile
-  const { currentCountry, availableCountries, isCountryLocked } = useCountry(); // Get isCountryLocked and availableCountries
+  const { session, isLoading, user, userProfile } = useSession();
+  const { currentCountry, availableCountries, isCountryLocked } = useCountry();
   const navigate = useNavigate();
 
   const [supplierSuggestions, setSupplierSuggestions] = useState<PaymentRequest[]>([]);
@@ -159,31 +161,49 @@ const NewPaymentRequest = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       supplier_name: "",
-      sku_number: defaultSkuPrefix, // Default based on country
-      not_sku_related: false, // Default to false
-      lease_id: "", // Default for new field
+      sku_number: defaultSkuPrefix,
+      not_sku_related: false,
+      lease_id: "",
       supplier_address: "",
-      iban_number: currentCountry === 'United Kingdom' ? "" : "", // Default empty for both, but IBAN will be validated conditionally
+      iban_number: currentCountry === 'United Kingdom' ? "" : "",
       sort_code: currentCountry === 'United Kingdom' ? "" : "",
       account_number: currentCountry === 'United Kingdom' ? "" : "",
       bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
-      currency: defaultCurrency, // Default based on country
-      payment_amount: 0.00,
+      currency: defaultCurrency,
+      total_amount: 0.00, // CHANGED
       reason_for_payment: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
       receipt_required: false,
-      is_urgent: false, // Default to not urgent
-      country: currentCountry, // ADDED: Set default country from context
-      category: "", // ADDED: Default category
-      bank_details_verified: false, // NEW: Default to false
+      is_urgent: false,
+      country: currentCountry,
+      categories: [{ category: "", amount: 0 }], // CHANGED: Initialize with one category
+      bank_details_verified: false,
     },
-    // REMOVED: context property as country is now a form field
   });
 
-  // Watch the not_sku_related field to dynamically update validation and input state
+  const { fields, append, remove } = useFieldArray({ // NEW: Field array for categories
+    control: form.control,
+    name: "categories",
+  });
+
+  // Watch fields
   const notSkuRelated = form.watch("not_sku_related");
-  const formCountry = form.watch("country"); // Watch the country field in the form
+  const formCountry = form.watch("country");
+  const watchedCategories = useWatch({ // NEW: Watch categories for total calculation
+    control: form.control,
+    name: "categories",
+    defaultValue: form.getValues("categories"),
+  });
+
+  // Calculate total amount whenever categories array changes
+  React.useEffect(() => {
+    const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
+      const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
+      return sum + parsedAmount;
+    }, 0);
+    form.setValue("total_amount", newTotal, { shouldValidate: true });
+  }, [watchedCategories, form]);
 
   // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
@@ -198,9 +218,10 @@ const NewPaymentRequest = () => {
       sort_code: currentCountry === 'United Kingdom' ? "" : "",
       account_number: currentCountry === 'United Kingdom' ? "" : "",
       bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
-      country: currentCountry, // Ensure form's country field is updated
-      category: "", // Reset category
-      bank_details_verified: false, // NEW: Reset to false
+      country: currentCountry,
+      categories: [{ category: "", amount: 0 }], // Reset categories
+      total_amount: 0, // Reset total amount
+      bank_details_verified: false,
     }));
   }, [currentCountry, form]);
 
@@ -269,7 +290,11 @@ const NewPaymentRequest = () => {
     form.setValue('account_number', suggestion.account_number || '');
     form.setValue('bank_account_name', suggestion.bank_account_name || '');
     form.setValue('bank_details_verified', false); // Reset verified status when using suggestion
-    // Do not set country from suggestion, as it's already set by context/user profile
+    
+    // Clear categories and total amount when using suggestion, as search-suppliers doesn't return this data
+    form.setValue('categories', [{ category: "", amount: 0 }]);
+    form.setValue('total_amount', 0.00);
+
     setIsSuggestionDialogOpen(false);
   };
 
@@ -346,7 +371,7 @@ const NewPaymentRequest = () => {
           supplier_address: values.supplier_address,
           ...bankDetails, // Spread the conditional bank details
           currency: values.currency,
-          payment_amount: values.payment_amount,
+          total_amount: values.total_amount, // CHANGED: Use total_amount
           reason_for_payment: values.reason_for_payment,
           date_payment_required: values.date_payment_required.toISOString().split('T')[0],
           invoice_pdf_urls: uploadedInvoiceUrls, // Store array of URLs
@@ -354,7 +379,7 @@ const NewPaymentRequest = () => {
           receipt_required: values.receipt_required,
           is_urgent: values.is_urgent, // Save urgent status
           country: values.country, // Add the current country from form values
-          category: values.category, // ADDED: category to insert
+          categories: values.categories, // CHANGED: Use categories array
           bank_details_verified: values.bank_details_verified, // NEW: Include bank_details_verified
         });
 
@@ -368,7 +393,7 @@ const NewPaymentRequest = () => {
         supplier_name: "", // Reset supplier name
         sku_number: defaultSkuPrefix,
         currency: defaultCurrency,
-        payment_amount: 0.00,
+        total_amount: 0.00, // Reset total amount
         receipt_required: false,
         is_urgent: false,
         not_sku_related: false,
@@ -379,7 +404,7 @@ const NewPaymentRequest = () => {
         account_number: currentCountry === 'United Kingdom' ? "" : "",
         bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
         country: currentCountry, // Reset country to current context country
-        category: "", // Reset category
+        categories: [{ category: "", amount: 0 }], // Reset categories
         supplier_address: "", // Reset supplier address
         reason_for_payment: "", // Reset reason for payment
         date_payment_required: undefined, // Reset date
@@ -455,30 +480,88 @@ const NewPaymentRequest = () => {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <SelectTrigger id={field.name}>
+              
+              {/* Dynamic Categories Section */}
+              <Card className="p-4 shadow-sm">
+                <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+                  <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+                </CardTitle>
+                <div className="space-y-4">
+                  {fields.map((item, index) => (
+                    <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                      <FormField
+                        control={form.control}
+                        name={`categories.${index}.category`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1 w-full">
+                            <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger>
+                                <FormControl>
+                                  <SelectValue placeholder="Select a category" />
+                                </FormControl>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {filteredCategoryOptions.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`categories.${index}.amount`}
+                        render={({ field }) => (
+                          <FormItem className="flex-1 w-full">
+                            <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                            <FormControl>
+                              <Input type="number" step="0.01" placeholder="Amount" {...field}
+                                onChange={(e) => field.onChange(parseFloat(e.target.value))} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {fields.length > 1 && (
+                        <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
+                          <MinusCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => append({ category: "", amount: 0 })}
+                    className="w-full"
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
+                  </Button>
+                  <Separator className="my-4" />
+                  <div className="flex justify-between items-center text-lg font-bold">
+                    <span>Total Amount:</span>
+                    <span>{form.getValues('total_amount').toFixed(2)}</span>
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name="total_amount"
+                    render={({ field }) => (
+                      <FormItem className="hidden"> {/* Hidden field for Zod validation */}
                         <FormControl>
-                          <SelectValue placeholder="Select a category" />
+                          <Input type="hidden" {...field} />
                         </FormControl>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {filteredCategoryOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </Card>
+
               <FormField
                 control={form.control}
                 name="sku_number"
@@ -677,19 +760,6 @@ const NewPaymentRequest = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="payment_amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">Payment Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="e.g., 123.45" {...field} />
-                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

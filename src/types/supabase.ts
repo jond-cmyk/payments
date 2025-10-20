@@ -24,6 +24,11 @@ export type PaymentRequestStatus =
   | 'declined'
   | 'queried';
 
+export type PaymentRequestCategoryItem = {
+  category: string;
+  amount: number;
+};
+
 export type PaymentRequest = {
   id: string;
   requester_id: string;
@@ -37,7 +42,7 @@ export type PaymentRequest = {
   account_number: string | null;
   bank_account_name: string | null;
   currency: string | null;
-  payment_amount: number | null;
+  total_amount: number;
   reason_for_payment: string;
   date_payment_required: string;
   invoice_pdf_urls: string[];
@@ -54,7 +59,7 @@ export type PaymentRequest = {
   country: string;
   last_reminder_sent_at: string | null;
   is_reminded: boolean;
-  category: string;
+  categories: PaymentRequestCategoryItem[];
   bank_details_verified: boolean;
 };
 

@@ -67,7 +67,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
               </TableCell>
               <TableCell>
                 {/* Amount is not directly available for StandingOrder and DirectDebit, display N/A or specific info */}
-                {item.type === 'payment_request' ? `${item.currency} ${item.payment_amount?.toFixed(2)}` :
+                {item.type === 'payment_request' ? `${item.currency} ${item.total_amount?.toFixed(2)}` :
                  item.type === 'transaction' ? `${item.currency} ${item.amount.toFixed(2)}` :
                  'N/A'}
               </TableCell>

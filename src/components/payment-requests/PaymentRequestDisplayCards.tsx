@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Download, Info, Banknote, CalendarDays, UserCircle2, AlertTriangle } from 'lucide-react';
+import { Download, Info, Banknote, CalendarDays, UserCircle2, AlertTriangle, DollarSign } from 'lucide-react'; // Import DollarSign
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { PaymentRequest } from '@/types/supabase';
 import { cn } from '@/lib/utils';
 import { categoryOptions } from '@/lib/constants';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Import Table components
+import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
 
 interface PaymentRequestDisplayCardsProps {
   request: PaymentRequest;
@@ -80,10 +82,6 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
               <p>{request.supplier_name}</p>
             </div>
             <div>
-              <p className="font-bold">Category:</p>
-              <p>{categoryOptions.find(c => c.value === request.category)?.label || request.category}</p>
-            </div>
-            <div>
               <p className="font-bold">SKU Number:</p>
               <p>{request.not_sku_related ? 'N/A (Not SKU Related)' : request.sku_number}</p>
             </div>
@@ -103,19 +101,46 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center">
-            <CalendarDays className="mr-2 h-5 w-5" /> Financial & Dates
+            <DollarSign className="mr-2 h-5 w-5" /> Financial Details
           </CardTitle>
           <CardDescription>Payment amounts and required dates.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div className="md:col-span-2">
+              <p className="font-bold flex items-center mb-2">
+                Categories & Amounts:
+              </p>
+              {request.categories && request.categories.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Amount ({request.currency})</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {request.categories.map((cat, index) => (
+                        <TableRow key={index}>
+                          <TableCell>{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
+                          <TableCell className="text-right">{formatAmount(cat.amount)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-bold bg-muted/50">
+                        <TableCell>Total Amount:</TableCell>
+                        <TableCell className="text-right">{formatAmount(request.total_amount)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="ml-2">No categories defined.</p>
+              )}
+            </div>
             <div>
               <p className="font-bold">Currency:</p>
               <p>{request.currency}</p>
-            </div>
-            <div>
-              <p className="font-bold">Payment Amount:</p>
-              <p>{request.payment_amount?.toFixed(2) || '0.00'}</p>
             </div>
             <div>
               <p className="font-bold">Date Payment Required:</p>
