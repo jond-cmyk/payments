@@ -154,8 +154,8 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
               <p>{request.receipt_required ? 'Yes' : 'No'}</p>
             </div>
             <div className="md:col-span-2">
-              <p className="font-bold">Reason for Payment:</p>
-              <p>{request.reason_for_payment}</p>
+              <p className="font-bold">Notes:</p>
+              <p>{request.reason_for_payment || 'N/A'}</p> {/* CHANGED: Display reason_for_payment as Notes */}
             </div>
           </div>
         </CardContent>

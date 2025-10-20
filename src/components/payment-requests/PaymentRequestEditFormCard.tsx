@@ -53,6 +53,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   // Calculate total amount whenever categories array changes
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
+      // Ensure amount is treated as a number, defaulting to 0 if invalid
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
       return sum + parsedAmount;
     }, 0);
@@ -157,8 +158,14 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormItem className="flex-1 w-full">
                           <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                           <FormControl>
-                            <Input type="number" step="0.01" placeholder="Amount" {...field}
-                              onChange={(e) => field.onChange(parseFloat(e.target.value))} />
+                            <Input 
+                              type="number" 
+                              step="0.01" 
+                              placeholder="Amount" 
+                              {...field}
+                              // FIX: Use e.target.value directly to ensure full string is passed to onChange
+                              onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))} 
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -198,6 +205,32 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 />
               </div>
             </Card>
+
+            {/* MOVED: Currency field here */}
+            <FormField
+              control={editForm.control}
+              name="currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <SelectTrigger>
+                      <FormControl>
+                        <SelectValue placeholder="Select a currency" />
+                      </FormControl>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {majorCurrencies.map((currency) => (
+                        <SelectItem key={currency.value} value={currency.value}>
+                          {currency.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={editForm.control}
@@ -376,37 +409,13 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 </FormItem>
               )}
             />
-
+            
             <FormField
               control={editForm.control}
-              name="currency"
+              name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <SelectTrigger>
-                      <FormControl>
-                        <SelectValue placeholder="Select a currency" />
-                      </FormControl>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {majorCurrencies.map((currency) => (
-                        <SelectItem key={currency.value} value={currency.value}>
-                          {currency.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={editForm.control}
-              name="reason_for_payment"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">Reason for Payment<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <FormLabel className="font-semibold">Notes</FormLabel>
                   <FormControl>
                     <Textarea {...field} />
                   </FormControl>

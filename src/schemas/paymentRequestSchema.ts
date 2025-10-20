@@ -54,7 +54,7 @@ export const editFormSchema = z.object({
   bank_account_name: z.string().optional(), // New field
   currency: z.string().min(1, "Currency is required"),
   total_amount: z.coerce.number().min(0.01, "Total Amount must be positive."), // CHANGED: Use total_amount
-  reason_for_payment: z.string().min(1, "Reason for Payment is required"),
+  notes: z.string().optional(), // CHANGED: Renamed from reason_for_payment and made optional
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
   }),

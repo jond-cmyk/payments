@@ -146,7 +146,7 @@ const PaymentRequestDetail = () => {
       bank_account_name: "",
       currency: "CHF", // Default to CHF
       total_amount: 0.00,
-      reason_for_payment: "",
+      notes: "", // CHANGED: Default to notes
       date_payment_required: undefined,
       invoice_pdf: undefined,
       receipt_required: false,
@@ -173,7 +173,7 @@ const PaymentRequestDetail = () => {
         bank_account_name: request.bank_account_name || "",
         currency: request.currency || "CHF",
         total_amount: request.total_amount || 0.00,
-        reason_for_payment: request.reason_for_payment,
+        notes: request.reason_for_payment || "", // CHANGED: Map reason_for_payment to notes
         date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
         invoice_pdf: undefined,
         receipt_required: request.receipt_required,
@@ -252,10 +252,14 @@ const PaymentRequestDetail = () => {
         updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls];
       }
 
+      // Explicitly cast categories here before sending to Supabase
+      const categoriesPayload = updatedFields.categories ? updatedFields.categories as PaymentRequestCategoryItem[] : undefined;
+
       let query = supabase
         .from('payment_requests')
         .update({
           ...updatedFields,
+          categories: categoriesPayload, // Use the casted payload
           invoice_pdf_urls: updatedInvoicePdfUrls,
           updated_at: new Date().toISOString(),
         })
@@ -350,7 +354,7 @@ const PaymentRequestDetail = () => {
         supplier_address: values.supplier_address,
         currency: values.currency,
         total_amount: values.total_amount,
-        reason_for_payment: values.reason_for_payment,
+        reason_for_payment: values.notes || null, // CHANGED: Map notes to reason_for_payment, set to null if optional/empty
         date_payment_required: values.date_payment_required.toISOString().split('T')[0],
         receipt_required: values.receipt_required,
         is_urgent: values.is_urgent, // Include urgent status

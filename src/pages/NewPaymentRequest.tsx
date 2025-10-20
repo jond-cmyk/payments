@@ -43,7 +43,7 @@ const formSchema = z.object({
   bank_account_name: z.string().optional(),
   currency: z.string().min(1, "Currency is required"),
   total_amount: z.coerce.number().min(0.01, "Total Amount must be positive."), // CHANGED
-  reason_for_payment: z.string().min(1, "Reason for Payment is required"),
+  notes: z.string().optional(), // CHANGED: Renamed from reason_for_payment and made optional
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
   }),
@@ -171,7 +171,7 @@ const NewPaymentRequest = () => {
       bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
       currency: defaultCurrency,
       total_amount: 0.00, // CHANGED
-      reason_for_payment: "",
+      notes: "", // CHANGED: Renamed from reason_for_payment
       date_payment_required: undefined,
       invoice_pdf: undefined,
       receipt_required: false,
@@ -199,6 +199,7 @@ const NewPaymentRequest = () => {
   // Calculate total amount whenever categories array changes
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
+      // Ensure amount is treated as a number, defaulting to 0 if invalid
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
       return sum + parsedAmount;
     }, 0);
@@ -372,7 +373,7 @@ const NewPaymentRequest = () => {
           ...bankDetails, // Spread the conditional bank details
           currency: values.currency,
           total_amount: values.total_amount, // CHANGED: Use total_amount
-          reason_for_payment: values.reason_for_payment,
+          reason_for_payment: values.notes || null, // CHANGED: Use notes, set to null if optional/empty
           date_payment_required: values.date_payment_required.toISOString().split('T')[0],
           invoice_pdf_urls: uploadedInvoiceUrls, // Store array of URLs
           status: 'pending',
@@ -406,7 +407,7 @@ const NewPaymentRequest = () => {
         country: currentCountry, // Reset country to current context country
         categories: [{ category: "", amount: 0 }], // Reset categories
         supplier_address: "", // Reset supplier address
-        reason_for_payment: "", // Reset reason for payment
+        notes: "", // CHANGED: Reset notes
         date_payment_required: undefined, // Reset date
         bank_details_verified: false, // NEW: Reset to false
       });
@@ -520,8 +521,14 @@ const NewPaymentRequest = () => {
                           <FormItem className="flex-1 w-full">
                             <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                             <FormControl>
-                              <Input type="number" step="0.01" placeholder="Amount" {...field}
-                                onChange={(e) => field.onChange(parseFloat(e.target.value))} />
+                              <Input 
+                                type="number" 
+                                step="0.01" 
+                                placeholder="Amount" 
+                                {...field}
+                                // FIX: Use e.target.value directly to ensure full string is passed to onChange
+                                onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -561,6 +568,32 @@ const NewPaymentRequest = () => {
                   />
                 </div>
               </Card>
+
+              {/* MOVED: Currency field here */}
+              <FormField
+                control={form.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <SelectTrigger>
+                        <FormControl>
+                          <SelectValue placeholder="Select a currency" />
+                        </FormControl>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {majorCurrencies.map((currency) => (
+                          <SelectItem key={currency.value} value={currency.value}>
+                            {currency.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
@@ -739,37 +772,13 @@ const NewPaymentRequest = () => {
                   </FormItem>
                 )}
               />
-
+              
               <FormField
                 control={form.control}
-                name="currency"
+                name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <SelectTrigger>
-                        <FormControl>
-                          <SelectValue placeholder="Select a currency" />
-                        </FormControl>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {majorCurrencies.map((currency) => (
-                          <SelectItem key={currency.value} value={currency.value}>
-                            {currency.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="reason_for_payment"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">Reason for Payment<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <FormLabel className="font-semibold">Notes</FormLabel>
                     <FormControl>
                       <Textarea placeholder="e.g., Purchase of office supplies" {...field} />
                     </FormControl>
