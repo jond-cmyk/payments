@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import { PaymentRequest } from '@/types/supabase';
 import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Separator } from '@/components/ui/separator';
 
 interface DashboardSummaryCardsProps {
   counts: {
@@ -170,14 +170,15 @@ const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
     'active_direct_debits',
   ];
 
-  const renderPaymentAndTransactionManagement = () => (
+  const renderAllSummaryCards = () => (
     <Card className="shadow-sm h-full">
       <CardHeader>
-        <CardTitle className="text-xl font-bold">Payment Request Statuses</CardTitle>
-        <CardDescription>Overview of the payment request pipeline.</CardDescription>
+        <CardTitle className="text-xl font-bold">Summary Overview</CardTitle>
+        <CardDescription>Key metrics across all payment and transaction types.</CardDescription>
       </CardHeader>
-      <CardContent className="pb-4">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+      <CardContent>
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+          {/* Payment Requests */}
           {paymentRequestKeys.map((key) => (
             <SummaryCardItem
               key={key}
@@ -186,17 +187,8 @@ const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
               currentCountry={currentCountry}
             />
           ))}
-        </div>
-      </CardContent>
-      
-      <Separator className="mx-6" />
-
-      <CardHeader className="pt-4">
-        <CardTitle className="text-xl font-bold">Transaction Management</CardTitle>
-        <CardDescription>Status of transactions requiring user input.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          
+          {/* Transaction Management */}
           {transactionKeys.map((key) => (
             <SummaryCardItem
               key={key}
@@ -205,19 +197,8 @@ const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
               currentCountry={currentCountry}
             />
           ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
 
-  const renderRecurringPayments = () => (
-    <Card className="shadow-sm h-full">
-      <CardHeader>
-        <CardTitle className="text-xl font-bold">Recurring Payments</CardTitle>
-        <CardDescription>Status of standing orders and direct debits.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+          {/* Recurring Payments */}
           {recurringPaymentKeys.map((key) => (
             <SummaryCardItem
               key={key}
@@ -231,7 +212,14 @@ const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
     </Card>
   );
 
-  return { renderPaymentAndTransactionManagement, renderRecurringPayments };
+  // We still return the old functions for compatibility with DashboardMainContent, 
+  // but we will update DashboardMainContent to only use the new combined function.
+  return { 
+    renderPaymentRequests: () => null, // Placeholder
+    renderTransactionManagement: () => null, // Placeholder
+    renderRecurringPayments: () => null, // Placeholder
+    renderAllSummaryCards 
+  };
 };
 
 export default DashboardSummaryCards;
