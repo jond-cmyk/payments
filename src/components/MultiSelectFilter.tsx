@@ -113,18 +113,17 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
                     <CommandItem
                       key={option.value}
                       value={option.label}
-                      onSelect={(currentValue) => {
-                        // Prevent the default closing behavior of CommandItem
-                        // by manually handling the selection and preventing propagation/default.
-                        handleSelect(option.value);
-                        // We explicitly do NOT call setOpen(false) here.
-                      }}
+                      onSelect={() => handleSelect(option.value)}
+                      // IMPORTANT: Prevent the default behavior (which closes the popover)
+                      // by stopping the blur event propagation when clicking inside the item.
+                      onMouseDown={(e) => e.preventDefault()}
                       className="flex items-center justify-between"
                     >
                       <div className="flex items-center space-x-2">
                         <Checkbox
                           checked={isSelected}
-                          onCheckedChange={() => handleSelect(option.value)}
+                          // We rely on CommandItem's onSelect (which is triggered by click)
+                          // to call handleSelect, so we don't need onCheckedChange here.
                         />
                         <span>{option.label}</span>
                       </div>
