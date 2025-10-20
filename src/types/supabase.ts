@@ -132,6 +132,7 @@ export type DirectDebit = {
   status: DirectDebitStatus;
   country: string;
   bank_account: string | null;
+  currency?: string | null; // NEW: Added currency
 };
 
 /** Direct Debit Audits */

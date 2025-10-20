@@ -60,6 +60,17 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
     editForm.setValue("total_amount", newTotal, { shouldValidate: true });
   }, [watchedCategories, editForm]);
 
+  // Effect to update currency when country changes in the form
+  React.useEffect(() => {
+    const newCurrency = formCountry === 'United Kingdom' ? 'GBP' : 'CHF';
+    // Only set value if the country is UK (to enforce GBP) or if the current value is empty/null (to enforce CHF default)
+    if (formCountry === 'United Kingdom' && editForm.getValues('currency') !== 'GBP') {
+        editForm.setValue('currency', 'GBP', { shouldValidate: true });
+    } else if (formCountry === 'Switzerland' && !editForm.getValues('currency')) {
+        editForm.setValue('currency', 'CHF', { shouldValidate: true });
+    }
+  }, [formCountry, editForm]);
+
   // Filter category options based on the selected country in the form
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
@@ -206,31 +217,39 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
               </div>
             </Card>
 
-            {/* MOVED: Currency field here */}
-            <FormField
-              control={editForm.control}
-              name="currency"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <SelectTrigger>
-                      <FormControl>
-                        <SelectValue placeholder="Select a currency" />
-                      </FormControl>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {majorCurrencies.map((currency) => (
-                        <SelectItem key={currency.value} value={currency.value}>
-                          {currency.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Currency field: Conditional rendering */}
+            {formCountry !== 'United Kingdom' ? (
+              <FormField
+                control={editForm.control}
+                name="currency"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <SelectTrigger>
+                        <FormControl>
+                          <SelectValue placeholder="Select a currency" />
+                        </FormControl>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {majorCurrencies.map((currency) => (
+                          <SelectItem key={currency.value} value={currency.value}>
+                            {currency.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            ) : (
+              <div className="space-y-2">
+                <FormLabel className="font-semibold">Currency</FormLabel>
+                <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
+                <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
+              </div>
+            )}
 
             <FormField
               control={editForm.control}

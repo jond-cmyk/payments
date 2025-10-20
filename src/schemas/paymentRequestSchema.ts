@@ -90,11 +90,31 @@ export const editFormSchema = z.object({
     } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku_number)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `SKU Number must be '${skuPrefix}' followed by numbers.` ,
+        message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
         path: ['sku_number'],
       });
     }
   }
+
+  // NEW: Currency validation based on country
+  if (data.country === 'United Kingdom') {
+    if (data.currency !== 'GBP') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency must be GBP for United Kingdom.",
+        path: ['currency'],
+      });
+    }
+  } else if (data.country === 'Switzerland') {
+    if (!data.currency || data.currency.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required for Switzerland.",
+        path: ['currency'],
+      });
+    }
+  }
+  // Note: For other countries, currency is required by z.string().min(1)
 
   // Conditional validation for bank details based on country
   if (data.country === 'United Kingdom') {
@@ -119,7 +139,6 @@ export const editFormSchema = z.object({
         path: ['bank_account_name'],
       });
     }
-    // Ensure IBAN is not provided for UK
     if (data.iban_number && data.iban_number.trim() !== '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -135,7 +154,6 @@ export const editFormSchema = z.object({
         path: ['iban_number'],
       });
     }
-    // Ensure UK bank details are not provided for non-UK countries
     if (data.sort_code && data.sort_code.trim() !== '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

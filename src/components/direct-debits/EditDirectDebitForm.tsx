@@ -11,6 +11,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { DirectDebit } from '@/types/supabase';
+import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // Import majorCurrencies
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,6 +42,7 @@ const editDirectDebitFormSchema = z.object({
   }).default('active'),
   country: z.string().min(1, "Country is required."),
   bank_account: z.string().optional(),
+  currency: z.string().optional(), // NEW: Currency field
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -62,6 +64,23 @@ const editDirectDebitFormSchema = z.object({
         code: z.ZodIssueCode.custom,
         message: `SKU must be '${skuPrefix}' followed by numbers.`,
         path: ['sku'],
+      });
+    }
+  }
+
+  if (data.country === 'Switzerland') {
+    if (!data.bank_account || data.bank_account.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account is required for Switzerland.",
+        path: ['bank_account'],
+      });
+    }
+    if (!data.currency || data.currency.trim() === '') { // Currency required for CH
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required for Switzerland.",
+        path: ['currency'],
       });
     }
   }
@@ -97,6 +116,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
       status: directDebit.status,
       country: directDebit.country,
       bank_account: directDebit.bank_account || undefined,
+      currency: directDebit.currency || undefined, // NEW: Set currency default
     },
   });
 
@@ -137,6 +157,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           status: values.status,
           country: values.country,
           bank_account: values.country === 'Switzerland' ? values.bank_account : null,
+          currency: values.country === 'Switzerland' ? values.currency : null, // NEW: Conditionally save currency
           updated_at: new Date().toISOString(),
           payment_day: values.payment_day, // Store the payment_day directly
         })
@@ -296,6 +317,32 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             </FormItem>
           )}
         />
+        {formCountry === 'Switzerland' && (
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select a currency" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {majorCurrencies.map((currency) => (
+                      <SelectItem key={currency.value} value={currency.value}>
+                        {currency.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         {formCountry === 'Switzerland' && (
           <FormField
             control={form.control}

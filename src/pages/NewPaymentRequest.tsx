@@ -155,7 +155,7 @@ const NewPaymentRequest = () => {
   const [isSearchingSupplier, setIsSearchingSupplier] = useState(false);
 
   const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
-  const defaultCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
+  const initialCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -169,7 +169,7 @@ const NewPaymentRequest = () => {
       sort_code: currentCountry === 'United Kingdom' ? "" : "",
       account_number: currentCountry === 'United Kingdom' ? "" : "",
       bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
-      currency: defaultCurrency,
+      currency: initialCurrency,
       total_amount: 0.00, // CHANGED
       notes: "", // CHANGED: Renamed from reason_for_payment
       date_payment_required: undefined,
@@ -208,23 +208,23 @@ const NewPaymentRequest = () => {
 
   // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
-    const newSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
-    const newCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
+    const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
+    const newCurrency = formCountry === 'United Kingdom' ? 'GBP' : 'CHF';
 
     form.reset((prev) => ({
       ...prev,
       sku_number: newSkuPrefix,
       currency: newCurrency,
-      iban_number: currentCountry === 'United Kingdom' ? "" : "",
-      sort_code: currentCountry === 'United Kingdom' ? "" : "",
-      account_number: currentCountry === 'United Kingdom' ? "" : "",
-      bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
-      country: currentCountry,
+      iban_number: formCountry === 'United Kingdom' ? "" : "",
+      sort_code: formCountry === 'United Kingdom' ? "" : "",
+      account_number: formCountry === 'United Kingdom' ? "" : "",
+      bank_account_name: formCountry === 'United Kingdom' ? "" : "",
+      country: formCountry,
       categories: [{ category: "", amount: 0 }], // Reset categories
       total_amount: 0, // Reset total amount
       bank_details_verified: false,
     }));
-  }, [currentCountry, form]);
+  }, [formCountry, form]);
 
 
   if (isLoading) {
@@ -345,6 +345,9 @@ const NewPaymentRequest = () => {
         uploadedInvoiceUrls.push(publicUrlData.publicUrl);
       }
 
+      // Determine final currency value
+      const finalCurrency = values.country === 'United Kingdom' ? 'GBP' : values.currency;
+
       // Prepare bank details based on country
       const bankDetails = values.country === 'United Kingdom'
         ? {
@@ -371,7 +374,7 @@ const NewPaymentRequest = () => {
           lease_id: values.lease_id || null, // Include lease_id, set to null if empty
           supplier_address: values.supplier_address,
           ...bankDetails, // Spread the conditional bank details
-          currency: values.currency,
+          currency: finalCurrency, // Use final currency
           total_amount: values.total_amount, // CHANGED: Use total_amount
           reason_for_payment: values.notes || null, // CHANGED: Use notes, set to null if optional/empty
           date_payment_required: values.date_payment_required.toISOString().split('T')[0],
@@ -393,7 +396,7 @@ const NewPaymentRequest = () => {
       form.reset({
         supplier_name: "", // Reset supplier name
         sku_number: defaultSkuPrefix,
-        currency: defaultCurrency,
+        currency: initialCurrency,
         total_amount: 0.00, // Reset total amount
         receipt_required: false,
         is_urgent: false,
@@ -569,31 +572,39 @@ const NewPaymentRequest = () => {
                 </div>
               </Card>
 
-              {/* MOVED: Currency field here */}
-              <FormField
-                control={form.control}
-                name="currency"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <SelectTrigger>
-                        <FormControl>
-                          <SelectValue placeholder="Select a currency" />
-                        </FormControl>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {majorCurrencies.map((currency) => (
-                          <SelectItem key={currency.value} value={currency.value}>
-                            {currency.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Currency field: Conditional rendering */}
+              {formCountry !== 'United Kingdom' ? (
+                <FormField
+                  control={form.control}
+                  name="currency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <SelectTrigger>
+                          <FormControl>
+                            <SelectValue placeholder="Select a currency" />
+                          </FormControl>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {majorCurrencies.map((currency) => (
+                            <SelectItem key={currency.value} value={currency.value}>
+                              {currency.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              ) : (
+                <div className="space-y-2">
+                  <FormLabel className="font-semibold">Currency</FormLabel>
+                  <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
+                  <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
+                </div>
+              )}
 
               <FormField
                 control={form.control}

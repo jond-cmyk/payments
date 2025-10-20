@@ -11,6 +11,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { StandingOrder } from '@/types/supabase';
+import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // Import majorCurrencies
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +55,8 @@ const updateStandingOrderFormSchema = z.object({
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
   total_amount: z.coerce.number().min(0.01, "Total amount must be positive."),
   payment_day: z.string().optional().nullable(),
+  currency: z.string().optional(), // NEW: Add currency field
+  bank_account: z.string().optional(), // NEW: Add bank_account field
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -140,6 +143,24 @@ const updateStandingOrderFormSchema = z.object({
     }
   }
 
+  // NEW: Conditional validation for Switzerland-specific fields
+  if (data.country === 'Switzerland') {
+    if (!data.currency || data.currency.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required for Switzerland.",
+        path: ['currency'],
+      });
+    }
+    if (!data.bank_account || data.bank_account.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account is required for Switzerland.",
+        path: ['bank_account'],
+      });
+    }
+  }
+
   // NEW: End date must be after start date if provided
   if (data.payment_end_date && data.payment_end_date < data.payment_date) {
     ctx.addIssue({
@@ -181,6 +202,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       country: standingOrder.country,
       bank_details_verified: standingOrder.bank_details_verified,
       payment_day: standingOrder.payment_day ? String(standingOrder.payment_day) : undefined,
+      currency: standingOrder.currency || undefined, // NEW: Set currency default
+      bank_account: standingOrder.bank_account || undefined, // NEW: Set bank_account default
     },
   });
 
@@ -250,6 +273,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           country: values.country,
           bank_details_verified: values.bank_details_verified,
           payment_day: values.payment_day ? parseInt(values.payment_day) : null,
+          currency: values.country === 'Switzerland' ? values.currency : null, // NEW: Conditionally save currency
+          bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
           updated_at: new Date().toISOString(),
         })
         .eq('id', standingOrder.id);
@@ -463,7 +488,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     <FormItem className="flex-1 w-full">
                       <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="Amount" {...field} onChange={(e) => field.onChange(parseFloat(e.target.value))} disabled={!isAdmin} />
+                        <Input type="text" step="0.01" placeholder="Amount" {...field} onChange={(e) => field.onChange(e.target.value === "" ? 0 : e.target.value)} disabled={!isAdmin} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -505,6 +530,33 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           </div>
         </Card>
 
+        {formCountry === 'Switzerland' && (
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select a currency" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {majorCurrencies.map((currency) => (
+                      <SelectItem key={currency.value} value={currency.value}>
+                        {currency.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
         <FormField
           control={form.control}
           name="account_name"
@@ -532,8 +584,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                       placeholder="e.g., 12-34-56"
                       {...field}
                       onChange={(e) => {
-                        let value = e.target.value.replace(/\D/g, '');
-                        if (value.length > 6) value = value.substring(0, 6);
+                        let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                        if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
                         if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
                         else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                         field.onChange(value);
@@ -559,8 +611,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                       placeholder="e.g., 1234 5678"
                       {...field}
                       onChange={(e) => {
-                        let value = e.target.value.replace(/\D/g, '');
-                        if (value.length > 8) value = value.substring(0, 8);
+                        let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                        if (value.length > 8) value = value.substring(0, 8); // Max 8 digits
                         if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
                         field.onChange(value);
                       }}
@@ -604,6 +656,31 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               )}
             />
           </>
+        )}
+
+        {formCountry === 'Switzerland' && (
+          <FormField
+            control={form.control}
+            name="bank_account"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select a bank account" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
+                    <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
+                    <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         )}
 
         <FormField

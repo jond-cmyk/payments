@@ -11,6 +11,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { StandingOrder } from '@/types/supabase'; // Import StandingOrder type for suggestions
+import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // Import majorCurrencies
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,9 +53,11 @@ const addStandingOrderFormSchema = z.object({
     required_error: "Status is required.",
   }).default('awaiting_info'), // Default to 'awaiting_info'
   country: z.string().min(1, "Country is required."),
-  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
+  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
   total_amount: z.coerce.number().min(0.01, "Total amount must be positive."), // Added total_amount to schema
   payment_day: z.string().optional(), // Add payment_day to schema
+  currency: z.string().optional(), // NEW: Add currency field
+  bank_account: z.string().optional(), // NEW: Add bank_account field
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -143,6 +146,24 @@ const addStandingOrderFormSchema = z.object({
     }
   }
 
+  // NEW: Conditional validation for Switzerland-specific fields
+  if (data.country === 'Switzerland') {
+    if (!data.currency || data.currency.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required for Switzerland.",
+        path: ['currency'],
+      });
+    }
+    if (!data.bank_account || data.bank_account.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account is required for Switzerland.",
+        path: ['bank_account'],
+      });
+    }
+  }
+
   // NEW: End date must be after start date if provided
   if (data.payment_end_date && data.payment_end_date < data.payment_date) {
     ctx.addIssue({
@@ -165,13 +186,15 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
   const [isSearchingPayee, setIsSearchingPayee] = useState(false);
 
+  const initialCountry = currentCountry === 'all' ? 'Switzerland' : currentCountry;
+
   const form = useForm<z.infer<typeof addStandingOrderFormSchema>>({
     resolver: zodResolver(addStandingOrderFormSchema),
     defaultValues: {
       payee: "",
       payment_date: undefined,
       payment_end_date: undefined, // NEW
-      sku: currentCountry === 'United Kingdom' ? 'UK' : 'CH',
+      sku: initialCountry === 'United Kingdom' ? 'UK' : 'CH',
       not_property_related: false,
       categories: [{ category: "", amount: 0 }], // Initialize with one mandatory category
       account_name: "",
@@ -183,10 +206,12 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       to_day: "31", // Default to 31st day
       payment_reference: "",
       status: "awaiting_info", // Default to 'awaiting_info'
-      country: currentCountry === 'all' ? 'Switzerland' : currentCountry, // Default to Switzerland if 'all' is selected
+      country: initialCountry, // Default to Switzerland if 'all' is selected
       bank_details_verified: false,
       total_amount: 0, // Initialize total amount
       payment_day: undefined, // Add payment_day to default values
+      currency: initialCountry === 'Switzerland' ? 'CHF' : undefined, // NEW: Default currency for CH
+      bank_account: undefined, // NEW: Default bank account
     },
   });
 
@@ -221,11 +246,11 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
 
   // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
-    const newSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
+    const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
     form.reset((prev) => ({
       ...prev,
       sku: newSkuPrefix,
-      country: currentCountry === 'all' ? 'Switzerland' : currentCountry,
+      country: formCountry,
       account_address: "",
       iban_number: "",
       sort_code: "",
@@ -233,8 +258,10 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       bank_details_verified: false,
       categories: [{ category: "", amount: 0 }], // Reset categories
       total_amount: 0, // Reset total amount
+      currency: formCountry === 'Switzerland' ? 'CHF' : undefined, // Reset currency
+      bank_account: undefined, // Reset bank account
     }));
-  }, [currentCountry, form]);
+  }, [formCountry, form]);
 
   const handlePayeeBlur = async () => {
     const payeeName = form.getValues('payee');
@@ -293,6 +320,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     form.setValue('bank_details_verified', false); // Reset verified status when using suggestion
     form.setValue('categories', suggestion.categories); // Set categories from suggestion
     form.setValue('total_amount', suggestion.total_amount); // Set total amount from suggestion
+    form.setValue('currency', suggestion.currency || undefined); // Set currency from suggestion
+    form.setValue('bank_account', suggestion.bank_account || undefined); // Set bank_account from suggestion
     // Close the dialog
     setIsSuggestionDialogOpen(false);
   };
@@ -340,6 +369,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           country: values.country,
           bank_details_verified: values.bank_details_verified,
           payment_day: values.payment_day ? parseInt(values.payment_day) : null, // Add payment_day to insert
+          currency: values.country === 'Switzerland' ? values.currency : null, // NEW: Conditionally save currency
+          bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
         });
 
       if (insertError) {
@@ -368,6 +399,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         country: formCountry,
         bank_details_verified: false,
         payment_day: undefined, // Reset payment_day
+        currency: formCountry === 'Switzerland' ? 'CHF' : undefined, // Reset currency
+        bank_account: undefined, // Reset bank account
       });
       onStandingOrderAdded();
     } catch (error: any) {
@@ -572,8 +605,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                     <FormItem className="flex-1 w-full">
                       <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="Amount" {...field}
-                          onChange={(e) => field.onChange(parseFloat(e.target.value))} />
+                        <Input type="text" step="0.01" placeholder="Amount" {...field}
+                          onChange={(e) => field.onChange(e.target.value === "" ? 0 : e.target.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -613,6 +646,33 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             />
           </div>
         </Card>
+
+        {formCountry === 'Switzerland' && (
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select a currency" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {majorCurrencies.map((currency) => (
+                      <SelectItem key={currency.value} value={currency.value}>
+                        {currency.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
 
         <FormField
           control={form.control}
@@ -711,6 +771,31 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
               )}
             />
           </>
+        )}
+
+        {formCountry === 'Switzerland' && (
+          <FormField
+            control={form.control}
+            name="bank_account"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select a bank account" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
+                    <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
+                    <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         )}
 
         <FormField
