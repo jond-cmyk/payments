@@ -102,7 +102,12 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[300px] p-0" align="start">
+        <PopoverContent 
+          className="w-[300px] p-0" 
+          align="start"
+          // FIX: Prevent the popover from closing by stopping the blur event on the trigger
+          onMouseDown={(e) => e.preventDefault()}
+        >
           <Command>
             <CommandInput placeholder={`Search ${label}...`} />
             <CommandList>
