@@ -522,12 +522,12 @@ const NewPaymentRequest = () => {
                             <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                             <FormControl>
                               <Input 
-                                type="number" 
+                                type="text" // CHANGED to text to prevent browser truncation issues
                                 step="0.01" 
                                 placeholder="Amount" 
                                 {...field}
-                                // FIX: Use e.target.value directly to ensure full string is passed to onChange
-                                onChange={(e) => field.onChange(e.target.value === "" ? 0 : parseFloat(e.target.value))} 
+                                // Pass raw string or 0 to field.onChange, Zod will coerce it to number
+                                onChange={(e) => field.onChange(e.target.value === "" ? 0 : e.target.value)} 
                               />
                             </FormControl>
                             <FormMessage />
