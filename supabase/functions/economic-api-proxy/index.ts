@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.12"); // Updated version
+    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.13 (Recreated)"); // Updated version
     console.log("[economic-proxy] Incoming request headers:", JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
 
     const rawBody = await req.text();
