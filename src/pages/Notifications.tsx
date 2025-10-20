@@ -9,7 +9,7 @@ import { Notification as NotificationType, PaymentRequest } from '@/types/supaba
 import { format } from 'date-fns';
 import { Bell, CheckCircle, MailOpen, Trash2, XCircle, RotateCcw } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { cleanAndCapitalizeStatus } from '@/utils/formatters'; // Import the new formatter
+import { cleanAndCapitalizeStatus, formatAuditDescription } from '@/utils/formatters'; // Import formatAuditDescription
 
 import {
   Card,
@@ -181,54 +181,7 @@ const NotificationsPage = () => {
     },
   });
 
-  // Helper function to format notification messages
-  const formatNotificationMessage = (message: string): React.ReactNode => {
-    // Pattern to match "status changed from "OLD_STATUS" to "NEW_STATUS""
-    const statusChangePattern = /status changed from "([^"]+)" to "([^"]+)"/g;
-    // Pattern to match "was marked as URGENT/not urgent"
-    const urgentStatusPattern = /was marked as (URGENT|not urgent)/g;
-
-    let formattedText: (string | React.ReactNode)[] = [];
-    let currentIndex = 0;
-    let match;
-
-    // Process status changes
-    while ((match = statusChangePattern.exec(message)) !== null) {
-      if (match.index > currentIndex) {
-        formattedText.push(message.substring(currentIndex, match.index));
-      }
-      const oldStatus = cleanAndCapitalizeStatus(match[1]);
-      const newStatus = cleanAndCapitalizeStatus(match[2]);
-      formattedText.push(
-        <React.Fragment key={`status-change-${match.index}`}>
-          status changed from <strong>{oldStatus}</strong> to <strong>{newStatus}</strong>
-        </React.Fragment>
-      );
-      currentIndex = match.index + match[0].length;
-    }
-
-    // Process urgent status changes
-    urgentStatusPattern.lastIndex = 0; // Reset regex for new pass
-    while ((match = urgentStatusPattern.exec(message)) !== null) {
-      if (match.index > currentIndex) {
-        formattedText.push(message.substring(currentIndex, match.index));
-      }
-      const urgentStatus = match[1];
-      formattedText.push(
-        <React.Fragment key={`urgent-status-${match.index}`}>
-          was marked as <strong>{urgentStatus.toUpperCase()}</strong>
-        </React.Fragment>
-      );
-      currentIndex = match.index + match[0].length;
-    }
-
-    // Add any remaining text
-    if (currentIndex < message.length) {
-      formattedText.push(message.substring(currentIndex));
-    }
-
-    return <>{formattedText}</>;
-  };
+  // REMOVED: formatNotificationMessage function, now using formatAuditDescription
 
   if (isSessionLoading || isNotificationsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading notifications...</div>;
@@ -329,7 +282,7 @@ const NotificationsPage = () => {
                         {format(new Date(notification.created_at), 'MMM dd, yyyy HH:mm')}
                       </span>
                     </div>
-                    <p className="text-sm mt-1">{formatNotificationMessage(notification.message)}</p>
+                    <p className="text-sm mt-1">{formatAuditDescription(notification.message)}</p> {/* Use the enhanced formatter */}
                     {notification.link && (
                       <Button asChild variant="link" className="p-0 h-auto mt-2 text-sm">
                         <Link to={notification.link} onClick={() => markAsReadMutation.mutate(notification.id)}>

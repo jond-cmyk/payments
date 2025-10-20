@@ -40,6 +40,7 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
   const patterns = [
     {
       name: 'statusChange',
+      // Regex to capture the old and new status values, handling escaped quotes
       regex: /Status changed from \\"([^"]+)\\" to \\"([^"]+)\\"\.?/g,
       formatter: (match: RegExpExecArray) => (
         <React.Fragment key={`status-change-${match.index}`}>
@@ -50,7 +51,8 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
     },
     {
       name: 'newStatusCreation',
-      regex: /New (Standing Order|Direct Debit|transaction) created with status: \\"([^"]+)\\"\.?/g,
+      // Regex to capture the entity type and status, handling escaped quotes
+      regex: /New (Payment Request|Standing Order|Direct Debit|transaction) created with status: \\"([^"]+)\\"\.?/g,
       formatter: (match: RegExpExecArray) => (
         <React.Fragment key={`new-status-creation-${match.index}`}>
           New {match[1]} created with status: <strong>{cleanAndCapitalizeStatus(match[2])}</strong>.
@@ -60,10 +62,21 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
     },
     {
       name: 'simpleCreation',
-      regex: /New (Standing Order|Direct Debit|transaction) created./g,
+      regex: /New (Payment Request|Standing Order|Direct Debit|transaction) created./g,
       formatter: (match: RegExpExecArray) => (
         <React.Fragment key={`simple-creation-${match.index}`}>
           New {match[1]} created.
+        </React.Fragment>
+      ),
+      filter: false,
+    },
+    {
+      name: 'urgentStatusChange',
+      // Regex to capture the urgent status (URGENT or not urgent)
+      regex: /was marked as (URGENT|not urgent)/g,
+      formatter: (match: RegExpExecArray) => (
+        <React.Fragment key={`urgent-status-${match.index}`}>
+          was marked as <strong>{match[1].toUpperCase()}</strong>
         </React.Fragment>
       ),
       filter: false,
@@ -80,7 +93,7 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
       formatter: (match: RegExpExecArray) => null, // Filter this out
       filter: true,
     },
-    { // NEW: Handle generic update message for Standing Orders
+    { // Handle generic update message for Standing Orders
       name: 'standingOrderGenericUpdate',
       regex: /Standing Order updated \(description was unexpectedly null\)\.?/g,
       formatter: (match: RegExpExecArray) => (
@@ -90,7 +103,7 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
       ),
       filter: false,
     },
-    { // NEW: Handle generic update message for Transactions
+    { // Handle generic update message for Transactions
       name: 'transactionGenericUpdate',
       regex: /Transaction updated \(description was unexpectedly null\)\.?/g,
       formatter: (match: RegExpExecArray) => (
@@ -100,7 +113,7 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
       ),
       filter: false,
     },
-    { // NEW: Handle generic update message for Direct Debits
+    { // Handle generic update message for Direct Debits
       name: 'directDebitGenericUpdate',
       regex: /Direct Debit updated \(description was unexpectedly null\)\.?/g,
       formatter: (match: RegExpExecArray) => (
@@ -119,6 +132,7 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
     originalText: string;
   }[] = [];
 
+  // Collect all matches from all patterns
   for (const pattern of patterns) {
     let match;
     pattern.regex.lastIndex = 0; // Reset for each pattern
@@ -141,6 +155,7 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
   for (const matchInfo of allMatches) {
     // Add text before the current match
     if (matchInfo.index > currentIndex) {
+      // Clean up preceding text: remove escaped quotes and backslashes
       const precedingText = description.substring(currentIndex, matchInfo.index).replace(/\\"/g, '"').replace(/\\/g, '');
       if (precedingText.trim().length > 0) { // Only add if there's meaningful text
         formattedParts.push(precedingText);
@@ -157,6 +172,7 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
 
   // Add any remaining text after the last match
   if (currentIndex < description.length) {
+    // Clean up remaining text: remove escaped quotes and backslashes
     const remainingText = description.substring(currentIndex).replace(/\\"/g, '"').replace(/\\/g, '');
     if (remainingText.trim().length > 0) { // Only add if there's meaningful text
       formattedParts.push(remainingText);
