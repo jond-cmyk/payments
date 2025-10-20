@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log("[economic-proxy] --- FUNCTION START ---"); // NEW: Very first log
+  console.log("[economic-proxy] --- FUNCTION START ---");
   console.log("[economic-proxy] Request URL:", req.url);
   console.log("[economic-proxy] Request Method:", req.method);
 
@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.10"); // Updated version to trigger redeployment
+    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.11"); // Updated version
     console.log("[economic-proxy] Incoming request headers:", JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
 
     const rawBody = await req.text();
@@ -35,7 +35,6 @@ serve(async (req) => {
       );
     }
 
-    // NEW: Specific check for the problematic payload
     if (parsedPayload && typeof parsedPayload === 'object' && parsedPayload.name === 'Functions' && Object.keys(parsedPayload).length === 1) {
       console.error("[economic-proxy] Received generic 'Functions' payload. This indicates an incorrect invocation or missing body from the client.");
       return new Response(
@@ -114,6 +113,24 @@ serve(async (req) => {
       payload = JSON.parse(text);
     } catch {
       // keep as text
+    }
+
+    // IMPORTANT: If the response is not OK, return the full response body and status code
+    if (!response.ok) {
+      console.error(`[economic-proxy] Non-2xx status detected: ${response.status}. Returning full error payload.`);
+      return new Response(
+        JSON.stringify({
+          ok: response.ok,
+          status: response.status,
+          data: payload,
+          error: `e-conomic API returned status ${response.status}`,
+          request: {
+            url,
+            method: methodUpper,
+          },
+        }),
+        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(
