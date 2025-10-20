@@ -54,6 +54,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
+import MultiSelectFilter from '@/components/MultiSelectFilter'; // NEW IMPORT
 
 const ITEMS_PER_PAGE = 10;
 
@@ -62,15 +63,15 @@ const StandingOrders = () => {
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams(); // NEW: Read URL parameters
+  const [searchParams] = useSearchParams();
   const [isAddStandingOrderDialogOpen, setIsAddStandingOrderDialogOpen] = useState(false);
   const [isEditStandingOrderDialogOpen, setIsEditStandingOrderDialogOpen] = useState(false);
   const [editingStandingOrder, setEditingStandingOrder] = useState<StandingOrder | null>(null);
 
   // Filter states (debounced for query)
   const [filterPayee, setFilterPayee] = useState<string>('');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<StandingOrder['status'] | 'all'>('all');
+  const [filterCategories, setFilterCategories] = useState<string[]>([]); // CHANGED: Array state
+  const [filterStatuses, setFilterStatuses] = useState<StandingOrder['status'][]>([]); // CHANGED: Array state
   const [filterSku, setFilterSku] = useState<string>('');
   const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
@@ -94,13 +95,28 @@ const StandingOrders = () => {
   const [sortColumn, setSortColumn] = useState<keyof StandingOrder>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
+  // Define options for MultiSelectFilter
+  const statusOptions = [
+    { value: 'all', label: 'All Statuses' },
+    { value: 'awaiting_info', label: 'Awaiting Info' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'active', label: 'Active' },
+    { value: 'paused', label: 'Paused' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
+
+  const categoryFilterOptions = [
+    { value: 'all', label: 'All Categories' },
+    ...categoryOptions.map(opt => ({ value: opt.value, label: opt.label }))
+  ];
+
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
     const statusParam = searchParams.get('status');
-    if (statusParam && (statusParam === 'active' || statusParam === 'cancelled' || statusParam === 'paused' || statusParam === 'pending' || statusParam === 'awaiting_info')) {
-      setFilterStatus(statusParam);
+    if (statusParam) {
+      setFilterStatuses([statusParam as StandingOrder['status']]);
     } else {
-      setFilterStatus('all');
+      setFilterStatuses([]); // Default to empty array, meaning no status filter applied initially
     }
     setCurrentPage(1);
   }, [searchParams]); // Depend on searchParams
@@ -135,7 +151,7 @@ const StandingOrders = () => {
 
   // Fetch Standing Orders
   const { data: standingOrders, isLoading: isStandingOrdersLoading, error: standingOrdersError } = useQuery<StandingOrder[]>({
-    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategory, filterStatus, filterSku, filterPaymentReference, filterStartDate, filterEndDate, filterPaymentDay, sortColumn, sortDirection, currentPage, itemsPerPage],
+    queryKey: ['standingOrders', currentCountry, filterPayee, filterCategories, filterStatuses, filterSku, filterPaymentReference, filterStartDate, filterEndDate, filterPaymentDay, sortColumn, sortDirection, currentPage, itemsPerPage],
     queryFn: async () => {
       if (!session) return [];
 
@@ -157,10 +173,20 @@ const StandingOrders = () => {
       if (filterPayee) {
         query = query.ilike('payee', `%${filterPayee}%`);
       }
-      if (filterCategory !== 'all') {
-        // Filter by category within the JSONB array
-        query = query.contains('categories', [{ category: filterCategory }]);
+      
+      // Multi-select Status filter
+      const nonAllStatuses = filterStatuses.filter(s => s !== 'all');
+      if (nonAllStatuses.length > 0) {
+        query = query.in('status', nonAllStatuses);
       }
+
+      // Multi-select Category filter
+      const nonAllCategories = filterCategories.filter(c => c !== 'all');
+      if (nonAllCategories.length > 0) {
+        // Filter by category within the JSONB array
+        query = query.contains('categories', nonAllCategories.map(category => ({ category })));
+      }
+
       // NEW: Apply date range filters
       if (filterStartDate) {
         query = query.gte('payment_date', format(filterStartDate, 'yyyy-MM-dd'));
@@ -168,9 +194,7 @@ const StandingOrders = () => {
       if (filterEndDate) {
         query = query.lte('payment_date', format(filterEndDate, 'yyyy-MM-dd'));
       }
-      if (filterStatus !== 'all') {
-        query = query.eq('status', filterStatus);
-      }
+      
       if (filterSku) {
         query = query.ilike('sku', `%${filterSku}%`);
       }
@@ -279,8 +303,8 @@ const StandingOrders = () => {
   const clearFilters = () => {
     setFilterPayee('');
     setLocalFilterPayee('');
-    setFilterCategory('all');
-    setFilterStatus('all');
+    setFilterCategories([]); // Reset to empty array
+    setFilterStatuses([]); // Reset to empty array
     setFilterSku('');
     setLocalFilterSku('');
     setFilterPaymentReference('');
@@ -292,7 +316,7 @@ const StandingOrders = () => {
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined || filterPaymentDay !== undefined;
+  const hasActiveFilters = filterPayee !== '' || filterCategories.length > 0 || filterStatuses.length > 0 || filterSku !== '' || filterPaymentReference !== '' || filterStartDate !== undefined || filterEndDate !== undefined || filterPaymentDay !== undefined;
 
   const getStatusBadge = (status: StandingOrder['status']) => {
     let className = '';
@@ -396,7 +420,7 @@ const StandingOrders = () => {
   const totalPages = itemsPerPage === -1 ? 1 : Math.ceil(totalItems / itemsPerPage); // Handle show all case
 
   const renderPaginationItems = () => {
-    if (itemsPerPage === -1) return null; // No pagination if showing all
+    if (itemsPerPage === -1 || totalPages <= 1) return null; // No pagination if showing all
 
     const items = [];
     const maxPagesToShow = 5;
@@ -524,7 +548,7 @@ const StandingOrders = () => {
           <div className="mb-4 p-4 border rounded-md bg-gray-50 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-800">Filter Standing Orders</h3>
-              {/* NEW: Records per page selector */}
+              {/* Records per page selector */}
               <div className="flex items-center gap-2">
                 <label htmlFor="items-per-page" className="text-sm font-medium text-gray-700">
                   Records per page:
@@ -596,22 +620,13 @@ const StandingOrders = () => {
                   className="w-full"
                 />
               </div>
-              <div>
-                <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <Select value={filterCategory} onValueChange={(value) => { setFilterCategory(value); setCurrentPage(1); }}>
-                  <SelectTrigger id="category-filter" className="w-full">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categoryOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <MultiSelectFilter
+                label="Category"
+                placeholder="Select Categories"
+                options={categoryFilterOptions}
+                selectedValues={filterCategories}
+                onValueChange={(values) => { setFilterCategories(values); setCurrentPage(1); }}
+              />
               <div>
                 <label htmlFor="payment-day-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Day</label>
                 <Select 
@@ -634,22 +649,13 @@ const StandingOrders = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <Select value={filterStatus} onValueChange={(value: StandingOrder['status'] | 'all') => { setFilterStatus(value); setCurrentPage(1); }}>
-                  <SelectTrigger id="status-filter" className="w-full">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <MultiSelectFilter
+                label="Status"
+                placeholder="Select Statuses"
+                options={statusOptions}
+                selectedValues={filterStatuses}
+                onValueChange={(values) => { setFilterStatuses(values as StandingOrder['status'][]); setCurrentPage(1); }}
+              />
               {hasActiveFilters && (
                 <div className="col-span-full flex justify-end">
                   <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">

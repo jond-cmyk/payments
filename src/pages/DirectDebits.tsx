@@ -54,6 +54,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
+import MultiSelectFilter from '@/components/MultiSelectFilter'; // NEW IMPORT
 
 const ITEMS_PER_PAGE = 10;
 
@@ -62,20 +63,17 @@ const DirectDebits = () => {
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams(); // NEW: Read URL parameters
+  const [searchParams] = useSearchParams();
   const [isAddDirectDebitDialogOpen, setIsAddDirectDebitDialogOpen] = useState(false);
   const [isEditDirectDebitDialogOpen, setIsEditDirectDebitDialogOpen] = useState(false);
   const [editingDirectDebit, setEditingDirectDebit] = useState<DirectDebit | null>(null);
 
   // Filter states (debounced for query)
   const [filterPayee, setFilterPayee] = useState<string>('');
-  const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [filterPaymentDate, setFilterPaymentDate] = useState<Date | undefined>(undefined);
-  const [filterStatus, setFilterStatus] = useState<DirectDebit['status'] | 'all'>('all');
+  const [filterCategories, setFilterCategories] = useState<string[]>([]); // CHANGED: Array state
+  const [filterStatuses, setFilterStatuses] = useState<DirectDebit['status'][]>([]); // CHANGED: Array state
   const [filterSku, setFilterSku] = useState<string>('');
   const [filterPaymentReference, setFilterPaymentReference] = useState<string>('');
-  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterPaymentDay, setFilterPaymentDay] = useState<number | undefined>(undefined);
   const [filterAccountNumber, setFilterAccountNumber] = useState<string>('');
 
@@ -88,29 +86,43 @@ const DirectDebits = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  // NEW: Page size selector with 'all' option
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(ITEMS_PER_PAGE);
 
-  // NEW: Row selection state
+  // Row selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const toggleRowSelection = useCallback((id: string, checked: boolean) => {
     setSelectedIds((prev) => checked ? Array.from(new Set([...prev, id])) : prev.filter((x) => x !== id));
   }, []);
 
-  // Sorting states - MOVED HERE
+  // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof DirectDebit | null>('payment_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Define options for MultiSelectFilter
+  const statusOptions = [
+    { value: 'all', label: 'All Statuses' },
+    { value: 'awaiting_info', label: 'Awaiting Info' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'active', label: 'Active' },
+    { value: 'paused', label: 'Paused' },
+    { value: 'cancelled', label: 'Cancelled' },
+  ];
+
+  const categoryFilterOptions = [
+    { value: 'all', label: 'All Categories' },
+    ...categoryOptions.map(opt => ({ value: opt.value, label: opt.label }))
+  ];
 
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
     const statusParam = searchParams.get('status');
-    if (statusParam && (statusParam === 'active' || statusParam === 'cancelled' || statusParam === 'paused' || statusParam === 'pending' || statusParam === 'awaiting_info')) {
-      setFilterStatus(statusParam);
+    if (statusParam) {
+      setFilterStatuses([statusParam as DirectDebit['status']]);
     } else {
-      setFilterStatus('all');
+      setFilterStatuses([]); // Default to empty array, meaning no status filter applied initially
     }
     setCurrentPage(1);
-  }, [searchParams]); // Depend on searchParams
+  }, [searchParams]);
 
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
@@ -126,7 +138,7 @@ const DirectDebits = () => {
   }, [filterPaymentReference]);
 
   useEffect(() => {
-    setLocalFilterAccountNumber(filterAccountNumber); // NEW: Sync account number local state
+    setLocalFilterAccountNumber(filterAccountNumber);
   }, [filterAccountNumber]);
 
   // Debounce for text inputs
@@ -144,14 +156,12 @@ const DirectDebits = () => {
 
   const isAdmin = userProfile?.role === 'admin';
 
-  // Fetch Direct Debits - MOVED AFTER ALL STATE INITIALIZATIONS
+  // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
-    // Now all variables used in queryKey are properly initialized
-    queryKey: ['directDebits', currentCountry, filterPayee, filterCategory, filterStatus, filterSku, filterPaymentReference, filterPaymentDay, filterAccountNumber, sortColumn, sortDirection, currentPage, itemsPerPage], // REMOVED: filterPaymentDate, filterStartDate, filterEndDate | NEW: filterAccountNumber
+    queryKey: ['directDebits', currentCountry, filterPayee, filterCategories, filterStatuses, filterSku, filterPaymentReference, filterPaymentDay, filterAccountNumber, sortColumn, sortDirection, currentPage, itemsPerPage],
     queryFn: async () => {
       if (!session) return [];
 
-      // NEW: Compute range only when not 'all'
       const from = itemsPerPage === 'all' ? 0 : (currentPage - 1) * (itemsPerPage as number);
       const to = itemsPerPage === 'all' ? null : from + (itemsPerPage as number) - 1;
 
@@ -170,24 +180,28 @@ const DirectDebits = () => {
       if (filterPayee) {
         query = query.ilike('payee', `%${filterPayee}%`);
       }
-      if (filterCategory !== 'all') {
-        query = query.eq('category', filterCategory);
+      
+      // Multi-select Status filter
+      const nonAllStatuses = filterStatuses.filter(s => s !== 'all');
+      if (nonAllStatuses.length > 0) {
+        query = query.in('status', nonAllStatuses);
       }
-      // REMOVED: payment date, start date, end date filters
-      if (filterStatus !== 'all') {
-        query = query.eq('status', filterStatus);
+
+      // Multi-select Category filter
+      const nonAllCategories = filterCategories.filter(c => c !== 'all');
+      if (nonAllCategories.length > 0) {
+        query = query.in('category', nonAllCategories);
       }
+
       if (filterSku) {
         query = query.ilike('sku', `%${filterSku}%`);
       }
       if (filterPaymentReference) {
         query = query.ilike('payment_reference', `%${filterPaymentReference}%`);
       }
-      // NEW: Apply Account Number filter
       if (filterAccountNumber) {
         query = query.ilike('account_number', `%${filterAccountNumber}%`);
       }
-      // NEW: Apply Payment Day filter directly in Supabase query
       if (filterPaymentDay) {
         query = query.eq('payment_day', filterPaymentDay);
       }
@@ -203,7 +217,7 @@ const DirectDebits = () => {
         query = query.order('id', { ascending: false });
       }
 
-      // NEW: Apply range only when not 'all'
+      // Apply range only when not 'all'
       if (to !== null) {
         query = query.range(from, to);
       }
@@ -286,21 +300,20 @@ const DirectDebits = () => {
   const clearFilters = () => {
     setFilterPayee('');
     setLocalFilterPayee('');
-    setFilterCategory('all');
-    setFilterStatus('all');
+    setFilterCategories([]); // Reset to empty array
+    setFilterStatuses([]); // Reset to empty array
     setFilterSku('');
     setLocalFilterSku('');
     setFilterPaymentReference('');
     setLocalFilterPaymentReference('');
     setFilterPaymentDay(undefined);
-    setFilterAccountNumber(''); // NEW: reset account number
+    setFilterAccountNumber('');
     setCurrentPage(1);
-    // Optional: clear selection when filters are cleared
     setSelectedIds([]);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });
   };
 
-  const hasActiveFilters = filterPayee !== '' || filterCategory !== 'all' || filterStatus !== 'all' || filterSku !== '' || filterPaymentReference !== '' || filterPaymentDay !== undefined || filterAccountNumber !== ''; // REMOVED: filterPaymentDate, filterStartDate, filterEndDate | NEW: filterAccountNumber
+  const hasActiveFilters = filterPayee !== '' || filterCategories.length > 0 || filterStatuses.length > 0 || filterSku !== '' || filterPaymentReference !== '' || filterPaymentDay !== undefined || filterAccountNumber !== '';
 
   const getStatusBadge = (status: DirectDebit['status']) => {
     let className = '';
@@ -315,6 +328,7 @@ const DirectDebits = () => {
         className = 'bg-red-500 text-red-50';
         break;
       case 'pending':
+      case 'awaiting_info':
         className = 'bg-orange-500 text-orange-50';
         break;
       default:
@@ -322,7 +336,7 @@ const DirectDebits = () => {
     }
     return (
       <Badge className={cn(className)}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
       </Badge>
     );
   };
@@ -348,7 +362,7 @@ const DirectDebits = () => {
   const directDebitExportColumns: (keyof DirectDebit)[] = [
     'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
     'sku', 'not_property_related', 'category', 'account_number', 'payment_reference',
-    'status', 'country', 'bank_account', 'payment_day' // Include payment_day in export
+    'status', 'country', 'bank_account', 'payment_day'
   ];
 
   const handleDownloadDirectDebits = () => {
@@ -360,6 +374,8 @@ const DirectDebits = () => {
   const totalPages = Math.ceil(totalItems / (itemsPerPage === 'all' ? 1000000000 : itemsPerPage as number));
 
   const renderPaginationItems = () => {
+    if (itemsPerPage === 'all' || totalPages <= 1) return null;
+
     const items = [];
     const maxPagesToShow = 5;
     const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
@@ -428,7 +444,7 @@ const DirectDebits = () => {
                   <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
               )}
-              {/* NEW: Rows per page selector */}
+              {/* Rows per page selector */}
               <div className="flex items-center gap-2">
                 <label htmlFor="rows-per-page" className="text-sm text-gray-600">Rows per page</label>
                 <Select
@@ -464,7 +480,7 @@ const DirectDebits = () => {
                   <AddDirectDebitForm onDirectDebitAdded={handleDirectDebitAdded} />
                 </DialogContent>
               </Dialog>
-              {/* NEW: Admin-only bulk delete */}
+              {/* Admin-only bulk delete */}
               {isAdmin && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -561,22 +577,13 @@ const DirectDebits = () => {
                   className="w-full"
                 />
               </div>
-              <div>
-                <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <Select value={filterCategory} onValueChange={(value) => { setFilterCategory(value); setCurrentPage(1); }}>
-                  <SelectTrigger id="category-filter" className="w-full">
-                    <SelectValue placeholder="All Categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categoryOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <MultiSelectFilter
+                label="Category"
+                placeholder="Select Categories"
+                options={categoryFilterOptions}
+                selectedValues={filterCategories}
+                onValueChange={(values) => { setFilterCategories(values); setCurrentPage(1); }}
+              />
               <div>
                 <label htmlFor="payment-day-filter" className="block text-sm font-medium text-gray-700 mb-1">Payment Day</label>
                 <Select 
@@ -599,21 +606,13 @@ const DirectDebits = () => {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <Select value={filterStatus} onValueChange={(value: DirectDebit['status'] | 'all') => { setFilterStatus(value); setCurrentPage(1); }}>
-                  <SelectTrigger id="status-filter" className="w-full">
-                    <SelectValue placeholder="All Statuses" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <MultiSelectFilter
+                label="Status"
+                placeholder="Select Statuses"
+                options={statusOptions}
+                selectedValues={filterStatuses}
+                onValueChange={(values) => { setFilterStatuses(values as DirectDebit['status'][]); setCurrentPage(1); }}
+              />
               {hasActiveFilters && (
                 <div className="col-span-full flex justify-end">
                   <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">

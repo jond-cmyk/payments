@@ -42,9 +42,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   // Filter states for the table
   const [filterSupplierName, setFilterSupplierName] = useState('');
   const [filterSkuNumber, setFilterSkuNumber] = useState('');
-  const [filterStatus, setFilterStatus] = useState<PaymentRequest['status'] | 'all'>('all');
+  const [filterStatuses, setFilterStatuses] = useState<PaymentRequest['status'][]>([]); // CHANGED: Array state
   const [filterDatePaymentRequired, setFilterDatePaymentRequired] = useState<Date | undefined>(undefined);
-  const [filterRequester, setFilterRequester] = useState<string>('all');
+  const [filterRequesters, setFilterRequesters] = useState<string[]>([]); // CHANGED: Array state
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
 
@@ -70,15 +70,22 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     }, 500);
   }, []);
 
+  // Define all possible statuses for filtering
+  const allPossibleStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'approved', 'declined', 'queried'];
+  const activeDashboardStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'queried'];
+
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
     const statusParam = searchParams.get('status');
-    if (statusParam && (statusParam === 'pending' || statusParam === 'setup_awaiting_approval' || statusParam === 'approved' || statusParam === 'declined' || statusParam === 'queried' || statusParam === 'all')) {
-      setFilterStatus(statusParam);
+    if (statusParam) {
+      // If status is passed via URL, set it as the initial filterStatuses array
+      setFilterStatuses([statusParam as PaymentRequest['status']]);
     } else if (location.pathname === '/admin/requests') {
-      setFilterStatus('all');
+      // Default for All Requests page: select all statuses
+      setFilterStatuses(allPossibleStatuses);
     } else {
-      setFilterStatus('pending');
+      // Default for Dashboard: select only active statuses
+      setFilterStatuses(activeDashboardStatuses);
     }
     setCurrentPage(1); // Reset page when URL params change
   }, [searchParams, location.pathname]);
@@ -258,7 +265,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatus, filterDatePaymentRequired, filterRequester, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage],
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatuses, filterDatePaymentRequired, filterRequesters, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
@@ -274,25 +281,27 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         query = query.eq('country', currentCountry);
       }
 
-      // Define all possible statuses for the 'All Requests' page when filterStatus is 'all'
-      const allPossibleStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'approved', 'declined', 'queried'];
-      // Define common active statuses for the main dashboard
-      const activeDashboardStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'queried'];
-
-
+      // Determine which statuses to filter by
+      let statusesToFilter: PaymentRequest['status'][] = [];
       if (isAllRequestsPage) {
-        // Admin's 'All Requests' page: apply filters
+        // Admin's 'All Requests' page: use filterStatuses state
+        const nonAllStatuses = filterStatuses.filter(s => s !== 'all');
+        statusesToFilter = nonAllStatuses.length > 0 ? nonAllStatuses : allPossibleStatuses;
+      } else { 
+        // Main dashboard view: use activeDashboardStatuses
+        statusesToFilter = activeDashboardStatuses;
+      }
+
+      // Apply filters
+      if (isAllRequestsPage) {
         if (filterSupplierName) {
           query = query.ilike('supplier_name', `%${filterSupplierName}%`);
         }
         if (filterSkuNumber) {
           query = query.ilike('sku_number', `%${filterSkuNumber}%`);
         }
-        if (filterStatus !== 'all') {
-          query = query.eq('status', filterStatus);
-        } else {
-          // FIX: When filterStatus is 'all', include all possible statuses
-          query = query.in('status', allPossibleStatuses); 
+        if (statusesToFilter.length > 0) {
+          query = query.in('status', statusesToFilter);
         }
         if (filterDatePaymentRequired) {
           query = query.gte('date_payment_required', format(filterDatePaymentRequired, 'yyyy-MM-dd'));
@@ -304,12 +313,12 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         if (filterEndDate) {
           query = query.lte('date_payment_required', format(filterEndDate, 'yyyy-MM-dd'));
         }
-        if (filterRequester !== 'all') {
-          query = query.eq('requester_id', filterRequester);
+        if (filterRequesters.length > 0 && !filterRequesters.includes('all')) {
+          query = query.in('requester_id', filterRequesters);
         }
       } else { // This is the main dashboard view (for both requester and admin)
         // Filter by active statuses AND (is_urgent OR is_reminded)
-        query = query.in('status', activeDashboardStatuses)
+        query = query.in('status', statusesToFilter)
                      .or('is_urgent.eq.true,is_reminded.eq.true');
       }
 
@@ -373,9 +382,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const clearFilters = () => {
     setFilterSupplierName('');
     setFilterSkuNumber('');
-    setFilterStatus('all');
+    setFilterStatuses(allPossibleStatuses); // Reset to all statuses
     setFilterDatePaymentRequired(undefined);
-    setFilterRequester('all');
+    setFilterRequesters([]); // Reset to no specific requesters
     setFilterStartDate(undefined);
     setFilterEndDate(undefined);
     setSearchParams({});
@@ -400,7 +409,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     return null;
   };
 
-  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatus !== 'all' || filterRequester !== 'all' || filterStartDate !== undefined || filterEndDate !== undefined;
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatuses.length > 0 && !filterStatuses.includes('all') || filterRequesters.length > 0 && !filterRequesters.includes('all') || filterStartDate !== undefined || filterEndDate !== undefined;
 
   const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
@@ -550,12 +559,12 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
           setFilterSupplierName={(value) => handleTextFilterChange(setFilterSupplierName, value)}
           filterSkuNumber={filterSkuNumber}
           setFilterSkuNumber={(value) => handleTextFilterChange(setFilterSkuNumber, value)}
-          filterStatus={filterStatus}
-          setFilterStatus={setFilterStatus}
+          filterStatuses={filterStatuses}
+          setFilterStatuses={setFilterStatuses}
           filterDatePaymentRequired={filterDatePaymentRequired}
           setFilterDatePaymentRequired={(date) => { setFilterDatePaymentRequired(date); setCurrentPage(1); }}
-          filterRequester={filterRequester}
-          setFilterRequester={setFilterRequester}
+          filterRequesters={filterRequesters}
+          setFilterRequesters={setFilterRequesters}
           filterStartDate={filterStartDate}
           setFilterStartDate={(date) => { setFilterStartDate(date); setCurrentPage(1); }}
           filterEndDate={filterEndDate}

@@ -9,18 +9,19 @@ import { XCircle, RotateCcw } from 'lucide-react';
 import { PaymentRequest, Profile } from '@/types/supabase';
 import CountrySelector from '@/components/CountrySelector';
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import MultiSelectFilter from '@/components/MultiSelectFilter'; // Import MultiSelectFilter
 
 interface PaymentRequestFiltersProps {
   filterSupplierName: string;
   setFilterSupplierName: (value: string) => void;
   filterSkuNumber: string;
   setFilterSkuNumber: (value: string) => void;
-  filterStatus: PaymentRequest['status'] | 'all';
-  setFilterStatus: (value: PaymentRequest['status'] | 'all') => void;
+  filterStatuses: PaymentRequest['status'][]; // CHANGED: Array of statuses
+  setFilterStatuses: (values: PaymentRequest['status'][]) => void; // CHANGED: Array setter
   filterDatePaymentRequired: Date | undefined;
   setFilterDatePaymentRequired: (date: Date | undefined) => void;
-  filterRequester: string;
-  setFilterRequester: (value: string) => void;
+  filterRequesters: string[]; // CHANGED: Array of requester IDs
+  setFilterRequesters: (values: string[]) => void; // CHANGED: Array setter
   filterStartDate: Date | undefined;
   setFilterStartDate: (date: Date | undefined) => void;
   filterEndDate: Date | undefined;
@@ -31,17 +32,26 @@ interface PaymentRequestFiltersProps {
   handleTextFilterChange: (setter: React.Dispatch<React.SetStateAction<string>>, value: string) => void;
 }
 
+const statusOptions = [
+  { value: 'all', label: 'All Statuses' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'setup_awaiting_approval', label: 'Payment Setup' },
+  { value: 'approved', label: 'Payment Complete' },
+  { value: 'declined', label: 'Declined' },
+  { value: 'queried', label: 'Queried' },
+];
+
 const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({
   filterSupplierName,
   setFilterSupplierName,
   filterSkuNumber,
   setFilterSkuNumber,
-  filterStatus,
-  setFilterStatus,
+  filterStatuses,
+  setFilterStatuses,
   filterDatePaymentRequired,
   setFilterDatePaymentRequired,
-  filterRequester,
-  setFilterRequester,
+  filterRequesters,
+  setFilterRequesters,
   filterStartDate,
   setFilterStartDate,
   filterEndDate,
@@ -51,7 +61,15 @@ const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({
   hasActiveFilters,
   handleTextFilterChange,
 }) => {
-  const { currentCountry, setCurrentCountry } = useCountry(); // Use useCountry hook
+  const { currentCountry, setCurrentCountry } = useCountry();
+
+  const requesterOptions: { value: string; label: string }[] = [
+    { value: 'all', label: 'All Requesters' },
+    ...(allProfiles || []).map((profile) => ({
+      value: profile.id,
+      label: `${profile.first_name || ''} ${profile.last_name || ''} (${profile.user_email})`,
+    })),
+  ];
 
   return (
     <div className="mb-4 p-4 border rounded-md bg-gray-50 shadow-sm">
@@ -81,22 +99,13 @@ const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({
             className="w-full"
           />
         </div>
-        <div>
-          <label htmlFor="status-filter" className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <Select value={filterStatus} onValueChange={setFilterStatus}>
-            <SelectTrigger id="status-filter" className="w-full">
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="setup_awaiting_approval">Payment Setup</SelectItem>
-              <SelectItem value="approved">Payment Complete</SelectItem>
-              <SelectItem value="declined">Declined</SelectItem>
-              <SelectItem value="queried">Queried</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <MultiSelectFilter
+          label="Status"
+          placeholder="Select Statuses"
+          options={statusOptions}
+          selectedValues={filterStatuses}
+          onValueChange={(values) => setFilterStatuses(values as PaymentRequest['status'][])}
+        />
         <div>
           <label htmlFor="payment-date-required" className="block text-sm font-medium text-gray-700 mb-1">Payment Date Required</label>
           <DatePicker
@@ -127,22 +136,13 @@ const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({
             className="w-full"
           />
         </div>
-        <div>
-          <label htmlFor="requester-filter" className="block text-sm font-medium text-gray-700 mb-1">Requester</label>
-          <Select value={filterRequester} onValueChange={setFilterRequester}>
-            <SelectTrigger id="requester-filter" className="w-full">
-              <SelectValue placeholder="All Requesters" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Requesters</SelectItem>
-              {allProfiles?.map((profile) => (
-                <SelectItem key={profile.id} value={profile.id}>
-                  {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <MultiSelectFilter
+          label="Requester"
+          placeholder="Select Requesters"
+          options={requesterOptions}
+          selectedValues={filterRequesters}
+          onValueChange={setFilterRequesters}
+        />
         {hasActiveFilters && (
           <div className="col-span-full flex justify-end">
             <Button variant="outline" onClick={clearFilters} className="flex items-center gap-1">
