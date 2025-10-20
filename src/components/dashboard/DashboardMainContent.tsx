@@ -134,7 +134,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     enabled: !!session && !debouncedSearchTerm,
   });
 
-  // NEW: Fetch count of pending standing orders for summary card
+  // Fetch count of pending standing orders for summary card (already exists)
   const allPendingStandingOrdersCountForSummaryQuery = useQuery<number>({
     queryKey: ['allPendingStandingOrdersCountForSummary', currentCountry],
     queryFn: async () => {
@@ -156,6 +156,51 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     enabled: !!session && !debouncedSearchTerm,
   });
 
+  // NEW: Fetch count of active standing orders for summary card
+  const allActiveStandingOrdersCountForSummaryQuery = useQuery<number>({
+    queryKey: ['allActiveStandingOrdersCountForSummary', currentCountry],
+    queryFn: async () => {
+      let query = supabase
+        .from('standing_orders')
+        .select('id', { count: 'exact' })
+        .eq('status', 'active');
+
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!session && !debouncedSearchTerm,
+  });
+
+  // NEW: Fetch count of active direct debits for summary card
+  const allActiveDirectDebitsCountForSummaryQuery = useQuery<number>({
+    queryKey: ['allActiveDirectDebitsCountForSummary', currentCountry],
+    queryFn: async () => {
+      let query = supabase
+        .from('direct_debits')
+        .select('id', { count: 'exact' })
+        .eq('status', 'active');
+
+      if (userProfile?.role === 'requester' && userProfile.country) {
+        query = query.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        query = query.eq('country', currentCountry);
+      }
+
+      const { count, error } = await query;
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!session && !debouncedSearchTerm,
+  });
+
+
   // Calculate counts for summary cards
   const counts = useMemo(() => {
     const initialCounts = {
@@ -166,6 +211,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       queried: 0,
       missing_receipts: allMissingReceiptsCountForSummaryQuery.data || 0,
       pending_standing_orders: allPendingStandingOrdersCountForSummaryQuery.data || 0,
+      active_direct_debits: allActiveDirectDebitsCountForSummaryQuery.data || 0, // NEW
+      active_standing_orders: allActiveStandingOrdersCountForSummaryQuery.data || 0, // NEW
       total: 0,
     };
 
@@ -178,7 +225,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       });
     }
     return initialCounts;
-  }, [allPaymentRequestsForSummaryQuery.data, allMissingReceiptsCountForSummaryQuery.data, allPendingStandingOrdersCountForSummaryQuery.data]);
+  }, [
+    allPaymentRequestsForSummaryQuery.data, 
+    allMissingReceiptsCountForSummaryQuery.data, 
+    allPendingStandingOrdersCountForSummaryQuery.data,
+    allActiveDirectDebitsCountForSummaryQuery.data, // NEW dependency
+    allActiveStandingOrdersCountForSummaryQuery.data // NEW dependency
+  ]);
 
   // Fetch all user profiles for the requester dropdown filter
   const { data: allProfiles, isLoading: isProfilesLoading, error: profilesError } = useQuery<Profile[]>({
@@ -388,10 +441,14 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       case 'cancelled': // For Direct Debits and Standing Orders
         className = 'bg-red-500 text-red-50';
         break;
+      case 'awaiting_info': // For Direct Debits and Standing Orders
+        className = 'bg-orange-500 text-orange-50';
+        displayText = 'Awaiting Info';
+        break;
       default:
         className = 'bg-gray-500 text-gray-50';
     }
-    return <Badge className={cn(className, "border border-white")}>{displayText}</Badge>; // Added white border
+    return <Badge className={cn(className, "border border-white")}>{displayText}</Badge>;
   };
 
   // Define columns for Payment Request export
@@ -411,7 +468,15 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     }
   };
 
-  if (allPaymentRequestsForSummaryQuery.isLoading || allMissingReceiptsCountForSummaryQuery.isLoading || allPendingStandingOrdersCountForSummaryQuery.isLoading || isRequestsTableLoading || (isAllRequestsPage && isProfilesLoading)) {
+  if (
+    allPaymentRequestsForSummaryQuery.isLoading || 
+    allMissingReceiptsCountForSummaryQuery.isLoading || 
+    allPendingStandingOrdersCountForSummaryQuery.isLoading || 
+    allActiveDirectDebitsCountForSummaryQuery.isLoading || // NEW check
+    allActiveStandingOrdersCountForSummaryQuery.isLoading || // NEW check
+    isRequestsTableLoading || 
+    (isAllRequestsPage && isProfilesLoading)
+  ) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard content...</div>;
   }
 
