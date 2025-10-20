@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
-import { PaymentRequest } from '@/types/supabase'; // Import PaymentRequest type for suggestions
+import { PayeeSuggestion } from '@/types/supabase'; // Import PayeeSuggestion type
 import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // NEW IMPORT
 import { PlusCircle, MinusCircle, DollarSign } from 'lucide-react'; // Import icons
 
@@ -84,6 +84,27 @@ const formSchema = z.object({
     }
   }
 
+  // NEW: Currency validation based on country
+  if (data.country === 'United Kingdom') {
+    if (data.currency !== 'GBP') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency must be GBP for United Kingdom.",
+        path: ['currency'],
+      });
+    }
+  } else if (data.country === 'Switzerland') {
+    if (!data.currency || data.currency.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required for Switzerland.",
+        path: ['currency'],
+      });
+    }
+  }
+  // Note: For other countries, currency is required by z.string().min(1)
+
+  // Conditional validation for bank details based on country
   if (data.country === 'United Kingdom') {
     if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
       ctx.addIssue({
@@ -150,7 +171,7 @@ const NewPaymentRequest = () => {
   const { currentCountry, availableCountries, isCountryLocked } = useCountry();
   const navigate = useNavigate();
 
-  const [supplierSuggestions, setSupplierSuggestions] = useState<PaymentRequest[]>([]);
+  const [supplierSuggestions, setSupplierSuggestions] = useState<PayeeSuggestion[]>([]);
   const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
   const [isSearchingSupplier, setIsSearchingSupplier] = useState(false);
 
@@ -247,10 +268,11 @@ const NewPaymentRequest = () => {
     }
 
     setIsSearchingSupplier(true);
-    const toastId = showLoading("Searching for existing suppliers...");
+    const toastId = showLoading("Searching for existing payees...");
 
     try {
-      const { data, error } = await supabase.functions.invoke('search-suppliers', {
+      // Use the unified search function
+      const { data, error } = await supabase.functions.invoke('search-all-payees', {
         body: { searchTerm: supplierName, country: currentFormCountry },
       });
 
@@ -265,17 +287,17 @@ const NewPaymentRequest = () => {
         setSupplierSuggestions(data.suggestions);
         setIsSuggestionDialogOpen(true);
         dismissToast(toastId);
-        showSuccess("Found existing supplier suggestions!");
+        showSuccess(`Found ${data.suggestions.length} existing payee suggestion(s)!`);
       } else {
         setSupplierSuggestions([]);
         setIsSuggestionDialogOpen(false);
         dismissToast(toastId);
-        showSuccess("No existing supplier found with similar name. Please enter details manually.");
+        showSuccess("No existing payee found with similar name. Please enter details manually.");
       }
     } catch (error: any) {
       dismissToast(toastId);
-      showError(error.message || "Failed to search for existing suppliers.");
-      console.error("Supplier search error:", error);
+      showError(error.message || "Failed to search for existing payees.");
+      console.error("Payee search error:", error);
       setSupplierSuggestions([]);
       setIsSuggestionDialogOpen(false);
     } finally {
@@ -283,16 +305,17 @@ const NewPaymentRequest = () => {
     }
   };
 
-  const handleUseSuggestion = (suggestion: PaymentRequest) => {
-    form.setValue('supplier_name', suggestion.supplier_name);
-    form.setValue('supplier_address', suggestion.supplier_address);
+  const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
+    form.setValue('supplier_name', suggestion.name); // Use unified 'name'
+    form.setValue('supplier_address', suggestion.address || ''); // Use unified 'address'
     form.setValue('iban_number', suggestion.iban_number || '');
     form.setValue('sort_code', suggestion.sort_code || '');
     form.setValue('account_number', suggestion.account_number || '');
     form.setValue('bank_account_name', suggestion.bank_account_name || '');
+    form.setValue('currency', suggestion.currency || (form.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF')); // Use suggested currency or default
     form.setValue('bank_details_verified', false); // Reset verified status when using suggestion
     
-    // Clear categories and total amount when using suggestion, as search-suppliers doesn't return this data
+    // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
     form.setValue('categories', [{ category: "", amount: 0 }]);
     form.setValue('total_amount', 0.00);
 
@@ -891,15 +914,16 @@ const NewPaymentRequest = () => {
           <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Existing Supplier Suggestions</DialogTitle>
+                <DialogTitle>Existing Payee Suggestions</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 {supplierSuggestions.length > 0 ? (
                   supplierSuggestions.map((suggestion, index) => (
                     <Card key={index} className="p-4 border shadow-sm">
-                      <h3 className="font-bold text-lg mb-2">{suggestion.supplier_name}</h3>
-                      <p className="text-sm text-muted-foreground">Address: {suggestion.supplier_address}</p>
-                      <p className="text-sm text-muted-foreground">Currency: {suggestion.currency}</p>
+                      <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
+                      <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : 'Standing Order'}</p>
+                      <p className="text-sm text-muted-foreground">Address: {suggestion.address || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
                       {suggestion.country === 'United Kingdom' ? (
                         <>
                           <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
@@ -907,7 +931,10 @@ const NewPaymentRequest = () => {
                           <p className="text-sm text-muted-foreground">Bank Account Name: {suggestion.bank_account_name || 'N/A'}</p>
                         </>
                       ) : (
-                        <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
+                        <>
+                          <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
+                          {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
+                        </>
                       )}
                       <Button
                         onClick={() => handleUseSuggestion(suggestion)}

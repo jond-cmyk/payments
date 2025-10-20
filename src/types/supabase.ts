@@ -210,3 +210,17 @@ export type Feedback = {
   is_read: boolean;
   user_id: string | null;
 };
+
+/** Unified Payee Suggestion */
+export type PayeeSuggestion = {
+  source_type: 'payment_request' | 'standing_order';
+  name: string;
+  address: string | null;
+  iban_number: string | null;
+  sort_code: string | null;
+  account_number: string | null;
+  bank_account_name: string | null;
+  currency: string | null;
+  country: string;
+  bank_account: string | null; // For CH standing orders/transactions
+};

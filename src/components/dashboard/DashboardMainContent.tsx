@@ -285,7 +285,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       let statusesToFilter: PaymentRequest['status'][] = [];
       if (isAllRequestsPage) {
         // Admin's 'All Requests' page: use filterStatuses state
-        const nonAllStatuses = filterStatuses.filter(s => s !== 'all');
+        const nonAllStatuses = filterStatuses.filter(s => s !== 'all' as string);
         statusesToFilter = nonAllStatuses.length > 0 ? nonAllStatuses : allPossibleStatuses;
       } else { 
         // Main dashboard view: use activeDashboardStatuses
@@ -409,7 +409,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     return null;
   };
 
-  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || filterStatuses.length > 0 && !filterStatuses.includes('all') || filterRequesters.length > 0 && !filterRequesters.includes('all') || filterStartDate !== undefined || filterEndDate !== undefined;
+  const hasActiveFilters = filterSupplierName !== '' || filterSkuNumber !== '' || filterDatePaymentRequired !== undefined || (filterStatuses.length > 0 && !filterStatuses.includes('all' as string)) || (filterRequesters.length > 0 && !filterRequesters.includes('all')) || filterStartDate !== undefined || filterEndDate !== undefined;
 
   const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);

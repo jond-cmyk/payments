@@ -10,7 +10,7 @@ import { PlusCircle, MinusCircle, DollarSign } from 'lucide-react'; // Import Do
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
-import { StandingOrder } from '@/types/supabase'; // Import StandingOrder type for suggestions
+import { StandingOrder, PayeeSuggestion } from '@/types/supabase'; // Import PayeeSuggestion type
 import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // Import majorCurrencies
 
 import { Button } from '@/components/ui/button';
@@ -182,7 +182,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const { user, userProfile } = useSession();
   const { currentCountry, availableCountries, isCountryLocked } = useCountry();
 
-  const [payeeSuggestions, setPayeeSuggestions] = useState<StandingOrder[]>([]);
+  const [payeeSuggestions, setPayeeSuggestions] = useState<PayeeSuggestion[]>([]);
   const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
   const [isSearchingPayee, setIsSearchingPayee] = useState(false);
 
@@ -277,7 +277,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     const toastId = showLoading("Searching for existing payees...");
 
     try {
-      const { data, error } = await supabase.functions.invoke('search-payees', {
+      // Use the unified search function
+      const { data, error } = await supabase.functions.invoke('search-all-payees', {
         body: { searchTerm: payeeName, country: currentFormCountry },
       });
 
@@ -292,7 +293,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         setPayeeSuggestions(data.suggestions);
         setIsSuggestionDialogOpen(true);
         dismissToast(toastId);
-        showSuccess("Found existing payee suggestions!");
+        showSuccess(`Found ${data.suggestions.length} existing payee suggestion(s)!`);
       } else {
         setPayeeSuggestions([]);
         setIsSuggestionDialogOpen(false);
@@ -310,18 +311,21 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     }
   };
 
-  const handleUseSuggestion = (suggestion: StandingOrder) => {
-    form.setValue('payee', suggestion.payee);
-    form.setValue('account_name', suggestion.account_name);
-    form.setValue('account_address', suggestion.account_address || '');
+  const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
+    form.setValue('payee', suggestion.name); // Use unified 'name'
+    form.setValue('account_name', suggestion.bank_account_name || ''); // Use unified 'bank_account_name'
+    form.setValue('account_address', suggestion.address || ''); // Use unified 'address'
     form.setValue('iban_number', suggestion.iban_number || '');
     form.setValue('sort_code', suggestion.sort_code || '');
     form.setValue('account_number', suggestion.account_number || '');
     form.setValue('bank_details_verified', false); // Reset verified status when using suggestion
-    form.setValue('categories', suggestion.categories); // Set categories from suggestion
-    form.setValue('total_amount', suggestion.total_amount); // Set total amount from suggestion
-    form.setValue('currency', suggestion.currency || undefined); // Set currency from suggestion
-    form.setValue('bank_account', suggestion.bank_account || undefined); // Set bank_account from suggestion
+    form.setValue('currency', suggestion.currency || undefined); // Use suggested currency
+    form.setValue('bank_account', suggestion.bank_account || undefined); // Use suggested bank_account
+    
+    // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
+    form.setValue('categories', [{ category: "", amount: 0 }]);
+    form.setValue('total_amount', 0.00);
+
     // Close the dialog
     setIsSuggestionDialogOpen(false);
   };
@@ -929,8 +933,10 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             {payeeSuggestions.length > 0 ? (
               payeeSuggestions.map((suggestion, index) => (
                 <Card key={index} className="p-4 border shadow-sm">
-                  <h3 className="font-bold text-lg mb-2">{suggestion.payee}</h3>
-                  <p className="text-sm text-muted-foreground">Account Name: {suggestion.account_name}</p>
+                  <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
+                  <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : 'Standing Order'}</p>
+                  <p className="text-sm text-muted-foreground">Account Name: {suggestion.bank_account_name || 'N/A'}</p>
+                  <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
                   {suggestion.country === 'United Kingdom' ? (
                     <>
                       <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
@@ -939,24 +945,10 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
-                      <p className="text-sm text-muted-foreground">Address: {suggestion.account_address || 'N/A'}</p>
-                      {suggestion.country === 'Switzerland' && (
-                        <>
-                          <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
-                          <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>
-                        </>
-                      )}
+                      <p className="text-sm text-muted-foreground">Address: {suggestion.address || 'N/A'}</p>
+                      {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
                     </>
                   )}
-                  <div className="mt-2">
-                    <p className="text-sm font-medium">Categories:</p>
-                    {suggestion.categories.map((cat, catIndex) => (
-                      <p key={catIndex} className="text-xs text-muted-foreground ml-2">
-                        - {categoryOptions.find(opt => opt.value === cat.category)?.label || cat.category}: {cat.amount.toFixed(2)}
-                      </p>
-                    ))}
-                    <p className="text-sm font-bold mt-1">Total: {suggestion.total_amount.toFixed(2)}</p>
-                  </div>
                   <Button
                     onClick={() => handleUseSuggestion(suggestion)}
                     className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
