@@ -543,7 +543,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     return <div className="flex items-center justify-center h-full text-red-500">Error loading profiles for filter: ${profilesError.message}</div>;
   }
 
-  // Check if there are any urgent requests in the table data to conditionally show the title
+  // Check if there are any urgent requests in the table data to conditionally show the table
   const hasUrgentRequests = paymentRequestsForTable?.some(req => req.is_urgent);
   const hasRemindedRequests = paymentRequestsForTable?.some(req => req.is_reminded);
 
@@ -583,10 +583,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         </div>
       )}
 
-      {/* New title for Priority Payment Requests, shown only if there are urgent or reminded requests */}
-      {!isAllRequestsPage && (hasUrgentRequests || hasRemindedRequests) && (
-        <h2 className="text-2xl font-bold mb-4 mt-8">Priority Payment Requests</h2>
-      )}
+      {/* REMOVED: Redundant h2 header for Priority Payment Requests */}
 
       {paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
         <Card className="shadow-sm">
