@@ -45,7 +45,7 @@ serve(async (req) => {
     const headers: HeadersInit = {
       "X-AppSecretToken": appSecretToken,
       "X-AgreementGrantToken": agreementGrantToken,
-      "Accept": "application/pdf", // Request PDF format
+      // Removed "Accept": "application/pdf"
       "User-Agent": "SupabaseEdge/1.0",
     };
 
