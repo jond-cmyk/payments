@@ -37,7 +37,7 @@ const SummaryCardItem: React.FC<{
           borderClass: 'border-yellow-500',
           textClass: 'text-yellow-600',
           icon: <Clock className="h-4 w-4" />,
-          title: 'Pending',
+          title: 'Pending Requests',
           description: 'Requests awaiting review',
           link: `/admin/requests?status=pending`,
         };
@@ -55,7 +55,7 @@ const SummaryCardItem: React.FC<{
           borderClass: 'border-gray-400',
           textClass: 'text-gray-700',
           icon: <MessageSquare className="h-4 w-4" />,
-          title: 'Queried',
+          title: 'Queried Requests',
           description: 'Requests needing more info',
           link: `/admin/requests?status=queried`,
         };
@@ -64,8 +64,8 @@ const SummaryCardItem: React.FC<{
           borderClass: 'border-red-500',
           textClass: 'text-red-600',
           icon: <Ban className="h-4 w-4" />,
-          title: 'Declined',
-          description: 'Requests rejected',
+          title: 'Declined Requests',
+          description: 'Requests that were rejected',
           link: `/admin/requests?status=declined`,
         };
       case 'approved':
@@ -73,7 +73,7 @@ const SummaryCardItem: React.FC<{
           borderClass: 'border-green-500',
           textClass: 'text-green-600',
           icon: <CheckCircle className="h-4 w-4" />,
-          title: 'Approved',
+          title: 'Approved Requests',
           description: 'Payments completed',
           link: `/admin/requests?status=approved`,
         };
@@ -134,13 +134,13 @@ const SummaryCardItem: React.FC<{
         borderClass,
         "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
       )}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1"> {/* Reduced padding */}
-          <CardTitle className={cn("text-xs font-medium", textClass)}>{title}</CardTitle> {/* Reduced font size */}
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
+          <CardTitle className={cn("text-xs font-medium", textClass)}>{title}</CardTitle>
           <span className={textClass}>{icon}</span>
         </CardHeader>
-        <CardContent className="p-3 pt-0"> {/* Reduced padding */}
-          <div className="text-xl font-bold">{count}</div> {/* Reduced font size */}
-          <p className="text-[10px] text-muted-foreground h-6 overflow-hidden">{description}</p> {/* Reduced font size */}
+        <CardContent className="p-3 pt-0">
+          <div className="text-xl font-bold">{count}</div>
+          <p className="text-[10px] text-muted-foreground h-6 overflow-hidden">{description}</p>
         </CardContent>
       </Card>
     </Link>
@@ -178,7 +178,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
           <CardDescription>Overview of the payment request pipeline.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
             {paymentRequestKeys.map((key) => (
               <SummaryCardItem
                 key={key}
@@ -198,7 +198,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
           <CardDescription>Status of transactions requiring user input.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
             {transactionKeys.map((key) => (
               <SummaryCardItem
                 key={key}
@@ -218,7 +218,7 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
           <CardDescription>Status of standing orders and direct debits.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2">
             {recurringPaymentKeys.map((key) => (
               <SummaryCardItem
                 key={key}

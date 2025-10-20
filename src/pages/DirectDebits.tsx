@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { DirectDebit, Profile } from '@/types/supabase';
@@ -62,6 +62,7 @@ const DirectDebits = () => {
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams(); // NEW: Read URL parameters
   const [isAddDirectDebitDialogOpen, setIsAddDirectDebitDialogOpen] = useState(false);
   const [isEditDirectDebitDialogOpen, setIsEditDirectDebitDialogOpen] = useState(false);
   const [editingDirectDebit, setEditingDirectDebit] = useState<DirectDebit | null>(null);
@@ -76,13 +77,13 @@ const DirectDebits = () => {
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterPaymentDay, setFilterPaymentDay] = useState<number | undefined>(undefined);
-  const [filterAccountNumber, setFilterAccountNumber] = useState<string>(''); // NEW: Account Number filter
+  const [filterAccountNumber, setFilterAccountNumber] = useState<string>('');
 
   // Local states for immediate input feedback
   const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
   const [localFilterSku, setLocalFilterSku] = useState<string>('');
   const [localFilterPaymentReference, setLocalFilterPaymentReference] = useState<string>('');
-  const [localFilterAccountNumber, setLocalFilterAccountNumber] = useState<string>(''); // NEW: Local state for account number
+  const [localFilterAccountNumber, setLocalFilterAccountNumber] = useState<string>('');
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -99,6 +100,17 @@ const DirectDebits = () => {
   // Sorting states - MOVED HERE
   const [sortColumn, setSortColumn] = useState<keyof DirectDebit | null>('payment_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Effect to read URL parameters for initial filter state
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam && (statusParam === 'active' || statusParam === 'cancelled' || statusParam === 'paused' || statusParam === 'pending' || statusParam === 'awaiting_info')) {
+      setFilterStatus(statusParam);
+    } else {
+      setFilterStatus('all');
+    }
+    setCurrentPage(1);
+  }, [searchParams]); // Depend on searchParams
 
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {

@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { StandingOrder } from '@/types/supabase';
@@ -12,7 +12,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { exportToCsv } from '@/utils/exportToCsv';
-import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
+import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -62,6 +62,7 @@ const StandingOrders = () => {
   const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams(); // NEW: Read URL parameters
   const [isAddStandingOrderDialogOpen, setIsAddStandingOrderDialogOpen] = useState(false);
   const [isEditStandingOrderDialogOpen, setIsEditStandingOrderDialogOpen] = useState(false);
   const [editingStandingOrder, setEditingStandingOrder] = useState<StandingOrder | null>(null);
@@ -92,6 +93,17 @@ const StandingOrders = () => {
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof StandingOrder>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Effect to read URL parameters for initial filter state
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam && (statusParam === 'active' || statusParam === 'cancelled' || statusParam === 'paused' || statusParam === 'pending' || statusParam === 'awaiting_info')) {
+      setFilterStatus(statusParam);
+    } else {
+      setFilterStatus('all');
+    }
+    setCurrentPage(1);
+  }, [searchParams]); // Depend on searchParams
 
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
@@ -295,6 +307,7 @@ const StandingOrders = () => {
         className = 'bg-red-500 text-red-50';
         break;
       case 'pending':
+      case 'awaiting_info': // Added awaiting_info
         className = 'bg-orange-500 text-orange-50';
         break;
       default:
@@ -302,7 +315,7 @@ const StandingOrders = () => {
     }
     return (
       <Badge className={cn(className)}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+        {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
       </Badge>
     );
   };
@@ -732,7 +745,7 @@ const StandingOrders = () => {
                           </div>
                         ) : 'N/A'}
                       </TableCell>
-                      <TableCell>{formatAmount(order.total_amount)}</TableCell> {/* Applied formatAmount here */}
+                      <TableCell>{formatAmount(order.total_amount)}</TableCell>
                       <TableCell>{format(new Date(order.payment_date), 'PPP')}</TableCell>
                       <TableCell>{order.payment_end_date ? format(new Date(order.payment_end_date), 'PPP') : 'No end date'}</TableCell>
                       <TableCell>{order.payment_day ? `Day ${order.payment_day}` : 'N/A'}</TableCell>
