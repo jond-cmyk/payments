@@ -106,7 +106,6 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
           <Command>
             <CommandInput placeholder={`Search ${label}...`} />
             <CommandList>
-              <CommandEmpty>No results found.</CommandEmpty>
               <CommandGroup>
                 {options.map((option) => {
                   const isSelected = selectedValues.includes(option.value);
@@ -114,7 +113,12 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
                     <CommandItem
                       key={option.value}
                       value={option.label}
-                      onSelect={() => handleSelect(option.value)}
+                      onSelect={(currentValue) => {
+                        // Prevent the default closing behavior of CommandItem
+                        // by manually handling the selection and preventing propagation/default.
+                        handleSelect(option.value);
+                        // We explicitly do NOT call setOpen(false) here.
+                      }}
                       className="flex items-center justify-between"
                     >
                       <div className="flex items-center space-x-2">
@@ -135,7 +139,6 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
           </Command>
         </PopoverContent>
       </Popover>
-      {/* Removed the selected values badge display block */}
     </div>
   );
 };
