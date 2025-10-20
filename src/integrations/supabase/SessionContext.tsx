@@ -98,16 +98,16 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     });
 
     // --- Periodic Session Refresh ---
+    // NOTE: Removed 'session' from dependency array to prevent infinite loop.
+    // We rely on supabase.auth.refreshSession() to handle the token logic internally.
     const refreshSession = async () => {
-      if (session) {
-        console.log("[SessionContext] Attempting periodic session refresh...");
-        const { data: { session: refreshedSession }, error } = await supabase.auth.refreshSession();
-        if (error) {
-          console.warn("[SessionContext] Periodic refresh failed (might be expired or network issue):", error.message);
-          // If refresh fails, the onAuthStateChange listener should eventually catch SIGNED_OUT
-        } else if (refreshedSession) {
-          console.log("[SessionContext] Periodic refresh successful.");
-        }
+      // We don't need to check if (session) here, as supabase.auth.refreshSession() handles the token logic.
+      console.log("[SessionContext] Attempting periodic session refresh...");
+      const { error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.warn("[SessionContext] Periodic refresh failed (might be expired or network issue):", error.message);
+      } else {
+        console.log("[SessionContext] Periodic refresh successful.");
       }
     };
 
@@ -119,7 +119,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       subscription.unsubscribe();
       clearInterval(intervalId);
     };
-  }, [queryClient, session]); // Added session to dependencies to ensure refreshSession uses the latest session state
+  }, [queryClient]); // Dependency array now only contains stable values
 
   const isLoading = isLoadingSession || isLoadingProfile; // Combined loading state
 
