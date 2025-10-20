@@ -114,8 +114,11 @@ const MultiSelectFilter: React.FC<MultiSelectFilterProps> = ({
                       key={option.value}
                       value={option.label}
                       onSelect={() => handleSelect(option.value)}
-                      // IMPORTANT: Use onPointerDown to prevent the popover from closing immediately.
-                      onPointerDown={(e) => e.preventDefault()}
+                      // Use onPointerDown to prevent the popover from closing immediately.
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation(); // Stop propagation to prevent the click from closing the popover
+                      }}
                       className="flex items-center justify-between"
                     >
                       <div className="flex items-center space-x-2">
