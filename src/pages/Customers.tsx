@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
-import { List, FileText, BookText } from "lucide-react";
+import { List, FileText, BookText, ReceiptText } from "lucide-react"; // Added ReceiptText icon
 import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -33,6 +33,7 @@ type EconomicCollection<T = any> = {
   pagination?: any;
   message?: string; // Added for error handling
   developerHint?: string; // Added for error handling
+  httpStatusCode?: number; // Added for error handling
 };
 
 type EconomicCustomer = {
@@ -221,6 +222,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
   const [showLedgerCardDialog, setShowLedgerCardDialog] = useState(false);
 
+  const [allTransactionsData, setAllTransactionsData] = useState<any[] | null>(null); // NEW: State for All Transactions
+  const [loadingAllTransactions, setLoadingAllTransactions] = useState(false); // NEW: Loading state
+  const [showAllTransactionsDialog, setShowAllTransactionsDialog] = useState(false); // NEW: Dialog state
+
   const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
 
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
@@ -231,6 +236,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     customerNumber: customer.customerNumber,
     loadingInvoices: loadingInvoices,
     loadingLedgerCard: loadingLedgerCard,
+    loadingAllTransactions: loadingAllTransactions, // NEW LOG
   });
 
   // Fetch balance and overdue amount automatically using useQuery
@@ -690,6 +696,51 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, customer.name]); // Dependencies for useCallback
 
+  // NEW: Function to load all transactions (ledger entries)
+  const loadAllTransactions = useCallback(async () => {
+    console.log(`[CustomerRow] loadAllTransactions: customerNumber=${num}, customerName=${customer.name}`);
+    if (!num) {
+      showError("Customer number is missing.");
+      return;
+    }
+    setLoadingAllTransactions(true);
+    const toastId = showLoading(`Loading all transactions for ${customer.name || 'customer'}...`);
+
+    try {
+      // Use the same endpoint as Ledger Card, but for a different display purpose
+      const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
+      
+      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+        body: { path: pathForProxy, method: "GET" },
+      });
+
+      if (error) {
+        console.error(`[CustomerRow] Failed to fetch all transactions for customer ${num}:`, error);
+        throw new Error(error.message || "Failed to load all transactions.");
+      }
+
+      const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
+      if (resp?.status && resp.status >= 400) {
+        const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
+        throw new Error(`e-conomic API Error: ${errorMessage}`);
+      }
+
+      const list = extractList(resp?.data);
+      console.log(`[CustomerRow] loadAllTransactions: Fetched ${list.length} transactions for customer ${num}.`);
+      
+      setAllTransactionsData(list);
+      setShowAllTransactionsDialog(true);
+      showSuccess(`Loaded ${list.length} transactions.`);
+    } catch (err: any) {
+      console.error("Error loading all transactions:", err);
+      showError("Failed to load all transactions: " + err.message);
+    } finally {
+      dismissToast(toastId);
+      setLoadingAllTransactions(false);
+    }
+  }, [num, customer.name]); // Dependencies for useCallback
+
+
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
     { key: 'text', header: 'Text', path: ['description', 'text', 'notes.text', 'notes.heading', 'notes.header', 'notes.noteHeading', 'heading', 'title', 'header', 'recipient.name', 'customer.name'],
@@ -729,9 +780,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   const isCustomerNumberMissing = !customer.customerNumber;
 
-  const getButtonState = (buttonType: 'ledgerCard') => {
-    const isLoadingState = loadingLedgerCard;
-    let text = isLoadingState ? "Loading..." : "Ledger Card";
+  const getButtonState = (buttonType: 'ledgerCard' | 'allTransactions') => {
+    const isLoadingState = buttonType === 'ledgerCard' ? loadingLedgerCard : loadingAllTransactions;
+    let text = buttonType === 'ledgerCard' ? "Ledger Card" : "All Transactions";
+    let icon = buttonType === 'ledgerCard' ? <BookText className="h-4 w-4 mr-1" /> : <ReceiptText className="h-4 w-4 mr-1" />;
     let tooltip = "";
     let isDisabled = isLoadingState;
 
@@ -739,12 +791,15 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       text = "No Customer Number";
       tooltip = "This customer has no associated customer number in e-conomic.";
       isDisabled = true;
+    } else if (isLoadingState) {
+      text = "Loading...";
     }
 
-    return { text, tooltip, isDisabled };
+    return { text, tooltip, isDisabled, icon };
   };
 
   const ledgerCardButtonState = getButtonState('ledgerCard');
+  const allTransactionsButtonState = getButtonState('allTransactions');
 
   return (
     <>
@@ -787,10 +842,19 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={ledgerCardButtonState.isDisabled}>
-                  <BookText className="h-4 w-4 mr-1" /> {ledgerCardButtonState.text}
+                  {ledgerCardButtonState.icon} {ledgerCardButtonState.text}
                 </Button>
               </TooltipTrigger>
               {ledgerCardButtonState.tooltip && <TooltipContent>{ledgerCardButtonState.tooltip}</TooltipContent>}
+            </Tooltip>
+            {/* NEW: All Transactions Button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadAllTransactions} disabled={allTransactionsButtonState.isDisabled}>
+                  {allTransactionsButtonState.icon} {allTransactionsButtonState.text}
+                </Button>
+              </TooltipTrigger>
+              {allTransactionsButtonState.tooltip && <TooltipContent>{allTransactionsButtonState.tooltip}</TooltipContent>}
             </Tooltip>
           </div>
         </TableCell>
@@ -814,6 +878,17 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         data={ledgerCardData}
         columns={ledgerCardColumns}
         isLoading={loadingLedgerCard}
+      />
+
+      {/* NEW: All Transactions Dialog */}
+      <EconomicDetailDialog
+        isOpen={showAllTransactionsDialog}
+        onOpenChange={setShowAllTransactionsDialog}
+        title={`All Transactions for ${customer.name || 'Customer'}`}
+        description={`Showing all ledger entries (payments, invoices, etc.) for customer number ${customer.customerNumber}.`}
+        data={allTransactionsData}
+        columns={ledgerCardColumns} // Reusing ledgerCardColumns as they are suitable for all ledger entries
+        isLoading={loadingAllTransactions}
       />
     </>
   );
