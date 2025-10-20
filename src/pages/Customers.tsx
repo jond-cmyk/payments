@@ -385,7 +385,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     const key = getInvoiceKey(inv);
     setInvoiceHeadings((prev) => ({ ...prev, [key]: found as string }));
-  }, [getInvoiceDescription, fetchHeadingForInvoice, setInvoiceHeadings]);
+  }, [getInvoiceDescription, setInvoiceHeadings]); // FIX: Removed self-reference from dependency array
 
   const enrichInvoiceHeadings = useCallback(async (list: any[]) => {
     for (const inv of list) {
