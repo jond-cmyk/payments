@@ -2,11 +2,11 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { PaymentRequest } from '@/types/supabase';
-import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote } from 'lucide-react'; // Import Banknote and Repeat icon
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote } from 'lucide-react';
+import { useCountry } from '@/integrations/supabase/CountryContext';
 
 interface DashboardSummaryCardsProps {
   counts: {
@@ -17,72 +17,65 @@ interface DashboardSummaryCardsProps {
     queried: number;
     missing_receipts: number;
     pending_standing_orders: number;
-    active_direct_debits: number; // NEW
-    active_standing_orders: number; // NEW
+    active_direct_debits: number;
+    active_standing_orders: number;
     total: number;
   };
 }
 
-const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts }) => {
-  const { currentCountry } = useCountry(); // Get currentCountry from context
-
-  // Helper to get card specific styling based on status
-  const getCardStyling = (status: PaymentRequest['status'] | 'missing_receipts' | 'pending_standing_orders' | 'active_standing_orders' | 'active_direct_debits') => { // Updated type
+// Helper component for individual card rendering
+const SummaryCardItem: React.FC<{ 
+  statusKey: keyof DashboardSummaryCardsProps['counts']; 
+  count: number; 
+  currentCountry: string 
+}> = ({ statusKey, count, currentCountry }) => {
+  
+  const getCardStyling = (status: string) => {
     switch (status) {
       case 'pending':
         return {
           borderClass: 'border-yellow-500',
           textClass: 'text-yellow-600',
           icon: <Clock className="h-4 w-4" />,
-          title: 'Pending Requests',
+          title: 'Pending',
           description: 'Requests awaiting review',
-          statusValue: 'pending',
           link: `/admin/requests?status=pending`,
-          order: 1,
         };
       case 'setup_awaiting_approval':
         return {
           borderClass: 'border-blue-500',
           textClass: 'text-blue-600',
-          icon: currentCountry === 'United Kingdom' ? <PoundSterling className="h-4 w-4" /> : <Euro className="h-4 w-4" />, // Conditional icon
+          icon: currentCountry === 'United Kingdom' ? <PoundSterling className="h-4 w-4" /> : <Euro className="h-4 w-4" />,
           title: 'Payment Setup',
           description: 'Payments being processed',
-          statusValue: 'setup_awaiting_approval',
           link: `/admin/requests?status=setup_awaiting_approval`,
-          order: 2,
         };
       case 'queried':
         return {
           borderClass: 'border-gray-400',
           textClass: 'text-gray-700',
           icon: <MessageSquare className="h-4 w-4" />,
-          title: 'Queried Requests',
+          title: 'Queried',
           description: 'Requests needing more info',
-          statusValue: 'queried',
           link: `/admin/requests?status=queried`,
-          order: 3,
         };
       case 'declined':
         return {
           borderClass: 'border-red-500',
           textClass: 'text-red-600',
           icon: <Ban className="h-4 w-4" />,
-          title: 'Declined Requests',
-          description: 'Requests that were rejected',
-          statusValue: 'declined',
+          title: 'Declined',
+          description: 'Requests rejected',
           link: `/admin/requests?status=declined`,
-          order: 4,
         };
       case 'approved':
         return {
           borderClass: 'border-green-500',
           textClass: 'text-green-600',
           icon: <CheckCircle className="h-4 w-4" />,
-          title: 'Approved Requests',
+          title: 'Approved',
           description: 'Payments completed',
-          statusValue: 'approved',
           link: `/admin/requests?status=approved`,
-          order: 5,
         };
       case 'missing_receipts':
         return {
@@ -91,98 +84,152 @@ const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts })
           icon: <FileX className="h-4 w-4" />,
           title: 'Missing Receipts',
           description: 'Transactions awaiting receipts',
-          statusValue: 'missing_receipts',
           link: `/missing-receipts`,
-          order: 6,
         };
       case 'pending_standing_orders':
         return {
           borderClass: 'border-purple-500',
           textClass: 'text-purple-600',
           icon: <Repeat className="h-4 w-4" />,
-          title: 'Pending Standing Orders',
-          description: 'Standing orders awaiting approval',
-          statusValue: 'pending_standing_orders',
+          title: 'Pending SO',
+          description: 'SO awaiting approval',
           link: `/standing-orders?status=pending`,
-          order: 7,
         };
-      case 'active_standing_orders': // NEW
+      case 'active_standing_orders':
         return {
           borderClass: 'border-green-500',
           textClass: 'text-green-600',
           icon: <Repeat className="h-4 w-4" />,
-          title: 'Active Standing Orders',
+          title: 'Active SO',
           description: 'Currently active standing orders',
-          statusValue: 'active_standing_orders',
           link: `/standing-orders?status=active`,
-          order: 8,
         };
-      case 'active_direct_debits': // NEW
+      case 'active_direct_debits':
         return {
           borderClass: 'border-indigo-500',
           textClass: 'text-indigo-600',
           icon: <Banknote className="h-4 w-4" />,
-          title: 'Active Direct Debits',
+          title: 'Active DD',
           description: 'Currently active direct debits',
-          statusValue: 'active_direct_debits',
           link: `/direct-debits?status=active`,
-          order: 9,
         };
       default:
         return {
           borderClass: 'border-gray-300',
           textClass: 'text-gray-600',
           icon: null,
-          title: 'Unknown',
+          title: String(status),
           description: '',
-          statusValue: 'all',
           link: '#',
-          order: 100,
         };
     }
   };
 
-  // Define the order of cards to display
-  const cardOrder: (keyof DashboardSummaryCardsProps['counts'])[] = [
+  const { borderClass, textClass, icon, title, description, link } = getCardStyling(statusKey);
+
+  return (
+    <Link to={link} className="block">
+      <Card className={cn(
+        "border-l-4 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 ease-in-out",
+        borderClass,
+        "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
+      )}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1"> {/* Reduced padding */}
+          <CardTitle className={cn("text-xs font-medium", textClass)}>{title}</CardTitle> {/* Reduced font size */}
+          <span className={textClass}>{icon}</span>
+        </CardHeader>
+        <CardContent className="p-3 pt-0"> {/* Reduced padding */}
+          <div className="text-xl font-bold">{count}</div> {/* Reduced font size */}
+          <p className="text-[10px] text-muted-foreground h-6 overflow-hidden">{description}</p> {/* Reduced font size */}
+        </CardContent>
+      </Card>
+    </Link>
+  );
+};
+
+
+const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({ counts }) => {
+  const { currentCountry } = useCountry();
+
+  const paymentRequestKeys: (keyof DashboardSummaryCardsProps['counts'])[] = [
     'pending',
     'setup_awaiting_approval',
     'queried',
     'declined',
     'approved',
+  ];
+
+  const transactionKeys: (keyof DashboardSummaryCardsProps['counts'])[] = [
     'missing_receipts',
+  ];
+
+  const recurringPaymentKeys: (keyof DashboardSummaryCardsProps['counts'])[] = [
     'pending_standing_orders',
     'active_standing_orders',
     'active_direct_debits',
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
-      {cardOrder.map((statusKey) => {
-        // Skip if the key is 'total' or if the count is 0 (optional, but cleaner)
-        if (statusKey === 'total') return null;
-        
-        const count = counts[statusKey];
-        const { borderClass, textClass, icon, title, description, link } = getCardStyling(statusKey as any);
+    <div className="space-y-6">
+      {/* Group 1: Payment Requests */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold">Payment Request Statuses</CardTitle>
+          <CardDescription>Overview of the payment request pipeline.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            {paymentRequestKeys.map((key) => (
+              <SummaryCardItem
+                key={key}
+                statusKey={key}
+                count={counts[key]}
+                currentCountry={currentCountry}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-        return (
-          <Link key={statusKey} to={link} className="block">
-            <Card className={cn(
-              "border-l-4 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 ease-in-out",
-              borderClass,
-              "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
-            )}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className={cn("text-sm font-medium", textClass)}>{title}</CardTitle>
-                <span className={textClass}>{icon}</span>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{count}</div>
-                <p className="text-xs text-muted-foreground">{description}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        );
-      })}
+      {/* Group 2: Transactions & Receipts */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold">Transaction Management</CardTitle>
+          <CardDescription>Status of transactions requiring user input.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            {transactionKeys.map((key) => (
+              <SummaryCardItem
+                key={key}
+                statusKey={key}
+                count={counts[key]}
+                currentCountry={currentCountry}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Group 3: Recurring Payments */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold">Recurring Payments</CardTitle>
+          <CardDescription>Status of standing orders and direct debits.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+            {recurringPaymentKeys.map((key) => (
+              <SummaryCardItem
+                key={key}
+                statusKey={key}
+                count={counts[key]}
+                currentCountry={currentCountry}
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
