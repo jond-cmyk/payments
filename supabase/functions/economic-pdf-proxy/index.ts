@@ -49,7 +49,7 @@ serve(async (req) => {
       "User-Agent": "SupabaseEdge/1.0",
     };
 
-    console.log(`[economic-pdf-proxy] Fetching PDF URL: ${fullUrl}`);
+    console.log(`[economic-pdf-proxy] Fetching PDF URL: ${fullUrl}. Version: 1.0.1`); // NEW VERSION LOG
 
     const response = await fetch(fullUrl, {
       method: "GET",
