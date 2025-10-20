@@ -17,6 +17,9 @@ interface SessionContextType {
 // Create the context
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
 
+// Interval for manual session refresh (5 minutes)
+const SESSION_REFRESH_INTERVAL = 5 * 60 * 1000; 
+
 export const SessionContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -94,11 +97,29 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       }
     });
 
-    return () => {
-      console.log("SessionContext: Unsubscribing from auth state listener.");
-      subscription.unsubscribe();
+    // --- Periodic Session Refresh ---
+    const refreshSession = async () => {
+      if (session) {
+        console.log("[SessionContext] Attempting periodic session refresh...");
+        const { data: { session: refreshedSession }, error } = await supabase.auth.refreshSession();
+        if (error) {
+          console.warn("[SessionContext] Periodic refresh failed (might be expired or network issue):", error.message);
+          // If refresh fails, the onAuthStateChange listener should eventually catch SIGNED_OUT
+        } else if (refreshedSession) {
+          console.log("[SessionContext] Periodic refresh successful.");
+        }
+      }
     };
-  }, [queryClient]); // Add queryClient to dependencies
+
+    const intervalId = setInterval(refreshSession, SESSION_REFRESH_INTERVAL);
+    // --------------------------------
+
+    return () => {
+      console.log("SessionContext: Unsubscribing from auth state listener and clearing refresh interval.");
+      subscription.unsubscribe();
+      clearInterval(intervalId);
+    };
+  }, [queryClient, session]); // Added session to dependencies to ensure refreshSession uses the latest session state
 
   const isLoading = isLoadingSession || isLoadingProfile; // Combined loading state
 
