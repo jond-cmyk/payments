@@ -11,6 +11,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 import { PaymentRequest } from '@/types/supabase'; // Import PaymentRequest type for suggestions
+import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // NEW IMPORT
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,44 +24,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
-
-// List of major currencies, expanded and sorted alphabetically
-const majorCurrencies = [
-  { value: 'ALL', label: 'ALL - Albanian Lek' },
-  { value: 'AMD', label: 'AMD - Armenian Dram' },
-  { value: 'AUD', label: 'AUD - Australian Dollar' },
-  { value: 'AZN', label: 'AZN - Azerbaijani Manat' },
-  { value: 'BAM', label: 'BAM - Bosnia and Herzegovina Convertible Mark' },
-  { value: 'BGN', label: 'BGN - Bulgarian Lev' },
-  { value: 'BYN', label: 'BYN - Belarusian Ruble' },
-  { value: 'CAD', label: 'CAD - Canadian Dollar' },
-  { value: 'CHF', label: 'CHF - Swiss Franc' },
-  { value: 'CNY', label: 'CNY - Chinese Yuan' },
-  { value: 'CZK', label: 'CZK - Czech Koruna' },
-  { value: 'DKK', label: 'DKK - Danish Krone' },
-  { value: 'EUR', label: 'EUR - Euro' },
-  { value: 'GBP', label: 'GBP - British Pound' },
-  { value: 'GEL', label: 'GEL - Georgian Lari' },
-  { value: 'HKD', label: 'HKD - Hong Kong Dollar' },
-  { value: 'HUF', label: 'HUF - Hungarian Forint' },
-  { value: 'INR', label: 'INR - Indian Rupee' },
-  { value: 'ISK', label: 'ISK - Icelandic Króna' },
-  { value: 'JPY', label: 'JPY - Japanese Yen' },
-  { value: 'MKD', label: 'MKD - Macedonian Denar' },
-  { value: 'MDL', label: 'MDL - Moldovan Leu' },
-  { value: 'MXN', label: 'MXN - Mexican Peso' },
-  { value: 'NOK', label: 'NOK - Norwegian Krone' },
-  { value: 'NZD', label: 'NZD - New Zealand Dollar' },
-  { value: 'PLN', label: 'PLN - Polish Zloty' },
-  { value: 'RON', label: 'RON - Romanian Leu' },
-  { value: 'RSD', label: 'RSD - Serbian Dinar' },
-  { value: 'SEK', label: 'SEK - Swedish Krona' },
-  { value: 'SGD', label: 'SGD - Singapore Dollar' },
-  { value: 'TRY', label: 'TRY - Turkish Lira' },
-  { value: 'UAH', label: 'UAH - Ukrainian Hryvnia' },
-  { value: 'USD', label: 'USD - United States Dollar' },
-  { value: 'ZAR', label: 'ZAR - South African Rand' },
-].sort((a, b) => a.label.localeCompare(b.label)); // Ensure alphabetical order
 
 // Define the Zod schema for form validation
 const formSchema = z.object({
@@ -457,7 +420,7 @@ const NewPaymentRequest = () => {
                         </FormControl>
                       </SelectTrigger>
                       <SelectContent>
-                        {availableCountries.map((country) => (
+                        {availableCountries.filter(c => c.value !== 'all').map((country) => (
                           <SelectItem key={country.value} value={country.value}>
                             {country.label}
                           </SelectItem>
