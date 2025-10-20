@@ -92,11 +92,11 @@ const Customers: React.FC = () => {
     queryKey: ["economicCustomers", pageSize],
     queryFn: async () => {
       const path = `/customers?pagesize=${pageSize}`;
-      console.log(`[Customers] Invoking economic-proxy for path: ${path}`);
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      console.log(`[Customers] Invoking economic-api-proxy for path: ${path}`);
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: path, method: "GET" },
       });
-      console.log("[Customers] Raw response from economic-proxy:", { data, error });
+      console.log("[Customers] Raw response from economic-api-proxy:", { data, error });
       if (error) throw new Error(error.message || "Failed to load customers");
       const resp = data as EconomicProxyResponse<EconomicCollection<EconomicCustomer>>;
       const list = extractList(resp?.data);
@@ -244,7 +244,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     queryKey: ["customerBalanceAndOverdue", num],
     queryFn: async () => {
       if (!num) return { balance: null, dueAmount: null };
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: `/customers/${num}/totals`, method: "GET" },
       });
 
@@ -267,7 +267,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       let dueAmountVal = getNumeric(resp?.data, ["dueAmount", "totals.dueAmount"]) ?? null;
 
       if (balanceVal === null || dueAmountVal === null) {
-        const { data: detailsData, error: detailsError } = await supabase.functions.invoke("economic-proxy", {
+        const { data: detailsData, error: detailsError } = await supabase.functions.invoke("economic-api-proxy", {
           body: { path: `/customers/${num}`, method: "GET" },
         });
         if (!detailsError) {
@@ -334,7 +334,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : undefined);
     if (!path) return;
 
-    const { data, error } = await supabase.functions.invoke("economic-proxy", {
+    const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
       body: { path, method: "GET" },
     });
     if (error || !data) return;
@@ -385,7 +385,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     const key = getInvoiceKey(inv);
     setInvoiceHeadings((prev) => ({ ...prev, [key]: found as string }));
-  }, [getInvoiceDescription, setInvoiceHeadings]);
+  }, [getInvoiceDescription, fetchHeadingForInvoice, setInvoiceHeadings]);
 
   const enrichInvoiceHeadings = useCallback(async (list: any[]) => {
     for (const inv of list) {
@@ -414,7 +414,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
 
     if (originalRequestPath) {
-      const { data: demoData } = await supabase.functions.invoke("economic-proxy", {
+      const { data: demoData } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: `${originalRequestPath}?demo=true`, method: "GET" },
       });
       if (demoData) {
@@ -460,7 +460,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       return;
     }
 
-    const { data: initialProxyResponse, error: initialProxyError } = await supabase.functions.invoke("economic-proxy", {
+    const { data: initialProxyResponse, error: initialProxyError } = await supabase.functions.invoke("economic-api-proxy", {
       body: { path: basePath, method: "GET" },
     });
     dismissToast(toastId);
@@ -509,7 +509,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     if (!pdfUrl) {
       const pdfPath = basePath.endsWith("/pdf") ? basePath : `${basePath}/pdf`;
-      const { data: pdfProxyResponse, error: pdfProxyError } = await supabase.functions.invoke("economic-proxy", {
+      const { data: pdfProxyResponse, error: pdfProxyError } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: pdfPath, method: "GET" },
       });
 
@@ -604,7 +604,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         ];
 
     for (const path of paths) {
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path, method: "GET" },
       });
       if (!error && data) {
@@ -656,13 +656,13 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     try {
       // CORRECTED PATH: Use the /customer-ledger-entries endpoint with customerNumber as a query parameter
       const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
-      const invocationUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-proxy`; // Explicitly log the full invocation URL
+      const invocationUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-api-proxy`; // Explicitly log the full invocation URL
       console.log(`[CustomerRow] loadLedgerCard (v7): Path to send to proxy: ${pathForProxy}`);
       console.log(`[CustomerRow] loadLedgerCard (v7): Full Edge Function invocation URL: ${invocationUrl}`); // NEW LOG
       const requestBodyForProxy = { path: pathForProxy, method: "GET" };
       console.log(`[CustomerRow] loadLedgerCard (v7): Request body for proxy: ${JSON.stringify(requestBodyForProxy)}`);
 
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: requestBodyForProxy,
       });
 
@@ -710,7 +710,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       // Use the same endpoint as Ledger Card, but for a different display purpose
       const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
       
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: pathForProxy, method: "GET" },
       });
 

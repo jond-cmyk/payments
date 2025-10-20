@@ -57,12 +57,12 @@ const EconomicIntegration = () => {
 
       const normalized = endpointPath.startsWith("/") ? endpointPath : `/${endpointPath}`;
 
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: normalized, method, body: parsedBody, base },
       });
 
       if (error) {
-        showError(error.message || "Error invoking economic-proxy.");
+        showError(error.message || "Error invoking economic-api-proxy.");
         setResult(JSON.stringify({ error: error.message }, null, 2));
         dismissToast(toastId);
         return;
@@ -121,7 +121,7 @@ const EconomicIntegration = () => {
     const results: Array<{ label: string; status?: number; ok?: boolean; url: string; note?: string }> = [];
 
     for (const t of tests) {
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: t.path, method: "GET" },
       });
       if (error) {

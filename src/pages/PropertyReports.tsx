@@ -77,7 +77,7 @@ const PropertyReports = () => {
       const queryString = new URLSearchParams(queryParams).toString();
       const path = `/reports/department-profit-loss?${queryString}`;
 
-      const { data, error } = await supabase.functions.invoke("economic-proxy", {
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: path, method: "GET" },
       });
 
