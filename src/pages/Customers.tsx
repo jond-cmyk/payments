@@ -114,6 +114,7 @@ const Customers: React.FC = () => {
         c.name || "",
         c.email || "",
         c.address?.street || "",
+        c.address?.postalCode || "",
         c.address?.city || "",
       ].map((s) => s.toLowerCase());
       return fields.some((f) => f.includes(q));
@@ -541,13 +542,42 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       return;
     }
 
-    try {
-      window.open(pdfUrl, "_blank");
-      showSuccess("Opening invoice PDF");
-    } catch (e) {
-      console.error("Error opening PDF URL:", e);
-      showError("Unable to open invoice PDF");
+    // --- START NEW LOGIC FOR SECURE PDF PROXY ---
+    const isEconomicUrl = pdfUrl.startsWith("https://restapi.e-conomic.com");
+    
+    if (isEconomicUrl) {
+      // If it's a secure e-conomic URL, we must proxy it via a direct browser call to the Edge Function
+      let economicPath: string;
+      try {
+        const urlObj = new URL(pdfUrl);
+        economicPath = urlObj.pathname + urlObj.search;
+      } catch (e) {
+        console.error("Failed to parse economic PDF URL:", e);
+        showError("Invalid PDF URL format received from e-conomic.");
+        return;
+      }
+      
+      // Hardcoded Supabase Project ID and Function Name
+      const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(economicPath)}`;
+      
+      try {
+        window.open(proxyUrl, "_blank");
+        showSuccess("Opening invoice PDF securely.");
+      } catch (e) {
+        console.error("Error opening PDF proxy URL:", e);
+        showError("Unable to open invoice PDF via secure proxy.");
+      }
+    } else {
+      // If it's a public URL (e.g., from Supabase storage or another public CDN), open directly
+      try {
+        window.open(pdfUrl, "_blank");
+        showSuccess("Opening invoice PDF");
+      } catch (e) {
+        console.error("Error opening PDF URL:", e);
+        showError("Unable to open invoice PDF");
+      }
     }
+    // --- END NEW LOGIC FOR SECURE PDF PROXY ---
   }, [handleUnauthorized]);
 
   const loadInvoices = useCallback(async () => {
