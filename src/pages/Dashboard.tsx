@@ -1,30 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useSession } from '@/integrations/supabase/SessionContext';
-import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { PaymentRequest, Profile, Transaction } from '@/types/supabase';
-import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
-import { PlusCircle, XCircle, ArrowUp, ArrowDown } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { CardTitle, Card } from '@/components/ui/card';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useSession } from "@/integrations/supabase/SessionContext";
 
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { useCountry } from '@/integrations/supabase/CountryContext';
-import { cn } from '@/lib/utils'; // Ensure cn is imported
-
-import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
-import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
-import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
-import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
-import CountrySelector from '@/components/CountrySelector';
-import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
-
-// NEW IMPORTS FOR MODULARIZATION
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import GlobalSearchSection from '@/components/dashboard/GlobalSearchSection';
 import DashboardMainContent from '@/components/dashboard/DashboardMainContent';
@@ -65,7 +44,9 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <DashboardHeader debouncedSearchTerm={debouncedSearchTerm} />
+      <div className="mb-8"> {/* Added mb-8 wrapper for spacing */}
+        <DashboardHeader debouncedSearchTerm={debouncedSearchTerm} />
+      </div>
       <GlobalSearchSection onSearchTermChange={setDebouncedSearchTerm} debouncedSearchTerm={debouncedSearchTerm} />
       {!debouncedSearchTerm && <DashboardMainContent debouncedSearchTerm={debouncedSearchTerm} />}
     </div>

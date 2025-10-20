@@ -493,7 +493,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const hasRemindedRequests = paymentRequestsForTable?.some(req => req.is_reminded);
 
   // Instantiate DashboardSummaryCards to get render functions
-  const { renderPaymentRequests, renderTransactionManagement, renderRecurringPayments } = DashboardSummaryCards({ counts });
+  const { renderPaymentAndTransactionManagement, renderRecurringPayments } = DashboardSummaryCards({ counts });
 
   return (
     <>
@@ -524,14 +524,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       {/* Summary cards always show on /dashboard for both requester and admin */}
       {!isAllRequestsPage && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Column 1: Payment Requests (5 cards) */}
+          {/* Column 1: Payment Requests & Transaction Management (Combined Card) */}
           <div>
-            {renderPaymentRequests()}
+            {renderPaymentAndTransactionManagement()}
           </div>
           
-          {/* Column 2: Transaction Management (1 card) and Recurring Payments (3 cards) */}
+          {/* Column 2: Recurring Payments */}
           <div className="space-y-6">
-            {renderTransactionManagement()}
             {renderRecurringPayments()}
           </div>
         </div>

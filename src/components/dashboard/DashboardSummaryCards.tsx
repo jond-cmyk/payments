@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { PaymentRequest } from '@/types/supabase';
 import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 interface DashboardSummaryCardsProps {
   counts: {
@@ -169,13 +170,13 @@ const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
     'active_direct_debits',
   ];
 
-  const renderPaymentRequests = () => (
+  const renderPaymentAndTransactionManagement = () => (
     <Card className="shadow-sm h-full">
       <CardHeader>
-        <CardTitle className="text-xl font-bold">Payment Requests</CardTitle>
+        <CardTitle className="text-xl font-bold">Payment Request Statuses</CardTitle>
         <CardDescription>Overview of the payment request pipeline.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pb-4">
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           {paymentRequestKeys.map((key) => (
             <SummaryCardItem
@@ -187,12 +188,10 @@ const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
           ))}
         </div>
       </CardContent>
-    </Card>
-  );
+      
+      <Separator className="mx-6" />
 
-  const renderTransactionManagement = () => (
-    <Card className="shadow-sm h-full">
-      <CardHeader>
+      <CardHeader className="pt-4">
         <CardTitle className="text-xl font-bold">Transaction Management</CardTitle>
         <CardDescription>Status of transactions requiring user input.</CardDescription>
       </CardHeader>
@@ -232,7 +231,7 @@ const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
     </Card>
   );
 
-  return { renderPaymentRequests, renderTransactionManagement, renderRecurringPayments };
+  return { renderPaymentAndTransactionManagement, renderRecurringPayments };
 };
 
 export default DashboardSummaryCards;
