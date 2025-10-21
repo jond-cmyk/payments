@@ -171,12 +171,12 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <p className="font-bold">Account Name:</p>
-              <p>{request.bank_account_name || 'N/A'}</p>
-            </div>
             {isUK ? (
               <>
+                <div>
+                  <p className="font-bold">Account Name:</p>
+                  <p>{request.bank_account_name || 'N/A'}</p>
+                </div>
                 <div>
                   <p className="font-bold">Sort Code:</p>
                   <p>{request.sort_code || 'N/A'}</p>
@@ -187,10 +187,18 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
                 </div>
               </>
             ) : (
-              <div>
-                <p className="font-bold">IBAN Number:</p>
-                <p>{request.iban_number || 'N/A'}</p>
-              </div>
+              <>
+                {request.bank_account_name && (
+                  <div>
+                    <p className="font-bold">Bank Account Name:</p>
+                    <p>{request.bank_account_name || 'N/A'}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="font-bold">IBAN Number:</p>
+                  <p>{request.iban_number || 'N/A'}</p>
+                </div>
+              </>
             )}
             <div className="md:col-span-2">
               <p className="font-bold">Bank Details Verified:</p>

@@ -134,7 +134,36 @@ const formSchema = z.object({
         path: ['iban_number'],
       });
     }
-  } else {
+  } else if (data.country === 'Switzerland') {
+    if (!data.iban_number || data.iban_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number is required.",
+        path: ['iban_number'],
+      });
+    }
+    if (!data.bank_account_name || data.bank_account_name.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account Name is required for Switzerland.",
+        path: ['bank_account_name'],
+      });
+    }
+    if (data.sort_code && data.sort_code.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sort Code should not be provided for this country.",
+        path: ['sort_code'],
+      });
+    }
+    if (data.account_number && data.account_number.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account Number should not be provided for this country.",
+        path: ['account_number'],
+      });
+    }
+  } else { // All other non-UK, non-CH countries
     if (!data.iban_number || data.iban_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -383,7 +412,7 @@ const NewPaymentRequest = () => {
             iban_number: values.iban_number,
             sort_code: null,
             account_number: null,
-            bank_account_name: null,
+            bank_account_name: values.country === 'Switzerland' ? values.bank_account_name : null,
           };
 
       // Insert payment request data into Supabase
@@ -774,19 +803,40 @@ const NewPaymentRequest = () => {
                   />
                 </>
               ) : (
-                <FormField
-                  control={form.control}
-                  name="iban_number"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., CH9300762011623852957" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                <>
+                  {/* NEW: Bank Account Name for Switzerland */}
+                  {formCountry === 'Switzerland' && (
+                    <FormField
+                      control={form.control}
+                      name="bank_account_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold">Bank Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., John Doe" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Enter the name of the bank account holder.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
-                />
+                  <FormField
+                    control={form.control}
+                    name="iban_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., CH9300762011623852957" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
               )}
 
               <FormField
@@ -939,6 +989,7 @@ const NewPaymentRequest = () => {
                       ) : (
                         <>
                           <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
+                          {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account Name: {suggestion.bank_account_name || 'N/A'}</p>}
                           {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
                         </>
                       )}

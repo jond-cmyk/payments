@@ -52,6 +52,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
 
   // Calculate total amount whenever categories array changes
   React.useEffect(() => {
+    // console.log("[PaymentRequestEditFormCard] watchedCategories changed:", watchedCategories);
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
       // Ensure amount is treated as a number, defaulting to 0 if invalid
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
@@ -396,19 +397,40 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 />
               </>
             ) : (
-              <FormField
-                control={editForm.control}
-                name="iban_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., CH9300762011623852957" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <>
+                {/* NEW: Bank Account Name for Switzerland */}
+                {formCountry === 'Switzerland' && (
+                  <FormField
+                    control={editForm.control}
+                    name="bank_account_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Bank Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., John Doe" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the name of the bank account holder.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+                <FormField
+                  control={editForm.control}
+                  name="iban_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., CH9300762011623852957" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
             )}
 
             <FormField

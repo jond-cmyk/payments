@@ -362,6 +362,7 @@ const PaymentRequestDetail = () => {
         is_urgent: values.is_urgent, // Include urgent status
         country: values.country, // Include country from form values
         categories: values.categories as PaymentRequestCategoryItem[], // Explicitly cast here
+        bank_details_verified: values.bank_details_verified,
       };
 
       // Conditionally add bank details to updatedFields
@@ -374,7 +375,7 @@ const PaymentRequestDetail = () => {
         updatedFields.iban_number = values.iban_number;
         updatedFields.sort_code = null;
         updatedFields.account_number = null;
-        updatedFields.bank_account_name = null;
+        updatedFields.bank_account_name = values.country === 'Switzerland' ? values.bank_account_name : null;
       }
 
       if (values.invoice_pdf && values.invoice_pdf.length > 0) {

@@ -146,7 +146,36 @@ export const editFormSchema = z.object({
         path: ['iban_number'],
       });
     }
-  } else {
+  } else if (data.country === 'Switzerland') {
+    if (!data.iban_number || data.iban_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number is required.",
+        path: ['iban_number'],
+      });
+    }
+    if (!data.bank_account_name || data.bank_account_name.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Bank Account Name is required for Switzerland.",
+        path: ['bank_account_name'],
+      });
+    }
+    if (data.sort_code && data.sort_code.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Sort Code should not be provided for this country.",
+        path: ['sort_code'],
+      });
+    }
+    if (data.account_number && data.account_number.trim() !== '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Account Number should not be provided for this country.",
+        path: ['account_number'],
+      });
+    }
+  } else { // All other non-UK, non-CH countries
     if (!data.iban_number || data.iban_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
