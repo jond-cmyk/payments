@@ -6,12 +6,24 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { User as UserIcon } from 'lucide-react';
+import { User as UserIcon, Trash2 } from 'lucide-react'; // Import Trash2
 import * as z from 'zod'; // Import z for schema type
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import ProfileForm from '@/components/profile/ProfileForm'; // Import the new ProfileForm
+import { Button } from '@/components/ui/button'; // Import Button
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"; // Import AlertDialog components
 
 // Zod schema for profile form (re-defined here for page-level type safety)
 const profileFormSchema = z.object({
@@ -48,6 +60,45 @@ const ProfilePage = () => {
     onError: (error: any) => {
       showError(error.message || "Failed to update profile.");
       console.error("Update profile error:", error);
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error("User not authenticated.");
+      
+      const toastId = showLoading("Deleting account...");
+
+      try {
+        // Use the Edge Function to delete the user (which handles auth.users and cascades to public.profiles)
+        const { data, error: invokeError } = await supabase.functions.invoke('delete-user', {
+          body: { userId: user.id },
+        });
+
+        if (invokeError) {
+          throw new Error(invokeError.message);
+        }
+
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+
+        dismissToast(toastId);
+        showSuccess("Your account has been successfully deleted.");
+        // Force sign out and navigation handled by SessionContext listener
+        await supabase.auth.signOut();
+        navigate('/login');
+        return true;
+      } catch (error: any) {
+        dismissToast(toastId);
+        showError(error.message || "Failed to delete account.");
+        console.error("Delete account error:", error);
+        throw error;
+      }
+    },
+    // No onSuccess needed here as navigation is handled inside mutationFn after successful Edge Function call
+    onError: (error: any) => {
+      // Error handling is done inside mutationFn
     },
   });
 
@@ -107,6 +158,47 @@ const ProfilePage = () => {
             onSave={handleSaveProfile}
             isSaving={updateUserProfileMutation.isPending}
           />
+        </CardContent>
+      </Card>
+
+      {/* GDPR: Right to Erasure - Delete Account */}
+      <Card className="max-w-2xl mx-auto shadow-sm mt-8 border-l-4 border-red-500">
+        <CardHeader>
+          <CardTitle className="flex items-center text-xl font-bold text-red-700">
+            <Trash2 className="mr-2 h-5 w-5" /> Delete Account
+          </CardTitle>
+          <CardDescription>
+            Permanently delete your account and all associated data. This action cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="destructive" 
+                className="w-full"
+                disabled={deleteAccountMutation.isPending}
+              >
+                {deleteAccountMutation.isPending ? "Processing Deletion..." : "Request Account Deletion"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action will permanently delete your user account, profile, and all associated data (payment requests, transactions, etc.). This is irreversible.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => deleteAccountMutation.mutate()} asChild>
+                  <Button variant="destructive">
+                    Confirm Delete My Account
+                  </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>
