@@ -51,15 +51,15 @@ serve(async (req) => {
       return (data || []).map(item => ({
         source_type: 'payment_request',
         name: item.supplier_name,
-        address: item.supplier_address,
-        iban_number: item.iban_number,
-        sort_code: item.sort_code,
-        account_number: item.account_number,
-        bank_account_name: item.bank_account_name,
-        currency: item.currency,
+        address: item.supplier_address || null,
+        iban_number: item.iban_number || null,
+        sort_code: item.sort_code || null,
+        account_number: item.account_number || null,
+        bank_account_name: item.bank_account_name || null,
+        currency: item.currency || null,
         country: item.country,
         bank_account: null,
-        payment_reference: null, // PRs don't have this field, set to null
+        payment_reference: null,
       }));
     }));
 
@@ -75,16 +75,16 @@ serve(async (req) => {
       if (error) throw error;
       return (data || []).map(item => ({
         source_type: 'standing_order',
-        name: item.payee,
-        address: item.account_address,
-        iban_number: item.iban_number,
-        sort_code: item.sort_code,
-        account_number: item.account_number,
-        bank_account_name: item.account_name, // Use account_name for bank_account_name
-        currency: item.currency,
+        name: item.payee || '', // Coerce to string
+        address: item.account_address || null,
+        iban_number: item.iban_number || null,
+        sort_code: item.sort_code || null,
+        account_number: item.account_number || null,
+        bank_account_name: item.account_name || null, // Use account_name for bank_account_name
+        currency: item.currency || null,
         country: item.country,
-        bank_account: item.bank_account,
-        payment_reference: item.payment_reference,
+        bank_account: item.bank_account || null,
+        payment_reference: item.payment_reference || null,
       }));
     }));
 
@@ -100,16 +100,16 @@ serve(async (req) => {
       if (error) throw error;
       return (data || []).map(item => ({
         source_type: 'direct_debit',
-        name: item.payee,
-        address: null, // DD table doesn't store address
-        iban_number: null, // DD table doesn't store IBAN
-        sort_code: null, // DD table doesn't store sort_code
-        account_number: item.account_number,
-        bank_account_name: null, // DD table doesn't store account name
-        currency: item.currency,
+        name: item.payee || '', // Coerce to string
+        address: null,
+        iban_number: null,
+        sort_code: null,
+        account_number: item.account_number || null,
+        bank_account_name: null,
+        currency: item.currency || null,
         country: item.country,
-        bank_account: item.bank_account,
-        payment_reference: item.payment_reference,
+        bank_account: item.bank_account || null,
+        payment_reference: item.payment_reference || null,
       }));
     }));
 
