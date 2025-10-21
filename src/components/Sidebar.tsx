@@ -120,7 +120,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
       
       {/* Navigation Links (Scrollable Middle Section using ScrollArea) */}
       <ScrollArea className="flex-1">
-        <nav className="space-y-2">
+        <nav className="space-y-1">
           <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
           {(currentRole === 'requester' || currentRole === 'admin') && (
             <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
@@ -136,7 +136,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
           <div className="h-px bg-dyad-blue-foreground my-4" />
           <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
           <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
-          <NavLink to="/property-reports" icon={<LayoutDashboard className="h-5 w-5" />} label="Property Reports" /> {/* NEW: Property Reports Link */}
+          <NavLink to="/property-reports" icon={<LayoutDashboard className="h-5 w-5" />} label="Property Reports" />
           
           <div className="h-px bg-dyad-blue-foreground my-4" /> 
 
@@ -155,12 +155,12 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
               <div className="h-px bg-dyad-blue-foreground my-4" />
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="admin-panel" className="border-b-0">
-                  <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors rounded-md">
+                  <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors rounded-md">
                     <span className="flex items-center">
                       <Settings className="mr-2 h-5 w-5" /> Admin Panel
                     </span>
                   </CustomAccordionTrigger>
-                  <AccordionContent className="pl-6 pt-2 pb-0 space-y-2">
+                  <AccordionContent className="pl-6 pt-2 pb-0 space-y-1">
                     <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
                     <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
                     <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" />
@@ -263,6 +263,7 @@ const NavLink = ({ to, icon, label, children }: NavLinkProps) => {
     <Button
       asChild
       variant="ghost"
+      size="sm"
       className={cn(
         "w-full justify-start",
         isActive
