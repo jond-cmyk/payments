@@ -25,7 +25,7 @@ interface SidebarProps {
   isMobile?: boolean;
 }
 
-const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
+const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className from destructuring
   const { session, user, isLoading, isApproved, userProfile } = useSession();
   const { notificationPermission, notificationsEnabled, requestNotificationPermission, toggleNotifications } = useNotifications();
   const navigate = useNavigate();
@@ -82,7 +82,6 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
       <div className={cn(
         "flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-md",
         isMobile ? "p-4" : "p-4",
-        className
       )}>
         <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
           <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-12" />
@@ -112,12 +111,11 @@ const Sidebar = ({ className, isMobile = false }: SidebarProps) => {
     <div className={cn(
       "flex flex-col h-full w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border shadow-md",
       isMobile ? "p-4" : "p-4",
-      className
     )}>
       <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
         <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-12" />
       </div>
-      <nav className="flex-1 space-y-2">
+      <nav className="flex-1 space-y-2 overflow-y-auto"> {/* Added overflow-y-auto here */}
         <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />

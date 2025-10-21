@@ -8,8 +8,10 @@ import { Outlet } from 'react-router-dom';
 const Layout = () => {
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-background to-dyad-blue-light/30"> {/* Increased gradient prominence */}
-      {/* Sidebar is hidden on small screens and shown on medium/large screens */}
-      <Sidebar className="hidden sm:flex" /> 
+      {/* Sidebar container: sticky, top-0, hidden on small screens, shown on medium/large screens */}
+      <div className="sticky top-0 hidden sm:flex h-screen">
+        <Sidebar /> 
+      </div>
       <div className="flex-1 flex flex-col"> {/* Wrapper for header and main content */}
         <Header /> {/* Render the Header */}
         <main className="flex-1 p-6 overflow-auto">
