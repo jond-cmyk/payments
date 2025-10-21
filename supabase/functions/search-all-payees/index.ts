@@ -1,4 +1,6 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+// @ts-ignore
+import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
@@ -6,14 +8,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// @ts-ignore
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // @ts-ignore
     const supabaseClient = createClient(
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: { persistSession: false },
@@ -53,13 +59,14 @@ serve(async (req) => {
         currency: item.currency,
         country: item.country,
         bank_account: null,
+        payment_reference: null, // PRs don't have this field, set to null
       }));
     }));
 
     // 2. Search Standing Orders (Payee)
     const soQuery = supabaseClient
       .from('standing_orders')
-      .select('payee, account_address, iban_number, sort_code, account_number, account_name, currency, country, bank_account')
+      .select('payee, account_address, iban_number, sort_code, account_number, account_name, currency, country, bank_account, payment_reference')
       .ilike('payee', term)
       .eq('country', country)
       .limit(50);
@@ -77,8 +84,35 @@ serve(async (req) => {
         currency: item.currency,
         country: item.country,
         bank_account: item.bank_account,
+        payment_reference: item.payment_reference,
       }));
     }));
+
+    // 3. Search Direct Debits (Payee)
+    const ddQuery = supabaseClient
+      .from('direct_debits')
+      .select('payee, account_number, payment_reference, currency, country, bank_account')
+      .ilike('payee', term)
+      .eq('country', country)
+      .limit(50);
+
+    searchPromises.push(ddQuery.then(({ data, error }) => {
+      if (error) throw error;
+      return (data || []).map(item => ({
+        source_type: 'direct_debit',
+        name: item.payee,
+        address: null, // DD table doesn't store address
+        iban_number: null, // DD table doesn't store IBAN
+        sort_code: null, // DD table doesn't store sort_code
+        account_number: item.account_number,
+        bank_account_name: null, // DD table doesn't store account name
+        currency: item.currency,
+        country: item.country,
+        bank_account: item.bank_account,
+        payment_reference: item.payment_reference,
+      }));
+    }));
+
 
     const results = await Promise.all(searchPromises);
     const combinedResults = results.flat();

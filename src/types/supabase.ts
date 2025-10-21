@@ -213,7 +213,7 @@ export type Feedback = {
 
 /** Unified Payee Suggestion */
 export type PayeeSuggestion = {
-  source_type: 'payment_request' | 'standing_order';
+  source_type: 'payment_request' | 'standing_order' | 'direct_debit';
   name: string;
   address: string | null;
   iban_number: string | null;
@@ -223,4 +223,5 @@ export type PayeeSuggestion = {
   currency: string | null;
   country: string;
   bank_account: string | null; // For CH standing orders/transactions
+  payment_reference: string | null; // ADDED: Fix TS2339
 };

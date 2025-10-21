@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,8 +10,8 @@ import { Edit } from 'lucide-react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
-import { DirectDebit } from '@/types/supabase';
-import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // Import majorCurrencies
+import { DirectDebit, PayeeSuggestion } from '@/types/supabase';
+import { majorCurrencies } from '@/schemas/paymentRequestSchema';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Card, CardTitle } from '@/components/ui/card';
 
 // Zod schema for editing a direct debit
 const editDirectDebitFormSchema = z.object({
@@ -103,6 +105,10 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   const { user, userProfile } = useSession();
   const { availableCountries } = useCountry();
 
+  const [payeeSuggestions, setPayeeSuggestions] = useState<PayeeSuggestion[]>([]);
+  const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
+  const [isSearchingPayee, setIsSearchingPayee] = useState(false);
+
   const form = useForm<z.infer<typeof editDirectDebitFormSchema>>({
     resolver: zodResolver(editDirectDebitFormSchema),
     defaultValues: {
@@ -123,6 +129,64 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
   const isAdmin = userProfile?.role === 'admin';
+
+  // NEW: Payee Search Logic
+  const handlePayeeBlur = async () => {
+    if (!isAdmin) return; // Only admins can trigger search on edit form
+
+    const payeeName = form.getValues('payee');
+    const currentFormCountry = form.getValues('country');
+
+    if (!payeeName || payeeName.trim() === '') {
+      setPayeeSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+      return;
+    }
+
+    setIsSearchingPayee(true);
+    const toastId = showLoading("Searching for existing payees...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('search-all-payees', {
+        body: { searchTerm: payeeName, country: currentFormCountry },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      if (data && data.suggestions && data.suggestions.length > 0) {
+        setPayeeSuggestions(data.suggestions);
+        setIsSuggestionDialogOpen(true);
+        dismissToast(toastId);
+        showSuccess(`Found ${data.suggestions.length} existing payee suggestion(s)!`);
+      } else {
+        setPayeeSuggestions([]);
+        setIsSuggestionDialogOpen(false);
+        dismissToast(toastId);
+        showSuccess("No existing payee found with similar name. Please enter details manually.");
+      }
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to search for existing payees.");
+      console.error("Payee search error:", error);
+      setPayeeSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+    } finally {
+      setIsSearchingPayee(false);
+    }
+  };
+
+  const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
+    form.setValue('payee', suggestion.name);
+    form.setValue('account_number', suggestion.account_number || '');
+    form.setValue('payment_reference', suggestion.payment_reference || '');
+    form.setValue('currency', suggestion.currency || undefined);
+    form.setValue('bank_account', suggestion.bank_account || undefined);
+    
+    // Note: Direct Debits don't have categories/total_amount fields to reset.
+    
+    setIsSuggestionDialogOpen(false);
+  };
 
   const onSubmit = async (values: z.infer<typeof editDirectDebitFormSchema>) => {
     const toastId = showLoading("Updating direct debit...");
@@ -183,157 +247,141 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   );
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Country</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                <SelectTrigger id={field.name}>
-                  <FormControl>
-                    <SelectValue placeholder="Select a country" />
-                  </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
-                    <SelectItem key={country.value} value={country.value}>
-                      {country.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                {isAdmin ? "Select the country for this direct debit." : "Your country is set by your profile and cannot be changed."}
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="payee"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., Electricity Company" {...field} disabled={!isAdmin} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="payment_day"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel className="font-semibold">
-                Payment Day (Day of Month)
-                <span className="text-red-600 ml-1 text-lg font-bold">*</span>
-              </FormLabel>
-              <FormControl>
-                <Select
-                  onValueChange={(val) => field.onChange(Number(val))}
-                  value={field.value !== undefined ? String(field.value) : undefined}
-                  disabled={!isAdmin}
-                >
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormField
+            control={form.control}
+            name="country"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Country</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                   <SelectTrigger id={field.name}>
-                    <SelectValue placeholder="Select day (1–31)" />
+                    <FormControl>
+                      <SelectValue placeholder="Select a country" />
+                    </FormControl>
                   </SelectTrigger>
                   <SelectContent>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <SelectItem key={d} value={String(d)}>
-                        {d}
+                    {availableCountries.filter(c => c.value !== 'all').map((country) => (
+                      <SelectItem key={country.value} value={country.value}>
+                        {country.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="sku"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">SKU</FormLabel>
-              <FormControl>
-                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !isAdmin} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="not_property_related"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                  disabled={!isAdmin}
-                />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>
-                  Not Property Related
-                </FormLabel>
                 <FormDescription>
-                  Check this box if this direct debit is not associated with a property SKU.
+                  {isAdmin ? "Select the country for this direct debit." : "Your country is set by your profile and cannot be changed."}
                 </FormDescription>
-              </div>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <SelectTrigger id={field.name}>
-                  <FormControl>
-                    <SelectValue placeholder="Select a category" />
-                  </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredCategoryOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {formCountry === 'Switzerland' && (
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
-            name="currency"
+            name="payee"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="e.g., Electricity Company" 
+                    {...field} 
+                    disabled={!isAdmin || form.formState.isSubmitting || isSearchingPayee}
+                    onBlur={(e) => {
+                      field.onBlur();
+                      handlePayeeBlur(); // Call our custom blur handler
+                    }}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="payment_day"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="font-semibold">
+                  Payment Day (Day of Month)
+                  <span className="text-red-600 ml-1 text-lg font-bold">*</span>
+                </FormLabel>
+                <FormControl>
+                  <Select
+                    onValueChange={(val) => field.onChange(Number(val))}
+                    value={field.value !== undefined ? String(field.value) : undefined}
+                    disabled={!isAdmin}
+                  >
+                    <SelectTrigger id={field.name}>
+                      <SelectValue placeholder="Select day (1–31)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <SelectItem key={d} value={String(d)}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="sku"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">SKU</FormLabel>
+                <FormControl>
+                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !isAdmin} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="not_property_related"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={!isAdmin}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>
+                    Not Property Related
+                  </FormLabel>
+                  <FormDescription>
+                    Check this box if this direct debit is not associated with a property SKU.
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
                   <SelectTrigger id={field.name}>
                     <FormControl>
-                      <SelectValue placeholder="Select a currency" />
+                      <SelectValue placeholder="Select a category" />
                     </FormControl>
                   </SelectTrigger>
                   <SelectContent>
-                    {majorCurrencies.map((currency) => (
-                      <SelectItem key={currency.value} value={currency.value}>
-                        {currency.label}
+                    {filteredCategoryOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -342,91 +390,153 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               </FormItem>
             )}
           />
-        )}
-        {formCountry === 'Switzerland' && (
+          {formCountry === 'Switzerland' && (
+            <FormField
+              control={form.control}
+              name="currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                    <SelectTrigger id={field.name}>
+                      <FormControl>
+                        <SelectValue placeholder="Select a currency" />
+                      </FormControl>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {majorCurrencies.map((currency) => (
+                        <SelectItem key={currency.value} value={currency.value}>
+                          {currency.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+            )}
+            />
+          )}
+          {formCountry === 'Switzerland' && (
+            <FormField
+              control={form.control}
+              name="bank_account"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                    <SelectTrigger id={field.name}>
+                      <FormControl>
+                        <SelectValue placeholder="Select a bank account" />
+                      </FormControl>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
+                      <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
+                      <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
           <FormField
             control={form.control}
-            name="bank_account"
+            name="account_number"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                  <SelectTrigger id={field.name}>
-                    <FormControl>
-                      <SelectValue placeholder="Select a bank account" />
-                    </FormControl>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
-                    <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
-                    <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., 1234567890" {...field} disabled={!isAdmin} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        )}
-        <FormField
-          control={form.control}
-          name="account_number"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., 1234567890" {...field} disabled={!isAdmin} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="payment_reference"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Payment Reference</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., DD-12345" {...field} disabled={!isAdmin} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <SelectTrigger id={field.name}>
-                  <FormControl>
-                    <SelectValue placeholder="Select status" />
-                  </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                {isAdmin ? "Select the current status of this direct debit." : "Only administrators can change the status."}
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
-          <Edit className="mr-2 h-4 w-4" />
-          {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
-        </Button>
-      </form>
-    </Form>
+          <FormField
+            control={form.control}
+            name="payment_reference"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Payment Reference</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., DD-12345" {...field} disabled={!isAdmin} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select status" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  {isAdmin ? "Select the current status of this direct debit." : "Only administrators can change the status."}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
+            <Edit className="mr-2 h-4 w-4" />
+            {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
+          </Button>
+        </form>
+      </Form>
+      {/* NEW: Payee Suggestions Dialog */}
+      <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {payeeSuggestions.length > 0 ? (
+              payeeSuggestions.map((suggestion, index) => (
+                <Card key={index} className="p-4 border shadow-sm">
+                  <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
+                  <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : suggestion.source_type === 'standing_order' ? 'Standing Order' : 'Direct Debit'}</p>
+                  <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
+                  <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number || 'N/A'}</p>
+                  {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
+                  <Button
+                    onClick={() => handleUseSuggestion(suggestion)}
+                    className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
+                  >
+                    Use This Information
+                  </Button>
+                </Card>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">No suggestions found.</p>
+            )}
+          </div>
+          <Button
+            variant="destructive"
+            onClick={() => setIsSuggestionDialogOpen(false)}
+            className="mt-4 w-full"
+          >
+            Enter New Details
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

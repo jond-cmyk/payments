@@ -1,10 +1,13 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import * as z from 'zod';
 import { Download, PlusCircle, MinusCircle, DollarSign } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
+import { supabase } from '@/integrations/supabase/client';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { useSession } from '@/integrations/supabase/SessionContext';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,10 +19,11 @@ import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
-import { PaymentRequest } from '@/types/supabase';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { PaymentRequest, PayeeSuggestion } from '@/types/supabase';
 import { categoryOptions } from '@/lib/constants';
 import { majorCurrencies, EditFormSchema } from '@/schemas/paymentRequestSchema';
-import { Separator } from '@/components/ui/separator';
 
 interface PaymentRequestEditFormCardProps {
   request: PaymentRequest;
@@ -33,6 +37,11 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   handleRequesterEditSubmit,
 }) => {
   const { availableCountries, isCountryLocked } = useCountry();
+  const { user } = useSession();
+
+  const [supplierSuggestions, setSupplierSuggestions] = useState<PayeeSuggestion[]>([]);
+  const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
+  const [isSearchingSupplier, setIsSearchingSupplier] = useState(false);
 
   const { fields, append, remove } = useFieldArray({
     control: editForm.control,
@@ -76,6 +85,70 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
   );
+
+  const handleSupplierNameBlur = async () => {
+    const supplierName = editForm.getValues('supplier_name');
+    const currentFormCountry = editForm.getValues('country');
+
+    if (!supplierName || supplierName.trim() === '') {
+      setSupplierSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+      return;
+    }
+
+    setIsSearchingSupplier(true);
+    const toastId = showLoading("Searching for existing payees...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('search-all-payees', {
+        body: { searchTerm: supplierName, country: currentFormCountry },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      if (data && data.suggestions && data.suggestions.length > 0) {
+        setSupplierSuggestions(data.suggestions);
+        setIsSuggestionDialogOpen(true);
+        dismissToast(toastId);
+        showSuccess(`Found ${data.suggestions.length} existing payee suggestion(s)!`);
+      } else {
+        setSupplierSuggestions([]);
+        setIsSuggestionDialogOpen(false);
+        dismissToast(toastId);
+        showSuccess("No existing payee found with similar name. Please enter details manually.");
+      }
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to search for existing payees.");
+      console.error("Payee search error:", error);
+      setSupplierSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+    } finally {
+      setIsSearchingSupplier(false);
+    }
+  };
+
+  const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
+    editForm.setValue('supplier_name', suggestion.name);
+    editForm.setValue('supplier_address', suggestion.address || '');
+    editForm.setValue('iban_number', suggestion.iban_number || '');
+    editForm.setValue('sort_code', suggestion.sort_code || '');
+    editForm.setValue('account_number', suggestion.account_number || '');
+    editForm.setValue('bank_account_name', suggestion.bank_account_name || '');
+    editForm.setValue('currency', suggestion.currency || (editForm.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF'));
+    editForm.setValue('bank_details_verified', false);
+    
+    // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
+    editForm.setValue('categories', [{ category: "", amount: 0 }]);
+    editForm.setValue('total_amount', 0.00);
+
+    setIsSuggestionDialogOpen(false);
+  };
 
   return (
     <Card className="mb-8 shadow-sm">
@@ -124,7 +197,15 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel className="font-semibold">Supplier Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input
+                      placeholder="e.g., ABC Corp"
+                      {...field}
+                      onBlur={(e) => {
+                        field.onBlur();
+                        handleSupplierNameBlur(); // Call our custom blur handler
+                      }}
+                      disabled={editForm.formState.isSubmitting || isSearchingSupplier}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -569,6 +650,53 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
           </form>
         </Form>
       </CardContent>
+      {/* NEW: Supplier Suggestions Dialog */}
+      <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {supplierSuggestions.length > 0 ? (
+              supplierSuggestions.map((suggestion, index) => (
+                <Card key={index} className="p-4 border shadow-sm">
+                  <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
+                  <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : 'Standing Order'}</p>
+                  <p className="text-sm text-muted-foreground">Account Name: {suggestion.bank_account_name || 'N/A'}</p>
+                  <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
+                  {suggestion.country === 'United Kingdom' ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Address: {suggestion.address || 'N/A'}</p>
+                      {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
+                    </>
+                  )}
+                  <Button
+                    onClick={() => handleUseSuggestion(suggestion)}
+                    className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
+                  >
+                    Use This Information
+                  </Button>
+                </Card>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">No suggestions found.</p>
+            )}
+          </div>
+          <Button
+            variant="destructive"
+            onClick={() => setIsSuggestionDialogOpen(false)}
+            className="mt-4 w-full"
+          >
+            Enter New Details
+          </Button>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };
