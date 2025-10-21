@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-import DashboardSummaryCards from '@/components/dashboard/DashboardSummaryCards';
+import DashboardSummaryGroups from '@/components/dashboard/DashboardSummaryGroups';
 import PaymentRequestFilters from '@/components/dashboard/PaymentRequestFilters';
 import PaymentRequestTable from '@/components/dashboard/PaymentRequestTable';
 import PendingStandingOrderTable from '@/components/dashboard/PendingStandingOrderTable';
@@ -527,13 +527,6 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
     }
   };
 
-  // Check if there are any urgent requests in the table data to conditionally show the table
-  const hasUrgentRequests = paymentRequestsForTable?.some(req => req.is_urgent);
-  const hasRemindedRequests = paymentRequestsForTable?.some(req => req.is_reminded);
-
-  // Instantiate DashboardSummaryCards to get render functions
-  const { renderAllSummaryCards } = DashboardSummaryCards({ counts });
-
   return (
     <>
       {/* Filters only show on /admin/requests */}
@@ -563,7 +556,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       {/* Summary cards always show on /dashboard for both requester and admin */}
       {!isAllRequestsPage && (
         <div className="mb-8">
-          {renderAllSummaryCards()}
+          <DashboardSummaryGroups counts={counts} />
         </div>
       )}
 

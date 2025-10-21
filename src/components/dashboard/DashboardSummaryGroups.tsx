@@ -5,11 +5,10 @@ import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { PaymentRequest } from '@/types/supabase';
-import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote } from 'lucide-react';
+import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote, DollarSign, List, Activity } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { Separator } from '@/components/ui/separator';
 
-interface DashboardSummaryCardsProps {
+interface DashboardSummaryGroupsProps {
   counts: {
     pending: number;
     setup_awaiting_approval: number;
@@ -26,7 +25,7 @@ interface DashboardSummaryCardsProps {
 
 // Helper component for individual card rendering
 const SummaryCardItem: React.FC<{ 
-  statusKey: keyof DashboardSummaryCardsProps['counts']; 
+  statusKey: keyof DashboardSummaryGroupsProps['counts']; 
   count: number; 
   currentCountry: string 
 }> = ({ statusKey, count, currentCountry }) => {
@@ -148,78 +147,54 @@ const SummaryCardItem: React.FC<{
   );
 };
 
-
-const DashboardSummaryCards = ({ counts }: DashboardSummaryCardsProps) => {
+const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts }) => {
   const { currentCountry } = useCountry();
 
-  const paymentRequestKeys: (keyof DashboardSummaryCardsProps['counts'])[] = [
-    'pending',
-    'setup_awaiting_approval',
-    'queried',
-    'declined',
-    'approved',
+  const groups = [
+    {
+      title: 'Payment Requests',
+      icon: <DollarSign className="h-5 w-5" />,
+      keys: ['pending', 'setup_awaiting_approval', 'queried', 'declined', 'approved'] as const,
+    },
+    {
+      title: 'Transaction Management',
+      icon: <Activity className="h-5 w-5" />,
+      keys: ['missing_receipts'] as const,
+    },
+    {
+      title: 'Recurring Payments',
+      icon: <Repeat className="h-5 w-5" />,
+      keys: ['pending_standing_orders', 'active_standing_orders', 'active_direct_debits'] as const,
+    },
   ];
 
-  const transactionKeys: (keyof DashboardSummaryCardsProps['counts'])[] = [
-    'missing_receipts',
-  ];
-
-  const recurringPaymentKeys: (keyof DashboardSummaryCardsProps['counts'])[] = [
-    'pending_standing_orders',
-    'active_standing_orders',
-    'active_direct_debits',
-  ];
-
-  const renderAllSummaryCards = () => (
-    <Card className="shadow-sm h-full">
-      <CardHeader>
-        <CardTitle className="text-xl font-bold">Summary Overview</CardTitle>
-        <CardDescription>Key metrics across all payment and transaction types.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {/* Payment Requests */}
-          {paymentRequestKeys.map((key) => (
-            <SummaryCardItem
-              key={key}
-              statusKey={key}
-              count={counts[key]}
-              currentCountry={currentCountry}
-            />
-          ))}
-          
-          {/* Transaction Management */}
-          {transactionKeys.map((key) => (
-            <SummaryCardItem
-              key={key}
-              statusKey={key}
-              count={counts[key]}
-              currentCountry={currentCountry}
-            />
-          ))}
-
-          {/* Recurring Payments */}
-          {recurringPaymentKeys.map((key) => (
-            <SummaryCardItem
-              key={key}
-              statusKey={key}
-              count={counts[key]}
-              currentCountry={currentCountry}
-            />
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+  return (
+    <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      {groups.map((group) => (
+        <Card key={group.title} className="shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center text-xl font-bold">
+              {group.icon}
+              <span className="ml-2">{group.title}</span>
+            </CardTitle>
+            <CardDescription>Overview of {group.title.toLowerCase()} in {currentCountry}.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
+              {group.keys.map((key) => (
+                <SummaryCardItem
+                  key={key}
+                  statusKey={key}
+                  count={counts[key]}
+                  currentCountry={currentCountry}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
-
-  // We still return the old functions for compatibility with DashboardMainContent, 
-  // but we will update DashboardMainContent to only use the new combined function.
-  return { 
-    renderPaymentRequests: () => null, // Placeholder
-    renderTransactionManagement: () => null, // Placeholder
-    renderRecurringPayments: () => null, // Placeholder
-    renderAllSummaryCards 
-  };
 };
 
-export default DashboardSummaryCards;
+export default DashboardSummaryGroups;
