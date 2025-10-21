@@ -4,7 +4,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { PaymentRequest } from '@/types/supabase';
 import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote, DollarSign, List, Activity } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 
@@ -150,45 +149,39 @@ const SummaryCardItem: React.FC<{
 const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts }) => {
   const { currentCountry } = useCountry();
 
-  const groups = [
-    {
-      title: 'Payment & Transaction Management',
-      icon: <DollarSign className="h-5 w-5" />,
-      keys: ['pending', 'setup_awaiting_approval', 'queried', 'declined', 'approved', 'missing_receipts'] as const,
-    },
-    {
-      title: 'Recurring Payments',
-      icon: <Repeat className="h-5 w-5" />,
-      keys: ['pending_standing_orders', 'active_standing_orders', 'active_direct_debits'] as const,
-    },
+  const allKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
+    'pending', 
+    'setup_awaiting_approval', 
+    'queried', 
+    'declined', 
+    'approved', 
+    'missing_receipts', 
+    'pending_standing_orders', 
+    'active_standing_orders', 
+    'active_direct_debits'
   ];
 
   return (
-    <div className="grid gap-6 grid-cols-1 lg:grid-cols-2"> {/* Adjusted grid to 2 columns on large screens */}
-      {groups.map((group) => (
-        <Card key={group.title} className="shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center text-xl font-bold">
-              {group.icon}
-              <span className="ml-2">{group.title}</span>
-            </CardTitle>
-            <CardDescription>Overview of {group.title.toLowerCase()} in {currentCountry}.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
-              {group.keys.map((key) => (
-                <SummaryCardItem
-                  key={key}
-                  statusKey={key}
-                  count={counts[key]}
-                  currentCountry={currentCountry}
-                />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+    <Card className="shadow-lg">
+      <CardHeader>
+        <CardTitle className="flex items-center text-xl font-bold">
+          <Activity className="mr-2 h-5 w-5" /> Operational Overview
+        </CardTitle>
+        <CardDescription>Summary of all payment and transaction activities in {currentCountry}.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {allKeys.map((key) => (
+            <SummaryCardItem
+              key={key}
+              statusKey={key}
+              count={counts[key]}
+              currentCountry={currentCountry}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
