@@ -50,7 +50,7 @@ serve(async (req) => {
       if (error) throw error;
       return (data || []).map(item => ({
         source_type: 'payment_request',
-        name: item.supplier_name,
+        name: item.supplier_name || '', // Ensure string
         address: item.supplier_address || null,
         iban_number: item.iban_number || null,
         sort_code: item.sort_code || null,
@@ -75,7 +75,7 @@ serve(async (req) => {
       if (error) throw error;
       return (data || []).map(item => ({
         source_type: 'standing_order',
-        name: item.payee || '', // Coerce to string
+        name: item.payee || '', // Ensure string
         address: item.account_address || null,
         iban_number: item.iban_number || null,
         sort_code: item.sort_code || null,
@@ -100,7 +100,7 @@ serve(async (req) => {
       if (error) throw error;
       return (data || []).map(item => ({
         source_type: 'direct_debit',
-        name: item.payee || '', // Coerce to string
+        name: item.payee || '', // Ensure string
         address: null,
         iban_number: null,
         sort_code: null,
@@ -136,8 +136,10 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('Edge Function unhandled error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred.' }), {
-      status: 500,
+    // Return a 200 status with an error payload to prevent client-side fetch error, 
+    // allowing the client to handle the error gracefully via the `data?.error` check.
+    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred in the Edge Function.' }), {
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
