@@ -702,7 +702,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const yearResp = yearData as EconomicProxyResponse<EconomicCollection<any>>;
     const years = extractList(yearResp?.data);
     
-    if (!years || years.length === 0) throw new Error("No accounting years found.");
+    if (!years || years.length === 0) {
+      console.error("[CustomerRow] General Ledger Fallback failed: No accounting years found in response:", yearResp);
+      throw new Error("No accounting years found.");
+    }
 
     // Find the year that contains the 'to' date
     const targetYear = years.find(y => {
@@ -734,6 +737,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
     if (resp?.status && resp.status >= 400) {
+      console.error(`[CustomerRow] e-conomic API returned error status ${resp.status} for ${pathForProxy}:`, resp.data);
       const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
       throw new Error(`e-conomic API Error: ${errorMessage}`);
     }
