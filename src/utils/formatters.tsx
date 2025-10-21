@@ -29,7 +29,8 @@ export const formatAuditDescription = (description: string): React.ReactNode => 
   if (!description) return '';
 
   // Handle comments first, as they are a distinct type of entry
-  const commentMatch = description.match(/^Comment: (.*)/);
+  // FIX: Use [\\s\\S]* to ensure capture includes newlines/carriage returns
+  const commentMatch = description.match(/^Comment: ([\s\S]*)/);
   if (commentMatch) {
     return commentMatch[1]; // Return just the comment text
   }
