@@ -132,7 +132,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
 
   // NEW: Payee Search Logic
   const handlePayeeBlur = async () => {
-    if (!isAdmin) return; // Only admins can trigger search on edit form
+    // REMOVED: if (!isAdmin) return; // Allow all users to trigger search on edit form
 
     const payeeName = form.getValues('payee');
     const currentFormCountry = form.getValues('country');
