@@ -152,14 +152,9 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
 
   const groups = [
     {
-      title: 'Payment Requests',
+      title: 'Payment & Transaction Management',
       icon: <DollarSign className="h-5 w-5" />,
-      keys: ['pending', 'setup_awaiting_approval', 'queried', 'declined', 'approved'] as const,
-    },
-    {
-      title: 'Transaction Management',
-      icon: <Activity className="h-5 w-5" />,
-      keys: ['missing_receipts'] as const,
+      keys: ['pending', 'setup_awaiting_approval', 'queried', 'declined', 'approved', 'missing_receipts'] as const,
     },
     {
       title: 'Recurring Payments',
@@ -169,7 +164,7 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
   ];
 
   return (
-    <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-6 grid-cols-1 lg:grid-cols-2"> {/* Adjusted grid to 2 columns on large screens */}
       {groups.map((group) => (
         <Card key={group.title} className="shadow-lg">
           <CardHeader>
