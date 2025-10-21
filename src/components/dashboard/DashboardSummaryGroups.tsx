@@ -26,8 +26,9 @@ interface DashboardSummaryGroupsProps {
 const SummaryCardItem: React.FC<{ 
   statusKey: keyof DashboardSummaryGroupsProps['counts']; 
   count: number; 
-  currentCountry: string 
-}> = ({ statusKey, count, currentCountry }) => {
+  currentCountry: string;
+  isCritical?: boolean; // New prop to differentiate styling
+}> = ({ statusKey, count, currentCountry, isCritical = false }) => {
   
   const getCardStyling = (status: string) => {
     switch (status) {
@@ -127,19 +128,20 @@ const SummaryCardItem: React.FC<{
   const { borderClass, textClass, icon, title, description, link } = getCardStyling(statusKey);
 
   return (
-    <Link to={link} className="block">
+    <Link to={link} className="block h-full">
       <Card className={cn(
-        "border-l-4 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 ease-in-out",
+        "border-l-4 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 ease-in-out h-full",
         borderClass,
-        "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
+        "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background",
+        isCritical && "p-2" // Add padding for critical cards
       )}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1">
-          <CardTitle className={cn("text-xs font-medium", textClass)}>{title}</CardTitle>
+        <CardHeader className={cn("flex flex-row items-center justify-between space-y-0", isCritical ? "p-4 pb-1" : "p-3 pb-1")}>
+          <CardTitle className={cn(isCritical ? "text-sm font-medium" : "text-xs font-medium", textClass)}>{title}</CardTitle>
           <span className={textClass}>{icon}</span>
         </CardHeader>
-        <CardContent className="p-3 pt-0">
-          <div className="text-xl font-bold">{count}</div>
-          <p className="text-[10px] text-muted-foreground h-6 overflow-hidden">{description}</p>
+        <CardContent className={cn(isCritical ? "p-4 pt-0" : "p-3 pt-0")}>
+          <div className={cn(isCritical ? "text-3xl font-bold" : "text-xl font-bold")}>{count}</div>
+          <p className={cn(isCritical ? "text-xs" : "text-[10px]", "text-muted-foreground h-6 overflow-hidden")}>{description}</p>
         </CardContent>
       </Card>
     </Link>
@@ -149,16 +151,19 @@ const SummaryCardItem: React.FC<{
 const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts }) => {
   const { currentCountry } = useCountry();
 
-  const allKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
+  const criticalKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
     'pending', 
     'setup_awaiting_approval', 
+    'missing_receipts',
+  ];
+
+  const secondaryKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
     'queried', 
     'declined', 
     'approved', 
-    'missing_receipts', 
     'pending_standing_orders', 
     'active_standing_orders', 
-    'active_direct_debits'
+    'active_direct_debits',
   ];
 
   return (
@@ -170,15 +175,32 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
         <CardDescription>Summary of all payment and transaction activities in {currentCountry}.</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {allKeys.map((key) => (
-            <SummaryCardItem
-              key={key}
-              statusKey={key}
-              count={counts[key]}
-              currentCountry={currentCountry}
-            />
-          ))}
+        <div className="space-y-6">
+          {/* Tier 1: Critical Actionable Metrics (3 columns) */}
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+            {criticalKeys.map((key) => (
+              <SummaryCardItem
+                key={key}
+                statusKey={key}
+                count={counts[key]}
+                currentCountry={currentCountry}
+                isCritical={true}
+              />
+            ))}
+          </div>
+
+          {/* Tier 2: Secondary Status and Recurring Metrics (6 columns, wraps responsively) */}
+          <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+            {secondaryKeys.map((key) => (
+              <SummaryCardItem
+                key={key}
+                statusKey={key}
+                count={counts[key]}
+                currentCountry={currentCountry}
+                isCritical={false}
+              />
+            ))}
+          </div>
         </div>
       </CardContent>
     </Card>
