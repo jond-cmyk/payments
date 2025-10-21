@@ -79,13 +79,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   useEffect(() => {
     const statusParam = searchParams.get('status');
     if (statusParam) {
-      // If status is passed via URL, set it as the initial filterStatuses array
+      // 1. If status is passed via URL, set it as the initial filterStatuses array
       setFilterStatuses([statusParam as PaymentRequest['status']]);
     } else if (location.pathname === '/admin/requests') {
-      // Default for All Requests page: start with NO statuses selected
-      setFilterStatuses([]); 
+      // 2. Default for All Requests page: show ALL statuses if no filter is set
+      setFilterStatuses(allPossibleStatuses); // <-- CHANGE 1: Default to all statuses
     } else {
-      // Default for Dashboard: select only active statuses
+      // 3. Default for Dashboard: select only active statuses
       setFilterStatuses(activeDashboardStatuses);
     }
     setCurrentPage(1); // Reset page when URL params change
@@ -287,17 +287,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       if (isAllRequestsPage) {
         // Admin's 'All Requests' page: use filterStatuses state
         const nonAllStatuses = (filterStatuses as string[]).filter(s => s !== 'all');
-        // If no statuses are selected, we show nothing.
-        statusesToFilter = nonAllStatuses.length > 0 ? nonAllStatuses as PaymentRequest['status'][] : [];
+        statusesToFilter = nonAllStatuses as PaymentRequest['status'][];
       } else { 
         // Main dashboard view: use activeDashboardStatuses
         statusesToFilter = activeDashboardStatuses;
-      }
-
-      // If no statuses are selected for the All Requests page, return empty data immediately
-      if (isAllRequestsPage && statusesToFilter.length === 0) {
-        setTotalItems(0);
-        return [];
       }
 
       // Apply filters
@@ -308,9 +301,12 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         if (filterSkuNumber) {
           query = query.ilike('sku_number', `%${filterSkuNumber}%`);
         }
+        
+        // CHANGE 2: Only apply status filter if statusesToFilter is NOT empty
         if (statusesToFilter.length > 0) {
           query = query.in('status', statusesToFilter);
         }
+        
         if (filterDatePaymentRequired) {
           query = query.gte('date_payment_required', format(filterDatePaymentRequired, 'yyyy-MM-dd'));
         }
@@ -390,7 +386,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const clearFilters = () => {
     setFilterSupplierName('');
     setFilterSkuNumber('');
-    setFilterStatuses(isAllRequestsPage ? [] : activeDashboardStatuses); // Reset based on page
+    setFilterStatuses(isAllRequestsPage ? allPossibleStatuses : activeDashboardStatuses); // Reset based on page
     setFilterDatePaymentRequired(undefined);
     setFilterRequesters([]); // Reset to no specific requesters
     setFilterStartDate(undefined);
@@ -571,8 +567,6 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         </div>
       )}
 
-      {/* REMOVED: Redundant h2 header for Priority Payment Requests */}
-
       {paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -601,7 +595,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         </Card>
       ) : (
         <p className="text-center text-muted-foreground mt-8">
-          {isRequestsTableLoading ? "Loading requests..." : (isAllRequestsPage && filterStatuses.length === 0) ? "Please select at least one status filter to view requests." : "No priority payment requests found."}
+          {isRequestsTableLoading ? "Loading requests..." : (isAllRequestsPage && filterStatuses.length === 0) ? "No payment requests found matching your criteria." : "No priority payment requests found."}
         </p>
       )}
 
