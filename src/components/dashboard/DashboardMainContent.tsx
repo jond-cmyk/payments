@@ -27,11 +27,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 interface DashboardMainContentProps {
   debouncedSearchTerm: string;
+  itemsPerPage: number | 'all';
+  currentPage: number;
+  setCurrentPage: (page: number) => void;
 }
 
-const ITEMS_PER_PAGE = 10;
-
-const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSearchTerm }) => {
+const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
+  debouncedSearchTerm,
+  itemsPerPage,
+  currentPage,
+  setCurrentPage,
+}) => {
   const { session, user, userProfile } = useSession();
   const { currentCountry } = useCountry();
   const location = useLocation();
@@ -50,9 +56,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
 
   // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(ITEMS_PER_PAGE);
 
   // Sorting states for the table
   const [sortColumn, setSortColumn] = useState<keyof PaymentRequest | null>('created_at');
@@ -71,7 +75,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       setter(value);
       setCurrentPage(1); // Reset to first page on filter change
     }, 700); // Increased debounce time to 700ms
-  }, []);
+  }, [setCurrentPage]);
 
   // Define all possible statuses for filtering
   const allPossibleStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'approved', 'declined', 'queried'];
@@ -91,7 +95,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       setFilterStatuses(activeDashboardStatuses);
     }
     setCurrentPage(1); // Reset page when URL params change
-  }, [searchParams, location.pathname]);
+  }, [searchParams, location.pathname, setCurrentPage]);
 
   // Determine if we are on the 'All Requests' page
   const isAllRequestsPage = location.pathname === '/admin/requests';
@@ -575,32 +579,6 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
                 <Button onClick={handleDownloadPaymentRequests} className="shadow-sm" variant="outline">
                   <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
-              )}
-              {isAllRequestsPage && (
-                <div className="flex items-center gap-2">
-                  <label htmlFor="items-per-page" className="text-sm font-medium text-gray-700">
-                    Records per page:
-                  </label>
-                  <Select
-                    value={String(itemsPerPage)}
-                    onValueChange={(value) => {
-                      const newItemsPerPage = value === 'all' ? 'all' : parseInt(value);
-                      setItemsPerPage(newItemsPerPage);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger id="items-per-page" className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="10">10</SelectItem>
-                      <SelectItem value="25">25</SelectItem>
-                      <SelectItem value="50">50</SelectItem>
-                      <SelectItem value="100">100</SelectItem>
-                      <SelectItem value="all">Show All</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               )}
             </div>
           </CardHeader>
