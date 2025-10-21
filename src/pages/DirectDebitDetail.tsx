@@ -280,7 +280,7 @@ const DirectDebitDetail = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Section 1: Overview */}
+        {/* Section 1: Overview (Now includes Supplier Account Number) */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -306,11 +306,21 @@ const DirectDebitDetail = () => {
                 <p className="font-bold">SKU:</p>
                 <p>{directDebit.not_property_related ? 'N/A (Not Property Related)' : (directDebit.sku || 'N/A')}</p>
               </div>
+              <div>
+                <p className="font-bold">Supplier Account Number:</p>
+                <p>{directDebit.account_number || 'N/A'}</p>
+              </div>
+              {isCH && (
+                <div>
+                  <p className="font-bold">Bank Account:</p>
+                  <p>{directDebit.bank_account || 'N/A'}</p>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Section 2: Payment Details */}
+        {/* Section 2: Payment Details (Now includes Payment Day) */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -336,31 +346,7 @@ const DirectDebitDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Section 3: Bank Details */}
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Banknote className="mr-2 h-5 w-5" /> Bank Details
-            </CardTitle>
-            <CardDescription>Account information for the payee.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="font-bold">Supplier Account Number:</p>
-                <p>{directDebit.account_number || 'N/A'}</p>
-              </div>
-              {isCH && (
-                <div>
-                  <p className="font-bold">Bank Account:</p>
-                  <p>{directDebit.bank_account || 'N/A'}</p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Section 4: Metadata */}
+        {/* Section 3: Metadata */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center">
