@@ -303,10 +303,6 @@ const DirectDebitDetail = () => {
                 <p>{directDebit.payee}</p>
               </div>
               <div>
-                <p className="font-bold">Payment Day:</p>
-                <p>{directDebit.payment_day !== null && directDebit.payment_day !== undefined ? `Day ${directDebit.payment_day}` : 'N/A'}</p>
-              </div>
-              <div>
                 <p className="font-bold">SKU:</p>
                 <p>{directDebit.not_property_related ? 'N/A (Not Property Related)' : (directDebit.sku || 'N/A')}</p>
               </div>
@@ -324,6 +320,10 @@ const DirectDebitDetail = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="font-bold">Payment Day:</p>
+                <p>{directDebit.payment_day !== null && directDebit.payment_day !== undefined ? `Day ${directDebit.payment_day}` : 'N/A'}</p>
+              </div>
               <div>
                 <p className="font-bold">Category:</p>
                 <p>{categoryOptions.find(c => c.value === directDebit.category)?.label || directDebit.category}</p>
@@ -347,7 +347,7 @@ const DirectDebitDetail = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="font-bold">Account Number:</p>
+                <p className="font-bold">Supplier Account Number:</p>
                 <p>{directDebit.account_number || 'N/A'}</p>
               </div>
               {isCH && (
