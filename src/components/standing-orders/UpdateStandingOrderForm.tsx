@@ -283,19 +283,20 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   };
 
   const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
-    form.setValue('payee', suggestion.name);
-    form.setValue('account_name', suggestion.bank_account_name || '');
-    form.setValue('account_address', suggestion.address || '');
-    form.setValue('iban_number', suggestion.iban_number || '');
-    form.setValue('sort_code', suggestion.sort_code || '');
-    form.setValue('account_number', suggestion.account_number || '');
-    form.setValue('bank_details_verified', false);
-    form.setValue('currency', suggestion.currency || undefined);
-    form.setValue('bank_account', suggestion.bank_account || undefined);
+    const options = { shouldValidate: true, shouldDirty: true };
+    form.setValue('payee', suggestion.name, options);
+    form.setValue('account_name', suggestion.bank_account_name || '', options);
+    form.setValue('account_address', suggestion.address || '', options);
+    form.setValue('iban_number', suggestion.iban_number || '', options);
+    form.setValue('sort_code', suggestion.sort_code || '', options);
+    form.setValue('account_number', suggestion.account_number || '', options);
+    form.setValue('bank_details_verified', false, options);
+    form.setValue('currency', suggestion.currency || undefined, options);
+    form.setValue('bank_account', suggestion.bank_account || undefined, options);
     
     // Reset categories and total amount when using suggestion
-    form.setValue('categories', [{ category: "", amount: 0 }]);
-    form.setValue('total_amount', 0.00);
+    form.setValue('categories', [{ category: "", amount: 0 }], options);
+    form.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
   };
@@ -783,7 +784,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   </Select>
                   <FormMessage />
                 </FormItem>
-            )}
+              )}
             />
           )}
 
@@ -811,7 +812,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             )}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="from_day"
@@ -834,7 +835,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   </Select>
                   <FormMessage />
                 </FormItem>
-              )}
+            )}
             />
             <FormField
               control={form.control}
@@ -858,7 +859,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   </Select>
                   <FormMessage />
                 </FormItem>
-              )}
+            )}
             />
           </div>
 
@@ -903,7 +904,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               </FormItem>
             )}
           />
-          
           <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !isAdmin}>
             <Edit className="mr-2 h-4 w-4" />
             {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}

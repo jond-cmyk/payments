@@ -134,18 +134,19 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   };
 
   const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
-    editForm.setValue('supplier_name', suggestion.name);
-    editForm.setValue('supplier_address', suggestion.address || '');
-    editForm.setValue('iban_number', suggestion.iban_number || '');
-    editForm.setValue('sort_code', suggestion.sort_code || '');
-    editForm.setValue('account_number', suggestion.account_number || '');
-    editForm.setValue('bank_account_name', suggestion.bank_account_name || '');
-    editForm.setValue('currency', suggestion.currency || (editForm.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF'));
-    editForm.setValue('bank_details_verified', false);
+    const options = { shouldValidate: true, shouldDirty: true };
+    editForm.setValue('supplier_name', suggestion.name, options);
+    editForm.setValue('supplier_address', suggestion.address || '', options);
+    editForm.setValue('iban_number', suggestion.iban_number || '', options);
+    editForm.setValue('sort_code', suggestion.sort_code || '', options);
+    editForm.setValue('account_number', suggestion.account_number || '', options);
+    editForm.setValue('bank_account_name', suggestion.bank_account_name || '', options);
+    editForm.setValue('currency', suggestion.currency || (editForm.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF'), options);
+    editForm.setValue('bank_details_verified', false, options);
     
     // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
-    editForm.setValue('categories', [{ category: "", amount: 0 }]);
-    editForm.setValue('total_amount', 0.00);
+    editForm.setValue('categories', [{ category: "", amount: 0 }], options);
+    editForm.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
   };

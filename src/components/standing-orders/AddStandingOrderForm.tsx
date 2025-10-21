@@ -312,19 +312,20 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   };
 
   const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
-    form.setValue('payee', suggestion.name); // Use unified 'name'
-    form.setValue('account_name', suggestion.bank_account_name || ''); // Use unified 'bank_account_name'
-    form.setValue('account_address', suggestion.address || ''); // Use unified 'address'
-    form.setValue('iban_number', suggestion.iban_number || '');
-    form.setValue('sort_code', suggestion.sort_code || '');
-    form.setValue('account_number', suggestion.account_number || '');
-    form.setValue('bank_details_verified', false); // Reset verified status when using suggestion
-    form.setValue('currency', suggestion.currency || undefined); // Use suggested currency
-    form.setValue('bank_account', suggestion.bank_account || undefined); // Use suggested bank_account
+    const options = { shouldValidate: true, shouldDirty: true };
+    form.setValue('payee', suggestion.name, options);
+    form.setValue('account_name', suggestion.bank_account_name || '', options);
+    form.setValue('account_address', suggestion.address || '', options);
+    form.setValue('iban_number', suggestion.iban_number || '', options);
+    form.setValue('sort_code', suggestion.sort_code || '', options);
+    form.setValue('account_number', suggestion.account_number || '', options);
+    form.setValue('bank_details_verified', false, options);
+    form.setValue('currency', suggestion.currency || undefined, options);
+    form.setValue('bank_account', suggestion.bank_account || undefined, options);
     
     // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
-    form.setValue('categories', [{ category: "", amount: 0 }]);
-    form.setValue('total_amount', 0.00);
+    form.setValue('categories', [{ category: "", amount: 0 }], options);
+    form.setValue('total_amount', 0.00, options);
 
     // Close the dialog
     setIsSuggestionDialogOpen(false);
@@ -337,6 +338,15 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       if (!user?.id) {
         throw new Error("User not authenticated.");
       }
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const monthIndex = now.getMonth(); // 0-based
+      const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
+      const safeDay = values.payment_day ? Math.min(parseInt(values.payment_day), lastDayOfMonth) : null;
+      
+      // FIX: Use Date.UTC to prevent timezone shifting the date
+      const paymentDate = values.payment_date.toISOString().split('T')[0];
 
       // Prepare bank details based on country
       const bankDetails = values.country === 'United Kingdom'
@@ -358,7 +368,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         .insert({
           requester_id: user.id,
           payee: values.payee,
-          payment_date: values.payment_date.toISOString().split('T')[0],
+          payment_date: paymentDate,
           payment_end_date: values.payment_end_date ? values.payment_end_date.toISOString().split('T')[0] : null, // NEW
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
@@ -372,7 +382,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           status: values.status,
           country: values.country,
           bank_details_verified: values.bank_details_verified,
-          payment_day: values.payment_day ? parseInt(values.payment_day) : null, // Add payment_day to insert
+          payment_day: safeDay, // Add payment_day to insert
           currency: values.country === 'Switzerland' ? values.currency : null, // NEW: Conditionally save currency
           bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
         });
@@ -969,6 +979,13 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
               <p className="text-center text-muted-foreground">No suggestions found.</p>
             )}
           </div>
+          <Button
+            variant="destructive"
+            onClick={() => setIsSuggestionDialogOpen(false)}
+            className="mt-4 w-full"
+          >
+            Enter New Details
+          </Button>
         </DialogContent>
       </Dialog>
     </Form>

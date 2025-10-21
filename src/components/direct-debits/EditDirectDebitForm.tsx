@@ -177,11 +177,12 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   };
 
   const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
-    form.setValue('payee', suggestion.name);
-    form.setValue('account_number', suggestion.account_number || '');
-    form.setValue('payment_reference', suggestion.payment_reference || '');
-    form.setValue('currency', suggestion.currency || undefined);
-    form.setValue('bank_account', suggestion.bank_account || undefined);
+    const options = { shouldValidate: true, shouldDirty: true };
+    form.setValue('payee', suggestion.name, options);
+    form.setValue('account_number', suggestion.account_number || '', options);
+    form.setValue('payment_reference', suggestion.payment_reference || '', options);
+    form.setValue('currency', suggestion.currency || undefined, options);
+    form.setValue('bank_account', suggestion.bank_account || undefined, options);
     
     // Note: Direct Debits don't have categories/total_amount fields to reset.
     
@@ -203,10 +204,10 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
       
       // Calculate last day of month in UTC
       const lastDayOfMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
-      const safeDay = Math.min(values.payment_day, lastDayOfMonth);
+      const safeDay = values.payment_day ? Math.min(values.payment_day, lastDayOfMonth) : null;
       
       // FIX: Use Date.UTC to prevent timezone shifting the date
-      const paymentDate = new Date(Date.UTC(year, monthIndex, safeDay)).toISOString().split('T')[0];
+      const paymentDate = new Date(Date.UTC(year, monthIndex, safeDay || 1)).toISOString().split('T')[0]; // Use safeDay or 1 if null
 
       const { error: updateError } = await supabase
         .from('direct_debits')

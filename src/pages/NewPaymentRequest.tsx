@@ -335,18 +335,19 @@ const NewPaymentRequest = () => {
   };
 
   const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
-    form.setValue('supplier_name', suggestion.name); // Use unified 'name'
-    form.setValue('supplier_address', suggestion.address || ''); // Use unified 'address'
-    form.setValue('iban_number', suggestion.iban_number || '');
-    form.setValue('sort_code', suggestion.sort_code || '');
-    form.setValue('account_number', suggestion.account_number || '');
-    form.setValue('bank_account_name', suggestion.bank_account_name || '');
-    form.setValue('currency', suggestion.currency || (form.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF')); // Use suggested currency or default
-    form.setValue('bank_details_verified', false); // Reset verified status when using suggestion
+    const options = { shouldValidate: true, shouldDirty: true };
+    form.setValue('supplier_name', suggestion.name, options);
+    form.setValue('supplier_address', suggestion.address || '', options);
+    form.setValue('iban_number', suggestion.iban_number || '', options);
+    form.setValue('sort_code', suggestion.sort_code || '', options);
+    form.setValue('account_number', suggestion.account_number || '', options);
+    form.setValue('bank_account_name', suggestion.bank_account_name || '', options);
+    form.setValue('currency', suggestion.currency || (form.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF'), options);
+    form.setValue('bank_details_verified', false, options);
     
     // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
-    form.setValue('categories', [{ category: "", amount: 0 }]);
-    form.setValue('total_amount', 0.00);
+    form.setValue('categories', [{ category: "", amount: 0 }], options);
+    form.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
   };
@@ -970,7 +971,7 @@ const NewPaymentRequest = () => {
           <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Existing Payee Suggestions</DialogTitle>
+                <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
                 {supplierSuggestions.length > 0 ? (
