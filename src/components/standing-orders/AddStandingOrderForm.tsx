@@ -610,7 +610,14 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                       <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                       <FormControl>
                         <Input type="text" step="0.01" placeholder="Amount" {...field}
-                          onChange={(e) => field.onChange(e.target.value === "" ? 0 : e.target.value)} />
+                          // FIX: Ensure value is always a string representation of the number, and handle empty string correctly
+                          value={field.value === 0 ? "" : String(field.value)}
+                          onChange={(e) => {
+                            // Only allow numbers and a single decimal point
+                            const rawValue = e.target.value.replace(/[^\d.]/g, '');
+                            field.onChange(rawValue === "" ? 0 : rawValue);
+                          }}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

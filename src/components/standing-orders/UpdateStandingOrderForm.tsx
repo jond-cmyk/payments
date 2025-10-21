@@ -239,6 +239,18 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
         throw new Error("User not authenticated.");
       }
 
+      // Preserve the month and year from the existing payment_date, but update the day
+      const prevDate = standingOrder.payment_date ? new Date(standingOrder.payment_date + 'T00:00:00Z') : new Date(); // Use UTC parsing for prevDate
+      const year = prevDate.getUTCFullYear(); // Use UTC year
+      const monthIndex = prevDate.getUTCMonth(); // Use UTC month (0-based)
+      
+      // Calculate last day of month in UTC
+      const lastDayOfMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+      const safeDay = values.payment_day ? Math.min(parseInt(values.payment_day), lastDayOfMonth) : null;
+      
+      // FIX: Use Date.UTC to prevent timezone shifting the date
+      const paymentDate = values.payment_date.toISOString().split('T')[0];
+
       // Prepare bank details based on country
       const bankDetails = values.country === 'United Kingdom'
         ? {
@@ -258,8 +270,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
         .from('standing_orders')
         .update({
           payee: values.payee,
-          payment_date: values.payment_date.toISOString().split('T')[0],
-          payment_end_date: values.payment_end_date ? values.payment_end_date.toISOString().split('T')[0] : null,
+          payment_date: paymentDate,
+          payment_end_date: values.payment_end_date ? values.payment_end_date.toISOString().split('T')[0] : null, // NEW
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           categories: values.categories,
@@ -272,7 +284,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           status: values.status,
           country: values.country,
           bank_details_verified: values.bank_details_verified,
-          payment_day: values.payment_day ? parseInt(values.payment_day) : null,
+          payment_day: safeDay,
           currency: values.country === 'Switzerland' ? values.currency : null, // NEW: Conditionally save currency
           bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
           updated_at: new Date().toISOString(),
@@ -397,7 +409,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 </SelectTrigger>
                 <SelectContent>
                   {daysOfMonth.map((day) => (
-                    <SelectItem key={day} value={String(day)}>
+                    <SelectItem key={day} value={day}>
                       Day {day}
                     </SelectItem>
                   ))}
@@ -488,7 +500,16 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     <FormItem className="flex-1 w-full">
                       <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                       <FormControl>
-                        <Input type="text" step="0.01" placeholder="Amount" {...field} onChange={(e) => field.onChange(e.target.value === "" ? 0 : e.target.value)} disabled={!isAdmin} />
+                        <Input type="text" step="0.01" placeholder="Amount" {...field} 
+                          // FIX: Ensure value is always a string representation of the number, and handle empty string correctly
+                          value={field.value === 0 ? "" : String(field.value)}
+                          onChange={(e) => {
+                            // Only allow numbers and a single decimal point
+                            const rawValue = e.target.value.replace(/[^\d.]/g, '');
+                            field.onChange(rawValue === "" ? 0 : rawValue);
+                          }}
+                          disabled={!isAdmin} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
