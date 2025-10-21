@@ -654,8 +654,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // CORRECTED PATH: Use the /customer-ledger-entries endpoint with customerNumber as a query parameter
-      const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
+      // CORRECTED PATH: Use the /customer-ledger-items endpoint
+      const pathForProxy = `/customer-ledger-items?customerNumber=${num}&pagesize=1000`;
       const invocationUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-api-proxy`; // Explicitly log the full invocation URL
       console.log(`[CustomerRow] loadLedgerCard (v7): Path to send to proxy: ${pathForProxy}`);
       console.log(`[CustomerRow] loadLedgerCard (v7): Full Edge Function invocation URL: ${invocationUrl}`); // NEW LOG
@@ -707,8 +707,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading all transactions for ${customer.name || 'customer'}...`);
 
     try {
-      // Use the same endpoint as Ledger Card, but for a different display purpose
-      const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
+      // Use the corrected endpoint: /customer-ledger-items
+      const pathForProxy = `/customer-ledger-items?customerNumber=${num}&pagesize=1000`;
       
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: pathForProxy, method: "GET" },
