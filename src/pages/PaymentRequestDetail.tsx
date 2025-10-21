@@ -269,6 +269,7 @@ const PaymentRequestDetail = () => {
       if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+        // Only apply country filter if a specific country is selected by the admin
         query = query.eq('country', currentCountry);
       }
 
@@ -277,7 +278,8 @@ const PaymentRequestDetail = () => {
       
       if (error) {
         console.error("Supabase update error:", error);
-        throw error;
+        // Throw a more descriptive error if possible
+        throw new Error(`Supabase update failed: ${error.message} (Code: ${error.code}, Hint: ${error.hint})`);
       }
       
       // Log the data returned by Supabase
