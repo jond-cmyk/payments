@@ -19,6 +19,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
+import { format } from 'date-fns'; // Import format
 
 const formatDate = (dateInput: any): string => {
   if (!dateInput) return "-";

@@ -13,12 +13,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
-import { List, FileText, BookText, ReceiptText } from "lucide-react"; // Added ReceiptText icon
+import { List, FileText, BookText, ReceiptText, CalendarDays } from "lucide-react"; // Added CalendarDays icon
 import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAmount } from "@/components/economic/EconomicDetailDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import DatePicker from "@/components/DatePicker"; // Import DatePicker
+import { format } from "date-fns"; // Import format for date filtering
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -222,9 +224,13 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
   const [showLedgerCardDialog, setShowLedgerCardDialog] = useState(false);
 
-  const [allTransactionsData, setAllTransactionsData] = useState<any[] | null>(null); // NEW: State for All Transactions
-  const [loadingAllTransactions, setLoadingAllTransactions] = useState(false); // NEW: Loading state
-  const [showAllTransactionsDialog, setShowAllTransactionsDialog] = useState(false); // NEW: Dialog state
+  const [allTransactionsData, setAllTransactionsData] = useState<any[] | null>(null);
+  const [loadingAllTransactions, setLoadingAllTransactions] = useState(false);
+  const [showAllTransactionsDialog, setShowAllTransactionsDialog] = useState(false);
+  
+  // NEW: Date range states for All Transactions/Ledger Entries
+  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
+  const [toDate, setToDate] = useState<Date | undefined>(undefined);
 
   const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
 
@@ -236,7 +242,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     customerNumber: customer.customerNumber,
     loadingInvoices: loadingInvoices,
     loadingLedgerCard: loadingLedgerCard,
-    loadingAllTransactions: loadingAllTransactions, // NEW LOG
+    loadingAllTransactions: loadingAllTransactions,
   });
 
   // Fetch balance and overdue amount automatically using useQuery
@@ -385,7 +391,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     const key = getInvoiceKey(inv);
     setInvoiceHeadings((prev) => ({ ...prev, [key]: found as string }));
-  }, [getInvoiceDescription, setInvoiceHeadings]); // FIX: Removed self-reference from dependency array
+  }, [getInvoiceDescription, setInvoiceHeadings]);
 
   const enrichInvoiceHeadings = useCallback(async (list: any[]) => {
     for (const inv of list) {
@@ -644,8 +650,16 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, enrichInvoiceHeadings]);
 
-  const fetchLedgerEntries = useCallback(async (endpoint: string) => {
-    const pathForProxy = `${endpoint}?customerNumber=${num}&pagesize=1000`;
+  const fetchLedgerEntries = useCallback(async (endpoint: string, fromDate?: Date, toDate?: Date) => {
+    let pathForProxy = `${endpoint}?customerNumber=${num}&pagesize=1000`;
+    
+    if (fromDate) {
+      pathForProxy += `&fromDate=${format(fromDate, 'yyyy-MM-dd')}`;
+    }
+    if (toDate) {
+      pathForProxy += `&toDate=${format(toDate, 'yyyy-MM-dd')}`;
+    }
+
     const requestBodyForProxy = { path: pathForProxy, method: "GET" };
 
     const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
@@ -711,19 +725,24 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       showError("Customer number is missing.");
       return;
     }
+    if (!fromDate || !toDate) {
+      showError("Please select both From Date and To Date for the transaction filter.");
+      return;
+    }
+
     setLoadingAllTransactions(true);
-    const toastId = showLoading(`Loading all transactions for ${customer.name || 'customer'}...`);
+    const toastId = showLoading(`Loading ledger entries for ${customer.name || 'customer'}...`);
 
     try {
       let list: any[] = [];
       try {
-        // 1. Try standard path
-        list = await fetchLedgerEntries('/customer-ledger-entries');
+        // 1. Try standard path with date filters
+        list = await fetchLedgerEntries('/customer-ledger-entries', fromDate, toDate);
       } catch (e: any) {
         if (e.message.includes('404 Not Found')) {
           console.warn("[CustomerRow] /customer-ledger-entries failed 404. Trying /customer-ledger-items...");
-          // 2. Try fallback path
-          list = await fetchLedgerEntries('/customer-ledger-items');
+          // 2. Try fallback path with date filters
+          list = await fetchLedgerEntries('/customer-ledger-items', fromDate, toDate);
         } else {
           throw e; // Re-throw other errors
         }
@@ -731,15 +750,15 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       
       setAllTransactionsData(list);
       setShowAllTransactionsDialog(true);
-      showSuccess(`Loaded ${list.length} transactions.`);
+      showSuccess(`Loaded ${list.length} ledger entries.`);
     } catch (err: any) {
       console.error("Error loading all transactions:", err);
-      showError("Failed to load all transactions: " + err.message);
+      showError("Failed to load ledger entries: " + err.message);
     } finally {
       dismissToast(toastId);
       setLoadingAllTransactions(false);
     }
-  }, [num, customer.name, fetchLedgerEntries]);
+  }, [num, customer.name, fromDate, toDate, fetchLedgerEntries]);
 
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
@@ -781,9 +800,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   const isCustomerNumberMissing = !customer.customerNumber;
 
-  const getButtonState = (buttonType: 'ledgerCard' | 'allTransactions') => {
+  const getButtonState = (buttonType: 'ledgerCard' | 'viewLedgerEntries') => {
     const isLoadingState = buttonType === 'ledgerCard' ? loadingLedgerCard : loadingAllTransactions;
-    let text = buttonType === 'ledgerCard' ? "Ledger Card" : "All Transactions";
+    let text = buttonType === 'ledgerCard' ? "Ledger Card" : "View Ledger Entries";
     let icon = buttonType === 'ledgerCard' ? <BookText className="h-4 w-4 mr-1" /> : <ReceiptText className="h-4 w-4 mr-1" />;
     let tooltip = "";
     let isDisabled = isLoadingState;
@@ -800,7 +819,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   };
 
   const ledgerCardButtonState = getButtonState('ledgerCard');
-  const allTransactionsButtonState = getButtonState('allTransactions');
+  const viewLedgerEntriesButtonState = getButtonState('viewLedgerEntries');
 
   return (
     <>
@@ -836,7 +855,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
           )}
         </TableCell>
         <TableCell>
-          <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex flex-col gap-2">
             <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>
               {loadingInvoices ? "Loading..." : "View Invoices"}
             </Button>
@@ -848,15 +867,40 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
               </TooltipTrigger>
               {ledgerCardButtonState.tooltip && <TooltipContent>{ledgerCardButtonState.tooltip}</TooltipContent>}
             </Tooltip>
-            {/* NEW: All Transactions Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadAllTransactions} disabled={allTransactionsButtonState.isDisabled}>
-                  {allTransactionsButtonState.icon} {allTransactionsButtonState.text}
-                </Button>
-              </TooltipTrigger>
-              {allTransactionsButtonState.tooltip && <TooltipContent>{allTransactionsButtonState.tooltip}</TooltipContent>}
-            </Tooltip>
+            {/* NEW: View Ledger Entries Button with Date Pickers */}
+            <div className="flex flex-col gap-2 p-2 border rounded-md bg-gray-100">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="h-4 w-4 text-gray-600" />
+                <span className="text-xs font-semibold text-gray-700">Date Range Filter</span>
+              </div>
+              <DatePicker
+                date={fromDate}
+                setDate={setFromDate}
+                placeholder="From Date"
+                className="h-8 text-xs"
+                id={`from-date-${num}`}
+              />
+              <DatePicker
+                date={toDate}
+                setDate={setToDate}
+                placeholder="To Date"
+                className="h-8 text-xs"
+                id={`to-date-${num}`}
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    size="sm" 
+                    className="w-full bg-dyad-blue hover:bg-dyad-blue-light text-white" 
+                    onClick={loadAllTransactions} 
+                    disabled={viewLedgerEntriesButtonState.isDisabled || !fromDate || !toDate}
+                  >
+                    {viewLedgerEntriesButtonState.icon} {viewLedgerEntriesButtonState.text}
+                  </Button>
+                </TooltipTrigger>
+                {viewLedgerEntriesButtonState.tooltip && <TooltipContent>{viewLedgerEntriesButtonState.tooltip}</TooltipContent>}
+              </Tooltip>
+            </div>
           </div>
         </TableCell>
       </TableRow>
@@ -881,12 +925,12 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         isLoading={loadingLedgerCard}
       />
 
-      {/* NEW: All Transactions Dialog */}
+      {/* NEW: All Transactions Dialog (now View Ledger Entries) */}
       <EconomicDetailDialog
         isOpen={showAllTransactionsDialog}
         onOpenChange={setShowAllTransactionsDialog}
-        title={`All Transactions for ${customer.name || 'Customer'}`}
-        description={`Showing all ledger entries (payments, invoices, etc.) for customer number ${customer.customerNumber}.`}
+        title={`Ledger Entries for ${customer.name || 'Customer'}`}
+        description={`Showing all ledger entries (invoices, payments, interest, etc.) for customer number ${customer.customerNumber} from ${fromDate ? format(fromDate, 'PPP') : 'start'} to ${toDate ? format(toDate, 'PPP') : 'end'}.`}
         data={allTransactionsData}
         columns={ledgerCardColumns} // Reusing ledgerCardColumns as they are suitable for all ledger entries
         isLoading={loadingAllTransactions}
