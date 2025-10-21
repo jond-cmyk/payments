@@ -7,8 +7,9 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 };
 
+// @ts-ignore
 serve(async (req) => {
-  console.log("[economic-proxy] --- FUNCTION START ---");
+  console.log("[economic-proxy] --- FUNCTION START (v1.0.14) ---");
   console.log("[economic-proxy] Request URL:", req.url);
   console.log("[economic-proxy] Request Method:", req.method);
 
@@ -17,35 +18,6 @@ serve(async (req) => {
   }
 
   try {
-    console.log("[economic-proxy] Edge Function invoked. Version: 1.0.13 (Recreated)"); // Updated version
-    console.log("[economic-proxy] Incoming request headers:", JSON.stringify(Object.fromEntries(req.headers.entries()), null, 2));
-
-    const rawBody = await req.text();
-    console.log("[economic-proxy] Raw request body:", rawBody);
-
-    let parsedPayload: any;
-    try {
-      parsedPayload = JSON.parse(rawBody);
-      console.log("[economic-proxy] Parsed request body:", JSON.stringify(parsedPayload, null, 2));
-    } catch (jsonParseError) {
-      console.error("[economic-proxy] Failed to parse request body as JSON:", jsonParseError);
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON in request body." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    if (parsedPayload && typeof parsedPayload === 'object' && parsedPayload.name === 'Functions' && Object.keys(parsedPayload).length === 1) {
-      console.error("[economic-proxy] Received generic 'Functions' payload. This indicates an incorrect invocation or missing body from the client.");
-      return new Response(
-        JSON.stringify({
-          error: "Incorrect invocation payload. The client did not send the expected 'path' and 'method' in the request body. Please ensure the client-side `supabase.functions.invoke` call is correctly structured.",
-          receivedPayload: parsedPayload,
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     // @ts-ignore
     const appSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
     // @ts-ignore
@@ -62,10 +34,25 @@ serve(async (req) => {
       );
     }
 
+    const rawBody = await req.text();
+    console.log("[economic-proxy] Raw request body length:", rawBody.length);
+
+    let parsedPayload: any;
+    try {
+      parsedPayload = JSON.parse(rawBody);
+      console.log("[economic-proxy] Parsed request body:", JSON.stringify(parsedPayload, null, 2));
+    } catch (jsonParseError) {
+      console.error("[economic-proxy] Failed to parse request body as JSON:", jsonParseError);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const { path, method = "GET", query = {}, body, base } = parsedPayload;
 
     if (!path || typeof path !== "string") {
-      console.error("[economic-proxy] Missing or invalid 'path' in request body. Parsed payload:", JSON.stringify(parsedPayload, null, 2));
+      console.error("[economic-proxy] Missing or invalid 'path' in request body.");
       return new Response(
         JSON.stringify({ error: "Missing 'path'. Example: '/self' or '/customers?pagesize=10'." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -129,7 +116,7 @@ serve(async (req) => {
             method: methodUpper,
           },
         }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Return 200 to client, but embed the error status
       );
     }
 
@@ -145,13 +132,13 @@ serve(async (req) => {
           method: methodUpper,
         },
       }),
-      { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error: any) {
     console.error(`[economic-proxy] Unhandled error: ${error?.message || "Unknown error"}`, error);
     return new Response(
       JSON.stringify({ error: error?.message || "Unexpected error calling e-conomic API." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Return 200 to client, but embed the error
     );
   }
 });
