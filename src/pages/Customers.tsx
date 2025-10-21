@@ -694,19 +694,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      let list: any[] = [];
-      try {
-        // 1. Try standard path
-        list = await fetchLedgerEntries('/customer-ledger-entries');
-      } catch (e: any) {
-        if (e.message.includes('404 Not Found')) {
-          console.warn("[CustomerRow] /customer-ledger-entries failed 404. Trying /customer-ledger-items...");
-          // 2. Try fallback path
-          list = await fetchLedgerEntries('/customer-ledger-items');
-        } else {
-          throw e; // Re-throw other errors
-        }
-      }
+      // Try standard path: /customer-ledger-entries (no dates)
+      const list = await fetchLedgerEntries('/customer-ledger-entries');
       
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
@@ -734,19 +723,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger entries for ${customer.name || 'customer'}...`);
 
     try {
-      let list: any[] = [];
-      try {
-        // 1. Try standard path with date filters
-        list = await fetchLedgerEntries('/customer-ledger-entries', fromDate, toDate);
-      } catch (e: any) {
-        if (e.message.includes('404 Not Found')) {
-          console.warn("[CustomerRow] /customer-ledger-entries failed 404. Trying /customer-ledger-items...");
-          // 2. Try fallback path with date filters
-          list = await fetchLedgerEntries('/customer-ledger-items', fromDate, toDate);
-        } else {
-          throw e; // Re-throw other errors
-        }
-      }
+      // Try standard path: /customer-ledger-entries (with dates)
+      const list = await fetchLedgerEntries('/customer-ledger-entries', fromDate, toDate);
       
       setAllTransactionsData(list);
       setShowAllTransactionsDialog(true);
