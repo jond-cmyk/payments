@@ -230,14 +230,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
   const [showLedgerCardDialog, setShowLedgerCardDialog] = useState(false);
 
-  const [allTransactionsData, setAllTransactionsData] = useState<any[] | null>(null);
-  const [loadingAllTransactions, setLoadingAllTransactions] = useState(false);
-  const [showAllTransactionsDialog, setShowAllTransactionsDialog] = useState(false);
-  
-  // NEW: Date range states for All Transactions/Ledger Entries
-  const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
-  const [toDate, setToDate] = useState<Date | undefined>(undefined);
-
   const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
 
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
@@ -248,7 +240,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     customerNumber: customer.customerNumber,
     loadingInvoices: loadingInvoices,
     loadingLedgerCard: loadingLedgerCard,
-    loadingAllTransactions: loadingAllTransactions,
   });
 
   // Fetch balance and overdue amount automatically using useQuery
@@ -691,66 +682,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     return extractList(resp?.data);
   }, [num]);
 
-  const fetchGeneralLedgerEntries = useCallback(async (fromDate: Date, toDate: Date) => {
-    // 1. Find current accounting year
-    const { data: yearData, error: yearError } = await supabase.functions.invoke("economic-api-proxy", {
-      body: { path: `/accounting-years`, method: "GET" },
-    });
-
-    if (yearError) throw new Error(yearError.message || "Failed to fetch accounting years.");
-    
-    const yearResp = yearData as EconomicProxyResponse<EconomicCollection<any>>;
-    
-    // Check for 403 explicitly
-    if (yearResp?.status === 403) {
-      throw new Error("Permission Denied: Your e-conomic agreement does not allow access to Accounting Years. Cannot use General Ledger fallback.");
-    }
-
-    const years = extractList(yearResp?.data);
-    
-    if (!years || years.length === 0) {
-      console.error("[CustomerRow] General Ledger Fallback failed: No accounting years found in response:", yearResp);
-      throw new Error("No accounting years found.");
-    }
-
-    // Find the year that contains the 'to' date
-    const targetYear = years.find(y => {
-      const start = parseISO(y.fromDate);
-      const end = parseISO(y.toDate);
-      return isWithinInterval(toDate, { start, end });
-    });
-
-    if (!targetYear) throw new Error("Could not determine the relevant accounting year for the selected date range.");
-
-    const accountingYear = targetYear.year;
-    const accountNumber = CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER;
-    
-    // 2. Fetch general ledger entries for the customer receivables account
-    let pathForProxy = `/accounts/${accountNumber}/accounting-years/${accountingYear}/entries?pagesize=1000`;
-    
-    // Filter by customer number (dimension) and date range
-    pathForProxy += `&dimensionNumber=${num}`;
-    pathForProxy += `&fromDate=${format(fromDate, 'yyyy-MM-dd')}`;
-    pathForProxy += `&toDate=${format(toDate, 'yyyy-MM-dd')}`;
-
-    const requestBodyForProxy = { path: pathForProxy, method: "GET" };
-
-    const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-      body: requestBodyForProxy,
-    });
-
-    if (error) throw new Error(error.message || "Failed to load general ledger entries.");
-
-    const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
-    if (resp?.status && resp.status >= 400) {
-      console.error(`[CustomerRow] e-conomic API returned error status ${resp.status} for ${pathForProxy}:`, resp.data);
-      const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
-      throw new Error(`e-conomic API Error: ${errorMessage}`);
-    }
-
-    return extractList(resp?.data);
-  }, [num]);
-
+  // Removed fetchGeneralLedgerEntries
 
   const loadLedgerCard = useCallback(async () => {
     if (!num) {
@@ -776,87 +708,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, customer.name, fetchCustomerLedgerEntries]);
 
-  const loadAllTransactions = useCallback(async () => {
-    if (!num) {
-      showError("Customer number is missing.");
-      return;
-    }
-    if (!fromDate || !toDate) {
-      showError("Please select both From Date and To Date for the transaction filter.");
-      return;
-    }
-
-    setLoadingAllTransactions(true);
-    const toastId = showLoading(`Loading ledger entries for ${customer.name || 'customer'}...`);
-
-    try {
-      let list: any[] = [];
-      let endpointUsed = '/customer-ledger-entries';
-      
-      try {
-        // 1. Try standard path with date filters
-        list = await fetchCustomerLedgerEntries(endpointUsed, fromDate, toDate);
-      } catch (e: any) {
-        if (e.message.includes('404 Not Found')) {
-          console.warn(`[CustomerRow] ${endpointUsed} failed 404. Trying /customer-ledger-items...`);
-          endpointUsed = '/customer-ledger-items';
-          try {
-            // 2. Try fallback path with date filters
-            list = await fetchCustomerLedgerEntries(endpointUsed, fromDate, toDate);
-          } catch (e2: any) {
-            if (e2.message.includes('404 Not Found')) {
-              console.warn(`[CustomerRow] ${endpointUsed} also failed 404. Trying General Ledger fallback...`);
-              // 3. Try General Ledger fallback
-              list = await fetchGeneralLedgerEntries(fromDate, toDate);
-              endpointUsed = 'General Ledger';
-            } else {
-              throw e2; // Re-throw other errors
-            }
-          }
-        } else {
-          throw e; // Re-throw other errors
-        }
-      }
-      
-      // If we successfully fetched data, we need to perform client-side filtering if the API didn't support the date parameters.
-      // Since we don't know if the API applied the filter, we apply it defensively here.
-      const filteredList = list.filter((entry) => {
-        const dateStr = pick(entry, ['date', 'entryDate', 'transactionDate', 'createdAt']);
-        if (!dateStr) return false;
-        
-        try {
-          const entryDate = parseISO(dateStr);
-          // Ensure the date is within the interval [fromDate, toDate]
-          return isWithinInterval(entryDate, { start: fromDate, end: toDate });
-        } catch (e) {
-          console.warn("Failed to parse date for client-side filtering:", dateStr, e);
-          return false;
-        }
-      });
-
-      // Sort by date descending
-      filteredList.sort((a, b) => {
-        const dateA = pick(a, ['date', 'entryDate', 'transactionDate', 'createdAt']);
-        const dateB = pick(b, ['date', 'entryDate', 'transactionDate', 'createdAt']);
-        try {
-          return parseISO(dateB).getTime() - parseISO(dateA).getTime();
-        } catch {
-          return 0;
-        }
-      });
-      
-      setAllTransactionsData(filteredList);
-      setShowAllTransactionsDialog(true);
-      showSuccess(`Loaded ${filteredList.length} ledger entries using ${endpointUsed}.`);
-    } catch (err: any) {
-      console.error("Error loading all transactions:", err);
-      showError("Failed to load ledger entries: " + err.message);
-    } finally {
-      dismissToast(toastId);
-      setLoadingAllTransactions(false);
-    }
-  }, [num, customer.name, fromDate, toDate, fetchCustomerLedgerEntries, fetchGeneralLedgerEntries]);
-
+  // Removed loadAllTransactions
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
@@ -897,10 +749,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   const isCustomerNumberMissing = !customer.customerNumber;
 
-  const getButtonState = (buttonType: 'ledgerCard' | 'viewLedgerEntries') => {
-    const isLoadingState = buttonType === 'ledgerCard' ? loadingLedgerCard : loadingAllTransactions;
-    let text = buttonType === 'ledgerCard' ? "Ledger Card" : "View Ledger Entries";
-    let icon = buttonType === 'ledgerCard' ? <BookText className="h-4 w-4 mr-1" /> : <ReceiptText className="h-4 w-4 mr-1" />;
+  const getButtonState = (buttonType: 'ledgerCard') => {
+    const isLoadingState = loadingLedgerCard;
+    let text = "Ledger Card";
+    let icon = <BookText className="h-4 w-4 mr-1" />;
     let tooltip = "";
     let isDisabled = isLoadingState;
 
@@ -916,7 +768,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
   };
 
   const ledgerCardButtonState = getButtonState('ledgerCard');
-  const viewLedgerEntriesButtonState = getButtonState('viewLedgerEntries');
 
   return (
     <>
@@ -964,40 +815,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
               </TooltipTrigger>
               {ledgerCardButtonState.tooltip && <TooltipContent>{ledgerCardButtonState.tooltip}</TooltipContent>}
             </Tooltip>
-            {/* NEW: View Ledger Entries Button with Date Pickers */}
-            <div className="flex flex-col gap-2 p-2 border rounded-md bg-gray-100">
-              <div className="flex items-center gap-2">
-                <CalendarDays className="h-4 w-4 text-gray-600" />
-                <span className="text-xs font-semibold text-gray-700">Date Range Filter</span>
-              </div>
-              <DatePicker
-                date={fromDate}
-                setDate={setFromDate}
-                placeholder="From Date"
-                className="h-8 text-xs"
-                id={`from-date-${num}`}
-              />
-              <DatePicker
-                date={toDate}
-                setDate={setToDate}
-                placeholder="To Date"
-                className="h-8 text-xs"
-                id={`to-date-${num}`}
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    size="sm" 
-                    className="w-full bg-dyad-blue hover:bg-dyad-blue-light text-white" 
-                    onClick={loadAllTransactions} 
-                    disabled={viewLedgerEntriesButtonState.isDisabled || !fromDate || !toDate}
-                  >
-                    {viewLedgerEntriesButtonState.icon} {viewLedgerEntriesButtonState.text}
-                  </Button>
-                </TooltipTrigger>
-                {viewLedgerEntriesButtonState.tooltip && <TooltipContent>{viewLedgerEntriesButtonState.tooltip}</TooltipContent>}
-              </Tooltip>
-            </div>
           </div>
         </TableCell>
       </TableRow>
@@ -1020,17 +837,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         data={ledgerCardData}
         columns={ledgerCardColumns}
         isLoading={loadingLedgerCard}
-      />
-
-      {/* NEW: All Transactions Dialog (now View Ledger Entries) */}
-      <EconomicDetailDialog
-        isOpen={showAllTransactionsDialog}
-        onOpenChange={setShowAllTransactionsDialog}
-        title={`Ledger Entries for ${customer.name || 'Customer'}`}
-        description={`Showing all ledger entries (invoices, payments, interest, etc.) for customer number ${customer.customerNumber} from ${fromDate ? format(fromDate, 'PPP') : 'start'} to ${toDate ? format(toDate, 'PPP') : 'end'}.`}
-        data={allTransactionsData}
-        columns={ledgerCardColumns} // Reusing ledgerCardColumns as they are suitable for all ledger entries
-        isLoading={loadingAllTransactions}
       />
     </>
   );
