@@ -72,6 +72,7 @@ const MissingReceipts = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(ITEMS_PER_PAGE);
 
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof Transaction | null>('transaction_date');
@@ -100,14 +101,14 @@ const MissingReceipts = () => {
 
   // Fetch ALL transactions that are pending input and have no receipts
   const { data: transactions, isLoading: isTransactionsLoading, error: transactionsError } = useQuery<Transaction[]>({
-    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, filterStartDate, filterEndDate, sortColumn, sortDirection, currentCountry, currentPage],
+    queryKey: ['missingReceipts', filterAmount, filterAssignedUser, filterTransactionDate, filterStartDate, filterEndDate, sortColumn, sortDirection, currentCountry, currentPage, itemsPerPage],
     queryFn: async () => {
       if (!session) return [];
 
       console.log(`[MissingReceipts Query] Fetching with filters: amount=${filterAmount}, assignedUser=${filterAssignedUser}, date=${filterTransactionDate?.toISOString().split('T')[0]}, startDate=${filterStartDate?.toISOString().split('T')[0]}, endDate=${filterEndDate?.toISOString().split('T')[0]}, sortColumn=${String(sortColumn)}, sortDirection=${sortDirection}, country=${currentCountry}, currentPage=${currentPage}`);
 
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+      const from = itemsPerPage === 'all' ? 0 : (currentPage - 1) * (itemsPerPage as number);
+      const to = itemsPerPage === 'all' ? null : from + (itemsPerPage as number) - 1;
 
       let query = supabase
         .from('transactions')
@@ -154,7 +155,9 @@ const MissingReceipts = () => {
         query = query.lte('transaction_date', format(filterEndDate, 'yyyy-MM-dd'));
       }
 
-      query = query.range(from, to);
+      if (itemsPerPage !== 'all') {
+        query = query.range(from, to);
+      }
 
       const { data, error, count } = await query;
       if (error) throw error;
@@ -323,7 +326,7 @@ const MissingReceipts = () => {
     }
   };
 
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / (itemsPerPage as number));
 
   const renderPaginationItems = () => {
     const items = [];
@@ -423,12 +426,36 @@ const MissingReceipts = () => {
             <CardTitle className="flex items-center text-2xl font-bold">
               <FileX className="mr-2 h-6 w-6" /> Missing Receipts
             </CardTitle>
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-2">
               {isAdmin && (
                 <Button onClick={handleDownloadTransactions} className="shadow-sm" variant="outline">
                   <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
               )}
+              <div className="flex items-center gap-2">
+                <label htmlFor="items-per-page" className="text-sm font-medium text-gray-700">
+                  Records per page:
+                </label>
+                <Select
+                  value={String(itemsPerPage)}
+                  onValueChange={(value) => {
+                    const newItemsPerPage = value === 'all' ? 'all' : parseInt(value);
+                    setItemsPerPage(newItemsPerPage);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger id="items-per-page" className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="all">Show All</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               {isAdmin && selectedTransactionIds.length > 0 && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

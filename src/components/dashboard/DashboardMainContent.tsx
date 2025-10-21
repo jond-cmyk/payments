@@ -23,6 +23,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { Button } from '@/components/ui/button';
 import { exportToCsv } from '@/utils/exportToCsv';
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface DashboardMainContentProps {
   debouncedSearchTerm: string;
@@ -51,6 +52,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(ITEMS_PER_PAGE);
 
   // Sorting states for the table
   const [sortColumn, setSortColumn] = useState<keyof PaymentRequest | null>('created_at');
@@ -266,12 +268,12 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatuses, filterDatePaymentRequired, filterRequesters, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage],
+    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatuses, filterDatePaymentRequired, filterRequesters, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage, itemsPerPage],
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
-      const from = (currentPage - 1) * ITEMS_PER_PAGE;
-      const to = from + ITEMS_PER_PAGE - 1;
+      const from = itemsPerPage === 'all' ? 0 : (currentPage - 1) * (itemsPerPage as number);
+      const to = itemsPerPage === 'all' ? null : from + (itemsPerPage as number) - 1;
 
       let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)', { count: 'exact' });
 
@@ -340,11 +342,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
         query = query.order('id', { ascending: false });
       }
 
-      query = query.range(from, to); // Apply pagination range
+      if (itemsPerPage !== 'all') {
+        query = query.range(from, to);
+      }
 
       const { data, error, count } = await query;
       if (error) throw error;
-      setTotalItems(count || 0); // Set total items for pagination
+      setTotalItems(count || 0);
       return data;
     },
     enabled: !!user?.id && !!userRole && !debouncedSearchTerm,
@@ -566,11 +570,39 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
             <CardTitle className="text-2xl font-bold">
               {isAllRequestsPage ? 'All Payment Requests' : 'Priority Payment Requests'}
             </CardTitle>
-            {userRole === 'admin' && (
-              <Button onClick={handleDownloadPaymentRequests} className="shadow-sm" variant="outline">
-                <FileDown className="mr-2 h-4 w-4" /> Download to Excel
-              </Button>
-            )}
+            <div className="flex items-center space-x-2">
+              {userRole === 'admin' && isAllRequestsPage && (
+                <Button onClick={handleDownloadPaymentRequests} className="shadow-sm" variant="outline">
+                  <FileDown className="mr-2 h-4 w-4" /> Download to Excel
+                </Button>
+              )}
+              {isAllRequestsPage && (
+                <div className="flex items-center gap-2">
+                  <label htmlFor="items-per-page" className="text-sm font-medium text-gray-700">
+                    Records per page:
+                  </label>
+                  <Select
+                    value={String(itemsPerPage)}
+                    onValueChange={(value) => {
+                      const newItemsPerPage = value === 'all' ? 'all' : parseInt(value);
+                      setItemsPerPage(newItemsPerPage);
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger id="items-per-page" className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10</SelectItem>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                      <SelectItem value="all">Show All</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <PaymentRequestTable
             paymentRequests={paymentRequestsForTable}
@@ -581,7 +613,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
             handleToggleUrgent={handleToggleUrgent}
             toggleUrgentMutation={toggleUrgentMutation}
             currentPage={currentPage}
-            itemsPerPage={ITEMS_PER_PAGE}
+            itemsPerPage={itemsPerPage}
             totalItems={totalItems}
             onPageChange={setCurrentPage}
           />

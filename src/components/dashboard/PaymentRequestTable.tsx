@@ -38,7 +38,7 @@ interface PaymentRequestTableProps {
   handleToggleUrgent: (requestId: string, currentUrgentStatus: boolean) => Promise<void>;
   toggleUrgentMutation: UseMutationResult<boolean, Error, { id: string; is_urgent: boolean; }, unknown>;
   currentPage: number; // New prop
-  itemsPerPage: number; // New prop
+  itemsPerPage: number | 'all'; // New prop
   totalItems: number; // New prop
   onPageChange: (page: number) => void; // New prop
 }
@@ -56,7 +56,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   totalItems,
   onPageChange,
 }) => {
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / (itemsPerPage as number));
 
   const renderPaginationItems = () => {
     const items = [];

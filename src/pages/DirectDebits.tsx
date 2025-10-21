@@ -27,7 +27,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import DatePicker from '@/components/DatePicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   AlertDialog,
@@ -356,8 +355,9 @@ const DirectDebits = () => {
   const handleDirectDebitUpdated = () => {
     setIsEditDirectDebitDialogOpen(false);
     setEditingDirectDebit(null);
-    queryClient.invalidateQueries({ queryKey: ['directDebits'] });
-    queryClient.invalidateQueries({ queryKey: ['directDebit', editingDirectDebit?.id] });
+    queryClient.invalidateQueries({ queryKey: ['directDebits'] }); // Invalidate list
+    queryClient.invalidateQueries({ queryKey: ['directDebit', editingDirectDebit?.id] }); // Invalidate detail view
+    queryClient.invalidateQueries({ queryKey: ['directDebitAudits', editingDirectDebit?.id] }); // Invalidate audits
   };
 
   const directDebitExportColumns: (keyof DirectDebit)[] = [
@@ -445,7 +445,6 @@ const DirectDebits = () => {
                   <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
               )}
-              {/* Rows per page selector */}
               <div className="flex items-center gap-2">
                 <label htmlFor="rows-per-page" className="text-sm text-gray-600">Rows per page</label>
                 <Select
@@ -481,7 +480,6 @@ const DirectDebits = () => {
                   <AddDirectDebitForm onDirectDebitAdded={handleDirectDebitAdded} />
                 </DialogContent>
               </Dialog>
-              {/* Admin-only bulk delete */}
               {isAdmin && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>

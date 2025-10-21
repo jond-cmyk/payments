@@ -408,12 +408,14 @@ const StandingOrders = () => {
       }
 
       // Construct the final column order for CSV
-      const finalExportColumns = [
+      const baseColumns = [
         'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
         'sku', 'not_property_related', ...dynamicCategoryHeaders, 'total_amount', 'account_name', 'account_address',
         'iban_number', 'sort_code', 'account_number', 'from_day', 'to_day',
         'payment_reference', 'status', 'country', 'bank_details_verified', 'payment_day', 'currency', 'bank_account'
       ];
+
+      const finalExportColumns = [...baseColumns, ...dynamicCategoryHeaders];
 
       exportToCsv(
         flattenedData,
@@ -490,13 +492,49 @@ const StandingOrders = () => {
             <CardTitle className="flex items-center text-2xl font-bold">
               <Repeat className="mr-2 h-6 w-6" /> Standing Orders
             </CardTitle>
-            <div className="flex space-x-2">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 gap-2">
               {isAdmin && (
                 <Button onClick={handleDownloadStandingOrders} className="shadow-sm" variant="outline">
                   <FileDown className="mr-2 h-4 w-4" /> Download to Excel
                 </Button>
               )}
-              {/* NEW: Bulk Delete Selected */}
+              <div className="flex items-center gap-2">
+                <label htmlFor="items-per-page" className="text-sm font-medium text-gray-700">
+                  Records per page:
+                </label>
+                <Select
+                  value={itemsPerPage.toString()}
+                  onValueChange={(value) => {
+                    const newItemsPerPage = value === 'all' ? 'all' : parseInt(value);
+                    setItemsPerPage(newItemsPerPage);
+                    setCurrentPage(1); // Reset to first page when changing items per page
+                  }}
+                >
+                  <SelectTrigger id="items-per-page" className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="25">25</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                    <SelectItem value="all">Show All</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="shadow-sm">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Standing Order
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Add New Standing Order</DialogTitle>
+                  </DialogHeader>
+                  <AddStandingOrderForm onStandingOrderAdded={handleStandingOrderAdded} />
+                </DialogContent>
+              </Dialog>
               {isAdmin && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -530,19 +568,6 @@ const StandingOrders = () => {
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="shadow-sm">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add New Standing Order
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Add New Standing Order</DialogTitle>
-                  </DialogHeader>
-                  <AddStandingOrderForm onStandingOrderAdded={handleStandingOrderAdded} />
-                </DialogContent>
-              </Dialog>
             </div>
           </div>
           <CardDescription>
@@ -552,34 +577,7 @@ const StandingOrders = () => {
         <CardContent>
           {/* Filters */}
           <div className="mb-4 p-4 border rounded-md bg-gray-50 shadow-sm">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Filter Standing Orders</h3>
-              {/* Records per page selector */}
-              <div className="flex items-center gap-2">
-                <label htmlFor="items-per-page" className="text-sm font-medium text-gray-700">
-                  Records per page:
-                </label>
-                <Select
-                  value={itemsPerPage.toString()}
-                  onValueChange={(value) => {
-                    const newItemsPerPage = value === 'all' ? 'all' : parseInt(value);
-                    setItemsPerPage(newItemsPerPage);
-                    setCurrentPage(1); // Reset to first page when changing items per page
-                  }}
-                >
-                  <SelectTrigger id="items-per-page" className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                    <SelectItem value="all">Show All</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <h3 className="text-lg font-semibold mb-4 text-gray-800">Filter Standing Orders</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {isAdmin && (
                 <div>
