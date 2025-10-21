@@ -20,7 +20,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAmount } from "@/components/economic/EconomicDetailDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import DatePicker from "@/components/DatePicker"; // Import DatePicker
-import { format } from "date-fns"; // Import format for date filtering
+import { format, isWithinInterval, parseISO } from "date-fns"; // Import format and isWithinInterval
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -723,12 +723,53 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger entries for ${customer.name || 'customer'}...`);
 
     try {
-      // Try standard path: /customer-ledger-entries (with dates)
-      const list = await fetchLedgerEntries('/customer-ledger-entries', fromDate, toDate);
+      let list: any[] = [];
+      let endpointUsed = '/customer-ledger-entries';
       
-      setAllTransactionsData(list);
+      try {
+        // 1. Try standard path with date filters
+        list = await fetchLedgerEntries(endpointUsed, fromDate, toDate);
+      } catch (e: any) {
+        if (e.message.includes('404 Not Found')) {
+          console.warn(`[CustomerRow] ${endpointUsed} failed 404. Trying /customer-ledger-items...`);
+          endpointUsed = '/customer-ledger-items';
+          // 2. Try fallback path with date filters
+          list = await fetchLedgerEntries(endpointUsed, fromDate, toDate);
+        } else {
+          throw e; // Re-throw other errors
+        }
+      }
+      
+      // If we successfully fetched data, we need to perform client-side filtering if the API didn't support the date parameters.
+      // Since we don't know if the API applied the filter, we apply it defensively here.
+      const filteredList = list.filter((entry) => {
+        const dateStr = pick(entry, ['date', 'entryDate', 'transactionDate', 'createdAt']);
+        if (!dateStr) return false;
+        
+        try {
+          const entryDate = parseISO(dateStr);
+          // Ensure the date is within the interval [fromDate, toDate]
+          return isWithinInterval(entryDate, { start: fromDate, end: toDate });
+        } catch (e) {
+          console.warn("Failed to parse date for client-side filtering:", dateStr, e);
+          return false;
+        }
+      });
+
+      // Sort by date descending
+      filteredList.sort((a, b) => {
+        const dateA = pick(a, ['date', 'entryDate', 'transactionDate', 'createdAt']);
+        const dateB = pick(b, ['date', 'entryDate', 'transactionDate', 'createdAt']);
+        try {
+          return parseISO(dateB).getTime() - parseISO(dateA).getTime();
+        } catch {
+          return 0;
+        }
+      });
+      
+      setAllTransactionsData(filteredList);
       setShowAllTransactionsDialog(true);
-      showSuccess(`Loaded ${list.length} ledger entries.`);
+      showSuccess(`Loaded ${filteredList.length} ledger entries (filtered from ${list.length} total).`);
     } catch (err: any) {
       console.error("Error loading all transactions:", err);
       showError("Failed to load ledger entries: " + err.message);
