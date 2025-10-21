@@ -557,8 +557,8 @@ const NewPaymentRequest = () => {
                                 onChange={(e) => {
                                   // Only allow numbers and a single decimal point
                                   const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                                  // Force conversion to number here to ensure RHF stores the correct numeric value immediately
-                                  field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
+                                  // Pass the cleaned string back to RHF. RHF/Zod will coerce it to a number.
+                                  field.onChange(rawValue);
                                 }}
                               />
                             </FormControl>
