@@ -31,6 +31,15 @@ interface PaymentRequestEditFormCardProps {
   handleRequesterEditSubmit: (values: EditFormSchema) => Promise<void>;
 }
 
+// Helper function to format UK account number for display
+const formatUkAccountNumber = (raw: string | undefined | null): string => {
+  if (!raw) return '';
+  let value = String(raw).replace(/\D/g, '');
+  if (value.length > 8) value = value.substring(0, 8);
+  if (value.length > 4) return value.slice(0, 4) + ' ' + value.slice(4);
+  return value;
+};
+
 const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   request,
   editForm,
@@ -446,6 +455,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <Input
                           placeholder="e.g., 1234 5678"
                           {...field}
+                          value={formatUkAccountNumber(field.value)} // Apply formatting for display
                           onChange={(e) => {
                             let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
                             if (value.length > 8) value = value.substring(0, 8); // Max 8 digits
