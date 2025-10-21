@@ -91,8 +91,8 @@ const SummaryCardItem: React.FC<{
           borderClass: 'border-purple-500',
           textClass: 'text-purple-600',
           icon: <Repeat className="h-4 w-4" />,
-          title: 'Pending SO',
-          description: 'SO awaiting approval',
+          title: 'Pending Standing Order',
+          description: 'Standing orders awaiting approval',
           link: `/standing-orders?status=pending`,
         };
       case 'active_standing_orders':
@@ -100,7 +100,7 @@ const SummaryCardItem: React.FC<{
           borderClass: 'border-green-500',
           textClass: 'text-green-600',
           icon: <Repeat className="h-4 w-4" />,
-          title: 'Active SO',
+          title: 'Active Standing Order',
           description: 'Currently active standing orders',
           link: `/standing-orders?status=active`,
         };
@@ -109,7 +109,7 @@ const SummaryCardItem: React.FC<{
           borderClass: 'border-indigo-500',
           textClass: 'text-indigo-600',
           icon: <Banknote className="h-4 w-4" />,
-          title: 'Active DD',
+          title: 'Active Direct Debit',
           description: 'Currently active direct debits',
           link: `/direct-debits?status=active`,
         };
