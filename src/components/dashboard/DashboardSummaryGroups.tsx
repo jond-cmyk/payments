@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { cn } from '@/lib/utils';
 import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote, DollarSign, List, Activity } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Separator } from '@/components/ui/separator'; // Keep Separator import just in case, though not used in Tier 2 now
 
 interface DashboardSummaryGroupsProps {
   counts: {
@@ -31,8 +31,7 @@ const SummaryCardItem: React.FC<{
   isCritical?: boolean; // New prop to differentiate styling
 }> = ({ statusKey, count, currentCountry, isCritical = false }) => {
   
-  const getCardStyling = (status: string) => {
-    // Default styling for secondary cards (white background, colored border/text)
+  const getCardStyling = (status: string, isCritical: boolean) => {
     let borderClass = 'border-gray-300';
     let textClass = 'text-gray-600 dark:text-gray-400';
     let bgClass = 'bg-card dark:bg-card';
@@ -40,34 +39,38 @@ const SummaryCardItem: React.FC<{
     let title = String(status);
     let description = '';
     let link = '#';
+    let hoverClass = 'hover:shadow-md hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background';
 
     switch (status) {
       case 'pending':
-        borderClass = 'border-yellow-500';
-        textClass = isCritical ? 'text-yellow-700 dark:text-yellow-300' : 'text-yellow-600 dark:text-yellow-400';
-        bgClass = isCritical ? 'bg-yellow-100 dark:bg-yellow-900/50' : 'bg-card dark:bg-card';
+        borderClass = isCritical ? 'border-yellow-700' : 'border-yellow-500';
+        textClass = isCritical ? 'text-white' : 'text-yellow-600 dark:text-yellow-400';
+        bgClass = isCritical ? 'bg-yellow-600 dark:bg-yellow-800' : 'bg-card dark:bg-card';
         icon = <Clock className="h-4 w-4" />;
         title = 'Pending Requests';
         description = 'Requests awaiting review';
         link = `/admin/requests?status=pending`;
+        hoverClass = isCritical ? 'hover:bg-yellow-700' : 'hover:shadow-md hover:from-yellow-100/50 hover:to-background';
         break;
       case 'setup_awaiting_approval':
-        borderClass = 'border-blue-500';
-        textClass = isCritical ? 'text-blue-700 dark:text-blue-300' : 'text-blue-600 dark:text-blue-400';
-        bgClass = isCritical ? 'bg-blue-100 dark:bg-blue-900/50' : 'bg-card dark:bg-card';
+        borderClass = isCritical ? 'border-blue-700' : 'border-blue-500';
+        textClass = isCritical ? 'text-white' : 'text-blue-600 dark:text-blue-400';
+        bgClass = isCritical ? 'bg-blue-600 dark:bg-blue-800' : 'bg-card dark:bg-card';
         icon = currentCountry === 'United Kingdom' ? <PoundSterling className="h-4 w-4" /> : <Euro className="h-4 w-4" />;
         title = 'Payment Setup';
         description = 'Payments being processed';
         link = `/admin/requests?status=setup_awaiting_approval`;
+        hoverClass = isCritical ? 'hover:bg-blue-700' : 'hover:shadow-md hover:from-blue-100/50 hover:to-background';
         break;
       case 'approved':
-        borderClass = 'border-green-500';
-        textClass = isCritical ? 'text-green-700 dark:text-green-300' : 'text-green-600 dark:text-green-400';
-        bgClass = isCritical ? 'bg-green-100 dark:bg-green-900/50' : 'bg-card dark:bg-card';
+        borderClass = isCritical ? 'border-green-700' : 'border-green-500';
+        textClass = isCritical ? 'text-white' : 'text-green-600 dark:text-green-400';
+        bgClass = isCritical ? 'bg-green-600 dark:bg-green-800' : 'bg-card dark:bg-card';
         icon = <CheckCircle className="h-4 w-4" />;
         title = 'Approved Requests';
         description = 'Payments completed';
         link = `/admin/requests?status=approved`;
+        hoverClass = isCritical ? 'hover:bg-green-700' : 'hover:shadow-md hover:from-green-100/50 hover:to-background';
         break;
       case 'queried':
         borderClass = 'border-gray-400';
@@ -117,19 +120,23 @@ const SummaryCardItem: React.FC<{
         description = 'Currently active direct debits';
         link = `/direct-debits?status=active`;
         break;
+      default:
+        // Fallback for unknown status
+        break;
     }
-    return { borderClass, textClass, icon, title, description, link, bgClass };
+    return { borderClass, textClass, icon, title, description, link, bgClass, hoverClass };
   };
 
-  const { borderClass, textClass, icon, title, description, link, bgClass } = getCardStyling(statusKey);
+  const { borderClass, textClass, icon, title, description, link, bgClass, hoverClass } = getCardStyling(statusKey, isCritical);
 
   return (
     <Link to={link} className="block">
       <Card className={cn(
-        "border-l-4 cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 ease-in-out h-full",
+        "border-l-4 cursor-pointer shadow-sm transition-all duration-200 ease-in-out h-full",
         borderClass,
-        bgClass, // Apply background class
-        "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
+        bgClass, 
+        hoverClass,
+        isCritical ? "p-2" : "hover:shadow-md"
       )}>
         <CardHeader className={cn("flex flex-row items-center justify-between space-y-0", isCritical ? "p-4 pb-1" : "p-3 pb-1")}>
           <CardTitle className={cn(isCritical ? "text-sm font-medium" : "text-xs font-medium", textClass)}>{title}</CardTitle>
@@ -137,7 +144,7 @@ const SummaryCardItem: React.FC<{
         </CardHeader>
         <CardContent className={cn(isCritical ? "p-4 pt-0" : "p-3 pt-0")}>
           <div className={cn(isCritical ? "text-3xl font-bold" : "text-xl font-bold", textClass)}>{count}</div>
-          <p className={cn(isCritical ? "text-xs" : "text-[10px]", "text-muted-foreground h-6 overflow-hidden")}>{description}</p>
+          <p className={cn(isCritical ? "text-xs" : "text-[10px]", isCritical ? 'text-white/80' : 'text-muted-foreground', "h-6 overflow-hidden")}>{description}</p>
         </CardContent>
       </Card>
     </Link>
@@ -150,19 +157,16 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
   const criticalKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
     'pending', 
     'setup_awaiting_approval', 
-    'approved', // NEW TIER 1 KEY
+    'approved', 
   ];
 
-  const statusKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
+  const column1Keys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
     'queried', 
-    'declined',
-  ];
-
-  const receiptKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
+    'declined', 
     'missing_receipts',
   ];
 
-  const recurringKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
+  const column2Keys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
     'pending_standing_orders', 
     'active_standing_orders', 
     'active_direct_debits',
@@ -191,11 +195,11 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
             ))}
           </div>
 
-          {/* Tier 2: Secondary Metrics with Separators */}
-          <div className="space-y-4">
-            {/* Group 1: Queried and Declined */}
-            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-              {statusKeys.map((key) => (
+          {/* Tier 2: Secondary Metrics (2 columns, strict vertical flow) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Column 1: Payment Request Statuses & Receipts */}
+            <div className="space-y-3">
+              {column1Keys.map((key) => (
                 <SummaryCardItem
                   key={key}
                   statusKey={key}
@@ -206,26 +210,9 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
               ))}
             </div>
 
-            <Separator />
-
-            {/* Group 2: Missing Receipts */}
-            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-              {receiptKeys.map((key) => (
-                <SummaryCardItem
-                  key={key}
-                  statusKey={key}
-                  count={counts[key]}
-                  currentCountry={currentCountry}
-                  isCritical={false}
-                />
-              ))}
-            </div>
-
-            <Separator />
-
-            {/* Group 3: Recurring Payments */}
-            <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
-              {recurringKeys.map((key) => (
+            {/* Column 2: Recurring Payments */}
+            <div className="space-y-3">
+              {column2Keys.map((key) => (
                 <SummaryCardItem
                   key={key}
                   statusKey={key}
