@@ -19,6 +19,7 @@ import {
   AccordionItem,
 } from "@/components/ui/accordion";
 import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger';
+import { ScrollArea } from '@/components/ui/scroll-area'; // NEW: Import ScrollArea
 
 interface SidebarProps {
   className?: string;
@@ -117,60 +118,62 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
         <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-12" />
       </div>
       
-      {/* Navigation Links (Scrollable Middle Section) */}
-      <nav className="flex-1 space-y-2 overflow-y-auto pr-2 -mr-2"> {/* Added pr-2 -mr-2 trick for cleaner scrollbar */}
-        <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
-        {(currentRole === 'requester' || currentRole === 'admin') && (
-          <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
-        )}
-        <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
-        <div className="h-px bg-dyad-blue-foreground my-4" />
-        <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
-        <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
-        
-        <div className="h-px bg-dyad-blue-foreground my-4" /> 
-        <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
-        <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
-        <div className="h-px bg-dyad-blue-foreground my-4" />
-        <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
-        <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
-        <NavLink to="/property-reports" icon={<LayoutDashboard className="h-5 w-5" />} label="Property Reports" /> {/* NEW: Property Reports Link */}
-        
-        <div className="h-px bg-dyad-blue-foreground my-4" /> 
-
-        <NavLink to="/notifications" icon={<Bell className="h-5 w-5" />} label="Notifications">
-          {unreadNotificationsCount > 0 && (
-            <Badge className="ml-auto bg-red-500 text-white transform translate-x-0 translate-y-0">
-              {unreadNotificationsCount}
-            </Badge>
+      {/* Navigation Links (Scrollable Middle Section using ScrollArea) */}
+      <ScrollArea className="flex-1">
+        <nav className="space-y-2">
+          <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
+          {(currentRole === 'requester' || currentRole === 'admin') && (
+            <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
           )}
-        </NavLink>
-        <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" />
-        <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" />
-        
-        {currentRole === 'admin' && (
-          <>
-            <div className="h-px bg-dyad-blue-foreground my-4" />
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="admin-panel" className="border-b-0">
-                <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors rounded-md">
-                  <span className="flex items-center">
-                    <Settings className="mr-2 h-5 w-5" /> Admin Panel
-                  </span>
-                </CustomAccordionTrigger>
-                <AccordionContent className="pl-6 pt-2 pb-0 space-y-2">
-                  <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
-                  <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
-                  <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" />
-                  <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
-                  <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" />
-                  <NavLink to="/admin/economic-integration" icon={<Globe className="h-5 w-5" />} label="E-conomic Integration" />
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </>
-        )}
-      </nav>
+          <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
+          <div className="h-px bg-dyad-blue-foreground my-4" />
+          <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
+          <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
+          
+          <div className="h-px bg-dyad-blue-foreground my-4" /> 
+          <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
+          <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
+          <div className="h-px bg-dyad-blue-foreground my-4" />
+          <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
+          <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
+          <NavLink to="/property-reports" icon={<LayoutDashboard className="h-5 w-5" />} label="Property Reports" /> {/* NEW: Property Reports Link */}
+          
+          <div className="h-px bg-dyad-blue-foreground my-4" /> 
+
+          <NavLink to="/notifications" icon={<Bell className="h-5 w-5" />} label="Notifications">
+            {unreadNotificationsCount > 0 && (
+              <Badge className="ml-auto bg-red-500 text-white transform translate-x-0 translate-y-0">
+                {unreadNotificationsCount}
+              </Badge>
+            )}
+          </NavLink>
+          <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" />
+          <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" />
+          
+          {currentRole === 'admin' && (
+            <>
+              <div className="h-px bg-dyad-blue-foreground my-4" />
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="admin-panel" className="border-b-0">
+                  <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-3 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors rounded-md">
+                    <span className="flex items-center">
+                      <Settings className="mr-2 h-5 w-5" /> Admin Panel
+                    </span>
+                  </CustomAccordionTrigger>
+                  <AccordionContent className="pl-6 pt-2 pb-0 space-y-2">
+                    <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
+                    <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
+                    <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" />
+                    <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
+                    <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" />
+                    <NavLink to="/admin/economic-integration" icon={<Globe className="h-5 w-5" />} label="E-conomic Integration" />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </>
+          )}
+        </nav>
+      </ScrollArea>
       
       {/* Footer/User Info (Fixed Bottom) */}
       <div className="mt-auto pt-4 border-t border-sidebar-border flex-shrink-0">
