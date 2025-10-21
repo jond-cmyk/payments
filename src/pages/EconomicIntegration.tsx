@@ -114,8 +114,8 @@ const EconomicIntegration = () => {
       { label: "Customers (5)", path: "/customers?pagesize=5" },
       { label: "Invoices (5)", path: "/invoices?pagesize=5" },
       { label: "Customer Ledger Entries (5)", path: "/customer-ledger-entries?pagesize=5" },
-      // NEW: Add test for Department Profit/Loss Report
-      { label: "Dept. Profit/Loss (Demo)", path: "/reports/department-profit-loss?from=2023-01-01&to=2023-01-31" },
+      // UPDATED PATH: Test for Department Profit/Loss Report
+      { label: "Dept. Profit/Loss (Demo)", path: "/accounting-reports/department-profit-loss?from=2023-01-01&to=2023-01-31" },
     ];
 
     const results: Array<{ label: string; status?: number; ok?: boolean; url: string; note?: string }> = [];
