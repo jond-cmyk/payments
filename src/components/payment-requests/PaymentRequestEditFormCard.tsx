@@ -450,7 +450,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   name="account_number"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                      <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                       <FormControl>
                         <Input
                           placeholder="e.g., 1234 5678"
@@ -465,7 +465,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         />
                       </FormControl>
                       <FormDescription>
-                        Enter the 8-digit Account Number.
+                        Enter the 8-digit Bank Account Number.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -647,17 +647,17 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       onCheckedChange={field.onChange}
                     />
                   </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-red-700">
-                      Mark as Urgent
-                    </FormLabel>
-                    <FormDescription className="text-red-600">
-                      Check this box if this payment request is urgent and requires immediate attention.
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-red-700">
+                        Mark as Urgent
+                      </FormLabel>
+                      <FormDescription className="text-red-600">
+                        Check this box if this payment request is urgent and requires immediate attention.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
           </form>
         </Form>
       </CardContent>
@@ -678,7 +678,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   {suggestion.country === 'United Kingdom' ? (
                     <>
                       <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
-                      <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
                     </>
                   ) : (
                     <>

@@ -37,7 +37,7 @@ const addDirectDebitFormSchema = z.object({
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
   category: z.string().min(1, "Category is required."),
-  account_number: z.string().min(1, "Account Number is required."),
+  account_number: z.string().min(1, "Bank Account Number is required."), // UPDATED MESSAGE
   payment_reference: z.string().optional(), // Made optional
   status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], { // Added 'awaiting_info' status
     required_error: "Status is required.",
@@ -192,6 +192,8 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
     form.setValue('payment_reference', suggestion.payment_reference || '', options);
     form.setValue('currency', suggestion.currency || undefined, options);
     form.setValue('bank_account', suggestion.bank_account || undefined, options);
+    
+    // Note: Direct Debits don't have categories/total_amount fields to reset.
     
     setIsSuggestionDialogOpen(false);
   };
@@ -456,7 +458,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           name="account_number"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
                 <Input placeholder="e.g., 1234567890" {...field} />
               </FormControl>
@@ -526,7 +528,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
                   {suggestion.country === 'United Kingdom' ? (
                     <>
                       <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
-                      <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
                     </>
                   ) : (
                     <>

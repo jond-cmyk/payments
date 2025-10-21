@@ -128,7 +128,7 @@ export const editFormSchema = z.object({
     if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Account Number is required and must be 8 digits.",
+        message: "Bank Account Number is required and must be 8 digits.",
         path: ['account_number'],
       });
     }

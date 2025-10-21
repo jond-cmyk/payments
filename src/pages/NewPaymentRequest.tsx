@@ -43,7 +43,7 @@ const formSchema = z.object({
   bank_account_name: z.string().optional(),
   currency: z.string().min(1, "Currency is required"),
   total_amount: z.coerce.number().min(0.01, "Total Amount must be positive."), // CHANGED
-  notes: z.string().optional(), // CHANGED: Renamed from reason_for_payment and made optional
+  notes: z.string().optional(), // CHANGED: Renamed from reason_for_payment
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
   }),
@@ -116,7 +116,7 @@ const formSchema = z.object({
     if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Account Number is required and must be 8 digits.",
+        message: "Bank Account Number is required and must be 8 digits.",
         path: ['account_number'],
       });
     }
@@ -258,11 +258,15 @@ const NewPaymentRequest = () => {
 
   // Calculate total amount whenever categories array changes
   React.useEffect(() => {
+    // console.log("[NewPaymentRequest] useEffect triggered for watchedCategories change.");
+    // console.log("[NewPaymentRequest] watchedCategories:", JSON.stringify(watchedCategories));
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
       // Ensure amount is treated as a number, defaulting to 0 if invalid
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
+      // console.log(`[NewPaymentRequest] Reducing item: sum=${sum}, amount=${parsedAmount}`);
       return sum + parsedAmount;
     }, 0);
+    // console.log("[NewPaymentRequest] Calculated newTotal:", newTotal);
     form.setValue("total_amount", newTotal, { shouldValidate: true });
   }, [watchedCategories, form]);
 
@@ -776,7 +780,7 @@ const NewPaymentRequest = () => {
                     name="account_number"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                         <FormControl>
                           <Input
                             placeholder="e.g., 1234 5678"
@@ -791,7 +795,7 @@ const NewPaymentRequest = () => {
                           />
                         </FormControl>
                         <FormDescription>
-                          Enter the 8-digit Account Number.
+                          Enter the 8-digit Bank Account Number.
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -995,7 +999,7 @@ const NewPaymentRequest = () => {
                       {suggestion.country === 'United Kingdom' ? (
                         <>
                           <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
-                          <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                          <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
                           <p className="text-sm text-muted-foreground">Bank Account Name: {suggestion.bank_account_name || 'N/A'}</p>
                         </>
                       ) : (

@@ -37,7 +37,7 @@ const editDirectDebitFormSchema = z.object({
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
   category: z.string().min(1, "Category is required."),
-  account_number: z.string().min(1, "Account Number is required."),
+  account_number: z.string().min(1, "Bank Account Number is required."), // UPDATED MESSAGE
   payment_reference: z.string().optional(), // Made optional
   status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], { // Added 'awaiting_info' status
     required_error: "Status is required.",
@@ -446,7 +446,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             name="account_number"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <FormControl>
                   <Input placeholder="e.g., 1234567890" {...field} disabled={!isAdmin} />
                 </FormControl>
@@ -514,7 +514,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
                   <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : suggestion.source_type === 'standing_order' ? 'Standing Order' : 'Direct Debit'}</p>
                   <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
-                  <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number || 'N/A'}</p>
+                  <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number || 'N/A'}</p>
                   {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
                   <Button
                     onClick={() => handleUseSuggestion(suggestion)}

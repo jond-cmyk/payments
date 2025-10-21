@@ -95,7 +95,7 @@ const addStandingOrderFormSchema = z.object({
     if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Account Number is required and must be 8 digits.",
+        message: "Bank Account Number is required and must be 8 digits.",
         path: ['account_number'],
       });
     }
@@ -743,7 +743,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
               name="account_number"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                   <FormControl>
                     <Input
                       placeholder="e.g., 1234 5678"
@@ -757,7 +757,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                     />
                   </FormControl>
                   <FormDescription>
-                    Enter the 8-digit Account Number.
+                    Enter the 8-digit Bank Account Number.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -958,7 +958,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   {suggestion.country === 'United Kingdom' ? (
                     <>
                       <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
-                      <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
                     </>
                   ) : (
                     <>
