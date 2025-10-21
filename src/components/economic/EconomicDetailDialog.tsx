@@ -237,7 +237,9 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           <DialogTitle className="font-bold">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <div className="flex-1 overflow-hidden">
+        {/* The flex-1 class ensures this div takes up remaining vertical space */}
+        <div className="flex-1 overflow-hidden"> 
+          {/* ScrollArea now correctly fills the remaining space and handles overflow */}
           <ScrollArea className="h-full w-full pr-4">
             {isLoading ? (
               <div className="text-center text-muted-foreground py-8">Loading data...</div>
