@@ -82,6 +82,12 @@ const pick = (obj: any, keys: string[]): any => {
   return undefined;
 };
 
+// --- Configuration ---
+// NOTE: This is a common default account number for customer receivables. 
+// It might need to be adjusted based on the specific e-conomic chart of accounts.
+const CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER = 5000; 
+// ---------------------
+
 
 const Customers: React.FC = () => {
   const { session, isLoading } = useSession();
@@ -650,7 +656,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, enrichInvoiceHeadings]);
 
-  const fetchLedgerEntries = useCallback(async (endpoint: string, fromDate?: Date, toDate?: Date) => {
+  const fetchCustomerLedgerEntries = useCallback(async (endpoint: string, fromDate?: Date, toDate?: Date) => {
     let pathForProxy = `${endpoint}?customerNumber=${num}&pagesize=1000`;
     
     if (fromDate) {
@@ -685,6 +691,57 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     return extractList(resp?.data);
   }, [num]);
 
+  const fetchGeneralLedgerEntries = useCallback(async (fromDate: Date, toDate: Date) => {
+    // 1. Find current accounting year
+    const { data: yearData, error: yearError } = await supabase.functions.invoke("economic-api-proxy", {
+      body: { path: `/accounting-years`, method: "GET" },
+    });
+
+    if (yearError) throw new Error(yearError.message || "Failed to fetch accounting years.");
+    
+    const yearResp = yearData as EconomicProxyResponse<EconomicCollection<any>>;
+    const years = extractList(yearResp?.data);
+    
+    if (!years || years.length === 0) throw new Error("No accounting years found.");
+
+    // Find the year that contains the 'to' date
+    const targetYear = years.find(y => {
+      const start = parseISO(y.fromDate);
+      const end = parseISO(y.toDate);
+      return isWithinInterval(toDate, { start, end });
+    });
+
+    if (!targetYear) throw new Error("Could not determine the relevant accounting year for the selected date range.");
+
+    const accountingYear = targetYear.year;
+    const accountNumber = CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER;
+    
+    // 2. Fetch general ledger entries for the customer receivables account
+    let pathForProxy = `/accounts/${accountNumber}/accounting-years/${accountingYear}/entries?pagesize=1000`;
+    
+    // Filter by customer number (dimension) and date range
+    pathForProxy += `&dimensionNumber=${num}`;
+    pathForProxy += `&fromDate=${format(fromDate, 'yyyy-MM-dd')}`;
+    pathForProxy += `&toDate=${format(toDate, 'yyyy-MM-dd')}`;
+
+    const requestBodyForProxy = { path: pathForProxy, method: "GET" };
+
+    const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+      body: requestBodyForProxy,
+    });
+
+    if (error) throw new Error(error.message || "Failed to load general ledger entries.");
+
+    const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
+    if (resp?.status && resp.status >= 400) {
+      const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
+      throw new Error(`e-conomic API Error: ${errorMessage}`);
+    }
+
+    return extractList(resp?.data);
+  }, [num]);
+
+
   const loadLedgerCard = useCallback(async () => {
     if (!num) {
       showError("Customer number is missing.");
@@ -695,7 +752,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     try {
       // Try standard path: /customer-ledger-entries (no dates)
-      const list = await fetchLedgerEntries('/customer-ledger-entries');
+      const list = await fetchCustomerLedgerEntries('/customer-ledger-entries');
       
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
@@ -707,7 +764,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       dismissToast(toastId);
       setLoadingLedgerCard(false);
     }
-  }, [num, customer.name, fetchLedgerEntries]);
+  }, [num, customer.name, fetchCustomerLedgerEntries]);
 
   const loadAllTransactions = useCallback(async () => {
     if (!num) {
@@ -728,13 +785,24 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       
       try {
         // 1. Try standard path with date filters
-        list = await fetchLedgerEntries(endpointUsed, fromDate, toDate);
+        list = await fetchCustomerLedgerEntries(endpointUsed, fromDate, toDate);
       } catch (e: any) {
         if (e.message.includes('404 Not Found')) {
           console.warn(`[CustomerRow] ${endpointUsed} failed 404. Trying /customer-ledger-items...`);
           endpointUsed = '/customer-ledger-items';
-          // 2. Try fallback path with date filters
-          list = await fetchLedgerEntries(endpointUsed, fromDate, toDate);
+          try {
+            // 2. Try fallback path with date filters
+            list = await fetchCustomerLedgerEntries(endpointUsed, fromDate, toDate);
+          } catch (e2: any) {
+            if (e2.message.includes('404 Not Found')) {
+              console.warn(`[CustomerRow] ${endpointUsed} also failed 404. Trying General Ledger fallback...`);
+              // 3. Try General Ledger fallback
+              list = await fetchGeneralLedgerEntries(fromDate, toDate);
+              endpointUsed = 'General Ledger';
+            } else {
+              throw e2; // Re-throw other errors
+            }
+          }
         } else {
           throw e; // Re-throw other errors
         }
@@ -769,7 +837,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       
       setAllTransactionsData(filteredList);
       setShowAllTransactionsDialog(true);
-      showSuccess(`Loaded ${filteredList.length} ledger entries (filtered from ${list.length} total).`);
+      showSuccess(`Loaded ${filteredList.length} ledger entries using ${endpointUsed}.`);
     } catch (err: any) {
       console.error("Error loading all transactions:", err);
       showError("Failed to load ledger entries: " + err.message);
@@ -777,7 +845,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       dismissToast(toastId);
       setLoadingAllTransactions(false);
     }
-  }, [num, customer.name, fromDate, toDate, fetchLedgerEntries]);
+  }, [num, customer.name, fromDate, toDate, fetchCustomerLedgerEntries, fetchGeneralLedgerEntries]);
 
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
