@@ -113,7 +113,7 @@ const EconomicIntegration = () => {
       { label: "Self", path: "/self" },
       { label: "Customers (5)", path: "/customers?pagesize=5" },
       { label: "Invoices (5)", path: "/invoices?pagesize=5" },
-      { label: "Customer Ledger Items (5)", path: "/customer-ledger-items?pagesize=5" }, // UPDATED
+      { label: "Customer Ledger Entries (5)", path: "/customer-ledger-entries?pagesize=5" }, // REVERTED
       { label: "Dept. Profit/Loss (Demo)", path: "/accounting-reports/department-profit-loss?from=2023-01-01&to=2023-01-31" },
     ];
 
