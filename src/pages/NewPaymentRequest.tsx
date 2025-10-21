@@ -197,7 +197,7 @@ const formSchema = z.object({
 
 // Helper function to format UK account number for display
 const formatUkAccountNumber = (raw: string | undefined | null): string => {
-  if (!raw) return '';
+  if (raw === undefined || raw === null) return '';
   let value = String(raw).replace(/\D/g, '');
   if (value.length > 8) value = value.substring(0, 8);
   if (value.length > 4) return value.slice(0, 4) + ' ' + value.slice(4);
