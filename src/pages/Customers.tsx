@@ -644,8 +644,34 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
   }, [num, enrichInvoiceHeadings]);
 
+  const fetchLedgerEntries = useCallback(async (endpoint: string) => {
+    const pathForProxy = `${endpoint}?customerNumber=${num}&pagesize=1000`;
+    const requestBodyForProxy = { path: pathForProxy, method: "GET" };
+
+    const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+      body: requestBodyForProxy,
+    });
+
+    if (error) {
+      console.error(`[CustomerRow] Failed to fetch ledger entries from ${endpoint}:`, error);
+      throw new Error(error.message || `Failed to load customer ledger card from ${endpoint}.`);
+    }
+
+    const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
+    if (resp?.status === 404) {
+      // If 404, throw a specific error so the caller can try the fallback
+      throw new Error(`404 Not Found on ${endpoint}`);
+    }
+    if (resp?.status && resp.status >= 400) {
+      console.error(`[CustomerRow] e-conomic API returned error status ${resp.status} for ${pathForProxy}:`, resp.data);
+      const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
+      throw new Error(`e-conomic API Error: ${errorMessage}`);
+    }
+
+    return extractList(resp?.data);
+  }, [num]);
+
   const loadLedgerCard = useCallback(async () => {
-    console.log(`[CustomerRow] loadLedgerCard (v7): customerNumber=${num}, customerName=${customer.name}`);
     if (!num) {
       showError("Customer number is missing.");
       return;
@@ -654,37 +680,21 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // REVERTED PATH: Use the original /customer-ledger-entries endpoint
-      const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
-      const invocationUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-api-proxy`; // Explicitly log the full invocation URL
-      console.log(`[CustomerRow] loadLedgerCard (v7): Path to send to proxy: ${pathForProxy}`);
-      console.log(`[CustomerRow] loadLedgerCard (v7): Full Edge Function invocation URL: ${invocationUrl}`); // NEW LOG
-      const requestBodyForProxy = { path: pathForProxy, method: "GET" };
-      console.log(`[CustomerRow] loadLedgerCard (v7): Request body for proxy: ${JSON.stringify(requestBodyForProxy)}`);
-
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: requestBodyForProxy,
-      });
-
-      console.log(`[CustomerRow] loadLedgerCard (v7): Raw response data from proxy:`, data); // NEW LOG
-
-      if (error) {
-        console.error(`[CustomerRow] Failed to fetch ledger entries for customer ${num}:`, error);
-        throw new Error(error.message || "Failed to load customer ledger card.");
+      let list: any[] = [];
+      try {
+        // 1. Try standard path
+        list = await fetchLedgerEntries('/customer-ledger-entries');
+      } catch (e: any) {
+        if (e.message.includes('404 Not Found')) {
+          console.warn("[CustomerRow] /customer-ledger-entries failed 404. Trying /customer-ledger-items...");
+          // 2. Try fallback path
+          list = await fetchLedgerEntries('/customer-ledger-items');
+        } else {
+          throw e; // Re-throw other errors
+        }
       }
-
-      const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
-      if (resp?.status && resp.status >= 400) {
-        console.error(`[CustomerRow] e-conomic API returned error status ${resp.status} for ${pathForProxy}:`, resp.data);
-        // Safely access message/developerHint from resp.data if it's an object, or from resp.error
-        const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
-        throw new Error(`e-conomic API Error: ${errorMessage}`);
-      }
-
-      const list = extractList(resp?.data); // This should now directly return the filtered list for the customer
-      console.log(`[CustomerRow] loadLedgerCard (v7): Fetched ${list.length} ledger entries for customer ${num}.`);
       
-      setLedgerCardData(list); // No need for client-side filtering anymore if the API endpoint is correct
+      setLedgerCardData(list);
       setShowLedgerCardDialog(true);
       showSuccess(`Loaded ${list.length} ledger entries.`);
     } catch (err: any) {
@@ -694,11 +704,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       dismissToast(toastId);
       setLoadingLedgerCard(false);
     }
-  }, [num, customer.name]); // Dependencies for useCallback
+  }, [num, customer.name, fetchLedgerEntries]);
 
-  // NEW: Function to load all transactions (ledger entries)
   const loadAllTransactions = useCallback(async () => {
-    console.log(`[CustomerRow] loadAllTransactions: customerNumber=${num}, customerName=${customer.name}`);
     if (!num) {
       showError("Customer number is missing.");
       return;
@@ -707,26 +715,19 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading all transactions for ${customer.name || 'customer'}...`);
 
     try {
-      // REVERTED PATH: Use the original /customer-ledger-entries endpoint
-      const pathForProxy = `/customer-ledger-entries?customerNumber=${num}&pagesize=1000`;
-      
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: pathForProxy, method: "GET" },
-      });
-
-      if (error) {
-        console.error(`[CustomerRow] Failed to fetch all transactions for customer ${num}:`, error);
-        throw new Error(error.message || "Failed to load all transactions.");
+      let list: any[] = [];
+      try {
+        // 1. Try standard path
+        list = await fetchLedgerEntries('/customer-ledger-entries');
+      } catch (e: any) {
+        if (e.message.includes('404 Not Found')) {
+          console.warn("[CustomerRow] /customer-ledger-entries failed 404. Trying /customer-ledger-items...");
+          // 2. Try fallback path
+          list = await fetchLedgerEntries('/customer-ledger-items');
+        } else {
+          throw e; // Re-throw other errors
+        }
       }
-
-      const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
-      if (resp?.status && resp.status >= 400) {
-        const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
-        throw new Error(`e-conomic API Error: ${errorMessage}`);
-      }
-
-      const list = extractList(resp?.data);
-      console.log(`[CustomerRow] loadAllTransactions: Fetched ${list.length} transactions for customer ${num}.`);
       
       setAllTransactionsData(list);
       setShowAllTransactionsDialog(true);
@@ -738,7 +739,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       dismissToast(toastId);
       setLoadingAllTransactions(false);
     }
-  }, [num, customer.name]); // Dependencies for useCallback
+  }, [num, customer.name, fetchLedgerEntries]);
 
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [

@@ -113,7 +113,8 @@ const EconomicIntegration = () => {
       { label: "Self", path: "/self" },
       { label: "Customers (5)", path: "/customers?pagesize=5" },
       { label: "Invoices (5)", path: "/invoices?pagesize=5" },
-      { label: "Customer Ledger Entries (5)", path: "/customer-ledger-entries?pagesize=5" }, // REVERTED
+      { label: "Customer Ledger Entries (5)", path: "/customer-ledger-entries?pagesize=5" },
+      { label: "Customer Ledger Items (5)", path: "/customer-ledger-items?pagesize=5" }, // Added back
       { label: "Dept. Profit/Loss (Demo)", path: "/accounting-reports/department-profit-loss?from=2023-01-01&to=2023-01-31" },
     ];
 
@@ -134,10 +135,15 @@ const EconomicIntegration = () => {
     setResult(JSON.stringify({ diagnose: results }, null, 2));
     dismissToast(toastId);
 
+    const workingLedger = results.find(r => r.label.includes('Ledger') && r.status === 200 && r.ok === true);
     const any200 = results.find((r) => r.status === 200 && r.ok === true);
-    if (any200) {
+
+    if (workingLedger) {
+      showSuccess(`Working: ${workingLedger.label}`);
+      setDiagnoseAdvice(`Ledger endpoint found: ${workingLedger.label}. The Customers page should now work.`);
+    } else if (any200) {
       showSuccess(`Working: ${any200.label}`);
-      setDiagnoseAdvice("");
+      setDiagnoseAdvice("Basic endpoints are working, but ledger and reports are failing 404. This suggests your e-conomic agreement may not have access to these specific features.");
     } else {
       showError("No working combination found.");
       setDiagnoseAdvice(
