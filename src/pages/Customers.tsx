@@ -700,6 +700,12 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     if (yearError) throw new Error(yearError.message || "Failed to fetch accounting years.");
     
     const yearResp = yearData as EconomicProxyResponse<EconomicCollection<any>>;
+    
+    // Check for 403 explicitly
+    if (yearResp?.status === 403) {
+      throw new Error("Permission Denied: Your e-conomic agreement does not allow access to Accounting Years. Cannot use General Ledger fallback.");
+    }
+
     const years = extractList(yearResp?.data);
     
     if (!years || years.length === 0) {
