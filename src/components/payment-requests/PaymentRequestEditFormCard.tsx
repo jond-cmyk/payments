@@ -149,17 +149,12 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
     editForm.setValue('iban_number', suggestion.iban_number || '', options);
     editForm.setValue('sort_code', suggestion.sort_code || '', options);
     
-    // FIX: Ensure account number is clean before setting
     const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
     editForm.setValue('account_number', cleanAccountNumber, options);
     
     editForm.setValue('bank_account_name', suggestion.bank_account_name || '', options);
     editForm.setValue('currency', suggestion.currency || (editForm.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF'), options);
     editForm.setValue('bank_details_verified', false, options);
-    
-    // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
-    editForm.setValue('categories', [{ category: "", amount: 0 }], options);
-    editForm.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
   };

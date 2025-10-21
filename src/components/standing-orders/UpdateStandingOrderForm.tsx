@@ -290,17 +290,12 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     form.setValue('iban_number', suggestion.iban_number || '', options);
     form.setValue('sort_code', suggestion.sort_code || '', options);
     
-    // FIX: Ensure account number is clean before setting
     const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
     form.setValue('account_number', cleanAccountNumber, options);
     
     form.setValue('bank_details_verified', false, options);
     form.setValue('currency', suggestion.currency || undefined, options);
     form.setValue('bank_account', suggestion.bank_account || undefined, options);
-    
-    // Reset categories and total amount when using suggestion
-    form.setValue('categories', [{ category: "", amount: 0 }], options);
-    form.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
   };
@@ -662,7 +657,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   </Select>
                   <FormMessage />
                 </FormItem>
-              )}
+            )}
             />
           )}
 
@@ -902,7 +897,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Awaiting Info' by default and can only be changed by an administrator."}
+                  {isAdmin ? "Select the current status of this standing order." : "Only administrators can change the status."}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
