@@ -59,12 +59,15 @@ const MissingReceipts = () => {
   const queryClient = useQueryClient();
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
 
-  // Filter states
+  // Filter states (debounced for query)
   const [filterAmount, setFilterAmount] = useState<string>('');
   const [filterAssignedUser, setFilterAssignedUser] = useState<string>('all');
   const [filterTransactionDate, setFilterTransactionDate] = useState<Date | undefined>(undefined);
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+
+  // Local states for immediate input feedback
+  const [localFilterAmount, setLocalFilterAmount] = useState<string>('');
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -74,19 +77,24 @@ const MissingReceipts = () => {
   const [sortColumn, setSortColumn] = useState<keyof Transaction | null>('transaction_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // Debounce for amount input
+  // Debounce for text inputs
   const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleAmountFilterChange = useCallback((value: string) => {
+  const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
     debounceTimeoutRef.current = setTimeout(() => {
-      console.log(`[MissingReceipts] Debounced amount filter update for: ${value}`);
-      setFilterAmount(value);
+      console.log(`[MissingReceipts] Debounced filter update for: ${value}`);
+      setter(value);
       setCurrentPage(1);
-    }, 500);
+    }, 700); // Increased debounce time to 700ms
   }, []);
+
+  // Effect to sync local filter states with actual filter states when they are cleared externally
+  useEffect(() => {
+    setLocalFilterAmount(filterAmount);
+  }, [filterAmount]);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -289,6 +297,7 @@ const MissingReceipts = () => {
 
   const clearFilters = () => {
     setFilterAmount('');
+    setLocalFilterAmount('');
     setFilterAssignedUser('all');
     setFilterTransactionDate(undefined);
     setFilterStartDate(undefined);
@@ -464,8 +473,11 @@ const MissingReceipts = () => {
                   placeholder="e.g., 100.00"
                   type="number"
                   step="0.01"
-                  value={filterAmount}
-                  onChange={(e) => handleAmountFilterChange(e.target.value)}
+                  value={localFilterAmount}
+                  onChange={(e) => {
+                    setLocalFilterAmount(e.target.value);
+                    handleTextFilterChange(setFilterAmount, e.target.value);
+                  }}
                   className="w-full"
                 />
               </div>

@@ -121,6 +121,19 @@ const StandingOrders = () => {
     setCurrentPage(1);
   }, [searchParams]); // Depend on searchParams
 
+  // Debounce for text inputs
+  const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      setter(value);
+      setCurrentPage(1);
+    }, 700); // Increased debounce time to 700ms
+  }, []);
+
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
     setLocalFilterPayee(filterPayee);
@@ -133,19 +146,6 @@ const StandingOrders = () => {
   useEffect(() => {
     setLocalFilterPaymentReference(filterPaymentReference);
   }, [filterPaymentReference]);
-
-  // Debounce for text inputs
-  const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-    debounceTimeoutRef.current = setTimeout(() => {
-      setter(value);
-      setCurrentPage(1);
-    }, 500);
-  }, []);
 
   const isAdmin = userProfile?.role === 'admin';
 

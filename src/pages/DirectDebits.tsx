@@ -124,6 +124,19 @@ const DirectDebits = () => {
     setCurrentPage(1);
   }, [searchParams]);
 
+  // Debounce for text inputs
+  const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    debounceTimeoutRef.current = setTimeout(() => {
+      setter(value);
+      setCurrentPage(1);
+    }, 700); // Increased debounce time to 700ms
+  }, []);
+
   // Effect to sync local filter states with actual filter states when they are cleared externally
   useEffect(() => {
     setLocalFilterPayee(filterPayee);
@@ -140,19 +153,6 @@ const DirectDebits = () => {
   useEffect(() => {
     setLocalFilterAccountNumber(filterAccountNumber);
   }, [filterAccountNumber]);
-
-  // Debounce for text inputs
-  const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-    debounceTimeoutRef.current = setTimeout(() => {
-      setter(value);
-      setCurrentPage(1);
-    }, 500);
-  }, []);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -308,6 +308,7 @@ const DirectDebits = () => {
     setLocalFilterPaymentReference('');
     setFilterPaymentDay(undefined);
     setFilterAccountNumber('');
+    setLocalFilterAccountNumber('');
     setCurrentPage(1);
     setSelectedIds([]);
     queryClient.invalidateQueries({ queryKey: ['directDebits'] });

@@ -59,6 +59,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   // Debounce for text inputs (filters)
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Shared debounce function for all text inputs
   const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -67,7 +68,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       console.log(`[DashboardMainContent] Debounced filter update for: ${value}`);
       setter(value);
       setCurrentPage(1); // Reset to first page on filter change
-    }, 500);
+    }, 700); // Increased debounce time to 700ms
   }, []);
 
   // Define all possible statuses for filtering
@@ -382,7 +383,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
   const clearFilters = () => {
     setFilterSupplierName('');
     setFilterSkuNumber('');
-    setFilterStatuses(allPossibleStatuses); // Reset to all statuses
+    setFilterStatuses(isAllRequestsPage ? allPossibleStatuses : activeDashboardStatuses); // Reset based on page
     setFilterDatePaymentRequired(undefined);
     setFilterRequesters([]); // Reset to no specific requesters
     setFilterStartDate(undefined);
@@ -522,26 +523,6 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({ debouncedSe
       );
     }
   };
-
-  if (
-    allPaymentRequestsForSummaryQuery.isLoading || 
-    allMissingReceiptsCountForSummaryQuery.isLoading || 
-    allPendingStandingOrdersCountForSummaryQuery.isLoading || 
-    allActiveDirectDebitsCountForSummaryQuery.isLoading ||
-    allActiveStandingOrdersCountForSummaryQuery.isLoading ||
-    isRequestsTableLoading || 
-    (isAllRequestsPage && isProfilesLoading)
-  ) {
-    return <div className="flex items-center justify-center h-full text-lg">Loading dashboard content...</div>;
-  }
-
-  if (requestsError) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading requests: ${requestsError.message}</div>;
-  }
-
-  if (profilesError) {
-    return <div className="flex items-center justify-center h-full text-red-500">Error loading profiles for filter: ${profilesError.message}</div>;
-  }
 
   // Check if there are any urgent requests in the table data to conditionally show the table
   const hasUrgentRequests = paymentRequestsForTable?.some(req => req.is_urgent);
