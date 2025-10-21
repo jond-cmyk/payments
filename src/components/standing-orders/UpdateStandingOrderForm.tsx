@@ -188,27 +188,27 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const form = useForm<z.infer<typeof updateStandingOrderFormSchema>>({
     resolver: zodResolver(updateStandingOrderFormSchema),
     defaultValues: {
-      payee: standingOrder.payee,
+      payee: standingOrder.payee || "", // Default to empty string
       payment_date: new Date(standingOrder.payment_date),
       payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date) : undefined,
       sku: standingOrder.sku || (standingOrder.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: standingOrder.not_property_related,
       categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }],
       total_amount: standingOrder.total_amount,
-      account_name: standingOrder.account_name,
-      account_address: standingOrder.account_address || "",
-      iban_number: standingOrder.iban_number || "",
-      sort_code: standingOrder.sort_code || "",
-      account_number: standingOrder.account_number || "",
+      account_name: standingOrder.account_name || "", // Default to empty string
+      account_address: standingOrder.account_address || "", // Default to empty string
+      iban_number: standingOrder.iban_number || "", // Default to empty string
+      sort_code: standingOrder.sort_code || "", // Default to empty string
+      account_number: standingOrder.account_number || "", // Default to empty string
       from_day: String(standingOrder.from_day),
       to_day: String(standingOrder.to_day),
-      payment_reference: standingOrder.payment_reference,
+      payment_reference: standingOrder.payment_reference || "", // Default to empty string
       status: standingOrder.status,
       country: standingOrder.country,
       bank_details_verified: standingOrder.bank_details_verified,
       payment_day: standingOrder.payment_day ? String(standingOrder.payment_day) : undefined,
-      currency: standingOrder.currency || undefined, // NEW: Set currency default
-      bank_account: standingOrder.bank_account || undefined, // NEW: Set bank_account default
+      currency: standingOrder.currency || undefined, // Keep undefined for Select components if null
+      bank_account: standingOrder.bank_account || undefined, // Keep undefined for Select components if null
     },
   });
 
