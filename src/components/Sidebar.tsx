@@ -115,7 +115,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
       <div className="flex items-center justify-center h-16 border-b border-sidebar-border mb-6">
         <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-12" />
       </div>
-      <nav className="flex-1 space-y-2 overflow-y-auto"> {/* Added overflow-y-auto here */}
+      <nav className="flex-1 space-y-2"> {/* REMOVED: overflow-y-auto */}
         <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
         {(currentRole === 'requester' || currentRole === 'admin') && (
           <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
