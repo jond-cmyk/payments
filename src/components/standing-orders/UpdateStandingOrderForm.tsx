@@ -506,7 +506,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                           onChange={(e) => {
                             // Only allow numbers and a single decimal point
                             const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                            field.onChange(rawValue === "" ? 0 : rawValue);
+                            // Force conversion to number here to ensure RHF stores the correct numeric value immediately
+                            field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
                           }}
                           disabled={!isAdmin} 
                         />
