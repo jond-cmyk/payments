@@ -354,7 +354,11 @@ const NewPaymentRequest = () => {
     form.setValue('supplier_address', suggestion.address || '', options);
     form.setValue('iban_number', suggestion.iban_number || '', options);
     form.setValue('sort_code', suggestion.sort_code || '', options);
-    form.setValue('account_number', suggestion.account_number || '', options);
+    
+    // FIX: Ensure account number is clean before setting
+    const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
+    form.setValue('account_number', cleanAccountNumber, options);
+    
     form.setValue('bank_account_name', suggestion.bank_account_name || '', options);
     form.setValue('currency', suggestion.currency || (form.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF'), options);
     form.setValue('bank_details_verified', false, options);

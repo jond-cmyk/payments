@@ -179,7 +179,11 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
     const options = { shouldValidate: true, shouldDirty: true };
     form.setValue('payee', suggestion.name, options);
-    form.setValue('account_number', suggestion.account_number || '', options);
+    
+    // FIX: Ensure account number is clean before setting
+    const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
+    form.setValue('account_number', cleanAccountNumber, options);
+    
     form.setValue('payment_reference', suggestion.payment_reference || '', options);
     form.setValue('currency', suggestion.currency || undefined, options);
     form.setValue('bank_account', suggestion.bank_account || undefined, options);
