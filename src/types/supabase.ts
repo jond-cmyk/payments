@@ -22,7 +22,8 @@ export type PaymentRequestStatus =
   | 'setup_awaiting_approval'
   | 'approved'
   | 'declined'
-  | 'queried';
+  | 'queried'
+  | 'cancelled';
 
 export type PaymentRequestCategoryItem = {
   category: string;

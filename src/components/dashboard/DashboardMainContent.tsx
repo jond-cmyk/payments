@@ -78,7 +78,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
   }, [setCurrentPage]);
 
   // Define all possible statuses for filtering
-  const allPossibleStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'approved', 'declined', 'queried'];
+  const allPossibleStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'approved', 'declined', 'queried', 'cancelled'];
   const activeDashboardStatuses: PaymentRequest['status'][] = ['pending', 'setup_awaiting_approval', 'queried'];
 
   // Effect to read URL parameters for initial filter state
@@ -460,8 +460,8 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
       case 'paused': // For Direct Debits and Standing Orders
         className = 'bg-yellow-500 text-yellow-50';
         break;
-      case 'cancelled': // For Direct Debits and Standing Orders
-        className = 'bg-red-500 text-red-50';
+      case 'cancelled':
+        className = 'bg-orange-500 text-orange-50';
         break;
       case 'awaiting_info': // For Direct Debits and Standing Orders
         className = 'bg-orange-500 text-orange-50';

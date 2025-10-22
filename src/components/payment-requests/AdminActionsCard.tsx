@@ -4,7 +4,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2, RotateCcw, BellRing } from 'lucide-react'; // Import BellRing icon
+import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2, RotateCcw, BellRing, Ban } from 'lucide-react'; // Import Ban icon
 import { UseMutationResult } from '@tanstack/react-query';
 import { User } from '@supabase/supabase-js';
 
@@ -45,7 +45,7 @@ interface AdminActionsCardProps {
   isAdmin: boolean;
   updateRequestMutation: UseMutationResult<boolean, Error, Partial<PaymentRequest> & { new_invoice_files?: FileList }, unknown>;
   deleteRequestMutation: UseMutationResult<boolean, Error, void, unknown>;
-  handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending', reason?: string) => Promise<boolean>; // Updated return type
+  handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled', reason?: string) => Promise<boolean>; // Updated return type
   handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<boolean>;
   handleAdminRevert: (values: z.infer<typeof revertFormSchema>) => Promise<boolean>; // New prop for revert handler
   handleSendReminder: () => Promise<void>; // NEW: Prop for sending reminder
@@ -111,8 +111,9 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
 
   // Reminder button visibility: any authenticated user, if status is pending or setup_awaiting_approval
   const showReminderButton = !!user && (request.status === 'pending' || request.status === 'setup_awaiting_approval');
+  const showCancelButton = !!user && (request.status === 'pending' || request.status === 'queried');
 
-  if (!isAdmin && !showReminderButton) { // Only hide if not admin AND no reminder button
+  if (!isAdmin && !showReminderButton && !showCancelButton) { // Only hide if not admin AND no reminder/cancel button
     return null;
   }
 
@@ -232,6 +233,37 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
                 <AlertDialogAction asChild>
                   <Button form="decline-form" type="submit" variant="destructive">
                     Decline
+                  </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {/* NEW: Cancel Request Button */}
+        {showCancelButton && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="text-orange-500 border-orange-500 hover:bg-orange-50 shadow-sm"
+                disabled={updateRequestMutation.isPending}
+              >
+                <Ban className="mr-2 h-4 w-4" /> Cancel Request
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to cancel?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will cancel the payment request. This action can be reverted by an administrator later if needed.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Back</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleAdminAction('cancelled')} asChild>
+                  <Button variant="destructive">
+                    Confirm Cancel
                   </Button>
                 </AlertDialogAction>
               </AlertDialogFooter>

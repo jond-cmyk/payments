@@ -390,10 +390,10 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending', reason?: string) => {
+  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled', reason?: string) => {
     const toastId = showLoading(`Setting status to ${status.replace(/_/g, ' ')}...`);
     try {
-      if (!user?.id) throw new Error("Admin user not authenticated.");
+      if (!user?.id) throw new Error("User not authenticated.");
 
       // If declining, first add the reason as a comment
       if (status === 'declined' && reason) {
@@ -416,6 +416,8 @@ const PaymentRequestDetail = () => {
       } else if (status === 'reverted_to_pending') {
         updatedFields.payment_setup_date = null;
         updatedFields.payment_approved_date = null;
+      } else if (status === 'cancelled') {
+        await addCommentMutation.mutateAsync(`Request cancelled by user.`);
       }
 
       await updateRequestMutation.mutateAsync(updatedFields);
