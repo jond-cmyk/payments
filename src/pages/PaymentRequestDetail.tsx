@@ -228,12 +228,14 @@ const PaymentRequestDetail = () => {
     mutationFn: async (updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList }) => {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
 
+      const { new_invoice_files, ...dbUpdateFields } = updatedFields;
+
       let updatedInvoicePdfUrls = request?.invoice_pdf_urls || [];
 
-      if (updatedFields.new_invoice_files && updatedFields.new_invoice_files.length > 0) {
+      if (new_invoice_files && new_invoice_files.length > 0) {
         const newUploadedUrls: string[] = [];
-        for (let i = 0; i < updatedFields.new_invoice_files.length; i++) {
-          const file = updatedFields.new_invoice_files[i];
+        for (let i = 0; i < new_invoice_files.length; i++) {
+          const file = new_invoice_files[i];
           const fileExtension = file.name.split('.').pop();
           const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
 
@@ -261,12 +263,12 @@ const PaymentRequestDetail = () => {
       }
 
       // Explicitly cast categories here before sending to Supabase
-      const categoriesPayload = updatedFields.categories ? updatedFields.categories as PaymentRequestCategoryItem[] : undefined;
+      const categoriesPayload = dbUpdateFields.categories ? dbUpdateFields.categories as PaymentRequestCategoryItem[] : undefined;
 
       let query = supabase
         .from('payment_requests')
         .update({
-          ...updatedFields,
+          ...dbUpdateFields,
           categories: categoriesPayload, // Use the casted payload
           invoice_pdf_urls: updatedInvoicePdfUrls,
           updated_at: new Date().toISOString(),
