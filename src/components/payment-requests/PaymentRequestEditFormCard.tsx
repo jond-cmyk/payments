@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import * as z from 'zod';
-import { Download, PlusCircle, MinusCircle, DollarSign } from 'lucide-react';
+import { Download, PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
@@ -24,6 +24,7 @@ import { Separator } from '@/components/ui/separator';
 import { PaymentRequest, PayeeSuggestion } from '@/types/supabase';
 import { categoryOptions } from '@/lib/constants';
 import { majorCurrencies, EditFormSchema } from '@/schemas/paymentRequestSchema';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PaymentRequestEditFormCardProps {
   request: PaymentRequest;
@@ -303,7 +304,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   control={editForm.control}
                   name="total_amount"
                   render={({ field }) => (
-                    <FormItem className="hidden"> {/* Hidden field for Zod validation */}
+                    <FormItem className="hidden">
                       <FormControl>
                         <Input type="hidden" {...field} />
                       </FormControl>
@@ -354,9 +355,35 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-semibold">SKU Number</FormLabel>
-                  <FormControl>
-                    <PrefixedInput prefix={skuPrefix} {...field} disabled={notSkuRelated} />
-                  </FormControl>
+                  <div className="flex items-center gap-2">
+                    <FormControl className="flex-1">
+                      <PrefixedInput prefix={skuPrefix} {...field} disabled={notSkuRelated} />
+                    </FormControl>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          onClick={() => {
+                            const skuValue = editForm.getValues('sku_number');
+                            if (skuValue) {
+                              const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeProducts__address%5D=&Filter%5BKassoeThemeProducts__city%5D=&Filter%5BKassoeThemeProducts__zip%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5BKassoeThemeProducts__active%5D=&Filter%5BKassoeThemeProducts__contract_number%5D=&Filter%5BKassoeThemeProducts__sku_dummy%5D=&Filter%5BKassoeThemeProducts__address_dummy%5D=&Filter%5BKassoeThemeProducts__sku_dummy2%5D=&Filter%5BKassoeThemeProducts__address_dummy2%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5Bcustom__is_booked%5D=0`;
+                              window.open(url, '_blank');
+                            } else {
+                              showError("Please enter an SKU number first.");
+                            }
+                          }}
+                          disabled={notSkuRelated}
+                        >
+                          <Search className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Check KH Platform</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <FormDescription>
                     {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${skuPrefix}' and be followed by numbers.`}
                   </FormDescription>
@@ -429,8 +456,8 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                           placeholder="e.g., 12-34-56"
                           {...field}
                           onChange={(e) => {
-                            let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                            if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
+                            let value = e.target.value.replace(/\D/g, '');
+                            if (value.length > 6) value = value.substring(0, 6);
                             if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
                             else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                             field.onChange(value);
@@ -456,8 +483,8 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                           {...field}
                           value={formatUkAccountNumber(field.value)} // Apply formatting for display
                           onChange={(e) => {
-                            let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                            if (value.length > 8) value = value.substring(0, 8); // Max 8 digits
+                            let value = e.target.value.replace(/\D/g, '');
+                            if (value.length > 8) value = value.substring(0, 8);
                             if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
                             field.onChange(value);
                           }}

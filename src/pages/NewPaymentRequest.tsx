@@ -12,7 +12,7 @@ import { useCountry } from '@/integrations/supabase/CountryContext'; // Import u
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 import { PayeeSuggestion } from '@/types/supabase'; // Import PayeeSuggestion type
 import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // NEW IMPORT
-import { PlusCircle, MinusCircle, DollarSign } from 'lucide-react'; // Import icons
+import { PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react'; // Import icons
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
 import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Define the Zod schema for form validation (replicated from schema file for local use)
 const formSchema = z.object({
@@ -689,9 +690,35 @@ const NewPaymentRequest = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">SKU Number</FormLabel>
-                    <FormControl>
-                      <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notSkuRelated} />
-                    </FormControl>
+                    <div className="flex items-center gap-2">
+                      <FormControl className="flex-1">
+                        <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notSkuRelated} />
+                      </FormControl>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => {
+                              const skuValue = form.getValues('sku_number');
+                              if (skuValue) {
+                                const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeProducts__address%5D=&Filter%5BKassoeThemeProducts__city%5D=&Filter%5BKassoeThemeProducts__zip%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5BKassoeThemeProducts__active%5D=&Filter%5BKassoeThemeProducts__contract_number%5D=&Filter%5BKassoeThemeProducts__sku_dummy%5D=&Filter%5BKassoeThemeProducts__address_dummy%5D=&Filter%5BKassoeThemeProducts__sku_dummy2%5D=&Filter%5BKassoeThemeProducts__address_dummy2%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5Bcustom__is_booked%5D=0`;
+                                window.open(url, '_blank');
+                              } else {
+                                showError("Please enter an SKU number first.");
+                              }
+                            }}
+                            disabled={notSkuRelated}
+                          >
+                            <Search className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Check KH Platform</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <FormDescription>
                       {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${formCountry === 'United Kingdom' ? 'UK' : 'CH'}' and be followed by numbers.`}
                     </FormDescription>
@@ -998,18 +1025,17 @@ const NewPaymentRequest = () => {
                     <Card key={index} className="p-4 border shadow-sm">
                       <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
                       <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : 'Standing Order'}</p>
-                      <p className="text-sm text-muted-foreground">Address: {suggestion.address || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Account Name: {suggestion.bank_account_name || 'N/A'}</p>
                       <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
                       {suggestion.country === 'United Kingdom' ? (
                         <>
                           <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
                           <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
-                          <p className="text-sm text-muted-foreground">Bank Account Name: {suggestion.bank_account_name || 'N/A'}</p>
                         </>
                       ) : (
                         <>
                           <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
-                          {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account Name: {suggestion.bank_account_name || 'N/A'}</p>}
+                          <p className="text-sm text-muted-foreground">Address: {suggestion.address || 'N/A'}</p>
                           {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
                         </>
                       )}
