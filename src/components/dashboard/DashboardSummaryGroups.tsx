@@ -17,6 +17,8 @@ interface DashboardSummaryGroupsProps {
     approved: number;
     declined: number;
     queried: number;
+    paused: number;
+    queried_and_paused: number;
     missing_receipts: number;
     pending_standing_orders: number;
     active_direct_debits: number;
@@ -77,13 +79,13 @@ const SummaryCardItem: React.FC<{
         link = `/admin/requests?status=approved`;
         hoverClass = isCritical ? 'hover:bg-green-700' : 'hover:shadow-md hover:from-green-100/50 hover:to-background';
         break;
-      case 'queried':
+      case 'queried_and_paused':
         borderClass = 'border-gray-400';
         textClass = 'text-gray-700 dark:text-gray-400';
         icon = <MessageSquare className="h-4 w-4" />;
-        title = 'Queried Requests';
-        description = 'Requests needing more info';
-        link = `/admin/requests?status=queried`;
+        title = 'Queried & Paused Requests';
+        description = 'Requests needing info or on hold';
+        link = `/admin/requests?status=queried&status=paused`;
         break;
       case 'declined':
         borderClass = 'border-red-500';
@@ -181,7 +183,7 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
   ];
 
   const column1Keys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
-    'queried', 
+    'queried_and_paused', 
     'declined', 
     'missing_receipts',
   ];

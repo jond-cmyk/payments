@@ -83,10 +83,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
 
   // Effect to read URL parameters for initial filter state
   useEffect(() => {
-    const statusParam = searchParams.get('status');
-    if (statusParam) {
+    const statusParams = searchParams.getAll('status');
+    if (statusParams.length > 0) {
       // 1. If status is passed via URL, set it as the initial filterStatuses array
-      setFilterStatuses([statusParam as PaymentRequest['status']]);
+      setFilterStatuses(statusParams as PaymentRequest['status'][]);
     } else if (location.pathname === '/admin/requests') {
       // 2. Default for All Requests page: show ALL statuses if no filter is set
       setFilterStatuses(allPossibleStatuses); // <-- CHANGE 1: Default to all statuses
@@ -226,6 +226,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
       approved: 0,
       declined: 0,
       queried: 0,
+      paused: 0,
       missing_receipts: allMissingReceiptsCountForSummaryQuery.data || 0,
       pending_standing_orders: allPendingStandingOrdersCountForSummaryQuery.data || 0,
       active_direct_debits: allActiveDirectDebitsCountForSummaryQuery.data || 0,
@@ -249,7 +250,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
         initialCounts.total++;
       });
     }
-    return initialCounts;
+    
+    const finalCounts = {
+      ...initialCounts,
+      queried_and_paused: initialCounts.queried + initialCounts.paused,
+    };
+
+    return finalCounts;
   }, [
     allPaymentRequestsForSummaryQuery.data, 
     allMissingReceiptsCountForSummaryQuery.data, 
