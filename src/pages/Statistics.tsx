@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { PaymentRequest, StandingOrder } from '@/types/supabase';
+import { PaymentRequest, StandingOrder, DirectDebit } from '@/types/supabase';
 import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter, format, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval, isBefore } from 'date-fns';
 import { BarChart as RechartsBarChart, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts';
 import { CheckCircle, Clock, Filter, TrendingUp, BarChart as BarChartIcon, Repeat } from 'lucide-react';
@@ -92,7 +92,25 @@ const Statistics = () => {
     enabled: !!session,
   });
 
-  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData, standingOrderValueByCurrency, standingOrderValueByDay } = useMemo(() => {
+  const { data: allDirectDebits, isLoading: isDirectDebitsLoading } = useQuery<DirectDebit[]>({
+    queryKey: ['directDebitStatistics', currentCountry],
+    queryFn: async () => {
+        if (!session) return [];
+        let query = supabase.from('direct_debits').select('*');
+        
+        if (userProfile?.role === 'requester' && userProfile.country) {
+            query = query.eq('country', userProfile.country);
+        } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+            query = query.eq('country', currentCountry);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return data;
+    },
+    enabled: !!session,
+  });
+
+  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData, standingOrderValueByCurrency, standingOrderValueByDay, directDebitValueByCurrency, directDebitValueByDay } = useMemo(() => {
     const baseResult = {
       avgTimeToSetup: null,
       avgTimeToApprove: null,
@@ -103,6 +121,8 @@ const Statistics = () => {
       trendChartData: [],
       standingOrderValueByCurrency: {},
       standingOrderValueByDay: {},
+      directDebitValueByCurrency: {},
+      directDebitValueByDay: {},
     };
 
     if (!allPaymentRequests) {
@@ -205,17 +225,15 @@ const Statistics = () => {
       ? allStandingOrders.filter(so => so.status === 'active')
       : [];
 
-    const totalsByCurrency: Record<string, number> = {};
-    const valueByPaymentDay: Record<string, number> = {};
-    // Initialize with all days from 1 to 31
+    const soTotalsByCurrency: Record<string, number> = {};
+    const soValueByPaymentDay: Record<string, number> = {};
     for (let i = 1; i <= 31; i++) {
         const dayKey = String(i).padStart(2, '0');
-        valueByPaymentDay[dayKey] = 0;
+        soValueByPaymentDay[dayKey] = 0;
     }
 
     activeStandingOrders.forEach(so => {
       if (so.total_amount) {
-        // Group by currency
         let currencyKey: string;
         if (so.country === 'United Kingdom') {
           currencyKey = 'GBP';
@@ -224,12 +242,41 @@ const Statistics = () => {
         } else {
           currencyKey = so.currency || 'UNKNOWN';
         }
-        totalsByCurrency[currencyKey] = (totalsByCurrency[currencyKey] || 0) + so.total_amount;
+        soTotalsByCurrency[currencyKey] = (soTotalsByCurrency[currencyKey] || 0) + so.total_amount;
 
-        // Group by payment day
         if (so.payment_day) {
           const dayKey = String(so.payment_day).padStart(2, '0');
-          valueByPaymentDay[dayKey] += so.total_amount;
+          soValueByPaymentDay[dayKey] += so.total_amount;
+        }
+      }
+    });
+
+    const activeDirectDebits = allDirectDebits
+      ? allDirectDebits.filter(dd => dd.status === 'active')
+      : [];
+
+    const ddTotalsByCurrency: Record<string, number> = {};
+    const ddValueByPaymentDay: Record<string, number> = {};
+    for (let i = 1; i <= 31; i++) {
+        const dayKey = String(i).padStart(2, '0');
+        ddValueByPaymentDay[dayKey] = 0;
+    }
+
+    activeDirectDebits.forEach(dd => {
+      if (dd.total_amount) {
+        let currencyKey: string;
+        if (dd.country === 'United Kingdom') {
+          currencyKey = 'GBP';
+        } else if (dd.country === 'Switzerland') {
+          currencyKey = dd.currency || 'CHF';
+        } else {
+          currencyKey = dd.currency || 'UNKNOWN';
+        }
+        ddTotalsByCurrency[currencyKey] = (ddTotalsByCurrency[currencyKey] || 0) + dd.total_amount;
+
+        if (dd.payment_day) {
+          const dayKey = String(dd.payment_day).padStart(2, '0');
+          ddValueByPaymentDay[dayKey] += dd.total_amount;
         }
       }
     });
@@ -242,10 +289,12 @@ const Statistics = () => {
       approvedRequests: approvedCount,
       statusChartData,
       trendChartData,
-      standingOrderValueByCurrency: totalsByCurrency,
-      standingOrderValueByDay: valueByPaymentDay,
+      standingOrderValueByCurrency: soTotalsByCurrency,
+      standingOrderValueByDay: soValueByPaymentDay,
+      directDebitValueByCurrency: ddTotalsByCurrency,
+      directDebitValueByDay: ddValueByPaymentDay,
     };
-  }, [allPaymentRequests, timeframeFilter, allStandingOrders]);
+  }, [allPaymentRequests, timeframeFilter, allStandingOrders, allDirectDebits]);
 
   const standingOrderValueByCurrencyChartData = Object.entries(standingOrderValueByCurrency).map(([currency, total]) => ({
     name: currency,
@@ -260,7 +309,20 @@ const Statistics = () => {
     }))
     .sort((a, b) => a.dayNum - b.dayNum);
 
-  if (isSessionLoading || isRequestsLoading || isStandingOrdersLoading) {
+  const directDebitValueByCurrencyChartData = Object.entries(directDebitValueByCurrency).map(([currency, total]) => ({
+    name: currency,
+    total,
+  }));
+
+  const directDebitValueByDayChartData = Object.entries(directDebitValueByDay)
+    .map(([day, total]) => ({
+        name: `Day ${day}`,
+        dayNum: parseInt(day, 10),
+        total,
+    }))
+    .sort((a, b) => a.dayNum - b.dayNum);
+
+  if (isSessionLoading || isRequestsLoading || isStandingOrdersLoading || isDirectDebitsLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading statistics...</div>;
   }
 
@@ -424,6 +486,44 @@ const Statistics = () => {
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
                     <RechartsBarChart data={standingOrderValueByDayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatAmount(value)} />
+                      <Legend />
+                      <Bar dataKey="total" fill="hsl(var(--dyad-blue-light))" name="Total Value" />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Monthly Direct Debit Value by Currency</CardTitle>
+                  <CardDescription>Total value of active direct debits per month, grouped by currency.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsBarChart data={directDebitValueByCurrencyChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatAmount(value)} />
+                      <Legend />
+                      <Bar dataKey="total" fill="hsl(var(--dyad-blue))" name="Total Value" />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Direct Debit Value by Payment Day</CardTitle>
+                  <CardDescription>Total value of active direct debits, grouped by the day of the month they are paid. Note: This sum mixes different currencies.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsBarChart data={directDebitValueByDayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
