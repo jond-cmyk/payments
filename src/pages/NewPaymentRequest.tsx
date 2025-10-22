@@ -704,7 +704,7 @@ const NewPaymentRequest = () => {
                               const skuValue = form.getValues('sku_number');
                               if (skuValue) {
                                 const department = form.getValues('country') === 'United Kingdom' ? 'uk' : 'ch';
-                                const url = `https://portal.kassoehousing.com/admin/kassoe-theme/orders?Filter%5BKassoeThemeOrders__sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeOrders__root_product_department%5D=${department}&Filter%5BKassoeThemeOrders.kassoe_theme_order_status_id%5D=-1&limit=200`;
+                                const url = `https://portal.kassoehousing.com/admin/kassoe-theme/orders?Filter%5BKassoeThemeOrders.sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeOrders__root_product_department%5D=${department}&Filter%5BKassoeThemeOrders.kassoe_theme_order_status_id%5D=-1&limit=200`;
                                 window.open(url, '_blank');
                               } else {
                                 showError("Please enter an SKU number first.");
