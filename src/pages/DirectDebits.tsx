@@ -12,6 +12,7 @@ import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { exportToCsv } from '@/utils/exportToCsv';
+import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -189,7 +190,10 @@ const DirectDebits = () => {
       // Multi-select Category filter
       const nonAllCategories = filterCategories.filter(c => c !== 'all');
       if (nonAllCategories.length > 0) {
-        query = query.in('category', nonAllCategories);
+        const categoryFilters = nonAllCategories.map(category => 
+          `categories.cs.[{"category": "${category}"}]`
+        ).join(',');
+        query = query.or(categoryFilters);
       }
 
       if (filterSku) {
@@ -362,7 +366,7 @@ const DirectDebits = () => {
 
   const directDebitExportColumns: (keyof DirectDebit)[] = [
     'id', 'created_at', 'updated_at', 'requester_id', 'payee', 'payment_date',
-    'sku', 'not_property_related', 'category', 'account_number', 'payment_reference',
+    'sku', 'not_property_related', 'categories', 'total_amount', 'account_number', 'payment_reference',
     'status', 'country', 'bank_account', 'payment_day'
   ];
 
@@ -473,7 +477,7 @@ const DirectDebits = () => {
                     <PlusCircle className="mr-2 h-4 w-4" /> Add New Direct Debit
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add New Direct Debit</DialogTitle>
                   </DialogHeader>
@@ -564,7 +568,7 @@ const DirectDebits = () => {
                 />
               </div>
               <div>
-                <label htmlFor="account-number-filter" className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                <label htmlFor="account-number-filter" className="block text-sm font-medium text-gray-700 mb-1">Supplier Account Number</label>
                 <Input
                   id="account-number-filter"
                   placeholder="e.g., 12345678"
@@ -589,7 +593,7 @@ const DirectDebits = () => {
                   value={filterPaymentDay?.toString() || 'all'}
                   onValueChange={(value) => { 
                     setFilterPaymentDay(value === 'all' ? undefined : parseInt(value, 10)); 
-                    setCurrentPage(1);
+                    setCurrentPage(1); 
                   }}
                 >
                   <SelectTrigger id="payment-day-filter" className="w-full">
@@ -627,7 +631,6 @@ const DirectDebits = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    {/* NEW: Select all checkbox */}
                     <TableHead className="w-12">
                       <Checkbox
                         checked={allVisibleSelected}
@@ -646,6 +649,7 @@ const DirectDebits = () => {
                       </div>
                     </TableHead>
                     <TableHead>Categories</TableHead>
+                    <TableHead>Total Amount</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
                         Payment Day {renderSortIcon('payment_day')}
@@ -662,14 +666,13 @@ const DirectDebits = () => {
                         Country {renderSortIcon('country')}
                       </div>
                     </TableHead>
-                    <TableHead>Account Number</TableHead>
+                    <TableHead>Supplier Account Number</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {directDebits.map((debit) => (
                     <TableRow key={debit.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
-                      {/* NEW: Row selection checkbox */}
                       <TableCell className="w-12">
                         <Checkbox
                           checked={selectedIds.includes(debit.id)}
@@ -682,12 +685,17 @@ const DirectDebits = () => {
                         {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
                       </TableCell>
                       <TableCell>
-                        {debit.category ? (
-                          <Badge variant="secondary" className="bg-gray-100 text-gray-800">
-                            {categoryOptions.find(c => c.value === debit.category)?.label || debit.category}
-                          </Badge>
+                        {debit.categories && debit.categories.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {debit.categories.map((cat, idx) => (
+                              <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-800">
+                                {categoryOptions.find(c => c.value === cat.category)?.label || cat.category}
+                              </Badge>
+                            ))}
+                          </div>
                         ) : 'N/A'}
                       </TableCell>
+                      <TableCell>{formatAmount(debit.total_amount)}</TableCell>
                       <TableCell>{debit.payment_day !== null && debit.payment_day !== undefined ? debit.payment_day : 'N/A'}</TableCell>
                       <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(debit.status)}</TableCell>
@@ -749,7 +757,6 @@ const DirectDebits = () => {
           ) : (
             <p className="text-center text-muted-foreground mt-8">No direct debits found matching your criteria.</p>
           )}
-          {/* NEW: Hide pagination when viewing all */}
           {itemsPerPage !== 'all' && totalPages > 1 && (
             <Pagination className="mt-4">
               <PaginationContent>

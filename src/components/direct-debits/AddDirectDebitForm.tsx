@@ -1,27 +1,27 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, MinusCircle, DollarSign } from 'lucide-react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
-import { majorCurrencies, EditFormSchema } from '@/schemas/paymentRequestSchema'; // Import majorCurrencies
-import { PayeeSuggestion } from '@/types/supabase'; // Import PayeeSuggestion
+import { majorCurrencies } from '@/schemas/paymentRequestSchema';
+import { PayeeSuggestion } from '@/types/supabase';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 
 // Zod schema for adding a new direct debit
 const addDirectDebitFormSchema = z.object({
@@ -36,15 +36,19 @@ const addDirectDebitFormSchema = z.object({
     .max(31, "Day must be between 1 and 31."),
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
-  category: z.string().min(1, "Category is required."),
-  account_number: z.string().min(1, "Bank Account Number is required."), // UPDATED MESSAGE
-  payment_reference: z.string().optional(), // Made optional
-  status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], { // Added 'awaiting_info' status
+  categories: z.array(z.object({
+    category: z.string().min(1, "Category is required."),
+    amount: z.coerce.number().min(0.01, "Amount must be positive."),
+  })).min(1, "At least one category with an amount is required."),
+  total_amount: z.coerce.number().min(0.01, "Total amount must be positive."),
+  account_number: z.string().min(1, "Supplier Account Number is required."),
+  payment_reference: z.string().optional(),
+  status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], {
     required_error: "Status is required.",
-  }).default('awaiting_info'), // Default to 'awaiting_info'
+  }).default('awaiting_info'),
   country: z.string().min(1, "Country is required."),
-  bank_account: z.string().optional(), // NEW: Bank Account field, optional initially
-  currency: z.string().optional(), // NEW: Currency field
+  bank_account: z.string().optional(),
+  currency: z.string().optional(),
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -70,7 +74,6 @@ const addDirectDebitFormSchema = z.object({
     }
   }
 
-  // NEW: Conditional validation for bank_account and currency for Switzerland
   if (data.country === 'Switzerland') {
     if (!data.bank_account || data.bank_account.trim() === '') {
       ctx.addIssue({
@@ -79,7 +82,7 @@ const addDirectDebitFormSchema = z.object({
         path: ['bank_account'],
       });
     }
-    if (!data.currency || data.currency.trim() === '') { // Currency required for CH
+    if (!data.currency || data.currency.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Currency is required for Switzerland.",
@@ -110,30 +113,50 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       payment_day: undefined,
       sku: initialCountry === 'United Kingdom' ? 'UK' : 'CH',
       not_property_related: false,
-      category: "",
+      categories: [{ category: "", amount: 0 }],
+      total_amount: 0,
       account_number: "",
-      payment_reference: "", // Ensure default is empty string for optional field
-      status: "awaiting_info", // Default to 'awaiting_info'
-      country: initialCountry, // Default to Switzerland if 'all' is selected
-      bank_account: undefined, // NEW: Default value for bank_account
-      currency: initialCountry === 'Switzerland' ? 'CHF' : undefined, // NEW: Default currency for CH
+      payment_reference: "",
+      status: "awaiting_info",
+      country: initialCountry,
+      bank_account: undefined,
+      currency: initialCountry === 'Switzerland' ? 'CHF' : undefined,
     },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "categories",
   });
 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
+  const isAdmin = userProfile?.role === 'admin';
   
-  const isAdmin = userProfile?.role === 'admin'; // Define isAdmin
+  const watchedCategories = useWatch({
+    control: form.control,
+    name: "categories",
+    defaultValue: form.getValues("categories"),
+  });
 
-  // Effect to reset form defaults if currentCountry changes
+  React.useEffect(() => {
+    const newTotal = (watchedCategories || []).reduce((sum, item) => {
+      const parsedAmount = parseFloat((item as any)?.amount) || 0;
+      return sum + parsedAmount;
+    }, 0);
+    form.setValue("total_amount", newTotal, { shouldValidate: true });
+  }, [watchedCategories, form]);
+
   React.useEffect(() => {
     const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
     form.reset((prev) => ({
       ...prev,
       sku: newSkuPrefix,
       country: formCountry,
-      bank_account: undefined, // NEW: Reset bank_account when country changes
-      currency: formCountry === 'Switzerland' ? 'CHF' : undefined, // NEW: Reset currency
+      bank_account: undefined,
+      currency: formCountry === 'Switzerland' ? 'CHF' : undefined,
+      categories: [{ category: "", amount: 0 }],
+      total_amount: 0,
     }));
   }, [formCountry, form]);
 
@@ -151,17 +174,12 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
     const toastId = showLoading("Searching for existing payees...");
 
     try {
-      // Use the unified search function
       const { data, error } = await supabase.functions.invoke('search-all-payees', {
         body: { searchTerm: payeeName, country: currentFormCountry },
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
 
       if (data && data.suggestions && data.suggestions.length > 0) {
         setPayeeSuggestions(data.suggestions);
@@ -189,7 +207,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
     const options = { shouldValidate: true, shouldDirty: true };
     form.setValue('payee', suggestion.name, options);
     
-    // FIX: Ensure account number is clean before setting
     const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
     form.setValue('account_number', cleanAccountNumber, options);
     
@@ -197,8 +214,9 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
     form.setValue('currency', suggestion.currency || undefined, options);
     form.setValue('bank_account', suggestion.bank_account || undefined, options);
     
-    // Note: Direct Debits don't have categories/total_amount fields to reset.
-    
+    form.setValue('categories', [{ category: "", amount: 0 }], options);
+    form.setValue('total_amount', 0.00, options);
+
     setIsSuggestionDialogOpen(false);
   };
 
@@ -212,11 +230,10 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
 
       const now = new Date();
       const year = now.getFullYear();
-      const monthIndex = now.getMonth(); // 0-based
+      const monthIndex = now.getMonth();
       const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
       const safeDay = Math.min(values.payment_day, lastDayOfMonth);
       
-      // FIX: Use Date.UTC to prevent timezone shifting the date
       const paymentDate = new Date(Date.UTC(year, monthIndex, safeDay)).toISOString().split('T')[0];
 
       const { error: insertError } = await supabase
@@ -224,16 +241,18 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         .insert({
           requester_id: user.id,
           payee: values.payee,
-          payment_date: paymentDate, // Store the UTC-safe date
+          payment_date: paymentDate,
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
-          category: values.category,
+          categories: values.categories,
+          total_amount: values.total_amount,
           account_number: values.account_number,
-          payment_reference: values.payment_reference || null, // Store null if empty string
+          payment_reference: values.payment_reference || null,
           status: values.status,
           country: values.country,
-          bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
-          currency: values.country === 'Switzerland' ? values.currency : null, // NEW: Conditionally save currency
+          bank_account: values.country === 'Switzerland' ? values.bank_account : null,
+          currency: values.country === 'Switzerland' ? values.currency : null,
+          payment_day: values.payment_day,
         });
 
       if (insertError) {
@@ -247,13 +266,14 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         payment_day: undefined,
         sku: formCountry === 'United Kingdom' ? 'UK' : 'CH',
         not_property_related: false,
-        category: "",
+        categories: [{ category: "", amount: 0 }],
+        total_amount: 0,
         account_number: "",
-        payment_reference: "", // NEW: Reset payment_reference to empty string
-        status: "awaiting_info", // Reset to 'awaiting_info'
+        payment_reference: "",
+        status: "awaiting_info",
         country: formCountry,
-        bank_account: undefined, // NEW: Reset bank_account
-        currency: formCountry === 'Switzerland' ? 'CHF' : undefined, // NEW: Reset currency
+        bank_account: undefined,
+        currency: formCountry === 'Switzerland' ? 'CHF' : undefined,
       });
       onDirectDebitAdded();
     } catch (error: any) {
@@ -263,7 +283,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
     }
   };
 
-  // Filter category options based on the selected country in the form
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
   );
@@ -284,7 +303,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCountries.filter(c => c.value !== 'all').map((country) => ( // Filter out 'All Countries'
+                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
                     <SelectItem key={country.value} value={country.value}>
                       {country.label}
                     </SelectItem>
@@ -383,31 +402,97 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="category"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <SelectTrigger id={field.name}>
+        
+        <Card className="p-4 shadow-sm">
+          <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+            <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+          </CardTitle>
+          <div className="space-y-4">
+            {fields.map((item, index) => (
+              <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                <FormField
+                  control={form.control}
+                  name={`categories.${index}.category`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 w-full">
+                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <FormControl>
+                            <SelectValue placeholder="Select a category" />
+                          </FormControl>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredCategoryOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`categories.${index}.amount`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 w-full">
+                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="text"
+                          step="0.01" 
+                          placeholder="Amount" 
+                          {...field}
+                          value={field.value === 0 ? "" : String(field.value)}
+                          onChange={(e) => {
+                            const rawValue = e.target.value.replace(/[^\d.]/g, '');
+                            field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {fields.length > 1 && (
+                  <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
+                    <MinusCircle className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => append({ category: "", amount: 0 })}
+              className="w-full"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
+            </Button>
+            <Separator className="my-4" />
+            <div className="flex justify-between items-center text-lg font-bold">
+              <span>Total Amount:</span>
+              <span>{form.getValues('total_amount').toFixed(2)}</span>
+            </div>
+            <FormField
+              control={form.control}
+              name="total_amount"
+              render={({ field }) => (
+                <FormItem className="hidden">
                   <FormControl>
-                    <SelectValue placeholder="Select a category" />
+                    <Input type="hidden" {...field} />
                   </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredCategoryOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        {formCountry === 'Switzerland' && ( // NEW: Conditionally render Currency field
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </Card>
+
+        {formCountry === 'Switzerland' && (
           <FormField
             control={form.control}
             name="currency"
@@ -433,7 +518,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
             )}
           />
         )}
-        {formCountry === 'Switzerland' && ( // NEW: Conditionally render Bank Account field
+        {formCountry === 'Switzerland' && (
           <FormField
             control={form.control}
             name="bank_account"
@@ -462,7 +547,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           name="account_number"
           render={({ field }) => (
             <FormItem>
-              <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
                 <Input placeholder="e.g., 1234567890" {...field} />
               </FormControl>
@@ -515,7 +600,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           {form.formState.isSubmitting ? "Adding Direct Debit..." : "Add Direct Debit"}
         </Button>
       </form>
-      {/* Payee Suggestions Dialog */}
       <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>

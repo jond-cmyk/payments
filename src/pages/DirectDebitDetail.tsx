@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DirectDebit, DirectDebitAudit, Profile } from '@/types/supabase'; // Import DirectDebitAudit and Profile
 import { showSuccess, showError, showLoading, dismissToast, showInfo } from '@/utils/toast';
 import { format } from 'date-fns';
-import { Edit, Trash2, Banknote, Info, CalendarDays, UserCircle2, MessageSquareText } from 'lucide-react'; // Added new icons for sections
+import { Edit, Trash2, Banknote, Info, CalendarDays, UserCircle2, MessageSquareText, DollarSign } from 'lucide-react'; // Added new icons for sections
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 
@@ -32,6 +32,8 @@ import { cn } from '@/lib/utils';
 import DirectDebitAuditTrailCard from '@/components/direct-debits/DirectDebitAuditTrailCard'; // Import the new audit card
 import DirectDebitCommentsCard from '@/components/direct-debits/DirectDebitCommentsCard'; // NEW: Import DirectDebitCommentsCard
 import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm'; // Import the EditDirectDebitForm
+import { formatAmount } from '@/components/economic/EconomicDetailDialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const DirectDebitDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -288,7 +290,7 @@ const DirectDebitDetail = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Section 1: Overview (Now includes Supplier Account Number) */}
+        {/* Section 1: Overview */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center">
@@ -328,23 +330,50 @@ const DirectDebitDetail = () => {
           </CardContent>
         </Card>
 
-        {/* Section 2: Payment Details (Now includes Payment Day) */}
+        {/* Section 2: Payment Details */}
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center">
-              <CalendarDays className="mr-2 h-5 w-5" /> Payment Details
+              <DollarSign className="mr-2 h-5 w-5" /> Payment Details
             </CardTitle>
             <CardDescription>Information about the payment structure.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="md:col-span-2">
+                <p className="font-bold flex items-center mb-2">
+                  Categories & Amounts:
+                </p>
+                {directDebit.categories && directDebit.categories.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Category</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {directDebit.categories.map((cat, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
+                            <TableCell className="text-right">{formatAmount(cat.amount)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="font-bold bg-muted/50">
+                          <TableCell>Total Amount:</TableCell>
+                          <TableCell className="text-right">{formatAmount(directDebit.total_amount)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="ml-2">No categories defined.</p>
+                )}
+              </div>
               <div>
                 <p className="font-bold">Payment Day:</p>
                 <p>{directDebit.payment_day !== null && directDebit.payment_day !== undefined ? `Day ${directDebit.payment_day}` : 'N/A'}</p>
-              </div>
-              <div>
-                <p className="font-bold">Category:</p>
-                <p>{categoryOptions.find(c => c.value === directDebit.category)?.label || directDebit.category}</p>
               </div>
               <div>
                 <p className="font-bold">Payment Reference:</p>
@@ -381,7 +410,6 @@ const DirectDebitDetail = () => {
         </Card>
       </div>
 
-      {/* NEW: Comments Card */}
       <DirectDebitCommentsCard
         directDebitId={directDebit.id}
         comments={comments}

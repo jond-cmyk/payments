@@ -118,6 +118,11 @@ export type TransactionAudit = {
 /** Direct Debits */
 export type DirectDebitStatus = 'active' | 'cancelled' | 'paused' | 'pending' | 'awaiting_info';
 
+export type DirectDebitCategoryItem = {
+  category: string;
+  amount: number;
+};
+
 export type DirectDebit = {
   id: string;
   created_at: string;
@@ -128,13 +133,14 @@ export type DirectDebit = {
   payment_day?: number | null;
   sku: string | null;
   not_property_related: boolean;
-  category: string | null;
+  categories: DirectDebitCategoryItem[];
+  total_amount: number;
   account_number: string | null;
   payment_reference: string | null;
   status: DirectDebitStatus;
   country: string;
   bank_account: string | null;
-  currency?: string | null; // NEW: Added currency
+  currency?: string | null;
 };
 
 /** Direct Debit Audits */
