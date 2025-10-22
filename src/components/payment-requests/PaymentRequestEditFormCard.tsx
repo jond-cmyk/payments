@@ -24,7 +24,6 @@ import { Separator } from '@/components/ui/separator';
 import { PaymentRequest, PayeeSuggestion } from '@/types/supabase';
 import { categoryOptions } from '@/lib/constants';
 import { majorCurrencies, EditFormSchema } from '@/schemas/paymentRequestSchema';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface PaymentRequestEditFormCardProps {
   request: PaymentRequest;
@@ -359,30 +358,24 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     <FormControl className="flex-1">
                       <PrefixedInput prefix={skuPrefix} {...field} disabled={notSkuRelated} />
                     </FormControl>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            const skuValue = editForm.getValues('sku_number');
-                            if (skuValue) {
-                              const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeProducts__address%5D=&Filter%5BKassoeThemeProducts__city%5D=&Filter%5BKassoeThemeProducts__zip%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5BKassoeThemeProducts__active%5D=&Filter%5BKassoeThemeProducts__contract_number%5D=&Filter%5BKassoeThemeProducts__sku_dummy%5D=&Filter%5BKassoeThemeProducts__address_dummy%5D=&Filter%5BKassoeThemeProducts__sku_dummy2%5D=&Filter%5BKassoeThemeProducts__address_dummy2%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5Bcustom__is_booked%5D=0`;
-                              window.open(url, '_blank');
-                            } else {
-                              showError("Please enter an SKU number first.");
-                            }
-                          }}
-                          disabled={notSkuRelated}
-                        >
-                          <Search className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Check Accommodation in Platform</p>
-                      </TooltipContent>
-                    </Tooltip>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const skuValue = editForm.getValues('sku_number');
+                        if (skuValue) {
+                          const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeProducts__address%5D=&Filter%5BKassoeThemeProducts__city%5D=&Filter%5BKassoeThemeProducts__zip%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5BKassoeThemeProducts__active%5D=&Filter%5BKassoeThemeProducts__contract_number%5D=&Filter%5BKassoeThemeProducts__sku_dummy%5D=&Filter%5BKassoeThemeProducts__address_dummy%5D=&Filter%5BKassoeThemeProducts__sku_dummy2%5D=&Filter%5BKassoeThemeProducts__address_dummy2%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5Bcustom__is_booked%5D=0`;
+                          window.open(url, '_blank');
+                        } else {
+                          showError("Please enter an SKU number first.");
+                        }
+                      }}
+                      disabled={notSkuRelated}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">Check Accommodation in Platform</span>
                   </div>
                   <FormDescription>
                     {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${skuPrefix}' and be followed by numbers.`}
