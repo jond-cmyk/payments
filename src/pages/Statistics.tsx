@@ -110,7 +110,7 @@ const Statistics = () => {
     enabled: !!session,
   });
 
-  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData, standingOrderValueByCurrency, standingOrderValueByDay, directDebitValueByCurrency, directDebitValueByDay } = useMemo(() => {
+  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData, standingOrderValueByCurrency, standingOrderValueByDay, directDebitValueByCurrency, directDebitValueByDay, combinedValueByCurrency, combinedValueByDay } = useMemo(() => {
     const baseResult = {
       avgTimeToSetup: null,
       avgTimeToApprove: null,
@@ -123,6 +123,8 @@ const Statistics = () => {
       standingOrderValueByDay: {},
       directDebitValueByCurrency: {},
       directDebitValueByDay: {},
+      combinedValueByCurrency: {},
+      combinedValueByDay: {},
     };
 
     if (!allPaymentRequests) {
@@ -281,6 +283,26 @@ const Statistics = () => {
       }
     });
 
+    const combinedValueByCurrency: Record<string, number> = {};
+    Object.entries(soTotalsByCurrency).forEach(([currency, total]) => {
+        combinedValueByCurrency[currency] = (combinedValueByCurrency[currency] || 0) + total;
+    });
+    Object.entries(ddTotalsByCurrency).forEach(([currency, total]) => {
+        combinedValueByCurrency[currency] = (combinedValueByCurrency[currency] || 0) + total;
+    });
+
+    const combinedValueByDay: Record<string, number> = {};
+    for (let i = 1; i <= 31; i++) {
+        const dayKey = String(i).padStart(2, '0');
+        combinedValueByDay[dayKey] = 0;
+    }
+    Object.entries(soValueByPaymentDay).forEach(([day, total]) => {
+        combinedValueByDay[day] = (combinedValueByDay[day] || 0) + total;
+    });
+    Object.entries(ddValueByPaymentDay).forEach(([day, total]) => {
+        combinedValueByDay[day] = (combinedValueByDay[day] || 0) + total;
+    });
+
     return {
       avgTimeToSetup,
       avgTimeToApprove,
@@ -293,6 +315,8 @@ const Statistics = () => {
       standingOrderValueByDay: soValueByPaymentDay,
       directDebitValueByCurrency: ddTotalsByCurrency,
       directDebitValueByDay: ddValueByPaymentDay,
+      combinedValueByCurrency,
+      combinedValueByDay,
     };
   }, [allPaymentRequests, timeframeFilter, allStandingOrders, allDirectDebits]);
 
@@ -315,6 +339,19 @@ const Statistics = () => {
   }));
 
   const directDebitValueByDayChartData = Object.entries(directDebitValueByDay)
+    .map(([day, total]) => ({
+        name: `Day ${day}`,
+        dayNum: parseInt(day, 10),
+        total,
+    }))
+    .sort((a, b) => a.dayNum - b.dayNum);
+
+  const combinedValueByCurrencyChartData = Object.entries(combinedValueByCurrency).map(([currency, total]) => ({
+    name: currency,
+    total,
+  }));
+
+  const combinedValueByDayChartData = Object.entries(combinedValueByDay)
     .map(([day, total]) => ({
         name: `Day ${day}`,
         dayNum: parseInt(day, 10),
@@ -530,6 +567,44 @@ const Statistics = () => {
                       <Tooltip formatter={(value) => formatAmount(value)} />
                       <Legend />
                       <Bar dataKey="total" fill="hsl(var(--dyad-blue-light))" name="Total Value" />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Combined Monthly Recurring Value by Currency</CardTitle>
+                  <CardDescription>Total value of active Standing Orders & Direct Debits per month, by currency.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsBarChart data={combinedValueByCurrencyChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatAmount(value)} />
+                      <Legend />
+                      <Bar dataKey="total" fill="#82ca9d" name="Total Value" />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Combined Recurring Value by Payment Day</CardTitle>
+                  <CardDescription>Total value of active Standing Orders & Direct Debits, by payment day. Note: This sum mixes different currencies.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsBarChart data={combinedValueByDayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatAmount(value)} />
+                      <Legend />
+                      <Bar dataKey="total" fill="#8884d8" name="Total Value" />
                     </RechartsBarChart>
                   </ResponsiveContainer>
                 </CardContent>
