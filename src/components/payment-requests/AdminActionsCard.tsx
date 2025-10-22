@@ -109,8 +109,8 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
     }
   };
 
-  // Reminder button visibility: any authenticated user, if status is pending or setup_awaiting_approval
-  const showReminderButton = !!user && (request.status === 'pending' || request.status === 'setup_awaiting_approval');
+  // Reminder button visibility: any authenticated user, if status is pending, queried or setup_awaiting_approval
+  const showReminderButton = !!user && (request.status === 'pending' || request.status === 'setup_awaiting_approval' || request.status === 'queried');
   const showCancelButton = !!user && (request.status === 'pending' || request.status === 'queried');
   const showPauseButton = !!user && (request.status === 'pending' || request.status === 'queried');
 
