@@ -21,6 +21,8 @@ const Header = () => {
         return 'New Payment Request - KH Payments';
       case '/admin/requests':
         return 'All Payment Requests - KH Payments';
+      case '/admin/panel':
+        return 'Admin Panel - KH Payments';
       case '/admin/users':
         return 'User Management - KH Payments';
       case '/admin/upload-transactions':

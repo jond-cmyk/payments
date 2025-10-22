@@ -153,23 +153,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
           {currentRole === 'admin' && (
             <>
               <div className="h-px bg-dyad-blue-foreground my-4" />
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="admin-panel" className="border-b-0">
-                  <CustomAccordionTrigger className="flex items-center justify-between w-full px-4 py-2 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors rounded-md">
-                    <span className="flex items-center">
-                      <Settings className="mr-2 h-5 w-5" /> Admin Panel
-                    </span>
-                  </CustomAccordionTrigger>
-                  <AccordionContent className="pl-6 pt-2 pb-0 space-y-1">
-                    <NavLink to="/admin/users" icon={<Users className="h-5 w-5" />} label="User Management" />
-                    <NavLink to="/admin/upload-transactions" icon={<Upload className="h-5 w-5" />} label="Upload Transactions" />
-                    <NavLink to="/admin/upload-direct-debits" icon={<Banknote className="h-5 w-5" />} label="Upload Direct Debits" />
-                    <NavLink to="/admin/upload-standing-orders" icon={<Repeat className="h-5 w-5" />} label="Upload Standing Orders" />
-                    <NavLink to="/admin/feedback" icon={<MessageSquareText className="h-5 w-5" />} label="User Feedback" />
-                    <NavLink to="/admin/economic-integration" icon={<Globe className="h-5 w-5" />} label="E-conomic Integration" />
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+              <NavLink to="/admin/panel" icon={<Settings className="h-5 w-5" />} label="Admin Panel" />
             </>
           )}
         </nav>

@@ -29,6 +29,7 @@ import AdminFeedback from "./pages/AdminFeedback";
 import ProfilePage from "./pages/Profile";
 import Statistics from "./pages/Statistics";
 import EconomicIntegration from "./pages/EconomicIntegration";
+import AdminPanel from "./pages/AdminPanel";
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext";
@@ -97,6 +98,7 @@ const App = () => {
                       <Route path="/new-request" element={<NewPaymentRequest />} />
                       <Route path="/request/:id" element={<PaymentRequestDetail />} />
                       <Route path="/admin/requests" element={<Dashboard />} />
+                      <Route path="/admin/panel" element={<AdminPanel />} />
                       <Route path="/admin/users" element={<UserManagement />} />
                       <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
                       <Route path="/admin/upload-direct-debits" element={<AdminUploadDirectDebits />} />
