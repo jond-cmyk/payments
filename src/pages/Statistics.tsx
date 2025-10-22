@@ -207,6 +207,11 @@ const Statistics = () => {
 
     const totalsByCurrency: Record<string, number> = {};
     const valueByPaymentDay: Record<string, number> = {};
+    // Initialize with all days from 1 to 31
+    for (let i = 1; i <= 31; i++) {
+        const dayKey = String(i).padStart(2, '0');
+        valueByPaymentDay[dayKey] = 0;
+    }
 
     activeStandingOrders.forEach(so => {
       if (so.total_amount) {
@@ -224,7 +229,7 @@ const Statistics = () => {
         // Group by payment day
         if (so.payment_day) {
           const dayKey = String(so.payment_day).padStart(2, '0');
-          valueByPaymentDay[dayKey] = (valueByPaymentDay[dayKey] || 0) + so.total_amount;
+          valueByPaymentDay[dayKey] += so.total_amount;
         }
       }
     });
