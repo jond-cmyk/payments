@@ -218,7 +218,7 @@ const Statistics = () => {
     activeStandingOrders.forEach(so => {
       if (so.total_amount) {
         // Group by currency
-        const currencyKey = so.currency || 'UNKNOWN';
+        const currencyKey = so.country === 'United Kingdom' ? 'GBP' : (so.currency || 'UNKNOWN');
         totalsByCurrency[currencyKey] = (totalsByCurrency[currencyKey] || 0) + so.total_amount;
 
         // Group by payment day
