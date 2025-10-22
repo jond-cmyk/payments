@@ -92,7 +92,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
             <Button
               variant="ghost"
               onClick={handleLogout}
-              className="w-full justify-start text-red-500 hover:bg-red-100 hover:text-red-600"
+              className="w-full justify-start text-sidebar-foreground hover:bg-red-500/20 hover:text-red-300"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Log Out
@@ -183,56 +183,11 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
               <User className="h-4 w-4" />
               <span>{displayName}</span>
             </div>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  onClick={toggleNotifications}
-                  className={cn(
-                    "w-full justify-start",
-                    notificationsEnabled && notificationPermission === 'granted'
-                      ? "text-green-400 hover:bg-green-900 hover:text-green-300"
-                      : "text-red-400 hover:bg-red-900 hover:text-red-300"
-                  )}
-                  disabled={notificationPermission === 'denied'}
-                >
-                  {notificationsEnabled && notificationPermission === 'granted' ? (
-                    <Bell className="mr-2 h-4 w-4" />
-                  ) : (
-                    <BellOff className="mr-2 h-4 w-4" />
-                  )}
-                  {notificationsEnabled && notificationPermission === 'granted' ? "Notifications On" : "Notifications Off"}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {notificationPermission === 'denied' ? (
-                  <span>Notifications are blocked. Enable in browser settings.</span>
-                ) : notificationsEnabled ? (
-                  <span>Click to disable desktop notifications.</span>
-                ) : (
-                  <span>Click to enable desktop notifications.</span>
-                )}
-              </TooltipContent>
-            </Tooltip>
-
-            <Dialog open={isChangePasswordDialogOpen} onOpenChange={setIsChangePasswordDialogOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start">
-                  <KeyRound className="mr-2 h-4 w-4" /> Change Password
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                  <DialogTitle>Change Password</DialogTitle>
-                </DialogHeader>
-                <ChangePasswordForm onPasswordChanged={() => setIsChangePasswordDialogOpen(false)} />
-              </DialogContent>
-            </Dialog>
-
+            
             <Button
               variant="ghost"
               onClick={handleLogout}
-              className="w-full justify-start text-red-500 hover:bg-red-100 hover:text-red-600"
+              className="w-full justify-start text-sidebar-foreground hover:bg-red-500/20 hover:text-red-300"
             >
               <LogOut className="mr-2 h-4 w-4" />
               Log Out
