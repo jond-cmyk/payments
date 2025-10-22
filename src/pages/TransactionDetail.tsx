@@ -48,7 +48,7 @@ const TransactionDetail = () => {
         query = query.eq('country', currentCountry);
       }
 
-      const { data, error } = await query.single();
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data;
     },
