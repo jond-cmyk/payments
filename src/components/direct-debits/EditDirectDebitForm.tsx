@@ -86,6 +86,14 @@ const editDirectDebitFormSchema = z.object({
         path: ['currency'],
       });
     }
+  } else if (data.country === 'United Kingdom') {
+    if (data.currency !== 'GBP') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency must be GBP for United Kingdom.",
+        path: ['currency'],
+      });
+    }
   }
 });
 
@@ -213,7 +221,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           status: values.status,
           country: values.country,
           bank_account: values.country === 'Switzerland' ? values.bank_account : null,
-          currency: values.country === 'Switzerland' ? values.currency : null,
+          currency: values.country === 'United Kingdom' ? 'GBP' : (values.country === 'Switzerland' ? values.currency : null),
           updated_at: new Date().toISOString(),
           payment_day: values.payment_day,
         })
@@ -394,7 +402,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             )}
           />
 
-          {formCountry === 'Switzerland' && (
+          {formCountry === 'Switzerland' ? (
             <FormField
               control={form.control}
               name="currency"
@@ -417,9 +425,15 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   </Select>
                   <FormMessage />
                 </FormItem>
-            )}
+              )}
             />
-          )}
+          ) : formCountry === 'United Kingdom' ? (
+            <div className="space-y-2">
+              <FormLabel className="font-semibold">Currency</FormLabel>
+              <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
+              <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
+            </div>
+          ) : null}
           {formCountry === 'Switzerland' && (
             <FormField
               control={form.control}

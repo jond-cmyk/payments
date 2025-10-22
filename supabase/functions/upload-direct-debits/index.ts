@@ -1,5 +1,8 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+// @ts-ignore
 import { parse } from 'https://deno.land/std@0.224.0/csv/mod.ts';
 
 const corsHeaders = {
@@ -44,6 +47,7 @@ const categoryMap: Record<string, string> = {
   '5201': '5201_provider_deposit',
 };
 
+// @ts-ignore
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -52,7 +56,9 @@ serve(async (req) => {
   try {
     console.log('[upload-direct-debits] Boot: v1.1.0 – direct-debit parser with transaction CSV fallback');
     
+    // @ts-ignore
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    // @ts-ignore
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
@@ -303,6 +309,11 @@ serve(async (req) => {
           continue;
         }
 
+        // Set currency for UK
+        if (country === 'United Kingdom') {
+          currency = 'GBP';
+        }
+
         // Switzerland-only row validation
         if (country === 'Switzerland') {
           const missingFields: string[] = [];
@@ -359,6 +370,7 @@ serve(async (req) => {
           status: 'awaiting_info',
           country: country,
           bank_account: bankAccount || null,
+          currency: currency || null,
         };
 
         directDebitsToInsert.push(directDebitRecord);

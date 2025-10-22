@@ -1,5 +1,8 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+// @ts-ignore
 import { parse } from 'https://deno.land/std@0.224.0/csv/mod.ts';
 
 const corsHeaders = {
@@ -71,19 +74,22 @@ function getVal(record: Record<string, string>, keys: string[]): string {
   return '';
 }
 
+// @ts-ignore
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // @ts-ignore
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    // @ts-ignore
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
       return new Response(JSON.stringify({ error: 'Supabase URL or Service Role Key is missing in environment variables.' }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -95,7 +101,7 @@ serve(async (req) => {
     } catch {
       return new Response(JSON.stringify({ error: 'Invalid JSON payload' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -114,7 +120,7 @@ serve(async (req) => {
         }
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -124,7 +130,7 @@ serve(async (req) => {
         receivedType: typeof fileContent
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -133,7 +139,7 @@ serve(async (req) => {
         error: 'File content is empty'
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -153,7 +159,7 @@ serve(async (req) => {
         details: parseError instanceof Error ? parseError.message : 'Unknown parsing error'
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -164,7 +170,7 @@ serve(async (req) => {
         isArray: Array.isArray(parsedRows)
       }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -190,7 +196,7 @@ serve(async (req) => {
           ]
         }), {
           status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
@@ -225,6 +231,8 @@ serve(async (req) => {
             errors.push(`Row ${i + 1}: Missing required field(s) for Switzerland: ${missing.join(', ')}. Skipping.`);
             continue;
           }
+        } else if (country === 'United Kingdom') {
+          currency = 'GBP';
         }
 
         // Expected headers (SKU required)
@@ -308,13 +316,9 @@ serve(async (req) => {
           status: 'awaiting_info',
           country,
           bank_details_verified: false,
+          currency: currency,
+          bank_account: bankAccount,
         };
-
-        // Attach CH-only fields when present
-        if (country === 'Switzerland') {
-          rowPayload.currency = currency;
-          rowPayload.bank_account = bankAccount;
-        }
 
         standingOrdersToInsert.push(rowPayload);
       } catch (rowErr: any) {
@@ -334,7 +338,7 @@ serve(async (req) => {
         console.error('Insert error:', insertError);
         return new Response(JSON.stringify({ error: `Failed to insert standing orders: ${insertError.message}` }), {
           status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
@@ -350,7 +354,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify(body), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
     return new Response(JSON.stringify({
@@ -358,7 +362,7 @@ serve(async (req) => {
       details: err?.message || String(err),
     }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

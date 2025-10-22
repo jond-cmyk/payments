@@ -11,7 +11,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { StandingOrder, PayeeSuggestion } from '@/types/supabase'; // Import PayeeSuggestion type
-import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // Import majorCurrencies
+import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // NEW IMPORT
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -162,6 +162,14 @@ const addStandingOrderFormSchema = z.object({
         path: ['bank_account'],
       });
     }
+  } else if (data.country === 'United Kingdom') {
+    if (data.currency !== 'GBP') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency must be GBP for United Kingdom.",
+        path: ['currency'],
+      });
+    }
   }
 
   // NEW: End date must be after start date if provided
@@ -210,12 +218,12 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       bank_details_verified: false,
       total_amount: 0, // Initialize total amount
       payment_day: undefined, // Add payment_day to default values
-      currency: initialCountry === 'Switzerland' ? 'CHF' : undefined, // NEW: Default currency for CH
+      currency: initialCountry === 'United Kingdom' ? 'GBP' : (initialCountry === 'Switzerland' ? 'CHF' : undefined), // NEW: Default currency
       bank_account: undefined, // NEW: Default bank account
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({ // NEW: Field array for categories
     control: form.control,
     name: "categories",
   });
@@ -247,6 +255,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
     const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
+    const newCurrency = formCountry === 'United Kingdom' ? 'GBP' : (formCountry === 'Switzerland' ? 'CHF' : undefined);
     form.reset((prev) => ({
       ...prev,
       sku: newSkuPrefix,
@@ -258,10 +267,11 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       bank_details_verified: false,
       categories: [{ category: "", amount: 0 }], // Reset categories
       total_amount: 0, // Reset total amount
-      currency: formCountry === 'Switzerland' ? 'CHF' : undefined, // Reset currency
+      currency: newCurrency, // Reset currency
       bank_account: undefined, // Reset bank account
     }));
   }, [formCountry, form]);
+
 
   const handlePayeeBlur = async () => {
     const payeeName = form.getValues('payee');
@@ -387,7 +397,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           country: values.country,
           bank_details_verified: values.bank_details_verified,
           payment_day: safeDay, // Add payment_day to insert
-          currency: values.country === 'Switzerland' ? values.currency : null, // NEW: Conditionally save currency
+          currency: values.country === 'United Kingdom' ? 'GBP' : (values.country === 'Switzerland' ? values.currency : null),
           bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
         });
 
@@ -417,7 +427,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         country: formCountry,
         bank_details_verified: false,
         payment_day: undefined, // Reset payment_day
-        currency: formCountry === 'Switzerland' ? 'CHF' : undefined, // Reset currency
+        currency: formCountry === 'United Kingdom' ? 'GBP' : (formCountry === 'Switzerland' ? 'CHF' : undefined),
         bank_account: undefined, // Reset bank account
       });
       onStandingOrderAdded();
@@ -481,6 +491,169 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 />
               </FormControl>
               <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Dynamic Categories Section */}
+        <Card className="p-4 shadow-sm">
+          <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+            <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+          </CardTitle>
+          <div className="space-y-4">
+            {fields.map((item, index) => (
+              <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                <FormField
+                  control={form.control}
+                  name={`categories.${index}.category`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 w-full">
+                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger>
+                          <FormControl>
+                            <SelectValue placeholder="Select a category" />
+                          </FormControl>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {filteredCategoryOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name={`categories.${index}.amount`}
+                  render={({ field }) => (
+                    <FormItem className="flex-1 w-full">
+                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                      <FormControl>
+                        <Input 
+                          type="text"
+                          step="0.01" 
+                          placeholder="Amount" 
+                          {...field}
+                          // FIX: Ensure value is always a string representation of the number, and handle empty string correctly
+                          value={field.value === 0 ? "" : String(field.value)}
+                          onChange={(e) => {
+                            // Only allow numbers and a single decimal point
+                            const rawValue = e.target.value.replace(/[^\d.]/g, '');
+                            // Pass the cleaned string back to RHF. RHF/Zod will coerce it to a number.
+                            field.onChange(rawValue);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {fields.length > 1 && (
+                  <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
+                    <MinusCircle className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => append({ category: "", amount: 0 })}
+              className="w-full"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
+            </Button>
+            <Separator className="my-4" />
+            <div className="flex justify-between items-center text-lg font-bold">
+              <span>Total Amount:</span>
+              <span>{form.getValues('total_amount').toFixed(2)}</span>
+            </div>
+            <FormField
+              control={form.control}
+              name="total_amount"
+              render={({ field }) => (
+                <FormItem className="hidden"> {/* Hidden field for Zod validation */}
+                  <FormControl>
+                    <Input type="hidden" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+        </Card>
+
+        {/* Currency field: Conditional rendering */}
+        {formCountry === 'Switzerland' ? (
+          <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select a currency" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {majorCurrencies.map((currency) => (
+                      <SelectItem key={currency.value} value={currency.value}>
+                        {currency.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        ) : formCountry === 'United Kingdom' ? (
+          <div className="space-y-2">
+            <FormLabel className="font-semibold">Currency</FormLabel>
+            <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
+            <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
+          </div>
+        ) : null}
+
+        <FormField
+          control={form.control}
+          name="sku"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">SKU</FormLabel>
+              <FormControl>
+                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="not_property_related"
+          render={({ field }) => (
+            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+              <FormControl>
+                <Checkbox
+                  checked={field.value}
+                  onCheckedChange={field.onChange}
+                />
+              </FormControl>
+              <div className="space-y-1 leading-none">
+                <FormLabel>
+                  Not Property Related
+                </FormLabel>
+                <FormDescription>
+                  Check this box if this standing order is not associated with a property SKU.
+                </FormDescription>
+              </div>
             </FormItem>
           )}
         />
@@ -548,158 +721,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="sku"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">SKU</FormLabel>
-              <FormControl>
-                <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="not_property_related"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>
-                  Not Property Related
-                </FormLabel>
-                <FormDescription>
-                  Check this box if this standing order is not associated with a property SKU.
-                </FormDescription>
-              </div>
-            </FormItem>
-          )}
-        />
-
-        {/* Dynamic Categories Section */}
-        <Card className="p-4 shadow-sm">
-          <CardTitle className="text-lg font-semibold mb-4 flex items-center">
-            <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
-          </CardTitle>
-          <div className="space-y-4">
-            {fields.map((item, index) => (
-              <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
-                <FormField
-                  control={form.control}
-                  name={`categories.${index}.category`}
-                  render={({ field }) => (
-                    <FormItem className="flex-1 w-full">
-                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <FormControl>
-                            <SelectValue placeholder="Select a category" />
-                          </FormControl>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredCategoryOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`categories.${index}.amount`}
-                  render={({ field }) => (
-                    <FormItem className="flex-1 w-full">
-                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
-                      <FormControl>
-                        <Input type="text" step="0.01" placeholder="Amount" {...field}
-                          // FIX: Ensure value is always a string representation of the number, and handle empty string correctly
-                          value={field.value === 0 ? "" : String(field.value)}
-                          onChange={(e) => {
-                            // Only allow numbers and a single decimal point
-                            const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                            // Force conversion to number here to ensure RHF stores the correct numeric value immediately
-                            field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {fields.length > 1 && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
-                    <MinusCircle className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => append({ category: "", amount: 0 })}
-              className="w-full"
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
-            </Button>
-            <Separator className="my-4" />
-            <div className="flex justify-between items-center text-lg font-bold">
-              <span>Total Amount:</span>
-              <span>{form.getValues('total_amount').toFixed(2)}</span>
-            </div>
-            <FormField
-              control={form.control}
-              name="total_amount"
-              render={({ field }) => (
-                <FormItem className="hidden"> {/* Hidden field for Zod validation */}
-                  <FormControl>
-                    <Input type="hidden" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </Card>
-
-        {formCountry === 'Switzerland' && (
-          <FormField
-            control={form.control}
-            name="currency"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger id={field.name}>
-                    <FormControl>
-                      <SelectValue placeholder="Select a currency" />
-                    </FormControl>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {majorCurrencies.map((currency) => (
-                      <SelectItem key={currency.value} value={currency.value}>
-                        {currency.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        )}
-
         <FormField
           control={form.control}
           name="account_name"

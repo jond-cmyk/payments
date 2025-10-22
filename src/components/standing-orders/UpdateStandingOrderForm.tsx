@@ -160,6 +160,14 @@ const updateStandingOrderFormSchema = z.object({
         path: ['bank_account'],
       });
     }
+  } else if (data.country === 'United Kingdom') {
+    if (data.currency !== 'GBP') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency must be GBP for United Kingdom.",
+        path: ['currency'],
+      });
+    }
   }
 
   // NEW: End date must be after start date if provided
@@ -354,7 +362,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           country: values.country,
           bank_details_verified: values.bank_details_verified,
           payment_day: safeDay,
-          currency: values.country === 'Switzerland' ? values.currency : null, // NEW: Conditionally save currency
+          currency: values.country === 'United Kingdom' ? 'GBP' : (values.country === 'Switzerland' ? values.currency : null),
           bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
           updated_at: new Date().toISOString(),
         })
@@ -431,6 +439,134 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               </FormItem>
             )}
           />
+
+          {/* Dynamic Categories Section */}
+          <Card className="p-4 shadow-sm">
+            <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+              <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+            </CardTitle>
+            <div className="space-y-4">
+              {fields.map((item, index) => (
+                <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                  <FormField
+                    control={form.control}
+                    name={`categories.${index}.category`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1 w-full">
+                        <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                          <SelectTrigger>
+                            <FormControl>
+                              <SelectValue placeholder="Select a category" />
+                            </FormControl>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredCategoryOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`categories.${index}.amount`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1 w-full">
+                        <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="text" // CHANGED to text to prevent browser truncation issues
+                            step="0.01" 
+                            placeholder="Amount" 
+                            {...field}
+                            // FIX: Ensure value is always a string representation of the number, and handle empty string correctly
+                            value={field.value === 0 ? "" : String(field.value)}
+                            onChange={(e) => {
+                              // Only allow numbers and a single decimal point
+                              const rawValue = e.target.value.replace(/[^\d.]/g, '');
+                              // Force conversion to number here to ensure RHF stores the correct numeric value immediately
+                              field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
+                            }}
+                            disabled={!isAdmin} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {fields.length > 1 && (
+                    <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0" disabled={!isAdmin}>
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => append({ category: "", amount: 0 })}
+                className="w-full"
+                disabled={!isAdmin}
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
+              </Button>
+              <Separator className="my-4" />
+              <div className="flex justify-between items-center text-lg font-bold">
+                <span>Total Amount:</span>
+                <span>{form.getValues('total_amount').toFixed(2)}</span>
+              </div>
+              <FormField
+                control={form.control}
+                name="total_amount"
+                render={({ field }) => (
+                  <FormItem className="hidden">
+                    <FormControl>
+                      <Input type="hidden" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </Card>
+
+          {formCountry === 'Switzerland' ? (
+            <FormField
+              control={form.control}
+              name="currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                    <SelectTrigger id={field.name}>
+                      <FormControl>
+                        <SelectValue placeholder="Select a currency" />
+                      </FormControl>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {majorCurrencies.map((currency) => (
+                        <SelectItem key={currency.value} value={currency.value}>
+                          {currency.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : formCountry === 'United Kingdom' ? (
+            <div className="space-y-2">
+              <FormLabel className="font-semibold">Currency</FormLabel>
+              <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
+              <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
+            </div>
+          ) : null}
 
           <FormField
             control={form.control}
@@ -539,128 +675,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             )}
           />
 
-          {/* Dynamic Categories Section */}
-          <Card className="p-4 shadow-sm">
-            <CardTitle className="text-lg font-semibold mb-4 flex items-center">
-              <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
-            </CardTitle>
-            <div className="space-y-4">
-              {fields.map((item, index) => (
-                <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
-                  <FormField
-                    control={form.control}
-                    name={`categories.${index}.category`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1 w-full">
-                        <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                          <SelectTrigger>
-                            <FormControl>
-                              <SelectValue placeholder="Select a category" />
-                            </FormControl>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {filteredCategoryOptions.map((option) => (
-                              <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name={`categories.${index}.amount`}
-                    render={({ field }) => (
-                      <FormItem className="flex-1 w-full">
-                        <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
-                        <FormControl>
-                          <Input 
-                            type="text" // CHANGED to text to prevent browser truncation issues
-                            step="0.01" 
-                            placeholder="Amount" 
-                            {...field}
-                            // FIX: Ensure value is always a string representation of the number, and handle empty string correctly
-                            value={field.value === 0 ? "" : String(field.value)}
-                            onChange={(e) => {
-                              // Only allow numbers and a single decimal point
-                              const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                              // Force conversion to number here to ensure RHF stores the correct numeric value immediately
-                              field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
-                            }}
-                            disabled={!isAdmin} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  {fields.length > 1 && (
-                    <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0" disabled={!isAdmin}>
-                      <MinusCircle className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => append({ category: "", amount: 0 })}
-                className="w-full"
-                disabled={!isAdmin}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
-              </Button>
-              <Separator className="my-4" />
-              <div className="flex justify-between items-center text-lg font-bold">
-                <span>Total Amount:</span>
-                <span>{form.getValues('total_amount').toFixed(2)}</span>
-              </div>
-              <FormField
-                control={form.control}
-                name="total_amount"
-                render={({ field }) => (
-                  <FormItem className="hidden">
-                    <FormControl>
-                      <Input type="hidden" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </Card>
-
-          {formCountry === 'Switzerland' && (
-            <FormField
-              control={form.control}
-              name="currency"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
-                    <SelectTrigger id={field.name}>
-                      <FormControl>
-                        <SelectValue placeholder="Select a currency" />
-                      </FormControl>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {majorCurrencies.map((currency) => (
-                        <SelectItem key={currency.value} value={currency.value}>
-                          {currency.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-            )}
-            />
-          )}
-
           <FormField
             control={form.control}
             name="account_name"
@@ -688,8 +702,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                         placeholder="e.g., 12-34-56"
                         {...field}
                         onChange={(e) => {
-                          let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                          if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
+                          let value = e.target.value.replace(/\D/g, '');
+                          if (value.length > 6) value = value.substring(0, 6);
                           if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
                           else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                           field.onChange(value);
@@ -715,8 +729,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                         placeholder="e.g., 1234 5678"
                         {...field}
                         onChange={(e) => {
-                          let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                          if (value.length > 8) value = value.substring(0, 8); // Max 8 digits
+                          let value = e.target.value.replace(/\D/g, '');
+                          if (value.length > 8) value = value.substring(0, 8);
                           if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
                           field.onChange(value);
                         }}
