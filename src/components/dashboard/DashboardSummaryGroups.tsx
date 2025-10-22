@@ -4,14 +4,16 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote, DollarSign, List, Activity } from 'lucide-react';
+import { Clock, Euro, MessageSquare, Ban, CheckCircle, FileX, PoundSterling, Repeat, Banknote, DollarSign, List, Activity, AlertTriangle } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { Separator } from '@/components/ui/separator'; // Keep Separator import just in case, though not used in Tier 2 now
 
 interface DashboardSummaryGroupsProps {
   counts: {
     pending: number;
+    urgent_pending: number;
     setup_awaiting_approval: number;
+    urgent_setup_awaiting_approval: number;
     approved: number;
     declined: number;
     queried: number;
@@ -28,9 +30,12 @@ const SummaryCardItem: React.FC<{
   statusKey: keyof DashboardSummaryGroupsProps['counts']; 
   count: number; 
   currentCountry: string;
-  isCritical?: boolean; // New prop to differentiate styling
-}> = ({ statusKey, count, currentCountry, isCritical = false }) => {
+  isCritical?: boolean;
+  urgentCount?: number;
+}> = ({ statusKey, count, currentCountry, isCritical = false, urgentCount = 0 }) => {
   
+  const hasUrgent = urgentCount > 0 && (statusKey === 'pending' || statusKey === 'setup_awaiting_approval');
+
   const getCardStyling = (status: string, isCritical: boolean) => {
     let borderClass = 'border-gray-300';
     let textClass = 'text-gray-600 dark:text-gray-400';
@@ -127,7 +132,14 @@ const SummaryCardItem: React.FC<{
     return { borderClass, textClass, icon, title, description, link, bgClass, hoverClass };
   };
 
-  const { borderClass, textClass, icon, title, description, link, bgClass, hoverClass } = getCardStyling(statusKey, isCritical);
+  let { borderClass, textClass, icon, title, description, link, bgClass, hoverClass } = getCardStyling(statusKey, isCritical);
+
+  if (hasUrgent) {
+    borderClass = 'border-red-700';
+    textClass = 'text-white';
+    bgClass = 'bg-red-600 dark:bg-red-800';
+    hoverClass = 'hover:bg-red-700';
+  }
 
   return (
     <Link to={link} className="block">
@@ -144,7 +156,15 @@ const SummaryCardItem: React.FC<{
         </CardHeader>
         <CardContent className={cn(isCritical ? "p-4 pt-0" : "p-3 pt-0")}>
           <div className={cn(isCritical ? "text-3xl font-bold" : "text-xl font-bold", textClass)}>{count}</div>
-          <p className={cn(isCritical ? "text-xs" : "text-[10px]", isCritical ? 'text-white/80' : 'text-muted-foreground', "h-6 overflow-hidden")}>{description}</p>
+          {hasUrgent && (
+            <div className={cn("flex items-center text-xs font-semibold mt-1", textClass)}>
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              {urgentCount} Urgent
+            </div>
+          )}
+          <p className={cn(isCritical ? "text-xs" : "text-[10px]", isCritical ? 'text-white/80' : 'text-muted-foreground', hasUrgent && 'mt-1')}>
+            {description}
+          </p>
         </CardContent>
       </Card>
     </Link>
@@ -191,6 +211,7 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
                 count={counts[key]}
                 currentCountry={currentCountry}
                 isCritical={true}
+                urgentCount={counts[`urgent_${key}` as keyof typeof counts] || 0}
               />
             ))}
           </div>

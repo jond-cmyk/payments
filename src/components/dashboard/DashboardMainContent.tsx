@@ -220,7 +220,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
   const counts = useMemo(() => {
     const initialCounts = {
       pending: 0,
+      urgent_pending: 0,
       setup_awaiting_approval: 0,
+      urgent_setup_awaiting_approval: 0,
       approved: 0,
       declined: 0,
       queried: 0,
@@ -235,6 +237,14 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
       allPaymentRequestsForSummaryQuery.data.forEach(request => {
         if (request.status in initialCounts) {
           initialCounts[request.status as keyof typeof initialCounts]++;
+          if (request.is_urgent) {
+            if (request.status === 'pending') {
+              initialCounts.urgent_pending++;
+            }
+            if (request.status === 'setup_awaiting_approval') {
+              initialCounts.urgent_setup_awaiting_approval++;
+            }
+          }
         }
         initialCounts.total++;
       });
