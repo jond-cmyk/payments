@@ -11,6 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCountry } from '@/integrations/supabase/CountryContext';
+import { PauseCircle } from 'lucide-react';
 
 import { editFormSchema, EditFormSchema } from '@/schemas/paymentRequestSchema';
 import PaymentRequestDisplayCards from '@/components/payment-requests/PaymentRequestDisplayCards';
@@ -21,7 +22,7 @@ import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUp
 import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentRequestAuditTrailCard';
 import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 // Zod schema for admin query note (kept here as it's admin-specific)
@@ -605,23 +606,22 @@ const PaymentRequestDetail = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <Dialog open={request.status === 'paused'} onOpenChange={() => {}}>
-        <DialogContent onInteractOutside={(e) => e.preventDefault()} className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center">Payment Request Paused</DialogTitle>
-          </DialogHeader>
-          <div className="py-8 text-center">
-            <p className="text-lg">This payment request has been paused.</p>
-          </div>
-          <DialogFooter>
-            {isAdmin && (
-              <Button onClick={handleUnpause} disabled={updateRequestMutation.isPending} className="w-full">
-                Unpause Request
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {request.status === 'paused' && (
+        <Card className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center text-yellow-800">
+              <PauseCircle className="mr-3 h-6 w-6" />
+              Payment Request Paused
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-yellow-700">This request is currently paused. No further actions can be taken until it is unpaused.</p>
+            <Button onClick={handleUnpause} disabled={updateRequestMutation.isPending} className="w-full sm:w-auto bg-yellow-600 hover:bg-yellow-700 text-white flex-shrink-0">
+              Unpause Request
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Payment Request #{request.id.substring(0, 8)}</h1>
