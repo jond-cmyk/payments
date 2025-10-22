@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useSession } from "@/integrations/supabase/SessionContext";
+import { useQueryClient } from "@tanstack/react-query";
+import { showInfo } from "@/utils/toast";
 
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import GlobalSearchSection from '@/components/dashboard/GlobalSearchSection';
@@ -14,6 +16,7 @@ const Dashboard = () => {
   const { session, isLoading, user, userProfile } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
 
   // Global Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,6 +45,33 @@ const Dashboard = () => {
       clearTimeout(handler);
     };
   }, [searchTerm]);
+
+  // Effect for auto-refreshing dashboard data every 2 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log("Auto-refreshing dashboard data...");
+      showInfo("Dashboard data has been automatically refreshed.");
+      
+      // Invalidate all queries relevant to the dashboard to trigger a refetch
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['allMissingReceiptsCountForSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['allPendingStandingOrdersCountForSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['allActiveStandingOrdersCountForSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['allActiveDirectDebitsCountForSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['recentPaymentRequests'] });
+      queryClient.invalidateQueries({ queryKey: ['recentTransactions'] });
+      queryClient.invalidateQueries({ queryKey: ['recentStandingOrders'] });
+      queryClient.invalidateQueries({ queryKey: ['recentDirectDebits'] });
+      if (debouncedSearchTerm) {
+          queryClient.invalidateQueries({ queryKey: ['globalSearch', debouncedSearchTerm] });
+      }
+    }, 120000); // 2 minutes in milliseconds
+
+    // Cleanup function to clear the interval when the component unmounts
+    return () => clearInterval(interval);
+  }, [queryClient, debouncedSearchTerm]); // Rerun if queryClient or search term changes
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading dashboard...</div>;
