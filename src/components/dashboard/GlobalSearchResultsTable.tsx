@@ -54,7 +54,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
         <TableBody>
           {searchResults.map((item) => (
             <TableRow
-              key={item.id}
+              key={`${item.type}-${item.id}`}
               className="transition-all duration-200 ease-in-out hover:bg-gradient-to-r hover:from-dyad-blue-light hover:to-dyad-blue/10"
             >
               <TableCell>
@@ -66,9 +66,10 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
                 {item.type === 'payment_request' ? item.supplier_name : item.type === 'transaction' ? item.description : item.payee} {/* Conditional display */}
               </TableCell>
               <TableCell>
-                {/* Amount is not directly available for StandingOrder and DirectDebit, display N/A or specific info */}
+                {/* Amount is not directly available for DirectDebit, display N/A or specific info */}
                 {item.type === 'payment_request' ? `${item.currency} ${item.total_amount?.toFixed(2)}` :
                  item.type === 'transaction' ? `${item.currency} ${item.amount.toFixed(2)}` :
+                 item.type === 'standing_order' ? `${item.currency} ${item.total_amount?.toFixed(2)}` :
                  'N/A'}
               </TableCell>
               <TableCell>

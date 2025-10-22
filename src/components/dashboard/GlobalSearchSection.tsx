@@ -102,7 +102,7 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
       let standingOrderQuery = supabase
           .from('standing_orders')
           .select('*')
-          .or(`payee.ilike.${term},sku.ilike.${term},account_name.ilike.${term},account_address.ilike.${term},iban_number.ilike.${term},sort_code.ilike.${term},account_number.ilike.${term},payment_reference.ilike.${term},category.ilike.${term}`);
+          .or(`payee.ilike.${term},sku.ilike.${term},account_name.ilike.${term},account_address.ilike.${term},iban_number.ilike.${term},sort_code.ilike.${term},account_number.ilike.${term},payment_reference.ilike.${term}`);
 
       // Apply country filter for standing orders
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -151,14 +151,21 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
     enabled: !!debouncedSearchTerm && !!session,
   });
 
-  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status']) => {
+  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
     let className = '';
 
     switch (status) {
       case 'pending':
+        if (itemType === 'standing_order' || itemType === 'direct_debit') {
+          className = 'bg-orange-500 text-orange-50';
+        } else { // Default for payment_request
+          className = 'bg-yellow-500 text-yellow-50';
+        }
+        break;
       case 'pending_input':
         className = 'bg-yellow-500 text-yellow-50';
+        displayText = 'Missing Receipt';
         break;
       case 'setup_awaiting_approval':
         displayText = 'Payment Setup';
@@ -184,10 +191,14 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
       case 'cancelled': // For Direct Debits and Standing Orders
         className = 'bg-red-500 text-red-50';
         break;
+      case 'awaiting_info': // For Direct Debits and Standing Orders
+        className = 'bg-orange-500 text-orange-50';
+        displayText = 'Awaiting Info';
+        break;
       default:
         className = 'bg-gray-500 text-gray-50';
     }
-    return <Badge className={cn(className, "border border-white")}>{displayText}</Badge>; // Added white border
+    return <Badge className={cn(className, "border border-white")}>{displayText}</Badge>;
   };
 
   if (searchError) {
