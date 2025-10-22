@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DirectDebit, DirectDebitAudit, Profile } from '@/types/supabase'; // Import DirectDebitAudit and Profile
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast, showInfo } from '@/utils/toast';
 import { format } from 'date-fns';
 import { Edit, Trash2, Banknote, Info, CalendarDays, UserCircle2, MessageSquareText } from 'lucide-react'; // Added new icons for sections
 import { useCountry } from '@/integrations/supabase/CountryContext';
@@ -36,7 +36,7 @@ import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm'
 const DirectDebitDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession(); // Added user
-  const { currentCountry } = useCountry();
+  const { currentCountry, setCurrentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -69,6 +69,14 @@ const DirectDebitDetail = () => {
     },
     enabled: !!id,
   });
+
+  // Effect to auto-reset country filter if item not found
+  useEffect(() => {
+    if (!isDirectDebitLoading && !directDebit && currentCountry !== 'all' && userProfile?.role === 'admin') {
+      showInfo("Country filter reset to 'All Countries' to show this item.");
+      setCurrentCountry('all');
+    }
+  }, [isDirectDebitLoading, directDebit, currentCountry, setCurrentCountry, userProfile?.role]);
 
   // Fetch audit trail
   const { data: audits, isLoading: isAuditsLoading, error: auditsError } = useQuery<DirectDebitAudit[]>({

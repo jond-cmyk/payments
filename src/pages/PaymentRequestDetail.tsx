@@ -6,7 +6,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PaymentRequest, PaymentRequestAudit, PaymentRequestCategoryItem } from '@/types/supabase';
-import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
+import { showSuccess, showError, showLoading, dismissToast, showInfo } from '@/utils/toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -45,7 +45,7 @@ const revertFormSchema = z.object({
 const PaymentRequestDetail = () => {
   const { id } = useParams<{ id: string }>();
   const { session, isLoading, user, userProfile } = useSession();
-  const { currentCountry, isCountryLocked, availableCountries } = useCountry();
+  const { currentCountry, isCountryLocked, availableCountries, setCurrentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -75,6 +75,14 @@ const PaymentRequestDetail = () => {
     },
     enabled: !!id,
   });
+
+  // Effect to auto-reset country filter if item not found
+  useEffect(() => {
+    if (!isRequestLoading && !request && currentCountry !== 'all' && userProfile?.role === 'admin') {
+      showInfo("Country filter reset to 'All Countries' to show this item.");
+      setCurrentCountry('all');
+    }
+  }, [isRequestLoading, request, currentCountry, setCurrentCountry, userProfile?.role]);
 
   // Fetch audit trail
   const { data: audits, isLoading: isAuditsLoading, error: auditsError } = useQuery<PaymentRequestAudit[]>({
