@@ -5,10 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { PaymentRequest } from '@/types/supabase';
-import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter, format, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval } from 'date-fns'; // Added eachDayOfInterval
+import { PaymentRequest, StandingOrder } from '@/types/supabase';
+import { differenceInMilliseconds, parseISO, intervalToDuration, subDays, subWeeks, subMonths, isAfter, format, startOfMonth, endOfMonth, eachMonthOfInterval, eachDayOfInterval, isBefore } from 'date-fns';
 import { BarChart as RechartsBarChart, LineChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Line } from 'recharts';
-import { CheckCircle, Clock, Filter, TrendingUp, BarChart as BarChartIcon } from 'lucide-react';
+import { CheckCircle, Clock, Filter, TrendingUp, BarChart as BarChartIcon, Repeat } from 'lucide-react';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import { showError } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import CountrySelector from '@/components/CountrySelector';
+import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 
 // Helper function to format duration
 const formatDuration = (milliseconds: number | null): string => {
@@ -73,17 +74,38 @@ const Statistics = () => {
     enabled: !!session,
   });
 
-  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData } = useMemo(() => {
+  const { data: allStandingOrders, isLoading: isStandingOrdersLoading } = useQuery<StandingOrder[]>({
+    queryKey: ['standingOrderStatistics', currentCountry],
+    queryFn: async () => {
+        if (!session) return [];
+        let query = supabase.from('standing_orders').select('*');
+        
+        if (userProfile?.role === 'requester' && userProfile.country) {
+            query = query.eq('country', userProfile.country);
+        } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+            query = query.eq('country', currentCountry);
+        }
+        const { data, error } = await query;
+        if (error) throw error;
+        return data;
+    },
+    enabled: !!session,
+  });
+
+  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData, monthlyStandingOrderValue } = useMemo(() => {
+    const baseResult = {
+      avgTimeToSetup: null,
+      avgTimeToApprove: null,
+      totalRequests: 0,
+      setupRequests: 0,
+      approvedRequests: 0,
+      statusChartData: [],
+      trendChartData: [],
+      monthlyStandingOrderValue: {},
+    };
+
     if (!allPaymentRequests) {
-      return {
-        avgTimeToSetup: null,
-        avgTimeToApprove: null,
-        totalRequests: 0,
-        setupRequests: 0,
-        approvedRequests: 0,
-        statusChartData: [],
-        trendChartData: [],
-      };
+      return baseResult;
     }
 
     let filteredRequests = [...allPaymentRequests];
@@ -147,12 +169,10 @@ const Statistics = () => {
         approvedCount++;
       }
 
-      // For status chart
       if (request.status in statusCounts) {
         statusCounts[request.status]++;
       }
 
-      // For daily trend chart
       const dayKey = format(parseISO(request.created_at), 'yyyy-MM-dd');
       dailyRequests[dayKey] = (dailyRequests[dayKey] || 0) + 1;
     });
@@ -165,9 +185,8 @@ const Statistics = () => {
       count,
     }));
 
-    // Generate trend data for the last 30 days, even if no requests
     const today = new Date();
-    const thirtyDaysAgo = subDays(today, 29); // Get 30 days including today
+    const thirtyDaysAgo = subDays(today, 29);
     const days = eachDayOfInterval({
       start: thirtyDaysAgo,
       end: today,
@@ -176,11 +195,27 @@ const Statistics = () => {
     const trendChartData = days.map(day => {
       const dayKey = format(day, 'yyyy-MM-dd');
       return {
-        name: format(day, 'MMM dd'), // Format for X-axis label
+        name: format(day, 'MMM dd'),
         requests: dailyRequests[dayKey] || 0,
       };
     });
 
+    const totalsByCurrency: Record<string, number> = {};
+    if (allStandingOrders) {
+        allStandingOrders
+            .filter(so => {
+                const isActiveStatus = so.status === 'active';
+                const startDate = parseISO(so.payment_date);
+                const endDate = so.payment_end_date ? parseISO(so.payment_end_date) : null;
+                const isWithinDateRange = isAfter(now, startDate) && (!endDate || isBefore(now, endDate));
+                return isActiveStatus && isWithinDateRange;
+            })
+            .forEach(so => {
+                if (so.currency && so.total_amount) {
+                    totalsByCurrency[so.currency] = (totalsByCurrency[so.currency] || 0) + so.total_amount;
+                }
+            });
+    }
 
     return {
       avgTimeToSetup,
@@ -190,10 +225,11 @@ const Statistics = () => {
       approvedRequests: approvedCount,
       statusChartData,
       trendChartData,
+      monthlyStandingOrderValue: totalsByCurrency,
     };
-  }, [allPaymentRequests, timeframeFilter]);
+  }, [allPaymentRequests, timeframeFilter, allStandingOrders]);
 
-  if (isSessionLoading || isRequestsLoading) {
+  if (isSessionLoading || isRequestsLoading || isStandingOrdersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading statistics...</div>;
   }
 
@@ -247,7 +283,7 @@ const Statistics = () => {
             </Select>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card className="border-l-4 border-dyad-blue shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-dyad-blue">Total Requests</CardTitle>
@@ -282,6 +318,25 @@ const Statistics = () => {
                   {formatDuration(avgTimeToApprove)}
                 </div>
                 <p className="text-xs text-muted-foreground">From payment setup to approval ({approvedRequests} requests)</p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-l-4 border-purple-500 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-purple-600">Monthly Standing Order Value</CardTitle>
+                <Repeat className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                {Object.keys(monthlyStandingOrderValue).length > 0 ? (
+                  Object.entries(monthlyStandingOrderValue).map(([currency, total]) => (
+                    <div key={currency} className="text-2xl font-bold">
+                      {formatAmount(total)} <span className="text-sm font-normal text-muted-foreground">{currency}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-2xl font-bold">0.00</div>
+                )}
+                <p className="text-xs text-muted-foreground">Total value of active standing orders per month.</p>
               </CardContent>
             </Card>
           </div>
