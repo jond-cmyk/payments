@@ -238,36 +238,32 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           <DialogTitle className="font-bold">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {/* The flex-1 class ensures this div takes up remaining vertical space */}
-        <div className="flex-1 overflow-hidden"> 
-          {/* ScrollArea now correctly fills the remaining space and handles overflow */}
-          <ScrollArea className="h-full w-full pr-4">
-            {isLoading ? (
-              <div className="text-center text-muted-foreground py-8">Loading data...</div>
-            ) : !data || data.length === 0 ? (
-              <div className="text-center text-muted-foreground py-8">No data found.</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
+        <ScrollArea className="flex-1 pr-4">
+          {isLoading ? (
+            <div className="text-center text-muted-foreground py-8">Loading data...</div>
+          ) : !data || data.length === 0 ? (
+            <div className="text-center text-muted-foreground py-8">No data found.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  {columns.map((col) => (
+                    <TableHead key={col.key}>{col.header}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {data.map((item, index) => (
+                  <TableRow key={item.self || item.customerNumber || item.invoiceNumber || item.entryNumber || index}>
                     {columns.map((col) => (
-                      <TableHead key={col.key}>{col.header}</TableHead>
+                      <TableCell key={col.key}>{renderCell(item, col, index, data)}</TableCell>
                     ))}
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.map((item, index) => (
-                    <TableRow key={item.self || item.customerNumber || item.invoiceNumber || item.entryNumber || index}>
-                      {columns.map((col) => (
-                        <TableCell key={col.key}>{renderCell(item, col, index, data)}</TableCell>
-                      ))}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </ScrollArea>
-        </div>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </ScrollArea>
       </DialogContent>
     </Dialog>
   );
