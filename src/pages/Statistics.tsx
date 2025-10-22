@@ -92,7 +92,7 @@ const Statistics = () => {
     enabled: !!session,
   });
 
-  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData, monthlyStandingOrderValue } = useMemo(() => {
+  const { avgTimeToSetup, avgTimeToApprove, totalRequests, setupRequests, approvedRequests, statusChartData, trendChartData, standingOrderValueByCurrency, standingOrderValueByDay } = useMemo(() => {
     const baseResult = {
       avgTimeToSetup: null,
       avgTimeToApprove: null,
@@ -101,7 +101,8 @@ const Statistics = () => {
       approvedRequests: 0,
       statusChartData: [],
       trendChartData: [],
-      monthlyStandingOrderValue: {},
+      standingOrderValueByCurrency: {},
+      standingOrderValueByDay: {},
     };
 
     if (!allPaymentRequests) {
@@ -200,23 +201,33 @@ const Statistics = () => {
       };
     });
 
+    const activeStandingOrders = allStandingOrders
+      ? allStandingOrders.filter(so => {
+          if (!so.payment_date) return false;
+          const isActiveStatus = so.status === 'active';
+          const startDate = parseISO(so.payment_date);
+          const endDate = so.payment_end_date ? parseISO(so.payment_end_date) : null;
+          const isWithinDateRange = isAfter(now, startDate) && (!endDate || isBefore(now, endDate));
+          return isActiveStatus && isWithinDateRange;
+        })
+      : [];
+
     const totalsByCurrency: Record<string, number> = {};
-    if (allStandingOrders) {
-        allStandingOrders
-            .filter(so => {
-                if (!so.payment_date) return false; // FIX: Guard against null payment_date
-                const isActiveStatus = so.status === 'active';
-                const startDate = parseISO(so.payment_date);
-                const endDate = so.payment_end_date ? parseISO(so.payment_end_date) : null;
-                const isWithinDateRange = isAfter(now, startDate) && (!endDate || isBefore(now, endDate));
-                return isActiveStatus && isWithinDateRange;
-            })
-            .forEach(so => {
-                if (so.currency && so.total_amount) {
-                    totalsByCurrency[so.currency] = (totalsByCurrency[so.currency] || 0) + so.total_amount;
-                }
-            });
-    }
+    const valueByPaymentDay: Record<string, number> = {};
+
+    activeStandingOrders.forEach(so => {
+      if (so.total_amount) {
+        // Group by currency
+        const currencyKey = so.currency || 'UNKNOWN';
+        totalsByCurrency[currencyKey] = (totalsByCurrency[currencyKey] || 0) + so.total_amount;
+
+        // Group by payment day
+        if (so.payment_day) {
+          const dayKey = String(so.payment_day).padStart(2, '0');
+          valueByPaymentDay[dayKey] = (valueByPaymentDay[dayKey] || 0) + so.total_amount;
+        }
+      }
+    });
 
     return {
       avgTimeToSetup,
@@ -226,9 +237,23 @@ const Statistics = () => {
       approvedRequests: approvedCount,
       statusChartData,
       trendChartData,
-      monthlyStandingOrderValue: totalsByCurrency,
+      standingOrderValueByCurrency: totalsByCurrency,
+      standingOrderValueByDay: valueByPaymentDay,
     };
   }, [allPaymentRequests, timeframeFilter, allStandingOrders]);
+
+  const standingOrderValueByCurrencyChartData = Object.entries(standingOrderValueByCurrency).map(([currency, total]) => ({
+    name: currency,
+    total,
+  }));
+
+  const standingOrderValueByDayChartData = Object.entries(standingOrderValueByDay)
+    .map(([day, total]) => ({
+        name: `Day ${day}`,
+        dayNum: parseInt(day, 10),
+        total,
+    }))
+    .sort((a, b) => a.dayNum - b.dayNum);
 
   if (isSessionLoading || isRequestsLoading || isStandingOrdersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading statistics...</div>;
@@ -284,7 +309,7 @@ const Statistics = () => {
             </Select>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card className="border-l-4 border-dyad-blue shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-dyad-blue">Total Requests</CardTitle>
@@ -319,25 +344,6 @@ const Statistics = () => {
                   {formatDuration(avgTimeToApprove)}
                 </div>
                 <p className="text-xs text-muted-foreground">From payment setup to approval ({approvedRequests} requests)</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-l-4 border-purple-500 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-purple-600">Monthly Standing Order Value</CardTitle>
-                <Repeat className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                {Object.keys(monthlyStandingOrderValue).length > 0 ? (
-                  Object.entries(monthlyStandingOrderValue).map(([currency, total]) => (
-                    <div key={currency} className="text-2xl font-bold">
-                      {formatAmount(total)} <span className="text-sm font-normal text-muted-foreground">{currency}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-2xl font-bold">0.00</div>
-                )}
-                <p className="text-xs text-muted-foreground">Total value of active standing orders per month.</p>
               </CardContent>
             </Card>
           </div>
@@ -382,6 +388,44 @@ const Statistics = () => {
                       <Legend />
                       <Line type="monotone" dataKey="requests" stroke="hsl(var(--dyad-blue))" activeDot={{ r: 8 }} />
                     </LineChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Monthly Standing Order Value by Currency</CardTitle>
+                  <CardDescription>Total value of active standing orders per month, grouped by currency.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsBarChart data={standingOrderValueByCurrencyChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatAmount(value)} />
+                      <Legend />
+                      <Bar dataKey="total" fill="hsl(var(--dyad-blue))" name="Total Value" />
+                    </RechartsBarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Standing Order Value by Payment Day</CardTitle>
+                  <CardDescription>Total value of active standing orders, grouped by the day of the month they are paid. Note: This sum mixes different currencies.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <RechartsBarChart data={standingOrderValueByDayChartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip formatter={(value) => formatAmount(value)} />
+                      <Legend />
+                      <Bar dataKey="total" fill="hsl(var(--dyad-blue-light))" name="Total Value" />
+                    </RechartsBarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
