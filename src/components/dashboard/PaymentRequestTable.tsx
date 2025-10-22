@@ -28,6 +28,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination"; // Import pagination components
+import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
 
 interface PaymentRequestTableProps {
   paymentRequests: (PaymentRequest & { requester_profile: { first_name: string | null } | null })[] | undefined;
@@ -41,6 +42,7 @@ interface PaymentRequestTableProps {
   itemsPerPage: number | 'all'; // New prop
   totalItems: number; // New prop
   onPageChange: (page: number) => void; // New prop
+  isLoading: boolean; // NEW: Add isLoading prop
 }
 
 const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
@@ -55,6 +57,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   itemsPerPage,
   totalItems,
   onPageChange,
+  isLoading, // NEW: Destructure isLoading
 }) => {
   const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / (itemsPerPage as number));
 
@@ -151,64 +154,82 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paymentRequests?.map((request) => {
-              console.log(`[PaymentRequestTable] Request ID: ${request.id.substring(0, 8)}, is_urgent: ${request.is_urgent}, is_reminded: ${request.is_reminded}, status: ${request.status}`);
-              return (
-                <TableRow
-                  key={request.id}
-                  className={cn(
-                    "transition-all duration-200 ease-in-out",
-                    request.is_urgent ? "bg-red-600 text-white hover:bg-red-700" :
-                    request.is_reminded ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : // Blue for reminded requests
-                    "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
-                  )}
-                >
-                  <TableCell className="font-medium">{request.supplier_name}</TableCell>
-                  <TableCell>{request.sku_number}</TableCell>
-                  <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
-                  <TableCell>
-                    {getStatusBadge(request.status, 'payment_request')}
-                  </TableCell>
-                  <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
-                  <TableCell>
-                    {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
-                  </TableCell>
-                  <TableCell>
-                    {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
-                  </TableCell>
-                  <TableCell>{request.requester_profile?.first_name || 'N/A'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <CountryFlag countryName={request.country} />
-                      <span>{request.country}</span>
-                    </div>
-                  </TableCell>
-                  {userRole === 'admin' && (
-                    <TableCell className="text-center">
-                      <Switch
-                        checked={request.is_urgent}
-                        onCheckedChange={() => handleToggleUrgent(request.id, request.is_urgent)}
-                        disabled={toggleUrgentMutation.isPending}
-                        aria-label={`Toggle urgent status for ${request.supplier_name}`}
-                      />
-                    </TableCell>
-                  )}
-                  <TableCell className="text-right">
-                    <Button
-                      asChild
-                      variant="outline"
-                      size="sm"
-                      className={cn(
-                        request.is_urgent && "text-gray-900 hover:text-white hover:bg-red-800 border-gray-900",
-                        request.is_reminded && "text-blue-800 hover:text-blue-900 hover:bg-blue-300 border-blue-800"
-                      )}
-                    >
-                      <Link to={`/request/${request.id}`}>View Details</Link>
-                    </Button>
-                  </TableCell>
+            {isLoading ? (
+              Array.from({ length: itemsPerPage === 'all' ? 10 : itemsPerPage }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  {userRole === 'admin' && <TableCell className="text-center"><Skeleton className="h-6 w-10 mx-auto" /></TableCell>}
+                  <TableCell className="text-right"><Skeleton className="h-8 w-[100px] ml-auto" /></TableCell>
                 </TableRow>
-              );
-            })}
+              ))
+            ) : (
+              paymentRequests?.map((request) => {
+                console.log(`[PaymentRequestTable] Request ID: ${request.id.substring(0, 8)}, is_urgent: ${request.is_urgent}, is_reminded: ${request.is_reminded}, status: ${request.status}`);
+                return (
+                  <TableRow
+                    key={request.id}
+                    className={cn(
+                      "transition-all duration-200 ease-in-out",
+                      request.is_urgent ? "bg-red-600 text-white hover:bg-red-700" :
+                      request.is_reminded ? "bg-blue-100 text-blue-800 hover:bg-blue-200" : // Blue for reminded requests
+                      "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
+                    )}
+                  >
+                    <TableCell className="font-medium">{request.supplier_name}</TableCell>
+                    <TableCell>{request.sku_number}</TableCell>
+                    <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
+                    <TableCell>
+                      {getStatusBadge(request.status, 'payment_request')}
+                    </TableCell>
+                    <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
+                    <TableCell>
+                      {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
+                    </TableCell>
+                    <TableCell>{request.requester_profile?.first_name || 'N/A'}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <CountryFlag countryName={request.country} />
+                        <span>{request.country}</span>
+                      </div>
+                    </TableCell>
+                    {userRole === 'admin' && (
+                      <TableCell className="text-center">
+                        <Switch
+                          checked={request.is_urgent}
+                          onCheckedChange={() => handleToggleUrgent(request.id, request.is_urgent)}
+                          disabled={toggleUrgentMutation.isPending}
+                          aria-label={`Toggle urgent status for ${request.supplier_name}`}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="text-right">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          request.is_urgent && "text-gray-900 hover:text-white hover:bg-red-800 border-gray-900",
+                          request.is_reminded && "text-blue-800 hover:text-blue-900 hover:bg-blue-300 border-blue-800"
+                        )}
+                      >
+                        <Link to={`/request/${request.id}`}>View Details</Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>

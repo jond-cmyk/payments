@@ -589,7 +589,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
         </div>
       )}
 
-      {paymentRequestsForTable && paymentRequestsForTable.length > 0 ? (
+      {paymentRequestsForTable || isRequestsTableLoading ? (
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-2xl font-bold">
@@ -615,6 +615,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
             itemsPerPage={itemsPerPage}
             totalItems={totalItems}
             onPageChange={setCurrentPage}
+            isLoading={isRequestsTableLoading}
           />
         </Card>
       ) : (
