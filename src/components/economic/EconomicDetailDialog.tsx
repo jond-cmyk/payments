@@ -16,7 +16,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button';
 import { FileText } from 'lucide-react';
 import { format } from 'date-fns'; // Import format
@@ -238,7 +237,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           <DialogTitle className="font-bold">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <ScrollArea className="flex-1 pr-4">
+        <div className="relative flex-1 overflow-y-auto pr-4">
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">Loading data...</div>
           ) : !data || data.length === 0 ? (
@@ -263,7 +262,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
               </TableBody>
             </Table>
           )}
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
