@@ -654,7 +654,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Check KH Platform</p>
+                    <p>Check Accommodation in Platform</p>
                   </TooltipContent>
                 </Tooltip>
               </div>
