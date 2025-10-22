@@ -176,7 +176,7 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
+                  {availableCountries.map((country) => (
                     <SelectItem key={country.value} value={country.value}>
                       {country.label}
                     </SelectItem>

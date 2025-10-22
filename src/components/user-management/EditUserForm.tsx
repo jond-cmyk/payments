@@ -127,14 +127,14 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
           render={({ field }) => (
             <FormItem>
               <FormLabel>Country</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSaving || isCurrentUser}>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isSaving}>
                 <SelectTrigger>
                   <FormControl>
                     <SelectValue placeholder="Select a country" />
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
+                  {availableCountries.map((country) => (
                     <SelectItem key={country.value} value={country.value}>
                       {country.label}
                     </SelectItem>
