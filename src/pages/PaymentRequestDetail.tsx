@@ -350,40 +350,45 @@ const PaymentRequestDetail = () => {
   const handleRequesterEditSubmit = async (values: EditFormSchema) => {
     const toastId = showLoading("Updating payment request...");
     try {
-      if (!user?.id) {
-        throw new Error("User not authenticated.");
+      if (!user?.id || !request) {
+        throw new Error("User not authenticated or request data missing.");
       }
 
-      const invoiceFiles: FileList = values.invoice_pdf; // This is the new files, not existing ones
+      const invoiceFiles: FileList = values.invoice_pdf;
       
+      // FIX: Use original country if form value is missing (due to disabled field)
+      const countryForUpdate = values.country || request.country;
+
       const updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList } = {
         supplier_name: values.supplier_name,
-        sku_number: values.not_sku_related ? null : values.sku_number, // Set to null if not SKU related
-        not_sku_related: values.not_sku_related, // Save the checkbox state
-        lease_id: values.lease_id || null, // Include lease_id, set to null if empty
+        sku_number: values.not_sku_related ? null : values.sku_number,
+        not_sku_related: values.not_sku_related,
+        lease_id: values.lease_id || null,
         supplier_address: values.supplier_address,
-        currency: values.currency,
         total_amount: values.total_amount,
-        reason_for_payment: values.notes || null, // CHANGED: Map notes to reason_for_payment, set to null if optional/empty
+        reason_for_payment: values.notes || null,
         date_payment_required: values.date_payment_required.toISOString().split('T')[0],
         receipt_required: values.receipt_required,
-        is_urgent: values.is_urgent, // Include urgent status
-        country: values.country, // Include country from form values
-        categories: values.categories as PaymentRequestCategoryItem[], // Explicitly cast here
+        is_urgent: values.is_urgent,
+        country: countryForUpdate,
+        categories: values.categories as PaymentRequestCategoryItem[],
         bank_details_verified: values.bank_details_verified,
       };
 
-      // Conditionally add bank details to updatedFields
-      if (values.country === 'United Kingdom') {
+      // Set currency based on the determined country
+      updatedFields.currency = countryForUpdate === 'United Kingdom' ? 'GBP' : values.currency;
+
+      // Conditionally add bank details to updatedFields based on the determined country
+      if (countryForUpdate === 'United Kingdom') {
         updatedFields.iban_number = null;
         updatedFields.sort_code = values.sort_code;
-        updatedFields.account_number = values.account_number?.replace(/\s/g, ''); // Remove spaces for DB storage
+        updatedFields.account_number = values.account_number?.replace(/\s/g, '');
         updatedFields.bank_account_name = values.bank_account_name;
       } else {
         updatedFields.iban_number = values.iban_number;
         updatedFields.sort_code = null;
         updatedFields.account_number = null;
-        updatedFields.bank_account_name = values.country === 'Switzerland' ? values.bank_account_name : null;
+        updatedFields.bank_account_name = countryForUpdate === 'Switzerland' ? values.bank_account_name : null;
       }
 
       if (values.invoice_pdf && values.invoice_pdf.length > 0) {

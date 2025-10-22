@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form'; // Import useWatch
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,9 +21,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
-import { Card, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
+import { Card, CardTitle } from '@/components/ui/card'; // Import Card and CardTitle for suggestions
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -328,8 +328,11 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       // FIX: Use Date.UTC to prevent timezone shifting the date
       const paymentDate = values.payment_date.toISOString().split('T')[0];
 
+      // FIX: Use original country if form value is missing (due to disabled field for non-admins)
+      const countryForUpdate = values.country || standingOrder.country;
+
       // Prepare bank details based on country
-      const bankDetails = values.country === 'United Kingdom'
+      const bankDetails = countryForUpdate === 'United Kingdom'
         ? {
             account_address: null,
             iban_number: null,
@@ -359,11 +362,11 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           to_day: parseInt(values.to_day),
           payment_reference: values.payment_reference || null,
           status: values.status,
-          country: values.country,
+          country: countryForUpdate,
           bank_details_verified: values.bank_details_verified,
           payment_day: safeDay,
-          currency: values.country === 'United Kingdom' ? 'GBP' : (values.country === 'Switzerland' ? values.currency : null),
-          bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
+          currency: countryForUpdate === 'United Kingdom' ? 'GBP' : (countryForUpdate === 'Switzerland' ? values.currency : null),
+          bank_account: countryForUpdate === 'Switzerland' ? values.bank_account : null,
           updated_at: new Date().toISOString(),
         })
         .eq('id', standingOrder.id);
