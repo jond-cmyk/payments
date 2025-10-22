@@ -202,14 +202,7 @@ const Statistics = () => {
     });
 
     const activeStandingOrders = allStandingOrders
-      ? allStandingOrders.filter(so => {
-          if (!so.payment_date) return false;
-          const isActiveStatus = so.status === 'active';
-          const startDate = parseISO(so.payment_date);
-          const endDate = so.payment_end_date ? parseISO(so.payment_end_date) : null;
-          const isWithinDateRange = !isBefore(now, startDate) && (!endDate || isBefore(now, endDate));
-          return isActiveStatus && isWithinDateRange;
-        })
+      ? allStandingOrders.filter(so => so.status === 'active')
       : [];
 
     const totalsByCurrency: Record<string, number> = {};
