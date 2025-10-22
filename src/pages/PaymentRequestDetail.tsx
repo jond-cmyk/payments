@@ -357,7 +357,7 @@ const PaymentRequestDetail = () => {
       const invoiceFiles: FileList = values.invoice_pdf;
       
       // FIX: Use original country if form value is missing (due to disabled field)
-      const countryForUpdate = values.country || request.country;
+      const countryForUpdate = (values.country && values.country.trim() !== '') ? values.country : request.country;
 
       const updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList } = {
         supplier_name: values.supplier_name,

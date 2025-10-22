@@ -208,7 +208,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
       const paymentDate = new Date(Date.UTC(year, monthIndex, safeDay || 1)).toISOString().split('T')[0];
 
       // FIX: Use original country if form value is missing (due to disabled field for non-admins)
-      const countryForUpdate = values.country || directDebit.country;
+      const countryForUpdate = (values.country && values.country.trim() !== '') ? values.country : directDebit.country;
 
       const { error: updateError } = await supabase
         .from('direct_debits')

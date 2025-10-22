@@ -329,7 +329,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       const paymentDate = values.payment_date.toISOString().split('T')[0];
 
       // FIX: Use original country if form value is missing (due to disabled field for non-admins)
-      const countryForUpdate = values.country || standingOrder.country;
+      const countryForUpdate = (values.country && values.country.trim() !== '') ? values.country : standingOrder.country;
 
       // Prepare bank details based on country
       const bankDetails = countryForUpdate === 'United Kingdom'
