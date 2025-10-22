@@ -671,86 +671,89 @@ const DirectDebits = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {directDebits.map((debit) => (
-                    <TableRow key={debit.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
-                      <TableCell className="w-12">
-                        <Checkbox
-                          checked={selectedIds.includes(debit.id)}
-                          onCheckedChange={(checked) => toggleRowSelection(debit.id, Boolean(checked))}
-                          aria-label={`Select ${debit.payee}`}
-                        />
-                      </TableCell>
-                      <TableCell className="font-medium">{debit.payee}</TableCell>
-                      <TableCell>
-                        {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
-                      </TableCell>
-                      <TableCell>
-                        {debit.categories && debit.categories.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
-                            {debit.categories.map((cat, idx) => (
-                              <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-800">
-                                {categoryOptions.find(c => c.value === cat)?.label || cat}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : 'N/A'}
-                      </TableCell>
-                      <TableCell>{formatAmount(debit.total_amount)}</TableCell>
-                      <TableCell>{debit.payment_day !== null && debit.payment_day !== undefined ? debit.payment_day : 'N/A'}</TableCell>
-                      <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
-                      <TableCell>{getStatusBadge(debit.status)}</TableCell>
-                      <TableCell>{debit.country}</TableCell>
-                      <TableCell>{debit.account_number}</TableCell>
-                      <TableCell className="text-right flex items-center justify-end space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shadow-sm"
-                          onClick={() => navigate(`/direct-debit/${debit.id}`)}
-                        >
-                          <Eye className="h-4 w-4" /> View
-                        </Button>
-                        {isAdmin && (
+                  {directDebits.map((debit) => {
+                    const isRequester = user?.id === debit.requester_id;
+                    return (
+                      <TableRow key={debit.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
+                        <TableCell className="w-12">
+                          <Checkbox
+                            checked={selectedIds.includes(debit.id)}
+                            onCheckedChange={(checked) => toggleRowSelection(debit.id, Boolean(checked))}
+                            aria-label={`Select ${debit.payee}`}
+                          />
+                        </TableCell>
+                        <TableCell className="font-medium">{debit.payee}</TableCell>
+                        <TableCell>
+                          {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
+                        </TableCell>
+                        <TableCell>
+                          {debit.categories && debit.categories.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {debit.categories.map((cat, idx) => (
+                                <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-800">
+                                  {categoryOptions.find(c => c.value === cat)?.label || cat}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : 'N/A'}
+                        </TableCell>
+                        <TableCell>{formatAmount(debit.total_amount)}</TableCell>
+                        <TableCell>{debit.payment_day !== null && debit.payment_day !== undefined ? debit.payment_day : 'N/A'}</TableCell>
+                        <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
+                        <TableCell>{getStatusBadge(debit.status)}</TableCell>
+                        <TableCell>{debit.country}</TableCell>
+                        <TableCell>{debit.account_number}</TableCell>
+                        <TableCell className="text-right flex items-center justify-end space-x-2">
                           <Button
                             variant="outline"
                             size="sm"
                             className="shadow-sm"
-                            onClick={() => handleEditClick(debit)}
+                            onClick={() => navigate(`/direct-debit/${debit.id}`)}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Eye className="h-4 w-4" /> View
                           </Button>
-                        )}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                          {(isAdmin || isRequester) && (
                             <Button
                               variant="outline"
                               size="sm"
-                              className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm"
-                              disabled={deleteDirectDebitMutation.isPending || !isAdmin}
+                              className="shadow-sm"
+                              onClick={() => handleEditClick(debit)}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the direct debit for <strong>{debit.payee}</strong>.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteDirectDebitMutation.mutate(debit.id)} asChild>
-                                <Button variant="destructive">
-                                  Delete
-                                </Button>
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                          )}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm"
+                                disabled={deleteDirectDebitMutation.isPending || !isAdmin}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the direct debit for <strong>{debit.payee}</strong>.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteDirectDebitMutation.mutate(debit.id)} asChild>
+                                  <Button variant="destructive">
+                                    Delete
+                                  </Button>
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>

@@ -42,8 +42,6 @@ const DirectDebitDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const isAdmin = userProfile?.role === 'admin';
-
   // Add state for the edit dialog
   const [isEditDirectDebitDialogOpen, setIsEditDirectDebitDialogOpen] = React.useState(false);
   const [editingDirectDebit, setEditingDirectDebit] = React.useState<DirectDebit | null>(null);
@@ -71,6 +69,9 @@ const DirectDebitDetail = () => {
     },
     enabled: !!id,
   });
+
+  const isAdmin = userProfile?.role === 'admin';
+  const isRequester = user?.id === directDebit?.requester_id;
 
   // Effect to auto-reset country filter if item not found
   useEffect(() => {
@@ -249,7 +250,7 @@ const DirectDebitDetail = () => {
       <PageTitle title={`Direct Debit ${directDebit.payee} - KH Payments`} />
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Direct Debit #{directDebit.id.substring(0, 8)}</h1>
-        {isAdmin && (
+        {(isAdmin || isRequester) && (
           <div className="flex space-x-2">
             <Button
               variant="outline"
@@ -258,33 +259,35 @@ const DirectDebitDetail = () => {
             >
               <Edit className="mr-2 h-4 w-4" /> Edit Direct Debit
             </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="destructive"
-                  className="shadow-sm"
-                  disabled={deleteDirectDebitMutation.isPending}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Direct Debit
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the direct debit for <strong>{directDebit.payee}</strong>.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deleteDirectDebitMutation.mutate(directDebit.id)} asChild>
-                    <Button variant="destructive">
-                      Delete
-                    </Button>
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {isAdmin && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    className="shadow-sm"
+                    disabled={deleteDirectDebitMutation.isPending}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Delete Direct Debit
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the direct debit for <strong>{directDebit.payee}</strong>.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deleteDirectDebitMutation.mutate(directDebit.id)} asChild>
+                      <Button variant="destructive">
+                        Delete
+                      </Button>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         )}
       </div>
