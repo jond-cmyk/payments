@@ -173,6 +173,7 @@ const Statistics = () => {
       declined: 0,
       queried: 0,
       cancelled: 0,
+      paused: 0,
     };
 
     const dailyRequests: Record<string, number> = {}; // YYYY-MM-DD -> count

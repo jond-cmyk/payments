@@ -40,6 +40,7 @@ const statusOptions = [
   { value: 'declined', label: 'Declined' },
   { value: 'queried', label: 'Queried' },
   { value: 'cancelled', label: 'Cancelled' },
+  { value: 'paused', label: 'Paused' },
 ];
 
 const PaymentRequestFilters: React.FC<PaymentRequestFiltersProps> = ({

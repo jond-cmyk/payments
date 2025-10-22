@@ -4,7 +4,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2, RotateCcw, BellRing, Ban } from 'lucide-react'; // Import Ban icon
+import { CheckCircle, XCircle, DollarSign, MessageSquare, Trash2, RotateCcw, BellRing, Ban, Pause } from 'lucide-react'; // Import Ban and Pause icons
 import { UseMutationResult } from '@tanstack/react-query';
 import { User } from '@supabase/supabase-js';
 
@@ -45,7 +45,7 @@ interface AdminActionsCardProps {
   isAdmin: boolean;
   updateRequestMutation: UseMutationResult<boolean, Error, Partial<PaymentRequest> & { new_invoice_files?: FileList }, unknown>;
   deleteRequestMutation: UseMutationResult<boolean, Error, void, unknown>;
-  handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled', reason?: string) => Promise<boolean>; // Updated return type
+  handleAdminAction: (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled' | 'paused', reason?: string) => Promise<boolean>; // Updated return type
   handleAdminQuery: (values: z.infer<typeof queryFormSchema>) => Promise<boolean>;
   handleAdminRevert: (values: z.infer<typeof revertFormSchema>) => Promise<boolean>; // New prop for revert handler
   handleSendReminder: () => Promise<void>; // NEW: Prop for sending reminder
@@ -112,15 +112,16 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
   // Reminder button visibility: any authenticated user, if status is pending or setup_awaiting_approval
   const showReminderButton = !!user && (request.status === 'pending' || request.status === 'setup_awaiting_approval');
   const showCancelButton = !!user && (request.status === 'pending' || request.status === 'queried');
+  const showPauseButton = !!user && (request.status === 'pending' || request.status === 'queried');
 
-  if (!isAdmin && !showReminderButton && !showCancelButton) { // Only hide if not admin AND no reminder/cancel button
+  if (!isAdmin && !showReminderButton && !showCancelButton && !showPauseButton) { // Only hide if not admin AND no other buttons are visible
     return null;
   }
 
   return (
     <Card className="mb-8 shadow-sm"> {/* Added shadow-sm */}
       <CardHeader>
-        <CardTitle>Admin Actions</CardTitle>
+        <CardTitle>Actions</CardTitle>
         <CardDescription>Manage this payment request.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-4">
@@ -234,6 +235,35 @@ const AdminActionsCard: React.FC<AdminActionsCardProps> = ({
                   <Button form="decline-form" type="submit" variant="destructive">
                     Decline
                   </Button>
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {/* NEW: Pause Request Button */}
+        {showPauseButton && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="text-gray-600 border-gray-600 hover:bg-gray-100 shadow-sm"
+                disabled={updateRequestMutation.isPending}
+              >
+                <Pause className="mr-2 h-4 w-4" /> Pause Request
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure you want to pause this request?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Pausing this request will halt all actions until it is unpaused by an administrator.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleAdminAction('paused')} asChild>
+                  <Button variant="default">Confirm Pause</Button>
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

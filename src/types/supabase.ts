@@ -24,7 +24,8 @@ export type PaymentRequestStatus =
   | 'approved'
   | 'declined'
   | 'queried'
-  | 'cancelled';
+  | 'cancelled'
+  | 'paused';
 
 export type PaymentRequestCategoryItem = {
   category: string;

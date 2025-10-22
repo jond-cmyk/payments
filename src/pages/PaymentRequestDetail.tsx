@@ -22,6 +22,7 @@ import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentR
 import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 // Zod schema for admin query note (kept here as it's admin-specific)
 const queryFormSchema = z.object({
@@ -405,7 +406,7 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled', reason?: string) => {
+  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled' | 'paused', reason?: string) => {
     const toastId = showLoading(`Setting status to ${status.replace(/_/g, ' ')}...`);
     try {
       if (!user?.id) throw new Error("User not authenticated.");
@@ -413,6 +414,10 @@ const PaymentRequestDetail = () => {
       // If declining, first add the reason as a comment
       if (status === 'declined' && reason) {
         await addCommentMutation.mutateAsync(`Declined: ${reason}`);
+      }
+
+      if (status === 'paused') {
+        await addCommentMutation.mutateAsync(`Request paused by user.`);
       }
 
       const updatedFields: Partial<PaymentRequest> = {
@@ -563,6 +568,19 @@ const PaymentRequestDetail = () => {
     }
   };
 
+  const handleUnpause = async () => {
+    const toastId = showLoading("Unpausing request...");
+    try {
+      await addCommentMutation.mutateAsync("Request unpaused.");
+      await updateRequestMutation.mutateAsync({ status: 'pending' });
+      dismissToast(toastId);
+      showSuccess("Request has been unpaused and returned to 'Pending' status.");
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to unpause request.");
+    }
+  };
+
   if (isLoading || isRequestLoading || isAuditsLoading || isAuditUsersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading payment request...</div>;
   }
@@ -587,6 +605,24 @@ const PaymentRequestDetail = () => {
 
   return (
     <div className="container mx-auto py-8">
+      <Dialog open={request.status === 'paused'} onOpenChange={() => {}}>
+        <DialogContent onInteractOutside={(e) => e.preventDefault()} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-center">Payment Request Paused</DialogTitle>
+          </DialogHeader>
+          <div className="py-8 text-center">
+            <p className="text-lg">This payment request has been paused.</p>
+          </div>
+          <DialogFooter>
+            {isAdmin && (
+              <Button onClick={handleUnpause} disabled={updateRequestMutation.isPending} className="w-full">
+                Unpause Request
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Payment Request #{request.id.substring(0, 8)}</h1>
         {canAmend && !isEditing && (
