@@ -461,7 +461,7 @@ const Statistics = () => {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Requests by Status</CardTitle>
-                  <CardDescription>Distribution of payment requests by their current status.</CardDescription>
+                  <CardDescription className="min-h-[40px]">Distribution of payment requests by their current status.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -480,7 +480,7 @@ const Statistics = () => {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Daily Request Trend (Last 30 Days)</CardTitle>
-                  <CardDescription>Number of new payment requests over the last 30 days.</CardDescription>
+                  <CardDescription className="min-h-[40px]">Number of new payment requests over the last 30 days.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -499,7 +499,7 @@ const Statistics = () => {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Monthly Standing Order Value by Currency</CardTitle>
-                  <CardDescription>Total value of active standing orders per month, grouped by currency.</CardDescription>
+                  <CardDescription className="min-h-[40px]">Total value of active standing orders per month, grouped by currency.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -518,7 +518,7 @@ const Statistics = () => {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Standing Order Value by Payment Day</CardTitle>
-                  <CardDescription>Total value of active standing orders, grouped by the day of the month they are paid. Note: This sum mixes different currencies.</CardDescription>
+                  <CardDescription className="min-h-[40px]">Total value of active standing orders, grouped by the day of the month they are paid. Note: This sum mixes different currencies.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -537,7 +537,7 @@ const Statistics = () => {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Monthly Direct Debit Value by Currency</CardTitle>
-                  <CardDescription>Total value of active direct debits per month, grouped by currency.</CardDescription>
+                  <CardDescription className="min-h-[40px]">Total value of active direct debits per month, grouped by currency.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -556,7 +556,7 @@ const Statistics = () => {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Direct Debit Value by Payment Day</CardTitle>
-                  <CardDescription>Total value of active direct debits, grouped by the day of the month they are paid. Note: This sum mixes different currencies.</CardDescription>
+                  <CardDescription className="min-h-[40px]">Total value of active direct debits, grouped by the day of the month they are paid. Note: This sum mixes different currencies.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -575,7 +575,7 @@ const Statistics = () => {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Combined Monthly Recurring Value by Currency</CardTitle>
-                  <CardDescription>Total value of active Standing Orders & Direct Debits per month, by currency.</CardDescription>
+                  <CardDescription className="min-h-[40px]">Total value of active Standing Orders & Direct Debits per month, by currency.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -585,7 +585,7 @@ const Statistics = () => {
                       <YAxis />
                       <Tooltip formatter={(value) => formatAmount(value)} />
                       <Legend />
-                      <Bar dataKey="total" fill="#82ca9d" name="Total Value" />
+                      <Bar dataKey="total" fill="hsl(var(--dyad-blue))" name="Total Value" />
                     </RechartsBarChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -594,7 +594,7 @@ const Statistics = () => {
               <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle>Combined Recurring Value by Payment Day</CardTitle>
-                  <CardDescription>Total value of active Standing Orders & Direct Debits, by payment day. Note: This sum mixes different currencies.</CardDescription>
+                  <CardDescription className="min-h-[40px]">Total value of active Standing Orders & Direct Debits, by payment day. Note: This sum mixes different currencies.</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <ResponsiveContainer width="100%" height={300}>
@@ -604,7 +604,7 @@ const Statistics = () => {
                       <YAxis />
                       <Tooltip formatter={(value) => formatAmount(value)} />
                       <Legend />
-                      <Bar dataKey="total" fill="#8884d8" name="Total Value" />
+                      <Bar dataKey="total" fill="hsl(var(--dyad-blue-light))" name="Total Value" />
                     </RechartsBarChart>
                   </ResponsiveContainer>
                 </CardContent>
