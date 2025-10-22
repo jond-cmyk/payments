@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Profile } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
-import { format } from 'date-fns'; // Import format for filename
+import { format, formatDistanceToNow } from 'date-fns'; // Import format for filename
 
 import {
   Table,
@@ -38,6 +38,7 @@ import AddUserForm from '@/components/user-management/AddUserForm';
 import EditUserForm from '@/components/user-management/EditUserForm';
 import CountryFlag from '@/components/CountryFlag';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const UserManagement = () => {
   const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession();
@@ -178,7 +179,7 @@ const UserManagement = () => {
 
   // Define columns for Profile export
   const profileExportColumns: (keyof Profile)[] = [
-    'id', 'first_name', 'last_name', 'user_email', 'role', 'is_approved', 'country', 'updated_at', 'avatar_url'
+    'id', 'first_name', 'last_name', 'user_email', 'role', 'is_approved', 'country', 'updated_at', 'avatar_url', 'last_sign_in_at'
   ];
 
   const handleDownloadUsers = () => {
@@ -256,6 +257,7 @@ const UserManagement = () => {
                     <TableHead>Role</TableHead>
                     <TableHead>Country</TableHead>
                     <TableHead>Approved</TableHead>
+                    <TableHead>Last Logged In</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -295,6 +297,20 @@ const UserManagement = () => {
                           <Badge className={cn("bg-red-500 text-red-50", "transform translate-x-0 translate-y-0")}>
                             <XCircle className="mr-1 h-3 w-3" /> Pending
                           </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {profile.last_sign_in_at ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>{formatDistanceToNow(new Date(profile.last_sign_in_at), { addSuffix: true })}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {format(new Date(profile.last_sign_in_at), 'PPP p')}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          'Never'
                         )}
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">

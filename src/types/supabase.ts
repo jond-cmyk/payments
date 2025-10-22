@@ -14,6 +14,7 @@ export type Profile = {
   is_approved: boolean;
   country: string | null;
   user_email?: string | null;
+  last_sign_in_at?: string | null;
 };
 
 /** Payment Requests */
