@@ -204,6 +204,7 @@ const Statistics = () => {
     if (allStandingOrders) {
         allStandingOrders
             .filter(so => {
+                if (!so.payment_date) return false; // FIX: Guard against null payment_date
                 const isActiveStatus = so.status === 'active';
                 const startDate = parseISO(so.payment_date);
                 const endDate = so.payment_end_date ? parseISO(so.payment_end_date) : null;
