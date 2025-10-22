@@ -209,7 +209,7 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
     <>
       <div className="mb-8 flex items-center gap-2">
         <Input
-          placeholder="Search all requests and missing receipts..."
+          placeholder="Search all records..."
           value={searchTerm}
           onChange={(e) => handleTextFilterChange(e.target.value)}
           className="flex-1 shadow-sm"
