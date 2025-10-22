@@ -191,7 +191,7 @@ const DirectDebits = () => {
       const nonAllCategories = filterCategories.filter(c => c !== 'all');
       if (nonAllCategories.length > 0) {
         const categoryFilters = nonAllCategories.map(category => 
-          `categories.cs.[{"category": "${category}"}]`
+          `categories.cs.["${category}"]`
         ).join(',');
         query = query.or(categoryFilters);
       }
@@ -689,7 +689,7 @@ const DirectDebits = () => {
                           <div className="flex flex-wrap gap-1">
                             {debit.categories.map((cat, idx) => (
                               <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-800">
-                                {categoryOptions.find(c => c.value === cat.category)?.label || cat.category}
+                                {categoryOptions.find(c => c.value === cat)?.label || cat}
                               </Badge>
                             ))}
                           </div>

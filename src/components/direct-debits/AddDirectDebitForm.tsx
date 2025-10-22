@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { PlusCircle, MinusCircle, DollarSign } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -20,8 +20,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Card, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Card } from '@/components/ui/card';
+import MultiSelectFormField from '@/components/MultiSelectFormField';
 
 // Zod schema for adding a new direct debit
 const addDirectDebitFormSchema = z.object({
@@ -36,10 +36,7 @@ const addDirectDebitFormSchema = z.object({
     .max(31, "Day must be between 1 and 31."),
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
-  categories: z.array(z.object({
-    category: z.string().min(1, "Category is required."),
-    amount: z.coerce.number().min(0.01, "Amount must be positive."),
-  })).min(1, "At least one category with an amount is required."),
+  categories: z.array(z.string()).min(1, "At least one category is required."),
   total_amount: z.coerce.number().min(0.01, "Total amount must be positive."),
   account_number: z.string().min(1, "Supplier Account Number is required."),
   payment_reference: z.string().optional(),
@@ -113,7 +110,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       payment_day: undefined,
       sku: initialCountry === 'United Kingdom' ? 'UK' : 'CH',
       not_property_related: false,
-      categories: [{ category: "", amount: 0 }],
+      categories: [],
       total_amount: 0,
       account_number: "",
       payment_reference: "",
@@ -124,28 +121,9 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "categories",
-  });
-
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
   const isAdmin = userProfile?.role === 'admin';
-  
-  const watchedCategories = useWatch({
-    control: form.control,
-    name: "categories",
-    defaultValue: form.getValues("categories"),
-  });
-
-  React.useEffect(() => {
-    const newTotal = (watchedCategories || []).reduce((sum, item) => {
-      const parsedAmount = parseFloat((item as any)?.amount) || 0;
-      return sum + parsedAmount;
-    }, 0);
-    form.setValue("total_amount", newTotal, { shouldValidate: true });
-  }, [watchedCategories, form]);
 
   React.useEffect(() => {
     const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
@@ -155,7 +133,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       country: formCountry,
       bank_account: undefined,
       currency: formCountry === 'Switzerland' ? 'CHF' : undefined,
-      categories: [{ category: "", amount: 0 }],
+      categories: [],
       total_amount: 0,
     }));
   }, [formCountry, form]);
@@ -214,7 +192,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
     form.setValue('currency', suggestion.currency || undefined, options);
     form.setValue('bank_account', suggestion.bank_account || undefined, options);
     
-    form.setValue('categories', [{ category: "", amount: 0 }], options);
+    form.setValue('categories', [], options);
     form.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
@@ -266,7 +244,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         payment_day: undefined,
         sku: formCountry === 'United Kingdom' ? 'UK' : 'CH',
         not_property_related: false,
-        categories: [{ category: "", amount: 0 }],
+        categories: [],
         total_amount: 0,
         account_number: "",
         payment_reference: "",
@@ -285,7 +263,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
 
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
-  );
+  ).map(opt => ({ value: opt.value, label: opt.label }));
 
   return (
     <Form {...form}>
@@ -403,94 +381,43 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           )}
         />
         
-        <Card className="p-4 shadow-sm">
-          <CardTitle className="text-lg font-semibold mb-4 flex items-center">
-            <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
-          </CardTitle>
-          <div className="space-y-4">
-            {fields.map((item, index) => (
-              <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
-                <FormField
-                  control={form.control}
-                  name={`categories.${index}.category`}
-                  render={({ field }) => (
-                    <FormItem className="flex-1 w-full">
-                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <FormControl>
-                            <SelectValue placeholder="Select a category" />
-                          </FormControl>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredCategoryOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+        <FormField
+          control={form.control}
+          name="categories"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Categories<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormControl>
+                <MultiSelectFormField
+                  options={filteredCategoryOptions}
+                  value={field.value}
+                  onChange={field.onChange}
+                  placeholder="Select categories..."
                 />
-                <FormField
-                  control={form.control}
-                  name={`categories.${index}.amount`}
-                  render={({ field }) => (
-                    <FormItem className="flex-1 w-full">
-                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="text"
-                          step="0.01" 
-                          placeholder="Amount" 
-                          {...field}
-                          value={field.value === 0 ? "" : String(field.value)}
-                          onChange={(e) => {
-                            const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                            field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        <FormField
+          control={form.control}
+          name="total_amount"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Total Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormControl>
+                <Input 
+                  type="number"
+                  step="0.01" 
+                  placeholder="0.00" 
+                  {...field}
                 />
-                {fields.length > 1 && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
-                    <MinusCircle className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => append({ category: "", amount: 0 })}
-              className="w-full"
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
-            </Button>
-            <Separator className="my-4" />
-            <div className="flex justify-between items-center text-lg font-bold">
-              <span>Total Amount:</span>
-              <span>{form.getValues('total_amount').toFixed(2)}</span>
-            </div>
-            <FormField
-              control={form.control}
-              name="total_amount"
-              render={({ field }) => (
-                <FormItem className="hidden">
-                  <FormControl>
-                    <Input type="hidden" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </Card>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {formCountry === 'Switzerland' && (
           <FormField

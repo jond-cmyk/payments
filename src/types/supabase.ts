@@ -118,11 +118,6 @@ export type TransactionAudit = {
 /** Direct Debits */
 export type DirectDebitStatus = 'active' | 'cancelled' | 'paused' | 'pending' | 'awaiting_info';
 
-export type DirectDebitCategoryItem = {
-  category: string;
-  amount: number;
-};
-
 export type DirectDebit = {
   id: string;
   created_at: string;
@@ -133,7 +128,7 @@ export type DirectDebit = {
   payment_day?: number | null;
   sku: string | null;
   not_property_related: boolean;
-  categories: DirectDebitCategoryItem[];
+  categories: string[];
   total_amount: number;
   account_number: string | null;
   payment_reference: string | null;

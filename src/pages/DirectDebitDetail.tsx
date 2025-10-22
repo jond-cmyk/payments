@@ -341,35 +341,22 @@ const DirectDebitDetail = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="md:col-span-2">
-                <p className="font-bold flex items-center mb-2">
-                  Categories & Amounts:
-                </p>
+                <p className="font-bold">Categories:</p>
                 {directDebit.categories && directDebit.categories.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Category</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {directDebit.categories.map((cat, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
-                            <TableCell className="text-right">{formatAmount(cat.amount)}</TableCell>
-                          </TableRow>
-                        ))}
-                        <TableRow className="font-bold bg-muted/50">
-                          <TableCell>Total Amount:</TableCell>
-                          <TableCell className="text-right">{formatAmount(directDebit.total_amount)}</TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
+                  <div className="flex flex-wrap gap-1">
+                    {directDebit.categories.map((cat, idx) => (
+                      <Badge key={idx} variant="secondary" className="bg-gray-100 text-gray-800">
+                        {categoryOptions.find(c => c.value === cat)?.label || cat}
+                      </Badge>
+                    ))}
                   </div>
                 ) : (
-                  <p className="ml-2">No categories defined.</p>
+                  <p>No categories defined.</p>
                 )}
+              </div>
+              <div>
+                <p className="font-bold">Total Amount:</p>
+                <p>{formatAmount(directDebit.total_amount)}</p>
               </div>
               <div>
                 <p className="font-bold">Payment Day:</p>
