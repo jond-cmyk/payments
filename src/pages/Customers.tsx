@@ -827,6 +827,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         data={invoiceData}
         columns={invoiceColumns}
         isLoading={loadingInvoices}
+        defaultSort={{ key: 'invoiceNumber', direction: 'descending' }}
       />
 
       <EconomicDetailDialog

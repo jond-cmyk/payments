@@ -64,6 +64,7 @@ interface EconomicDetailDialogProps {
   data: any[] | null;
   columns: DialogColumn[];
   isLoading?: boolean;
+  defaultSort?: { key: string; direction: 'ascending' | 'descending' };
 }
 
 // Utility function to extract a list from varied economic response shapes
@@ -133,8 +134,15 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   data,
   columns,
   isLoading,
+  defaultSort,
 }) => {
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(defaultSort || null);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setSortConfig(defaultSort || null);
+    }
+  }, [isOpen, defaultSort]);
 
   const getNestedValue = (obj: any, paths: string[] | undefined, key: string): any => {
     if (!obj) return undefined;
@@ -181,8 +189,11 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
         if (aValue == null) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (bValue == null) return sortConfig.direction === 'ascending' ? 1 : -1;
 
-        if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return sortConfig.direction === 'ascending' ? aValue - bValue : bValue - aValue;
+        const numA = parseFloat(String(aValue));
+        const numB = parseFloat(String(bValue));
+
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return sortConfig.direction === 'ascending' ? numA - numB : numB - numA;
         }
 
         if (columnToSort.format === 'date') {
