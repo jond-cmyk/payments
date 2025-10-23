@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { FileText } from 'lucide-react';
-import { format } from 'date-fns'; // Import format
+import { FileText, ArrowUp, ArrowDown } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 const formatDate = (dateInput: any): string => {
   if (!dateInput) return "-";
@@ -133,6 +134,8 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   columns,
   isLoading,
 }) => {
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(null);
+
   const getNestedValue = (obj: any, paths: string[] | undefined, key: string): any => {
     if (!obj) return undefined;
 
@@ -163,6 +166,56 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
     return undefined;
   };
 
+  const sortedData = useMemo(() => {
+    if (!data) return null;
+    let sortableData = [...data];
+    if (sortConfig !== null) {
+      const columnToSort = columns.find(c => c.key === sortConfig.key);
+      if (!columnToSort) return sortableData;
+
+      sortableData.sort((a, b) => {
+        const aValue = getNestedValue(a, columnToSort.path, columnToSort.key);
+        const bValue = getNestedValue(b, columnToSort.path, columnToSort.key);
+
+        if (aValue == null && bValue == null) return 0;
+        if (aValue == null) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (bValue == null) return sortConfig.direction === 'ascending' ? 1 : -1;
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortConfig.direction === 'ascending' ? aValue - bValue : bValue - aValue;
+        }
+
+        if (columnToSort.format === 'date') {
+            const dateA = new Date(aValue).getTime();
+            const dateB = new Date(bValue).getTime();
+            if (!isNaN(dateA) && !isNaN(dateB)) {
+                return sortConfig.direction === 'ascending' ? dateA - dateB : dateB - dateA;
+            }
+        }
+
+        const stringA = String(aValue).toLowerCase();
+        const stringB = String(bValue).toLowerCase();
+        
+        if (stringA < stringB) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (stringA > stringB) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableData;
+  }, [data, sortConfig, columns]);
+
+  const handleSort = (key: string) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
   const renderCell = (item: any, column: DialogColumn, index: number, allData: any[]) => {
     if (column.render) {
       return column.render(item, index, allData);
@@ -171,23 +224,20 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
     const rawValue = getNestedValue(item, column.path, column.key);
     
     let currencySymbol = '';
-    // Determine currency symbol based on column key or general item properties
     if (column.format === 'currencyAmount') {
-      // Try to find currency directly related to the amount field
       const amountCurrencyCandidates = [
-        `${column.key}.currency.code`, // e.g., 'amount.currency.code'
-        `${column.key}.currency`,     // e.g., 'amount.currency'
-        'currency.code',              // general currency code
-        'currency',                   // general currency
+        `${column.key}.currency.code`,
+        `${column.key}.currency`,
+        'currency.code',
+        'currency',
         'customer.currency.code',
         'customer.currency',
       ];
-      const foundAmountCurrency = getNestedValue(item, amountCurrencyCandidates, ''); // Pass empty string as key to force path usage
+      const foundAmountCurrency = getNestedValue(item, amountCurrencyCandidates, '');
       if (foundAmountCurrency) {
         currencySymbol = foundAmountCurrency;
       }
     } else {
-      // For other columns, use general currency candidates
       const generalCurrencyCandidates = [
         'currency.code',
         'currency',
@@ -240,22 +290,29 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
         <div className="relative flex-1 overflow-y-auto pr-4">
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">Loading data...</div>
-          ) : !data || data.length === 0 ? (
+          ) : !sortedData || sortedData.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">No data found.</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
                   {columns.map((col) => (
-                    <TableHead key={col.key}>{col.header}</TableHead>
+                    <TableHead key={col.key} onClick={() => handleSort(col.key)} className="cursor-pointer hover:bg-muted/50">
+                      <div className="flex items-center">
+                        {col.header}
+                        {sortConfig?.key === col.key && (
+                          sortConfig.direction === 'ascending' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />
+                        )}
+                      </div>
+                    </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.map((item, index) => (
+                {sortedData.map((item, index) => (
                   <TableRow key={item.self || item.customerNumber || item.invoiceNumber || item.entryNumber || index}>
                     {columns.map((col) => (
-                      <TableCell key={col.key}>{renderCell(item, col, index, data)}</TableCell>
+                      <TableCell key={col.key}>{renderCell(item, col, index, sortedData)}</TableCell>
                     ))}
                   </TableRow>
                 ))}
