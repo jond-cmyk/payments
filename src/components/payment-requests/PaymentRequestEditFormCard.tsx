@@ -562,7 +562,6 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     <FormDescription className="text-blue-600">
                       Please ensure the bank details are correct to avoid payment delays or errors.
                     </FormDescription>
-                    <FormMessage />
                   </div>
                 </FormItem>
               )}
