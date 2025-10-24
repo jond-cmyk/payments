@@ -17,6 +17,7 @@ import { Home, FileText, Search, Filter, RotateCcw } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { formatAmount, extractList } from '@/components/economic/EconomicDetailDialog';
+import CountrySelector from '@/components/CountrySelector';
 
 // Types
 type EconomicProxyResponse<T = any> = {
@@ -53,7 +54,7 @@ type EconomicCustomer = {
 
 const CustomerDepositReturns = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
-  const { currentCountry } = useCountry();
+  const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
   const navigate = useNavigate();
 
   const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
@@ -175,6 +176,15 @@ const CustomerDepositReturns = () => {
         <CardContent>
           <div className="space-y-6">
             <div className="flex flex-wrap items-end gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
+              <div className="flex-1 min-w-[200px]">
+                <label htmlFor="country-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Country</label>
+                <CountrySelector
+                  value={currentCountry}
+                  onValueChange={setCurrentCountry}
+                  disabled={isCountryLocked && !isAdmin}
+                  availableCountries={isAdmin ? availableCountries : availableCountries.filter(c => c.value === userProfile?.country)}
+                />
+              </div>
               <div className="flex-1 min-w-[250px]">
                 <label htmlFor="customer-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Customer</label>
                 <Select value={selectedCustomer} onValueChange={setSelectedCustomer} disabled={isLoadingCustomers}>
