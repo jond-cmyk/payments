@@ -85,35 +85,47 @@ const PropertyReports = () => {
           return;
       }
 
-      // Step 2: For each year, fetch all entries
+      // Step 2: For each year, fetch all pages of entries
       let allEntries: any[] = [];
 
-      const yearPromises = accountingYears.map(yearInfo => {
-          const year = yearInfo.year;
-          const path = `/accounting-years/${year}/entries?pagesize=1000`; // No filter, fetch all
-          return supabase.functions.invoke("economic-api-proxy", {
-              body: { path, method: "GET", country: currentCountry },
+      const yearPromises = accountingYears.map(async (yearInfo) => {
+        const year = yearInfo.year;
+        let nextPath: string | null = `/accounting-years/${year}/entries?pagesize=1000`;
+
+        while (nextPath) {
+          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path: nextPath, method: "GET", country: currentCountry },
           });
+
+          if (error) {
+            console.warn(`Error fetching entries for year ${year} at path ${nextPath}:`, error.message);
+            break; // Stop trying for this year if an error occurs
+          }
+
+          const resp = data as EconomicProxyResponse<any>;
+          if (resp.ok) {
+            const entriesForPage = extractList(resp?.data);
+            if (entriesForPage && entriesForPage.length > 0) {
+              allEntries = allEntries.concat(entriesForPage);
+            }
+
+            // Check for next page
+            const nextPageUrl = resp.data?.pagination?.nextPage;
+            if (nextPageUrl) {
+              const url = new URL(nextPageUrl);
+              nextPath = url.pathname + url.search;
+            } else {
+              nextPath = null; // No more pages for this year
+            }
+          } else {
+            console.warn(`Non-OK response fetching entries for year ${year} at path ${nextPath}: Status ${resp.status}`);
+            break; // Stop trying for this year
+          }
+        }
       });
 
-      const yearResults = await Promise.all(yearPromises);
+      await Promise.all(yearPromises);
 
-      // Step 3: Combine results from all years
-      for (const result of yearResults) {
-          if (result.error) {
-              console.warn("Error fetching entries for a year:", result.error.message);
-              continue;
-          }
-          const resp = result.data as EconomicProxyResponse<any>;
-          if (resp.ok) {
-              const entriesForYear = extractList(resp?.data);
-              if (entriesForYear && entriesForYear.length > 0) {
-                  allEntries = allEntries.concat(entriesForYear);
-              }
-          } else {
-              console.warn(`Non-OK response fetching entries for a year: Status ${resp.status}`);
-          }
-      }
 
       // Step 4: Filter combined entries in our code for reliability
       const fromDimNum = parseInt(fromDimension, 10);
