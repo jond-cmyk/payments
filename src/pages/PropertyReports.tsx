@@ -12,7 +12,7 @@ import DatePicker from '@/components/DatePicker';
 import EconomicDetailDialog, { DialogColumn, extractList } from '@/components/economic/EconomicDetailDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { format, isWithinInterval, parseISO } from 'date-fns';
+import { format, isWithinInterval, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import CountrySelector from '@/components/CountrySelector';
 
@@ -79,16 +79,34 @@ const PropertyReports = () => {
       if (yearsResp.error || !yearsResp.ok) {
           throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
       }
-      const accountingYears = extractList(yearsResp?.data);
-      if (!accountingYears || accountingYears.length === 0) {
+      const allAccountingYears = extractList(yearsResp?.data);
+      if (!allAccountingYears || allAccountingYears.length === 0) {
           showError("No accounting years found in e-conomic. Cannot fetch entries.");
           return;
       }
 
-      // Step 2: For each year, fetch all pages of entries
+      // Step 2: Filter accounting years to only those that overlap with the selected date range
+      const userFromDate = startOfDay(fromDate);
+      const userToDate = endOfDay(toDate);
+
+      const relevantYears = allAccountingYears.filter(year => {
+        const yearFromDate = parseISO(year.fromDate);
+        const yearToDate = parseISO(year.toDate);
+        // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
+        return yearFromDate <= userToDate && yearToDate >= userFromDate;
+      });
+
+      if (relevantYears.length === 0) {
+        showError("No accounting years in e-conomic match the selected date range.");
+        setReportData([]);
+        setIsReportDialogOpen(true);
+        return;
+      }
+
+      // Step 3: For each relevant year, fetch all pages of entries
       let allEntries: any[] = [];
 
-      const yearPromises = accountingYears.map(async (yearInfo) => {
+      const yearPromises = relevantYears.map(async (yearInfo) => {
         const year = yearInfo.year;
         let nextPath: string | null = `/accounting-years/${year}/entries?pagesize=1000`;
 
@@ -99,7 +117,7 @@ const PropertyReports = () => {
 
           if (error) {
             console.warn(`Error fetching entries for year ${year} at path ${nextPath}:`, error.message);
-            break; // Stop trying for this year if an error occurs
+            break;
           }
 
           const resp = data as EconomicProxyResponse<any>;
@@ -108,37 +126,27 @@ const PropertyReports = () => {
             if (entriesForPage && entriesForPage.length > 0) {
               allEntries = allEntries.concat(entriesForPage);
             }
-
-            // Check for next page
             const nextPageUrl = resp.data?.pagination?.nextPage;
-            if (nextPageUrl) {
-              const url = new URL(nextPageUrl);
-              nextPath = url.pathname + url.search;
-            } else {
-              nextPath = null; // No more pages for this year
-            }
+            nextPath = nextPageUrl ? new URL(nextPageUrl).pathname + new URL(nextPageUrl).search : null;
           } else {
             console.warn(`Non-OK response fetching entries for year ${year} at path ${nextPath}: Status ${resp.status}`);
-            break; // Stop trying for this year
+            break;
           }
         }
       });
 
       await Promise.all(yearPromises);
 
-
-      // Step 4: Filter combined entries in our code for reliability
+      // Step 4: Filter combined entries by date and dimension
       const fromDimNum = parseInt(fromDimension, 10);
       const toDimNum = parseInt(toDimension, 10);
 
       const filteredEntries = allEntries.filter(entry => {
-        // Date filter
         const entryDate = entry.date ? parseISO(entry.date) : null;
-        if (!entryDate || !isWithinInterval(entryDate, { start: fromDate, end: toDate })) {
+        if (!entryDate || !isWithinInterval(entryDate, { start: userFromDate, end: userToDate })) {
             return false;
         }
 
-        // Dimension filter
         if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
             const deptNum = entry.departmentalDistribution?.departmentalDistributionNumber;
             if (deptNum === undefined || deptNum === null || deptNum < fromDimNum || deptNum > toDimNum) {
@@ -149,7 +157,7 @@ const PropertyReports = () => {
         return true;
       });
 
-      // Step 5: Aggregate the filtered entries into a trial balance format
+      // Step 5: Aggregate the filtered entries
       const trialBalance: Record<string, { accountNumber: number; name: string; debit: number; credit: number; balance: number; }> = {};
 
       filteredEntries.forEach(entry => {
