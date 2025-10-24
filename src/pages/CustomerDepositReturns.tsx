@@ -30,6 +30,7 @@ type EconomicProxyResponse<T = any> = {
 
 type EconomicLedgerEntry = {
   entryNumber: number;
+  entryType: string;
   text: string;
   amount: number;
   currency: string;
@@ -308,9 +309,11 @@ const CustomerDepositReturns = () => {
                               {/* FIX: Use entry.remainder for the outstanding amount */}
                               <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
                               <TableCell className="text-right">
-                                <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
-                                  <FileText className="mr-2 h-4 w-4" /> View Invoice
-                                </Button>
+                                {entry.entryType !== 'customerPayment' && (
+                                  <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
+                                    <FileText className="mr-2 h-4 w-4" /> View Invoice
+                                  </Button>
+                                )}
                               </TableCell>
                             </TableRow>
                           ))}

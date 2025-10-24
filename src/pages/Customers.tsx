@@ -574,7 +574,20 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     { key: 'amount', header: 'Total Amount', format: 'currencyAmount', path: ['amount'] },
     { key: 'remainder', header: 'Outstanding', format: 'currencyAmount', path: ['remainder'] },
     { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate'] },
-    { key: 'pdf', header: 'PDF', render: (item) => <Button size="sm" variant="outline" onClick={() => viewInvoice(item)} className="flex items-center gap-1"><FileText className="h-4 w-4 mr-1" /> View Invoice</Button> },
+    {
+      key: 'pdf',
+      header: 'PDF',
+      render: (item) => {
+        if (item.entryType === 'customerPayment') {
+          return null;
+        }
+        return (
+          <Button size="sm" variant="outline" onClick={() => viewInvoice(item)} className="flex items-center gap-1">
+            <FileText className="h-4 w-4 mr-1" /> View Invoice
+          </Button>
+        );
+      },
+    },
   ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
 
   const ledgerDialogDescription = (
