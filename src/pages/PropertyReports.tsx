@@ -102,24 +102,31 @@ const PropertyReports = () => {
         return;
       }
 
-      // Step 3: Build the filter string for the API
-      const fromDimNum = parseInt(fromDimension, 10);
-      const toDimNum = parseInt(toDimension, 10);
-      const filters = [
-        `date$gte:${format(userFromDate, 'yyyy-MM-dd')}`,
-        `date$lte:${format(userToDate, 'yyyy-MM-dd')}`,
-      ];
-      if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
-        filters.push(`departmentalDistribution.departmentalDistributionNumber$gte:${fromDimNum}`);
-        filters.push(`departmentalDistribution.departmentalDistributionNumber$lte:${toDimNum}`);
-      }
-      const filterString = filters.join('$and:');
-
-      // Step 4: For each relevant year, fetch all pages of FILTERED entries
+      // Step 3: For each relevant year, fetch all pages of FILTERED entries
       let allEntries: any[] = [];
 
       const yearPromises = relevantYears.map(async (yearInfo) => {
         const year = yearInfo.year;
+        const yearFromDate = parseISO(yearInfo.fromDate);
+        const yearToDate = parseISO(yearInfo.toDate);
+
+        // Calculate the intersection of the user's date range and the current year's range
+        const effectiveFromDate = userFromDate > yearFromDate ? userFromDate : yearFromDate;
+        const effectiveToDate = userToDate < yearToDate ? userToDate : yearToDate;
+
+        // Build the filter string for THIS specific year
+        const fromDimNum = parseInt(fromDimension, 10);
+        const toDimNum = parseInt(toDimension, 10);
+        const filters = [
+          `date$gte:${format(effectiveFromDate, 'yyyy-MM-dd')}`,
+          `date$lte:${format(effectiveToDate, 'yyyy-MM-dd')}`,
+        ];
+        if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
+          filters.push(`departmentalDistribution.departmentalDistributionNumber$gte:${fromDimNum}`);
+          filters.push(`departmentalDistribution.departmentalDistributionNumber$lte:${toDimNum}`);
+        }
+        const filterString = filters.join('$and:');
+
         let pathForProxy = `/accounting-years/${year}/entries`;
         let queryForProxy: Record<string, string> = {
           pagesize: '1000',
@@ -160,7 +167,7 @@ const PropertyReports = () => {
 
       await Promise.all(yearPromises);
 
-      // Step 5: Aggregate the filtered entries
+      // Step 4: Aggregate the filtered entries
       const trialBalance: Record<string, { accountNumber: number; name: string; debit: number; credit: number; balance: number; }> = {};
 
       allEntries.forEach(entry => {
