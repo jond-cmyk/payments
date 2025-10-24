@@ -261,12 +261,12 @@ const Customers: React.FC = () => {
           <div className="relative overflow-x-auto border rounded-md">
             <Table>
               <TableHeader>
-                <TableRow><TableHead className="w-24">Number</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Currency</TableHead><TableHead>Balance</TableHead><TableHead>Overdue</TableHead><TableHead className="w-64">Actions</TableHead></TableRow>
+                <TableRow><TableHead className="w-24">Number</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Balance</TableHead><TableHead>Overdue</TableHead><TableHead className="w-64">Actions</TableHead></TableRow>
               </TableHeader>
               <TableBody>
                 {customersQuery.isLoading ? (
                   Array.from({ length: parseInt(pageSize, 10) }).map((_, i) => (
-                    <TableRow key={i}><TableCell colSpan={7}><div className="h-8 bg-gray-200 rounded animate-pulse" /></TableCell></TableRow>
+                    <TableRow key={i}><TableCell colSpan={6}><div className="h-8 bg-gray-200 rounded animate-pulse" /></TableCell></TableRow>
                   ))
                 ) : (customersQuery.data || []).map((c, index) => (
                   <CustomerRow 
@@ -277,7 +277,7 @@ const Customers: React.FC = () => {
                 ))}
                 {(customersQuery.data || []).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
                       {customersQuery.isFetching ? "Loading customers..." : "No customers found."}
                     </TableCell>
                   </TableRow>
@@ -639,9 +639,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         <TableCell>{customer.customerNumber ?? "-"}</TableCell>
         <TableCell className="font-medium">{customer.name ?? "-"}</TableCell>
         <TableCell>{customer.email ?? "-"}</TableCell>
-        <TableCell>{customer.currency ?? "-"}</TableCell>
-        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : balance !== null ? <Badge className={cn("bg-dyad-blue text-white text-base px-3 py-2", "transform translate-x-0 translate-y-0")}>{formatAmount(balance)} {customer.currency || ''}</Badge> : "N/A"}</TableCell>
-        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : (dueAmount !== null && dueAmount > 0) ? <Badge className={cn("bg-red-600 text-white text-base px-3 py-2", "transform translate-x-0 translate-y-0")}>{formatAmount(dueAmount)} {customer.currency || ''}</Badge> : "-"}</TableCell>
+        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : balance !== null ? <Badge className={cn("bg-dyad-blue text-white text-base px-3 py-2 whitespace-nowrap", "transform translate-x-0 translate-y-0")}>{formatAmount(balance)} {customer.currency || ''}</Badge> : "N/A"}</TableCell>
+        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : (dueAmount !== null && dueAmount > 0) ? <Badge className={cn("bg-red-600 text-white text-base px-3 py-2 whitespace-nowrap", "transform translate-x-0 translate-y-0")}>{formatAmount(dueAmount)} {customer.currency || ''}</Badge> : "-"}</TableCell>
         <TableCell>
           <div className="flex flex-col gap-2">
             <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>{loadingInvoices ? "Loading..." : "View Invoices"}</Button>
