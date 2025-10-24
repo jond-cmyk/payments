@@ -12,7 +12,7 @@ import DatePicker from '@/components/DatePicker';
 import EconomicDetailDialog, { DialogColumn, extractList } from '@/components/economic/EconomicDetailDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { format } from 'date-fns';
+import { format, isWithinInterval, parseISO } from 'date-fns';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import CountrySelector from '@/components/CountrySelector';
 
@@ -66,49 +66,81 @@ const PropertyReports = () => {
     }
 
     setIsReportLoading(true);
-    const toastId = showLoading("Fetching account entries to build report...");
+    const toastId = showLoading("Fetching accounting years and entries...");
 
     try {
-      // Step 1: Fetch entries by date range only
-      const filter = `date$gte:${format(fromDate, 'yyyy-MM-dd')}$and:date$lte:${format(toDate, 'yyyy-MM-dd')}`;
-      
-      const queryParams = {
-        pagesize: 1000, // Get up to 1000 entries
-        filter: filter,
-      };
-
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: "/entries", method: "GET", query: queryParams, country: currentCountry },
+      // Step 1: Fetch all accounting years
+      const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: "/accounting-years", method: "GET", country: currentCountry },
       });
 
-      if (error) {
-        throw new Error(error.message || "Failed to fetch report via proxy.");
+      if (yearsError) throw new Error(yearsError.message);
+      const yearsResp = yearsData as EconomicProxyResponse<any>;
+      if (yearsResp.error || !yearsResp.ok) {
+          throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+      }
+      const accountingYears = extractList(yearsResp?.data);
+      if (!accountingYears || accountingYears.length === 0) {
+          showError("No accounting years found in e-conomic. Cannot fetch entries.");
+          return;
       }
 
-      const resp = data as EconomicProxyResponse<any>;
+      // Step 2: For each year, fetch all entries
+      let allEntries: any[] = [];
 
-      if (resp?.status && resp.status >= 400) {
-        const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
-        throw new Error(`e-conomic API Error: ${errorMessage}`);
+      const yearPromises = accountingYears.map(yearInfo => {
+          const year = yearInfo.year;
+          const path = `/accounting-years/${year}/entries?pagesize=1000`; // No filter, fetch all
+          return supabase.functions.invoke("economic-api-proxy", {
+              body: { path, method: "GET", country: currentCountry },
+          });
+      });
+
+      const yearResults = await Promise.all(yearPromises);
+
+      // Step 3: Combine results from all years
+      for (const result of yearResults) {
+          if (result.error) {
+              console.warn("Error fetching entries for a year:", result.error.message);
+              continue;
+          }
+          const resp = result.data as EconomicProxyResponse<any>;
+          if (resp.ok) {
+              const entriesForYear = extractList(resp?.data);
+              if (entriesForYear && entriesForYear.length > 0) {
+                  allEntries = allEntries.concat(entriesForYear);
+              }
+          } else {
+              console.warn(`Non-OK response fetching entries for a year: Status ${resp.status}`);
+          }
       }
 
-      let entries = extractList(resp?.data);
-
-      // Step 2: Filter entries by dimension in our code for reliability
+      // Step 4: Filter combined entries in our code for reliability
       const fromDimNum = parseInt(fromDimension, 10);
       const toDimNum = parseInt(toDimension, 10);
 
-      if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
-        entries = entries.filter(entry => {
-          const deptNum = entry.department?.departmentNumber;
-          return deptNum && deptNum >= fromDimNum && deptNum <= toDimNum;
-        });
-      }
+      const filteredEntries = allEntries.filter(entry => {
+        // Date filter
+        const entryDate = entry.date ? parseISO(entry.date) : null;
+        if (!entryDate || !isWithinInterval(entryDate, { start: fromDate, end: toDate })) {
+            return false;
+        }
 
-      // Step 3: Aggregate the filtered entries into a trial balance format
+        // Dimension filter
+        if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
+            const deptNum = entry.department?.departmentNumber;
+            if (!deptNum || deptNum < fromDimNum || deptNum > toDimNum) {
+                return false;
+            }
+        }
+        
+        return true;
+      });
+
+      // Step 5: Aggregate the filtered entries into a trial balance format
       const trialBalance: Record<string, { accountNumber: number; name: string; debit: number; credit: number; balance: number; }> = {};
 
-      entries.forEach(entry => {
+      filteredEntries.forEach(entry => {
         const accountNumber = entry.account?.accountNumber;
         const accountName = entry.account?.name || `Account ${accountNumber}`;
         const amount = entry.amount || 0;
@@ -137,7 +169,7 @@ const PropertyReports = () => {
 
       setReportData(aggregatedData);
       setIsReportDialogOpen(true);
-      showSuccess(`Report generated! Found ${entries.length} entries, aggregated into ${aggregatedData.length} accounts.`);
+      showSuccess(`Report generated! Found ${filteredEntries.length} entries, aggregated into ${aggregatedData.length} accounts.`);
     } catch (e: any) {
       console.error("Error fetching Trial Balance report:", e);
       showError(e.message || "Failed to fetch report.");
