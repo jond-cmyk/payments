@@ -298,13 +298,13 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
           <DialogTitle className="font-bold">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <div className="relative flex-1 overflow-y-auto pr-4">
+        <div className="relative flex-1 overflow-auto pr-4">
           {isLoading ? (
             <div className="text-center text-muted-foreground py-8">Loading data...</div>
           ) : !sortedData || sortedData.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">No data found.</div>
           ) : (
-            <Table>
+            <table className="w-full caption-bottom text-sm">
               <TableHeader>
                 <TableRow className="border-b hover:bg-muted/50">
                   {columns.map((col) => (
@@ -332,7 +332,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </table>
           )}
         </div>
       </DialogContent>

@@ -118,19 +118,19 @@ const Customers: React.FC = () => {
   const customersQuery = useQuery({
     queryKey: ["economicCustomers", pageSize, currentCountry, debouncedSearch, currentPage],
     queryFn: async () => {
-      let path: string;
       const skipPages = currentPage - 1;
+      const query: Record<string, string> = {
+        pagesize: pageSize,
+        skipPages: String(skipPages),
+      };
 
       if (debouncedSearch) {
-        const term = encodeURIComponent(`*${debouncedSearch}*`);
-        const filter = `$or:name$like:${term},customerNumber$like:${term},email$like:${term}`;
-        path = `/customers?pagesize=${pageSize}&skipPages=${skipPages}&filter=${filter}`;
-      } else {
-        path = `/customers?pagesize=${pageSize}&skipPages=${skipPages}`;
+        const term = `*${debouncedSearch}*`;
+        query.filter = `$or:name$like:${term},customerNumber$like:${term},email$like:${term}`;
       }
 
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path, method: "GET", country: currentCountry },
+        body: { path: "/customers", method: "GET", query, country: currentCountry },
       });
 
       if (error) throw new Error(error.message || "Failed to load customers");
