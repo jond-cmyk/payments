@@ -404,66 +404,30 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     });
   }, [invoiceHeadings, getInvoiceDescription, fetchHeadingForInvoice]);
 
-  const handleUnauthorized = useCallback(async (economicErrorResponse: any, originalRequestPath: string): Promise<boolean> => {
-    const demoLink = economicErrorResponse?.demoLink;
-    if (typeof demoLink === "string" && demoLink.trim() !== "") {
-      try {
-        window.open(demoLink, "_blank");
-        showSuccess("Opening demo invoice PDF");
-        return true;
-      } catch (e) { console.error("Failed to open demoLink:", e); }
-    }
-    if (originalRequestPath) {
-      const { data: demoData } = await supabase.functions.invoke("economic-api-proxy", { body: { path: `${originalRequestPath}?demo=true`, method: "GET", country } });
-      if (demoData) {
-        const demoPdfUrl = pick(demoData, ['data.url', 'data.href', 'data.download', 'data.downloadUrl', 'data.link']);
-        if (demoPdfUrl) {
-          try {
-            window.open(demoPdfUrl, "_blank");
-            showSuccess("Opening demo invoice PDF");
-            return true;
-          } catch (e) { console.error("Failed to open ?demo=true PDF URL:", e); }
-        }
-      }
-    }
-    showError("Unauthorized to access invoice PDF. Check e-conomic tokens.");
-    return false;
-  }, [country]);
-
   const viewInvoice = useCallback(async (inv: any) => {
-    const toastId = showLoading("Fetching invoice...");
-    const basePath = pathFromSelf(inv?.self) ?? (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : inv?.invoiceNumber ? `/invoices/${inv.invoiceNumber}` : undefined);
-    if (!basePath) { dismissToast(toastId); showError("Invoice path not available"); return; }
+    const toastId = showLoading("Fetching invoice PDF...");
+    try {
+      const basePath = pathFromSelf(inv?.self) ?? 
+                       (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : 
+                        inv?.invoiceNumber ? `/invoices/${inv.invoiceNumber}` : 
+                        undefined);
 
-    const { data: initialProxyResponse, error: initialProxyError } = await supabase.functions.invoke("economic-api-proxy", { body: { path: basePath, method: "GET", country } });
-    dismissToast(toastId);
-    if (initialProxyError) { showError(initialProxyError.message || "Failed to fetch invoice details."); return; }
+      if (!basePath) {
+        throw new Error("Invoice path not available to generate PDF link.");
+      }
 
-    const initialRoot = (initialProxyResponse as any)?.data ?? initialProxyResponse;
-    if (initialRoot?.httpStatusCode === 401 || initialRoot?.status === 401) { if (await handleUnauthorized(initialRoot, basePath)) return; }
+      const pdfPath = `${basePath}/pdf`;
+      const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(pdfPath)}&country=${encodeURIComponent(country)}`;
 
-    let pdfUrl = pick(initialRoot, ['pdf', 'pdf.url', 'pdf.href', 'pdf.download', 'pdf.downloadUrl', 'links.pdf', 'links.pdf.href']);
-    if (!pdfUrl) {
-      const pdfPath = basePath.endsWith("/pdf") ? basePath : `${basePath}/pdf`;
-      const { data: pdfProxyResponse, error: pdfProxyError } = await supabase.functions.invoke("economic-api-proxy", { body: { path: pdfPath, method: "GET", country } });
-      if (pdfProxyError) { showError(pdfProxyError.message || "Failed to fetch PDF subresource."); return; }
-      const pdfRoot = (pdfProxyResponse as any)?.data ?? pdfProxyResponse;
-      if (pdfRoot?.httpStatusCode === 401 || pdfRoot?.status === 401) { if (await handleUnauthorized(pdfRoot, pdfPath)) return; }
-      pdfUrl = pick(pdfRoot, ['url', 'href', 'download', 'downloadUrl', 'link']);
-    }
-
-    if (!pdfUrl) { showError("No PDF link available for this invoice"); return; }
-
-    if (pdfUrl.startsWith("https://restapi.e-conomic.com")) {
-      const economicPath = new URL(pdfUrl).pathname;
-      const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(economicPath)}&country=${encodeURIComponent(country)}`;
-      window.open(proxyUrl, "_blank");
+      window.open(proxyUrl, '_blank');
+      
+      dismissToast(toastId);
       showSuccess("Opening invoice PDF securely.");
-    } else {
-      window.open(pdfUrl, "_blank");
-      showSuccess("Opening invoice PDF");
+    } catch (e: any) {
+      dismissToast(toastId);
+      showError(e.message);
     }
-  }, [handleUnauthorized, country]);
+  }, [country]);
 
   const loadInvoices = useCallback(async () => {
     setLoadingInvoices(true);
@@ -644,7 +608,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadOutstandingTransactions} disabled={isCustomerNumberMissing || loadingOutstanding}>
+                <Button size="sm" variant="destructive" className="flex-1" onClick={loadOutstandingTransactions} disabled={isCustomerNumberMissing || loadingOutstanding}>
                   <ReceiptText className="h-4 w-4 mr-1" /> {loadingOutstanding ? "Loading..." : "Outstanding"}
                 </Button>
               </TooltipTrigger>
