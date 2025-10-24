@@ -5,16 +5,16 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Home, FileText, Search } from 'lucide-react'; // Added Search icon
+import { Home, FileText, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import DatePicker from '@/components/DatePicker';
-import EconomicDetailDialog, { DialogColumn, extractList } from '@/components/economic/EconomicDetailDialog'; // Import extractList
+import EconomicDetailDialog, { DialogColumn, extractList } from '@/components/economic/EconomicDetailDialog';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
+import CountrySelector from '@/components/CountrySelector';
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -55,7 +55,7 @@ const PropertyReports = () => {
     return null;
   }
 
-  const fetchDepartmentProfitLossReport = useCallback(async () => {
+  const fetchTrialBalanceReport = useCallback(async () => {
     if (!fromDate || !toDate) {
       showError("Please select both 'From Date' and 'To Date'.");
       return;
@@ -66,21 +66,18 @@ const PropertyReports = () => {
     }
 
     setIsReportLoading(true);
-    const toastId = showLoading("Fetching Department Profit/Loss report...");
+    const toastId = showLoading("Fetching Trial Balance report by department...");
 
     try {
       const queryParams: Record<string, string> = {
-        from: format(fromDate, 'yyyy-MM-dd'),
-        to: format(toDate, 'yyyy-MM-dd'),
-        fromDimension: fromDimension,
-        toDimension: toDimension,
+        'dateInterval.startDate': format(fromDate, 'yyyy-MM-dd'),
+        'dateInterval.endDate': format(toDate, 'yyyy-MM-dd'),
+        'dimension.from': fromDimension,
+        'dimension.to': toDimension,
       };
 
-      const queryString = new URLSearchParams(queryParams).toString();
-      const path = `/accounting-reports/department-profit-loss?${queryString}`;
-
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: path, method: "GET", country: currentCountry },
+        body: { path: "/reports/trial-balance", method: "GET", query: queryParams, country: currentCountry },
       });
 
       if (error) {
@@ -99,7 +96,7 @@ const PropertyReports = () => {
       setIsReportDialogOpen(true);
       showSuccess(`Report fetched successfully! Found ${list.length} entries.`);
     } catch (e: any) {
-      console.error("Error fetching Department Profit/Loss report:", e);
+      console.error("Error fetching Trial Balance report:", e);
       showError(e.message || "Failed to fetch report.");
       setReportData(null);
     } finally {
@@ -109,12 +106,11 @@ const PropertyReports = () => {
   }, [fromDate, toDate, fromDimension, toDimension, currentCountry]);
 
   const reportColumns: DialogColumn[] = [
-    { key: 'accountNumber', header: 'Account No.', path: ['account.accountNumber', 'accountNumber'] },
-    { key: 'accountName', header: 'Account Name', path: ['account.name', 'accountName'] },
-    { key: 'period', header: 'Period', path: ['period'] },
-    { key: 'dimension', header: 'Dimension', path: ['dimension.dimensionNumber', 'dimension.name', 'dimension'] },
-    { key: 'amount', header: 'Amount', format: 'amount', path: ['amount', 'amount.value'] },
-    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
+    { key: 'accountNumber', header: 'Account No.', path: ['account.accountNumber'] },
+    { key: 'name', header: 'Account Name', path: ['account.name'] },
+    { key: 'debit', header: 'Debit', format: 'amount' },
+    { key: 'credit', header: 'Credit', format: 'amount' },
+    { key: 'balance', header: 'Balance', format: 'amount' },
   ];
 
   return (
@@ -126,7 +122,7 @@ const PropertyReports = () => {
             <Home className="mr-2 h-6 w-6" /> Property Reports
           </CardTitle>
           <CardDescription>
-            Generate 'Department Profit/Loss' reports from e-conomic.
+            Generate 'Trial Balance by Department' reports from e-conomic.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -184,7 +180,7 @@ const PropertyReports = () => {
               </div>
             </div>
             <Button
-              onClick={fetchDepartmentProfitLossReport}
+              onClick={fetchTrialBalanceReport}
               disabled={isReportLoading || !fromDate || !toDate || !fromDimension || !toDimension}
               className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
             >
@@ -198,12 +194,12 @@ const PropertyReports = () => {
       <EconomicDetailDialog
         isOpen={isReportDialogOpen}
         onOpenChange={setIsReportDialogOpen}
-        title="Department Profit/Loss Report"
+        title="Trial Balance by Department"
         description={`Report for period ${fromDate ? format(fromDate, 'PPP') : ''} to ${toDate ? format(toDate, 'PPP') : ''}${fromDimension || toDimension ? ` (Dimensions: ${fromDimension || 'All'} to ${toDimension || 'All'})` : ''}`}
         data={reportData}
         columns={reportColumns}
         isLoading={isReportLoading}
-        defaultSort={{ key: 'period', direction: 'descending' }}
+        defaultSort={{ key: 'accountNumber', direction: 'ascending' }}
       />
     </div>
   );
