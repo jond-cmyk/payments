@@ -700,15 +700,56 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // Step 1: Get current accounting year
-      const { data: accountingYearData, error: accountingYearError } = await supabase.functions.invoke("economic-api-proxy", {
+      // --- NEW LOGIC TO FIND ACCOUNTING YEAR ---
+      let year: string | null = null;
+
+      // Attempt 1: Fetch current accounting year directly
+      const { data: currentYearData, error: currentYearError } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: "/accounting-years/current", method: "GET", country },
       });
 
-      if (accountingYearError) throw new Error(accountingYearError.message);
-      
-      const yearResponse = accountingYearData as EconomicProxyResponse<any>;
-      const year = yearResponse?.data?.year;
+      if (currentYearError) {
+        console.warn("Failed to invoke function for /accounting-years/current:", currentYearError.message);
+      } else {
+        const currentYearResponse = currentYearData as EconomicProxyResponse<any>;
+        if (currentYearResponse?.ok && currentYearResponse?.data?.year) {
+          year = currentYearResponse.data.year;
+          console.log("Found current year via /current endpoint:", year);
+        } else {
+          console.warn("/accounting-years/current did not return a valid year. Response:", currentYearResponse);
+        }
+      }
+
+      // Attempt 2: If first attempt failed, fetch all years and find the current one
+      if (!year) {
+        console.log("Falling back to fetching all accounting years...");
+        const { data: allYearsData, error: allYearsError } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path: "/accounting-years", method: "GET", country },
+        });
+
+        if (allYearsError) {
+          throw new Error(allYearsError.message);
+        }
+
+        const allYearsResponse = allYearsData as EconomicProxyResponse<any>;
+        if (allYearsResponse?.ok) {
+          const yearsCollection = extractList(allYearsResponse.data);
+          const today = new Date();
+          const currentYearObject = yearsCollection.find(y => {
+            const from = y.fromDate ? parseISO(y.fromDate) : null;
+            const to = y.toDate ? parseISO(y.toDate) : null;
+            return from && to && isWithinInterval(today, { start: from, end: to });
+          });
+
+          if (currentYearObject?.year) {
+            year = currentYearObject.year;
+            console.log("Found current year by iterating all years:", year);
+          }
+        } else {
+           console.error("Failed to fetch /accounting-years. Response:", allYearsResponse);
+        }
+      }
+      // --- END NEW LOGIC ---
 
       if (!year) {
         throw new Error("Could not determine the current accounting year from e-conomic.");
