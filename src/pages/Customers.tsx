@@ -408,13 +408,26 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     const toastId = showLoading("Fetching invoice PDF...");
     try {
       const invoiceObject = inv.invoice || inv;
-      const basePath = pathFromSelf(invoiceObject?.self) ?? 
-                       (invoiceObject?.bookedInvoiceNumber ? `/invoices/booked/${invoiceObject.bookedInvoiceNumber}` : 
-                        invoiceObject?.invoiceNumber ? `/invoices/${invoiceObject.invoiceNumber}` : 
-                        undefined);
+      let basePath: string | undefined;
+
+      basePath = pathFromSelf(invoiceObject?.self);
 
       if (!basePath) {
-        throw new Error("Invoice path not available to generate PDF link.");
+        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber', 'invoice.bookedInvoiceNumber']);
+        if (bookedInvoiceNumber) {
+          basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+        }
+      }
+      
+      if (!basePath) {
+        const invoiceNumber = pick(invoiceObject, ['invoiceNumber', 'invoice.invoiceNumber', 'number']);
+        if (invoiceNumber) {
+          basePath = `/invoices/booked/${invoiceNumber}`;
+        }
+      }
+
+      if (!basePath) {
+        throw new Error("Could not determine a valid invoice path for this entry.");
       }
 
       const pdfPath = `${basePath}/pdf`;
