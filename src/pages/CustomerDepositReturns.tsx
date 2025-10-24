@@ -84,18 +84,40 @@ const CustomerDepositReturns = () => {
       if (selectedCustomer !== 'all') {
         filter += `&customer.customerNumber$eq:${selectedCustomer}`;
       }
-      const path = `/customer-ledger-entries?pagesize=1000&filter=${filter}`;
       
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path, method: "GET", country: currentCountry },
-      });
+      // NEW: Try multiple endpoints to find the ledger entries
+      const potentialPaths = [
+        `/customer-ledger-entries?pagesize=1000&filter=${filter}`,
+        `/entries?pagesize=1000&filter=${filter}`
+      ];
 
-      if (error) throw new Error(error.message);
-      const resp = data as EconomicProxyResponse<any>;
-      if (resp.error || !resp.ok) {
-        throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
+      for (const path of potentialPaths) {
+        console.log(`[CustomerDepositReturns] Trying path: ${path}`);
+        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path, method: "GET", country: currentCountry },
+        });
+
+        if (error) {
+          console.warn(`[CustomerDepositReturns] Error on path ${path}:`, error.message);
+          continue; // Try next path
+        }
+
+        const resp = data as EconomicProxyResponse<any>;
+        if (resp.error || !resp.ok) {
+          console.warn(`[CustomerDepositReturns] Non-OK response on path ${path}:`, resp.error || `Status ${resp.status}`);
+          continue; // Try next path
+        }
+
+        const list = extractList(resp?.data);
+        if (list && list.length > 0) {
+          console.log(`[CustomerDepositReturns] Found ${list.length} entries on path ${path}. Using this result.`);
+          return list as EconomicLedgerEntry[];
+        }
       }
-      return extractList(resp?.data) as EconomicLedgerEntry[];
+
+      // If no path returned data
+      console.log("[CustomerDepositReturns] No entries found after trying all potential paths.");
+      return [];
     },
     enabled: false, // Only fetch when the button is clicked
   });
