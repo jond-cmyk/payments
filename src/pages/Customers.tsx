@@ -690,7 +690,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
 
     const endpointsToTry = [
       '/reports/customer-ledger-card',
-      '/customer-ledger-entries'
+      '/customer-ledger-entries',
+      '/customer-ledger-items'
     ];
 
     try {
@@ -712,7 +713,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
       }
 
       if (!success) {
-        throw new Error("Could not find a valid ledger card endpoint. Both /reports/customer-ledger-card and /customer-ledger-entries failed.");
+        throw new Error("Could not find a valid ledger card endpoint. All tried endpoints failed with 404.");
       }
       
       setLedgerCardData(list);
