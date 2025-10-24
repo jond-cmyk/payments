@@ -595,7 +595,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const outstandingColumns: DialogColumn[] = useMemo(() => [
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate'] },
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber'] },
-    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoice.bookedInvoiceNumber'] },
+    { key: 'entryType', header: 'Entry Type', path: ['entryType', 'type'] },
+    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoice.bookedInvoiceNumber', 'invoiceNumber', 'invoice.invoiceNumber', 'invoice.id', 'invoice.number'] },
     { key: 'text', header: 'Text', path: ['text'], render: (item) => invoiceHeadings[getInvoiceKey(item)] || getInvoiceDescription(item) },
     { key: 'amount', header: 'Total Amount', format: 'currencyAmount', path: ['amount'] },
     { key: 'remainder', header: 'Outstanding', format: 'currencyAmount', path: ['remainder'] },
