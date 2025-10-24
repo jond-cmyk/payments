@@ -666,7 +666,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // 1. Determine the current accounting year
+      // --- Step 1: Determine the current accounting year ---
       let year: string | null = null;
 
       // Attempt 1: Fetch the 'current' accounting year directly
@@ -704,31 +704,53 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         throw new Error("Could not determine the current accounting year from e-conomic.");
       }
 
-      // 2. Construct the correct path based on the API hint and fetch entries
-      const path = `/accounts/${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`;
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path, method: "GET", country },
-      });
+      // --- Step 2: Try fetching ledger entries with a fallback strategy ---
+      let list: any[] | null = null;
+      const potentialPaths = [
+        // Attempt 1: The path from the developer hint with standard account number
+        `/accounts/${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
+        // Attempt 2 (Fallback): The simpler, more direct endpoint that sometimes works
+        `/customer-ledger-entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`
+      ];
 
-      if (error) {
-        throw new Error(error.message || `Failed to load customer ledger card.`);
+      for (const path of potentialPaths) {
+        console.log(`[loadLedgerCard] Attempting to fetch from path: ${path}`);
+        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path, method: "GET", country },
+        });
+
+        if (error) {
+          console.warn(`[loadLedgerCard] Error invoking proxy for path ${path}:`, error.message);
+          continue; // Try next path
+        }
+
+        const resp = data as EconomicProxyResponse<any>;
+        if (resp?.status && resp.status >= 400) {
+          console.warn(`[loadLedgerCard] API returned status ${resp.status} for path ${path}.`);
+          // If it's a 404, we continue to the next path. For other errors, we might want to stop.
+          if (resp.status === 404) {
+            continue; // Try next path
+          } else {
+             const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
+             throw new Error(`e-conomic API Error: ${errorMessage}`);
+          }
+        }
+        
+        const extracted = extractList(resp?.data);
+        if (extracted && extracted.length > 0) {
+          list = extracted;
+          console.log(`[loadLedgerCard] Successfully fetched ${list.length} entries from path: ${path}`);
+          break; // Success, exit the loop
+        }
       }
-
-      const resp = data as EconomicProxyResponse<any>;
-      if (resp?.status && resp.status >= 400) {
-        const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
-        throw new Error(`e-conomic API Error: ${errorMessage}`);
-      }
-
-      const list = extractList(resp?.data);
 
       if (list === null || list.length === 0) {
-        throw new Error("No ledger entries found for this customer in the current accounting year.");
+        throw new Error("No ledger entries found for this customer after trying all available endpoints.");
       }
       
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
-      showSuccess(`Loaded ${list.length} ledger entries for year ${year}.`);
+      showSuccess(`Loaded ${list.length} ledger entries.`);
 
     } catch (err: any) {
       console.error("Error loading ledger card:", err);
@@ -766,13 +788,13 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
 
   const ledgerCardColumns: DialogColumn[] = [
-    { key: 'date', header: 'Date', format: 'date', path: ['date'] },
-    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber'] },
+    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
+    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
     { key: 'entryType', header: 'Entry Type', path: ['entryType', 'type'] },
-    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'invoice.bookedInvoiceNumber', 'invoice.invoiceNumber'] },
-    { key: 'text', header: 'Text', path: ['text'] },
-    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount'] },
-    { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate'] },
+    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'invoice.bookedInvoiceNumber', 'invoice.invoiceNumber', 'invoice.id', 'invoice.number'] },
+    { key: 'text', header: 'Text', path: ['text', 'description', 'notes.text', 'notes.heading'] },
+    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
+    { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
   ];
 
   const isCustomerNumberMissing = !customer.customerNumber;
