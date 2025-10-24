@@ -407,9 +407,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const viewInvoice = useCallback(async (inv: any) => {
     const toastId = showLoading("Fetching invoice PDF...");
     try {
-      const basePath = pathFromSelf(inv?.self) ?? 
-                       (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : 
-                        inv?.invoiceNumber ? `/invoices/${inv.invoiceNumber}` : 
+      const invoiceObject = inv.invoice || inv;
+      const basePath = pathFromSelf(invoiceObject?.self) ?? 
+                       (invoiceObject?.bookedInvoiceNumber ? `/invoices/booked/${invoiceObject.bookedInvoiceNumber}` : 
+                        invoiceObject?.invoiceNumber ? `/invoices/${invoiceObject.invoiceNumber}` : 
                         undefined);
 
       if (!basePath) {

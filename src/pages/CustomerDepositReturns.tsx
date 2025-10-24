@@ -42,6 +42,7 @@ type EconomicLedgerEntry = {
   invoice: {
     bookedInvoiceNumber?: number;
     self?: string;
+    invoiceNumber?: number;
   };
   self: string;
 };
@@ -180,17 +181,39 @@ const CustomerDepositReturns = () => {
     }, {} as Record<string, { customer: EconomicCustomer; entries: EconomicLedgerEntry[] }>);
   }, [entries, customerNameMap]);
 
+  const pathFromSelf = (self: string): string | undefined => {
+    if (typeof self !== "string" || !self) return undefined;
+    if (self.startsWith("http")) {
+      const parts = self.split("/");
+      return "/" + parts.slice(3).join("/");
+    }
+    return self.startsWith("/") ? self : "/" + self;
+  };
+
   const handleViewInvoice = useCallback(async (entry: EconomicLedgerEntry) => {
     const toastId = showLoading("Fetching invoice PDF...");
     try {
-      const invoiceNumber = entry.invoice?.bookedInvoiceNumber;
-      if (!invoiceNumber) {
-        throw new Error("No booked invoice number found for this entry.");
+      const invoiceObject = entry.invoice;
+      if (!invoiceObject) {
+        throw new Error("No invoice data associated with this entry.");
       }
-      const path = `/invoices/booked/${invoiceNumber}/pdf`;
-      const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(path)}&country=${encodeURIComponent(currentCountry)}`;
+
+      const basePath = pathFromSelf(invoiceObject?.self) ?? 
+                       (invoiceObject?.bookedInvoiceNumber ? `/invoices/booked/${invoiceObject.bookedInvoiceNumber}` : 
+                        invoiceObject?.invoiceNumber ? `/invoices/${invoiceObject.invoiceNumber}` : 
+                        undefined);
+
+      if (!basePath) {
+        throw new Error("Invoice path not available to generate PDF link.");
+      }
+
+      const pdfPath = `${basePath}/pdf`;
+      const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(pdfPath)}&country=${encodeURIComponent(currentCountry)}`;
+
       window.open(proxyUrl, '_blank');
+      
       dismissToast(toastId);
+      showSuccess("Opening invoice PDF securely.");
     } catch (e: any) {
       dismissToast(toastId);
       showError(e.message);
