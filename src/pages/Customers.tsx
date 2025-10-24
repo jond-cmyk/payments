@@ -84,6 +84,13 @@ const pick = (obj: any, keys: string[]): any => {
   return undefined;
 };
 
+// --- Configuration ---
+// NOTE: This is a common default account number for customer receivables. 
+// It might need to be adjusted based on the specific e-conomic chart of accounts.
+const CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER = 5000; 
+// ---------------------
+
+
 const Customers: React.FC = () => {
   const { session, isLoading, userProfile } = useSession();
   const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
@@ -697,8 +704,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         throw new Error("Could not determine the current accounting year from e-conomic.");
       }
 
-      // 2. Construct the correct path and fetch entries
-      const path = `/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`;
+      // 2. Construct the correct path based on the API hint and fetch entries
+      const path = `/accounts/${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`;
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path, method: "GET", country },
       });
@@ -759,14 +766,14 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
 
   const ledgerCardColumns: DialogColumn[] = [
-    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
-    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
-    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoice.invoiceNumber', 'invoice.bookedInvoiceNumber', 'invoice.draftInvoiceNumber', 'invoice.id', 'invoice.number'] },
-    { key: 'text', header: 'Text', path: ['text', 'description', 'notes.text', 'notes.heading'] },
-    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
-    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
-    { key: 'balance', header: 'Balance', format: 'currencyAmount', path: ['balance', 'balance.value'] },
-    { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
+    { key: 'date', header: 'Date', format: 'date', path: ['date'] },
+    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber'] },
+    { key: 'entryType', header: 'Entry Type', path: ['entryType', 'type'] },
+    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'invoice.bookedInvoiceNumber'] },
+    { key: 'text', header: 'Text', path: ['text'] },
+    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount'] },
+    { key: 'balance', header: 'Balance', format: 'currencyAmount', path: ['balance', 'customer.balance'] },
+    { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate'] },
   ];
 
   const isCustomerNumberMissing = !customer.customerNumber;
