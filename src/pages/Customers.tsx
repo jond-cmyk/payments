@@ -700,37 +700,24 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // --- NEW LOGIC TO FIND ACCOUNTING YEAR ---
       let year: string | null = null;
 
-      // Attempt 1: Fetch current accounting year directly
       const { data: currentYearData, error: currentYearError } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: "/accounting-years/current", method: "GET", country },
       });
 
-      if (currentYearError) {
-        console.warn("Failed to invoke function for /accounting-years/current:", currentYearError.message);
-      } else {
+      if (!currentYearError) {
         const currentYearResponse = currentYearData as EconomicProxyResponse<any>;
         if (currentYearResponse?.ok && currentYearResponse?.data?.year) {
           year = currentYearResponse.data.year;
-          console.log("Found current year via /current endpoint:", year);
-        } else {
-          console.warn("/accounting-years/current did not return a valid year. Response:", currentYearResponse);
         }
       }
 
-      // Attempt 2: If first attempt failed, fetch all years and find the current one
       if (!year) {
-        console.log("Falling back to fetching all accounting years...");
         const { data: allYearsData, error: allYearsError } = await supabase.functions.invoke("economic-api-proxy", {
           body: { path: "/accounting-years", method: "GET", country },
         });
-
-        if (allYearsError) {
-          throw new Error(allYearsError.message);
-        }
-
+        if (allYearsError) throw new Error(allYearsError.message);
         const allYearsResponse = allYearsData as EconomicProxyResponse<any>;
         if (allYearsResponse?.ok) {
           const yearsCollection = extractList(allYearsResponse.data);
@@ -740,24 +727,35 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
             const to = y.toDate ? parseISO(y.toDate) : null;
             return from && to && isWithinInterval(today, { start: from, end: to });
           });
-
-          if (currentYearObject?.year) {
-            year = currentYearObject.year;
-            console.log("Found current year by iterating all years:", year);
-          }
-        } else {
-           console.error("Failed to fetch /accounting-years. Response:", allYearsResponse);
+          if (currentYearObject?.year) year = currentYearObject.year;
         }
       }
-      // --- END NEW LOGIC ---
 
       if (!year) {
         throw new Error("Could not determine the current accounting year from e-conomic.");
       }
 
-      // Step 2: Fetch ledger items for that year
-      const endpoint = `/reports/accounting-years/${year}/customer-ledger-items`;
-      const list = await fetchCustomerLedgerEntries(endpoint);
+      const potentialEndpoints = [
+        `/reports/accounting-years/${year}/customer-ledger-items`,
+        `/customer-ledger-entries`,
+      ];
+
+      let list: any[] | null = null;
+      for (const endpoint of potentialEndpoints) {
+        try {
+          const result = await fetchCustomerLedgerEntries(endpoint);
+          if (result && result.length > 0) {
+            list = result;
+            break;
+          }
+        } catch (e: any) {
+          console.warn(`Endpoint ${endpoint} failed:`, e.message);
+        }
+      }
+
+      if (list === null) {
+        throw new Error("Could not find a valid ledger endpoint for this account.");
+      }
       
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
