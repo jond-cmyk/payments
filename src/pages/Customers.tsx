@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import DatePicker from "@/components/DatePicker"; // Import DatePicker
 import { format, isWithinInterval, parseISO } from "date-fns"; // Import format and isWithinInterval
 import { useCountry } from "@/integrations/supabase/CountryContext";
+import CountrySelector from "@/components/CountrySelector";
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -91,12 +92,14 @@ const CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER = 5000;
 
 
 const Customers: React.FC = () => {
-  const { session, isLoading } = useSession();
-  const { currentCountry } = useCountry();
+  const { session, isLoading, userProfile } = useSession();
+  const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
   const navigate = useNavigate();
 
   const [pageSize, setPageSize] = useState<string>("25");
   const [search, setSearch] = useState<string>("");
+
+  const isAdmin = userProfile?.role === "admin";
 
   const customersQuery = useQuery({
     queryKey: ["economicCustomers", pageSize, currentCountry],
@@ -164,6 +167,14 @@ const Customers: React.FC = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-3 items-center">
+            <div className="w-[200px]">
+              <CountrySelector
+                value={currentCountry}
+                onValueChange={setCurrentCountry}
+                disabled={isCountryLocked && !isAdmin}
+                availableCountries={isAdmin ? availableCountries : availableCountries.filter(c => c.value === userProfile?.country)}
+              />
+            </div>
             <div className="flex-1 min-w-[220px]">
               <Input
                 placeholder="Search by name, number, email..."
