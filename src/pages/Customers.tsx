@@ -710,7 +710,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         // Attempt 1: The path from the developer hint with standard account number
         `/accounts/${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
         // Attempt 2 (Fallback): The simpler, more direct endpoint that sometimes works
-        `/customer-ledger-entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`
+        `/customer-ledger-entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
+        // Attempt 3 (Global Fallback): Search all entries globally
+        `/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`
       ];
 
       for (const path of potentialPaths) {
