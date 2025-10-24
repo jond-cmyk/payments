@@ -12,7 +12,7 @@ import { useSession } from "@/integrations/supabase/SessionContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
+import { showError, showLoading, showSuccess, dismissToast, showInfo } from "@/utils/toast";
 import { List, FileText, BookText, ReceiptText, CalendarDays } from "lucide-react";
 import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
@@ -291,6 +291,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const [selectedAccountingYear, setSelectedAccountingYear] = useState<string | null>(null);
   const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
 
+  const [loadingOutstanding, setLoadingOutstanding] = useState(false);
+  const [outstandingData, setOutstandingData] = useState<any[] | null>(null);
+  const [showOutstandingDialog, setShowOutstandingDialog] = useState(false);
+
   const num = customer.customerNumber;
 
   const { data: balanceData, isLoading: loadingBalance, error: balanceError } = useQuery<{ balance: number | null, dueAmount: number | null }>({
@@ -514,6 +518,60 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     }
   }, [num, country]);
 
+  const loadOutstandingTransactions = useCallback(async () => {
+    if (!num) { showError("Customer number is missing."); return; }
+    setLoadingOutstanding(true);
+    const toastId = showLoading(`Loading outstanding transactions...`);
+    try {
+      const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", { body: { path: "/accounting-years", method: "GET", country } });
+      if (yearsError) throw new Error(yearsError.message);
+      const yearsResponse = yearsData as EconomicProxyResponse<any>;
+      if (!yearsResponse.ok) throw new Error("Failed to fetch accounting years.");
+      const yearsList = extractList(yearsResponse.data);
+      if (!yearsList || yearsList.length === 0) throw new Error("No accounting years found.");
+
+      let allEntries: any[] = [];
+      const filter = `customer.customerNumber$eq:${num}$and:remainder$ne:0`;
+
+      const yearPromises = yearsList.map(yearInfo => {
+        const year = yearInfo.year;
+        const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
+        return supabase.functions.invoke("economic-api-proxy", { body: { path, method: "GET", country } });
+      });
+
+      const yearResults = await Promise.all(yearPromises);
+
+      for (const result of yearResults) {
+        if (result.error) {
+          console.warn("Error fetching entries for a year:", result.error.message);
+          continue;
+        }
+        const resp = result.data as EconomicProxyResponse<any>;
+        if (resp.ok) {
+          const entriesForYear = extractList(resp?.data);
+          if (entriesForYear && entriesForYear.length > 0) {
+            allEntries = allEntries.concat(entriesForYear);
+          }
+        }
+      }
+
+      setOutstandingData(allEntries);
+      setShowOutstandingDialog(true);
+      if (allEntries.length > 0) {
+        enrichInvoiceHeadings(allEntries);
+        showSuccess(`Found ${allEntries.length} outstanding transactions.`);
+      } else {
+        showInfo("No outstanding transactions found for this customer.");
+      }
+      dismissToast(toastId);
+    } catch (err: any) {
+      dismissToast(toastId);
+      showError("Failed to load outstanding transactions: " + err.message);
+    } finally {
+      setLoadingOutstanding(false);
+    }
+  }, [num, country, enrichInvoiceHeadings]);
+
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
     { key: 'text', header: 'Text', path: ['description', 'text', 'notes.text', 'notes.heading', 'heading', 'title', 'recipient.name', 'customer.name'], render: (item) => invoiceHeadings[getInvoiceKey(item)] || getInvoiceDescription(item) },
@@ -533,6 +591,17 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
     { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
   ];
+
+  const outstandingColumns: DialogColumn[] = useMemo(() => [
+    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate'] },
+    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber'] },
+    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoice.bookedInvoiceNumber'] },
+    { key: 'text', header: 'Text', path: ['text'], render: (item) => invoiceHeadings[getInvoiceKey(item)] || getInvoiceDescription(item) },
+    { key: 'amount', header: 'Total Amount', format: 'currencyAmount', path: ['amount'] },
+    { key: 'remainder', header: 'Outstanding', format: 'currencyAmount', path: ['remainder'] },
+    { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate'] },
+    { key: 'pdf', header: 'PDF', render: (item) => <Button size="sm" variant="outline" onClick={() => viewInvoice(item)} className="flex items-center gap-1"><FileText className="h-4 w-4 mr-1" /> View Invoice</Button> },
+  ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
 
   const ledgerDialogDescription = (
     <div className="flex items-center justify-between">
@@ -572,11 +641,28 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
               </TooltipTrigger>
               {isCustomerNumberMissing && <TooltipContent>This customer has no associated customer number in e-conomic.</TooltipContent>}
             </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadOutstandingTransactions} disabled={isCustomerNumberMissing || loadingOutstanding}>
+                  <ReceiptText className="h-4 w-4 mr-1" /> {loadingOutstanding ? "Loading..." : "Outstanding"}
+                </Button>
+              </TooltipTrigger>
+              {isCustomerNumberMissing && <TooltipContent>This customer has no associated customer number in e-conomic.</TooltipContent>}
+            </Tooltip>
           </div>
         </TableCell>
       </TableRow>
       <EconomicDetailDialog isOpen={showInvoicesDialog} onOpenChange={setShowInvoicesDialog} title={`Invoices for ${customer.name || 'Customer'}`} description={`Showing all invoices for customer number ${customer.customerNumber}.`} data={invoiceData} columns={invoiceColumns} isLoading={loadingInvoices} defaultSort={{ key: 'invoiceNumber', direction: 'descending' }} />
       <EconomicDetailDialog isOpen={showLedgerCardDialog} onOpenChange={setShowLedgerCardDialog} title={`Ledger Card for ${customer.name || 'Customer'}`} description={ledgerDialogDescription} data={ledgerCardData as any[]} columns={ledgerCardColumns} isLoading={isLedgerLoading} />
+      <EconomicDetailDialog 
+        isOpen={showOutstandingDialog} 
+        onOpenChange={setShowOutstandingDialog} 
+        title={`Outstanding Transactions for ${customer.name || 'Customer'}`} 
+        description={`Showing all transactions with an outstanding balance for customer number ${customer.customerNumber}.`} 
+        data={outstandingData} 
+        columns={outstandingColumns} 
+        isLoading={loadingOutstanding} 
+      />
     </>
   );
 };
