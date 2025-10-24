@@ -111,13 +111,12 @@ const PropertyReports = () => {
 
         let pathForProxy = `/accounting-years/${year}/entries`;
         let queryForProxy: Record<string, string> = { pagesize: '1000' };
+        const fromDimNum = parseInt(fromDimension, 10);
+        const toDimNum = parseInt(toDimension, 10);
+        const filters = [];
 
         if (isClosedYear) {
-          // For closed years, build the full filter string
-          const fromDimNum = parseInt(fromDimension, 10);
-          const toDimNum = parseInt(toDimension, 10);
-          const filters = [];
-
+          // For closed years, build the full filter string (date and dimension)
           const yearFromDate = parseISO(yearInfo.fromDate);
           const yearToDate = parseISO(yearInfo.toDate);
           const effectiveFromDate = userFromDate > yearFromDate ? userFromDate : yearFromDate;
@@ -129,12 +128,18 @@ const PropertyReports = () => {
             filters.push(`departmentalDistribution.departmentalDistributionNumber$gte:${fromDimNum}`);
             filters.push(`departmentalDistribution.departmentalDistributionNumber$lte:${toDimNum}`);
           }
-          const filterString = filters.join('$and:');
-          if (filterString) {
-              queryForProxy.filter = filterString;
-          }
         } else {
-          // For OPEN years, do NOT add any filter parameter. We will filter client-side later.
+          // For OPEN years, ONLY apply the dimension filter at the API level.
+          // Date filtering will be done client-side.
+          if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
+            filters.push(`departmentalDistribution.departmentalDistributionNumber$gte:${fromDimNum}`);
+            filters.push(`departmentalDistribution.departmentalDistributionNumber$lte:${toDimNum}`);
+          }
+        }
+        
+        const filterString = filters.join('$and:');
+        if (filterString) {
+            queryForProxy.filter = filterString;
         }
         
         let hasMorePages = true;
@@ -172,28 +177,10 @@ const PropertyReports = () => {
       await Promise.all(yearPromises);
 
       // Step 4: Perform a final client-side filter on all fetched entries.
-      // This is crucial for entries from open years where no filters were applied at the API level.
-      const fromDimNum = parseInt(fromDimension, 10);
-      const toDimNum = parseInt(toDimension, 10);
-
+      // This is crucial for entries from open years where no date filter was applied at the API level.
       const filteredEntries = allEntries.filter(entry => {
-        // Filter by date
         const entryDate = entry.date ? parseISO(entry.date) : null;
-        const dateMatch = entryDate && isWithinInterval(entryDate, { start: userFromDate, end: userToDate });
-        if (!dateMatch) return false;
-
-        // Filter by dimension
-        if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
-            const deptNum = entry.departmentalDistribution?.departmentalDistributionNumber;
-            if (deptNum === undefined || deptNum === null) {
-                return false; // Exclude entries without a department if filtering by department
-            }
-            if (deptNum < fromDimNum || deptNum > toDimNum) {
-                return false;
-            }
-        }
-        
-        return true;
+        return entryDate && isWithinInterval(entryDate, { start: userFromDate, end: userToDate });
       });
 
       // Step 5: Aggregate the filtered entries
