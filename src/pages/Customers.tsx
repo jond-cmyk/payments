@@ -738,6 +738,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
       const potentialEndpoints = [
         `/reports/accounting-years/${year}/customer-ledger-items`,
         `/customer-ledger-entries`,
+        `/reports/customer-ledger-card`,
       ];
 
       let list: any[] | null = null;
@@ -746,6 +747,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
           const result = await fetchCustomerLedgerEntries(endpoint);
           if (result && result.length > 0) {
             list = result;
+            console.log(`Successfully fetched ledger data from endpoint: ${endpoint}`);
             break;
           }
         } catch (e: any) {
@@ -754,7 +756,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
       }
 
       if (list === null) {
-        throw new Error("Could not find a valid ledger endpoint for this account.");
+        throw new Error("Could not find a valid ledger endpoint for this account. Please check your e-conomic API permissions.");
       }
       
       setLedgerCardData(list);
