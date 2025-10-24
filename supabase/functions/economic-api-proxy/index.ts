@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // @ts-ignore
 serve(async (req) => {
-  console.log("[economic-proxy] --- FUNCTION START (v1.0.15) ---");
+  console.log("[economic-proxy] --- FUNCTION START (v1.0.16) ---");
   console.log("[economic-proxy] Request URL:", req.url);
   console.log("[economic-proxy] Request Method:", req.method);
 
@@ -99,6 +99,40 @@ serve(async (req) => {
     const baseUrl =
       typeof base === "string" && base.length > 0 ? base : "https://restapi.e-conomic.com";
 
+    // FIX: Correctly handle the filter syntax for $or operator
+    if (query.filter && query.filter.includes('$or(')) {
+      // The filter string is already correctly formatted on the client, just encode it
+      const filterValue = query.filter;
+      delete query.filter; // Remove it to prevent double-encoding
+      const otherParams = new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)])).toString();
+      const qs = (otherParams ? otherParams + '&' : '') + `filter=${encodeURIComponent(filterValue)}`;
+      const url = `${baseUrl}${normalizedPath}?${qs}`;
+      
+      const headers: HeadersInit = {
+        "X-AppSecretToken": activeAppSecretToken,
+        "X-AgreementGrantToken": activeAgreementGrantToken,
+        "Accept": "application/json",
+        "User-Agent": "SupabaseEdge/1.0",
+      };
+
+      const fetchOptions: RequestInit = {
+        method: String(method).toUpperCase(),
+        headers,
+      };
+
+      console.log(`[economic-proxy] Fetching URL (manual filter encoding) for ${country}: ${url}`);
+      const response = await fetch(url, fetchOptions);
+      const text = await response.text();
+      let payload: unknown = text;
+      try { payload = JSON.parse(text); } catch { /* keep as text */ }
+
+      return new Response(
+        JSON.stringify({ ok: response.ok, status: response.status, data: payload }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Original logic for other queries
     const qs =
       query && typeof query === "object" && Object.keys(query).length
         ? "?" + new URLSearchParams(Object.entries(query).map(([k, v]) => [k, String(v)])).toString()

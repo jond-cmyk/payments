@@ -100,52 +100,66 @@ const Customers: React.FC = () => {
   const navigate = useNavigate();
 
   const [pageSize, setPageSize] = useState<string>("25");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const [selectedCustomer, setSelectedCustomer] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCustomers, setTotalCustomers] = useState(0);
 
   const isAdmin = userProfile?.role === "admin";
 
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchTerm);
-      setCurrentPage(1);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [searchTerm]);
-
-  const customersQuery = useQuery({
-    queryKey: ["economicCustomers", pageSize, currentCountry, debouncedSearch, currentPage],
+  // Query to fetch all customers for the dropdown filter
+  const { data: allCustomersForFilter, isLoading: isLoadingAllCustomers } = useQuery<EconomicCustomer[]>({
+    queryKey: ['allEconomicCustomersForFilter', currentCountry],
     queryFn: async () => {
-      const skipPages = currentPage - 1;
-      const query: Record<string, string> = {
-        pagesize: pageSize,
-        skipPages: String(skipPages),
-      };
-
-      if (debouncedSearch) {
-        const term = `*${debouncedSearch}*`;
-        query.filter = `$or(name$like:${term},customerNumber$like:${term},email$like:${term})`;
-      }
-
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: "/customers", method: "GET", query, country: currentCountry },
+        body: { path: "/customers?pagesize=1000", method: "GET", country: currentCountry },
       });
+      if (error) throw new Error(error.message);
+      const resp = data as EconomicProxyResponse<any>;
+      return extractList(resp?.data) as EconomicCustomer[];
+    },
+    enabled: !!session && isAdmin,
+    staleTime: 15 * 60 * 1000, // Cache for 15 minutes
+  });
 
-      if (error) throw new Error(error.message || "Failed to load customers");
-      const resp = data as EconomicProxyResponse<EconomicCollection<EconomicCustomer>>;
-      
-      const total = resp?.data?.pagination?.results || 0;
-      setTotalCustomers(total);
+  // Main query for the table, now driven by the dropdown selection
+  const customersQuery = useQuery({
+    queryKey: ["economicCustomers", pageSize, currentCountry, selectedCustomer, currentPage],
+    queryFn: async () => {
+      if (selectedCustomer !== 'all') {
+        // Fetch a single customer if one is selected
+        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path: `/customers/${selectedCustomer}`, method: "GET", country: currentCountry },
+        });
+        if (error) throw new Error(error.message || "Failed to load customer");
+        const resp = data as EconomicProxyResponse<EconomicCustomer>;
+        setTotalCustomers(resp.data ? 1 : 0);
+        return resp.data ? [resp.data] : [];
+      } else {
+        // Fetch a paginated list for "All Customers"
+        const skipPages = currentPage - 1;
+        const query: Record<string, string> = {
+          pagesize: pageSize,
+          skipPages: String(skipPages),
+        };
 
-      const list = extractList(resp?.data);
-      return list as EconomicCustomer[];
+        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path: "/customers", method: "GET", query, country: currentCountry },
+        });
+
+        if (error) throw new Error(error.message || "Failed to load customers");
+        const resp = data as EconomicProxyResponse<EconomicCollection<EconomicCustomer>>;
+        
+        const total = resp?.data?.pagination?.results || 0;
+        setTotalCustomers(total);
+
+        const list = extractList(resp?.data);
+        return list as EconomicCustomer[];
+      }
     },
     staleTime: 60_000,
   });
 
-  const totalPages = Math.ceil(totalCustomers / parseInt(pageSize, 10));
+  const totalPages = selectedCustomer !== 'all' ? 1 : Math.ceil(totalCustomers / parseInt(pageSize, 10));
 
   const renderPaginationItems = () => {
     const items = [];
@@ -205,16 +219,26 @@ const Customers: React.FC = () => {
                 availableCountries={isAdmin ? availableCountries : availableCountries.filter(c => c.value === userProfile?.country)}
               />
             </div>
-            <div className="flex-1 min-w-[220px]">
-              <Input
-                placeholder="Search all records..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            <div className="flex-1 min-w-[250px]">
+              <label htmlFor="customer-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Customer</label>
+              <Select value={selectedCustomer} onValueChange={(value) => { setSelectedCustomer(value); setCurrentPage(1); }} disabled={isLoadingAllCustomers}>
+                <SelectTrigger id="customer-filter">
+                  <SelectValue placeholder="Select a customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Customers</SelectItem>
+                  {allCustomersForFilter?.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => (
+                    <SelectItem key={c.customerNumber} value={String(c.customerNumber)}>
+                      {c.name} (#{c.customerNumber})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="w-[160px]">
-              <Select value={pageSize} onValueChange={setPageSize}>
-                <SelectTrigger>
+              <label htmlFor="page-size-filter" className="block text-sm font-medium text-gray-700 mb-1">Page Size</label>
+              <Select value={pageSize} onValueChange={setPageSize} disabled={selectedCustomer !== 'all'}>
+                <SelectTrigger id="page-size-filter">
                   <SelectValue placeholder="Page size" />
                 </SelectTrigger>
                 <SelectContent>
@@ -228,6 +252,7 @@ const Customers: React.FC = () => {
               variant="outline"
               onClick={() => customersQuery.refetch()}
               disabled={customersQuery.isFetching}
+              className="self-end"
             >
               Refresh
             </Button>
