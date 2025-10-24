@@ -194,6 +194,7 @@ const PropertyReports = () => {
         data={reportData}
         columns={reportColumns}
         isLoading={isReportLoading}
+        defaultSort={{ key: 'period', direction: 'descending' }}
       />
     </div>
   );

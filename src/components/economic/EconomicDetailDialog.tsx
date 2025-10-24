@@ -308,7 +308,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
               <TableHeader className="sticky top-0 z-10">
                 <TableRow className="border-b bg-background hover:bg-muted/50">
                   {columns.map((col) => (
-                    <TableHead key={col.key} onClick={() => handleSort(col.key)} className="cursor-pointer">
+                    <TableHead key={col.key} onClick={() => handleSort(col.key)} className="cursor-pointer hover:bg-muted/50">
                       <div className="flex items-center">
                         {col.header}
                         {sortConfig?.key === col.key && (

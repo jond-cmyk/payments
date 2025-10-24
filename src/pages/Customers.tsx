@@ -407,18 +407,26 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const viewInvoice = useCallback(async (item: any) => {
     try {
       const invoiceObject = item.invoice || item;
-      const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber', 'invoice.bookedInvoiceNumber', 'invoiceNumber']);
       let basePath: string | undefined;
 
-      if (bookedInvoiceNumber) {
-        basePath = `/invoices/booked/${bookedInvoiceNumber}`;
-      } else {
-        const selfLink = pick(invoiceObject, ['self', 'invoice.self']);
-        basePath = pathFromSelf(selfLink);
+      basePath = pathFromSelf(invoiceObject?.self);
+
+      if (!basePath) {
+        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber', 'invoice.bookedInvoiceNumber']);
+        if (bookedInvoiceNumber) {
+          basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+        }
+      }
+      
+      if (!basePath) {
+        const invoiceNumber = pick(invoiceObject, ['invoiceNumber', 'invoice.invoiceNumber', 'number']);
+        if (invoiceNumber) {
+          basePath = `/invoices/booked/${invoiceNumber}`;
+        }
       }
 
       if (!basePath) {
-        throw new Error("Could not determine a valid invoice path for this entry. No booked invoice number or self link found.");
+        throw new Error("Could not determine a valid invoice path for this entry.");
       }
 
       const pdfPath = `${basePath}/pdf`;
@@ -631,8 +639,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
           </div>
         </TableCell>
       </TableRow>
-      <EconomicDetailDialog isOpen={showInvoicesDialog} onOpenChange={setShowInvoicesDialog} title={`Invoices for ${customer.name || 'Customer'}`} description={`Showing all invoices for customer number ${customer.customerNumber}.`} data={invoiceData} columns={invoiceColumns} isLoading={loadingInvoices} defaultSort={{ key: 'invoiceNumber', direction: 'descending' }} />
-      <EconomicDetailDialog isOpen={showLedgerCardDialog} onOpenChange={setShowLedgerCardDialog} title={`Ledger Card for ${customer.name || 'Customer'}`} description={ledgerDialogDescription} data={ledgerCardData as any[]} columns={ledgerCardColumns} isLoading={isLedgerLoading} />
+      <EconomicDetailDialog isOpen={showInvoicesDialog} onOpenChange={setShowInvoicesDialog} title={`Invoices for ${customer.name || 'Customer'}`} description={`Showing all invoices for customer number ${customer.customerNumber}.`} data={invoiceData} columns={invoiceColumns} isLoading={loadingInvoices} defaultSort={{ key: 'date', direction: 'descending' }} />
+      <EconomicDetailDialog isOpen={showLedgerCardDialog} onOpenChange={setShowLedgerCardDialog} title={`Ledger Card for ${customer.name || 'Customer'}`} description={ledgerDialogDescription} data={ledgerCardData as any[]} columns={ledgerCardColumns} isLoading={isLedgerLoading} defaultSort={{ key: 'date', direction: 'descending' }} />
       <EconomicDetailDialog 
         isOpen={showOutstandingDialog} 
         onOpenChange={setShowOutstandingDialog} 
@@ -641,6 +649,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         data={outstandingData} 
         columns={outstandingColumns} 
         isLoading={loadingOutstanding} 
+        defaultSort={{ key: 'date', direction: 'descending' }}
       />
     </>
   );
