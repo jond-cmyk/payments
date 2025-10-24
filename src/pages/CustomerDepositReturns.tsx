@@ -98,7 +98,8 @@ const CustomerDepositReturns = () => {
 
       // Step 2: For each year, fetch entries
       let allEntries: EconomicLedgerEntry[] = [];
-      let filter = `text$contains:Final Statement`;
+      // CHANGED: Use 'like' with wildcards for a more robust search
+      let filter = `text$like:*Final Statement*`;
       if (selectedCustomer !== 'all') {
         filter += `&customer.customerNumber$eq:${selectedCustomer}`;
       }
