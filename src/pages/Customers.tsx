@@ -769,10 +769,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     { key: 'date', header: 'Date', format: 'date', path: ['date'] },
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber'] },
     { key: 'entryType', header: 'Entry Type', path: ['entryType', 'type'] },
-    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'invoice.bookedInvoiceNumber'] },
+    { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'invoice.bookedInvoiceNumber', 'invoice.invoiceNumber'] },
     { key: 'text', header: 'Text', path: ['text'] },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount'] },
-    { key: 'balance', header: 'Balance', format: 'currencyAmount', path: ['balance', 'customer.balance'] },
     { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate'] },
   ];
 
