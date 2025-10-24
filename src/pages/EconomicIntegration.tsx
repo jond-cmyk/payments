@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
-import { Globe, Database } from "lucide-react"; // Import Database icon
+import { Globe, Database, Compass } from "lucide-react"; // Import Compass icon
 import { useCountry } from "@/integrations/supabase/CountryContext";
 
 const EconomicIntegration = () => {
@@ -43,7 +43,7 @@ const EconomicIntegration = () => {
     return null;
   }
 
-  const handleCallEconomic = async () => {
+  const handleCallEconomic = async (pathOverride?: string) => {
     const toastId = showLoading("Calling e-conomic...");
     try {
       let parsedBody: any = undefined;
@@ -57,7 +57,8 @@ const EconomicIntegration = () => {
         }
       }
 
-      const normalized = endpointPath.startsWith("/") ? endpointPath : `/${endpointPath}`;
+      const path = pathOverride || endpointPath;
+      const normalized = path.startsWith("/") ? path : `/${path}`;
 
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: normalized, method, body: parsedBody, base, country: currentCountry },
@@ -190,7 +191,7 @@ const EconomicIntegration = () => {
             <Globe className="mr-2 h-6 w-6" /> e-conomic REST API Proxy
           </CardTitle>
           <CardDescription>
-            Test the secure proxy to e-conomic. Defaults to <code>/self</code>. For lists, try <code>/customers?pagesize=5</code> or <code>/invoices?pagesize=5</code>.
+            Test the secure proxy to e-conomic. Use the "Discover Endpoints" button to find available routes for your account.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -231,38 +232,18 @@ const EconomicIntegration = () => {
             </div>
           )}
           <div className="flex gap-4 flex-wrap">
-            <Button onClick={handleCallEconomic} className="flex-1">
+            <Button onClick={() => handleCallEconomic()} className="flex-1">
               Call e-conomic
             </Button>
             <Button
-              variant="outline"
-              onClick={() => {
-                setEndpointPath("/self");
-                setTimeout(handleCallEconomic, 0);
-              }}
+              variant="secondary"
+              onClick={() => handleCallEconomic('/')}
+              className="flex items-center gap-2"
             >
-              Test /self
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEndpointPath("/customers?pagesize=5");
-                setTimeout(handleCallEconomic, 0);
-              }}
-            >
-              Test /customers
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEndpointPath("/invoices?pagesize=5");
-                setTimeout(handleCallEconomic, 0);
-              }}
-            >
-              Test /invoices
+              <Compass className="h-4 w-4" /> Discover Endpoints
             </Button>
             <Button variant="secondary" onClick={handleDiagnose}>
-              Diagnose
+              Diagnose Common Endpoints
             </Button>
           </div>
           {result && (
