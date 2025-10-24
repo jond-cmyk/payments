@@ -193,18 +193,19 @@ const CustomerDepositReturns = () => {
   const handleViewInvoice = useCallback(async (entry: EconomicLedgerEntry) => {
     const toastId = showLoading("Fetching invoice PDF...");
     try {
-      const invoiceObject = entry.invoice;
-      if (!invoiceObject) {
-        throw new Error("No invoice data associated with this entry.");
+      const invoiceObject = entry.invoice || entry;
+      const bookedInvoiceNumber = (invoiceObject as any).bookedInvoiceNumber || (invoiceObject as any).invoice?.bookedInvoiceNumber || (invoiceObject as any).invoiceNumber;
+      let basePath: string | undefined;
+
+      if (bookedInvoiceNumber) {
+        basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+      } else {
+        const selfLink = (invoiceObject as any).self || (invoiceObject as any).invoice?.self;
+        basePath = pathFromSelf(selfLink);
       }
 
-      const basePath = pathFromSelf(invoiceObject?.self) ?? 
-                       (invoiceObject?.bookedInvoiceNumber ? `/invoices/booked/${invoiceObject.bookedInvoiceNumber}` : 
-                        invoiceObject?.invoiceNumber ? `/invoices/${invoiceObject.invoiceNumber}` : 
-                        undefined);
-
       if (!basePath) {
-        throw new Error("Invoice path not available to generate PDF link.");
+        throw new Error("Could not determine a valid invoice path for this entry. No booked invoice number or self link found.");
       }
 
       const pdfPath = `${basePath}/pdf`;
