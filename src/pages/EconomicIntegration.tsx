@@ -12,9 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
 import { Globe, Database } from "lucide-react"; // Import Database icon
+import { useCountry } from "@/integrations/supabase/CountryContext";
 
 const EconomicIntegration = () => {
   const { session, isLoading, userProfile } = useSession();
+  const { currentCountry } = useCountry();
   const navigate = useNavigate();
 
   const [endpointPath, setEndpointPath] = useState<string>("/self");
@@ -58,7 +60,7 @@ const EconomicIntegration = () => {
       const normalized = endpointPath.startsWith("/") ? endpointPath : `/${endpointPath}`;
 
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: normalized, method, body: parsedBody, base },
+        body: { path: normalized, method, body: parsedBody, base, country: currentCountry },
       });
 
       if (error) {
@@ -122,7 +124,7 @@ const EconomicIntegration = () => {
 
     for (const t of tests) {
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: t.path, method: "GET" },
+        body: { path: t.path, method: "GET", country: currentCountry },
       });
       if (error) {
         results.push({ label: t.label, status: 500, ok: false, url: `${base}${t.path}`, note: error.message });

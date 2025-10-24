@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // @ts-ignore
 serve(async (req) => {
-  console.log("[economic-proxy] --- FUNCTION START (v1.0.14) ---");
+  console.log("[economic-proxy] --- FUNCTION START (v1.0.15) ---");
   console.log("[economic-proxy] Request URL:", req.url);
   console.log("[economic-proxy] Request Method:", req.method);
 
@@ -18,17 +18,24 @@ serve(async (req) => {
   }
 
   try {
+    // Get default (UK) tokens
     // @ts-ignore
-    const appSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
+    const defaultAppSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
     // @ts-ignore
-    const agreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
+    const defaultAgreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
 
-    if (!appSecretToken || !agreementGrantToken) {
-      console.error("[economic-proxy] Missing ECONOMIC_APP_SECRET_TOKEN or ECONOMIC_AGREEMENT_GRANT_TOKEN.");
+    // Get Swiss tokens
+    // @ts-ignore
+    const swissAppSecretToken = Deno.env.get("SWISS_ECONOMIC_APP_SECRET_TOKEN");
+    // @ts-ignore
+    const swissAgreementGrantToken = Deno.env.get("SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN");
+
+    if (!defaultAppSecretToken || !defaultAgreementGrantToken) {
+      console.error("[economic-proxy] Missing default ECONOMIC_APP_SECRET_TOKEN or ECONOMIC_AGREEMENT_GRANT_TOKEN.");
       return new Response(
         JSON.stringify({
           error:
-            "Missing ECONOMIC_APP_SECRET_TOKEN or ECONOMIC_AGREEMENT_GRANT_TOKEN. Set both in Supabase → Edge Functions → Manage Secrets.",
+            "Missing default e-conomic secrets. Set both in Supabase → Edge Functions → Manage Secrets.",
         }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
@@ -49,7 +56,7 @@ serve(async (req) => {
       );
     }
 
-    const { path, method = "GET", query = {}, body, base } = parsedPayload;
+    const { path, method = "GET", query = {}, body, base, country } = parsedPayload;
 
     if (!path || typeof path !== "string") {
       console.error("[economic-proxy] Missing or invalid 'path' in request body.");
@@ -57,6 +64,35 @@ serve(async (req) => {
         JSON.stringify({ error: "Missing 'path'. Example: '/self' or '/customers?pagesize=10'." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    if (!country) {
+      console.error("[economic-proxy] Missing 'country' in request body.");
+      return new Response(
+        JSON.stringify({ error: "Missing 'country' in request body. Please specify 'Switzerland' or another country." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    let activeAppSecretToken;
+    let activeAgreementGrantToken;
+
+    if (country === 'Switzerland') {
+      if (!swissAppSecretToken || !swissAgreementGrantToken) {
+        console.error("[economic-proxy] Missing SWISS_ECONOMIC_APP_SECRET_TOKEN or SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN for Switzerland request.");
+        return new Response(
+          JSON.stringify({
+            error:
+              "Missing Swiss e-conomic secrets. Set both SWISS_ECONOMIC_APP_SECRET_TOKEN and SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.",
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      activeAppSecretToken = swissAppSecretToken;
+      activeAgreementGrantToken = swissAgreementGrantToken;
+    } else {
+      activeAppSecretToken = defaultAppSecretToken;
+      activeAgreementGrantToken = defaultAgreementGrantToken;
     }
 
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -71,8 +107,8 @@ serve(async (req) => {
     const url = `${baseUrl}${normalizedPath}${qs}`;
 
     const headers: HeadersInit = {
-      "X-AppSecretToken": appSecretToken,
-      "X-AgreementGrantToken": agreementGrantToken,
+      "X-AppSecretToken": activeAppSecretToken,
+      "X-AgreementGrantToken": activeAgreementGrantToken,
       "Accept": "application/json",
       "User-Agent": "SupabaseEdge/1.0",
     };
@@ -86,7 +122,7 @@ serve(async (req) => {
       body: isGetLike ? undefined : body ? JSON.stringify(body) : undefined,
     };
 
-    console.log(`[economic-proxy] Fetching URL: ${url}`);
+    console.log(`[economic-proxy] Fetching URL for ${country}: ${url}`);
     console.log(`[economic-proxy] Fetch options: ${JSON.stringify({ method: fetchOptions.method, headers: fetchOptions.headers, body: fetchOptions.body ? '[body present]' : '[no body]' })}`);
 
     const response = await fetch(url, fetchOptions);
@@ -102,7 +138,6 @@ serve(async (req) => {
       // keep as text
     }
 
-    // IMPORTANT: If the response is not OK, return the full response body and status code
     if (!response.ok) {
       console.error(`[economic-proxy] Non-2xx status detected: ${response.status}. Returning full error payload.`);
       return new Response(
@@ -116,7 +151,7 @@ serve(async (req) => {
             method: methodUpper,
           },
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Return 200 to client, but embed the error status
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -138,7 +173,7 @@ serve(async (req) => {
     console.error(`[economic-proxy] Unhandled error: ${error?.message || "Unknown error"}`, error);
     return new Response(
       JSON.stringify({ error: error?.message || "Unexpected error calling e-conomic API." }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }, // Return 200 to client, but embed the error
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

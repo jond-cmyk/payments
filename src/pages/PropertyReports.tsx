@@ -13,6 +13,7 @@ import EconomicDetailDialog, { DialogColumn, extractList } from '@/components/ec
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
+import { useCountry } from '@/integrations/supabase/CountryContext';
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -24,6 +25,7 @@ type EconomicProxyResponse<T = any> = {
 
 const PropertyReports = () => {
   const { session, isLoading, userProfile } = useSession();
+  const { currentCountry } = useCountry();
   const navigate = useNavigate();
 
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
@@ -79,7 +81,7 @@ const PropertyReports = () => {
       const path = `/accounting-reports/department-profit-loss?${queryString}`;
 
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: path, method: "GET" },
+        body: { path: path, method: "GET", country: currentCountry },
       });
 
       if (error) {
@@ -105,7 +107,7 @@ const PropertyReports = () => {
       dismissToast(toastId);
       setIsReportLoading(false);
     }
-  }, [fromDate, toDate, fromDimension, toDimension]);
+  }, [fromDate, toDate, fromDimension, toDimension, currentCountry]);
 
   const reportColumns: DialogColumn[] = [
     { key: 'accountNumber', header: 'Account No.', path: ['account.accountNumber', 'accountNumber'] },

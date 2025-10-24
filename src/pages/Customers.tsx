@@ -21,6 +21,7 @@ import { formatAmount } from "@/components/economic/EconomicDetailDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import DatePicker from "@/components/DatePicker"; // Import DatePicker
 import { format, isWithinInterval, parseISO } from "date-fns"; // Import format and isWithinInterval
+import { useCountry } from "@/integrations/supabase/CountryContext";
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -91,18 +92,19 @@ const CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER = 5000;
 
 const Customers: React.FC = () => {
   const { session, isLoading } = useSession();
+  const { currentCountry } = useCountry();
   const navigate = useNavigate();
 
   const [pageSize, setPageSize] = useState<string>("25");
   const [search, setSearch] = useState<string>("");
 
   const customersQuery = useQuery({
-    queryKey: ["economicCustomers", pageSize],
+    queryKey: ["economicCustomers", pageSize, currentCountry],
     queryFn: async () => {
       const path = `/customers?pagesize=${pageSize}`;
       console.log(`[Customers] Invoking economic-api-proxy for path: ${path}`);
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: path, method: "GET" },
+        body: { path: path, method: "GET", country: currentCountry },
       });
       console.log("[Customers] Raw response from economic-api-proxy:", { data, error });
       if (error) throw new Error(error.message || "Failed to load customers");
@@ -199,7 +201,8 @@ const Customers: React.FC = () => {
                 {filtered.map((c) => (
                   <CustomerRow 
                     key={c.customerNumber ?? c.name} 
-                    customer={c} 
+                    customer={c}
+                    country={currentCountry}
                   />
                 ))}
                 {filtered.length === 0 && (
@@ -220,9 +223,10 @@ const Customers: React.FC = () => {
 
 interface CustomerRowProps {
   customer: EconomicCustomer;
+  country: string;
 }
 
-const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
+const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
 
@@ -244,11 +248,11 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
   // Fetch balance and overdue amount automatically using useQuery
   const { data: balanceData, isLoading: loadingBalance, error: balanceError } = useQuery<{ balance: number | null, dueAmount: number | null }>({
-    queryKey: ["customerBalanceAndOverdue", num],
+    queryKey: ["customerBalanceAndOverdue", num, country],
     queryFn: async () => {
       if (!num) return { balance: null, dueAmount: null };
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: `/customers/${num}/totals`, method: "GET" },
+        body: { path: `/customers/${num}/totals`, method: "GET", country },
       });
 
       if (error) {
@@ -271,7 +275,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
       if (balanceVal === null || dueAmountVal === null) {
         const { data: detailsData, error: detailsError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: `/customers/${num}`, method: "GET" },
+          body: { path: `/customers/${num}`, method: "GET", country },
         });
         if (!detailsError) {
           const detailsResp = detailsData as EconomicProxyResponse<any>;
@@ -338,7 +342,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     if (!path) return;
 
     const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-      body: { path, method: "GET" },
+      body: { path, method: "GET", country },
     });
     if (error || !data) return;
 
@@ -388,7 +392,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     const key = getInvoiceKey(inv);
     setInvoiceHeadings((prev) => ({ ...prev, [key]: found as string }));
-  }, [getInvoiceDescription, setInvoiceHeadings]);
+  }, [getInvoiceDescription, setInvoiceHeadings, country]);
 
   const enrichInvoiceHeadings = useCallback(async (list: any[]) => {
     for (const inv of list) {
@@ -418,7 +422,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     if (originalRequestPath) {
       const { data: demoData } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: `${originalRequestPath}?demo=true`, method: "GET" },
+        body: { path: `${originalRequestPath}?demo=true`, method: "GET", country },
       });
       if (demoData) {
         const demoResp = demoData as any;
@@ -445,7 +449,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     showError("Unauthorized to access invoice PDF. Check ECONOMIC_APP_SECRET_TOKEN and ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.");
     return false;
-  }, []);
+  }, [country]);
 
   const viewInvoice = useCallback(async (inv: any) => {
     const toastId = showLoading("Fetching invoice...");
@@ -464,7 +468,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
 
     const { data: initialProxyResponse, error: initialProxyError } = await supabase.functions.invoke("economic-api-proxy", {
-      body: { path: basePath, method: "GET" },
+      body: { path: basePath, method: "GET", country },
     });
     dismissToast(toastId);
 
@@ -513,7 +517,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     if (!pdfUrl) {
       const pdfPath = basePath.endsWith("/pdf") ? basePath : `${basePath}/pdf`;
       const { data: pdfProxyResponse, error: pdfProxyError } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: pdfPath, method: "GET" },
+        body: { path: pdfPath, method: "GET", country },
       });
 
       if (pdfProxyError) {
@@ -551,11 +555,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       return;
     }
 
-    // --- START NEW LOGIC FOR SECURE PDF PROXY ---
     const isEconomicUrl = pdfUrl.startsWith("https://restapi.e-conomic.com");
     
     if (isEconomicUrl) {
-      // If it's a secure e-conomic URL, we must proxy it via a direct browser call to the Edge Function
       let economicPath: string;
       try {
         const urlObj = new URL(pdfUrl);
@@ -566,8 +568,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         return;
       }
       
-      // Hardcoded Supabase Project ID and Function Name
-      const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(economicPath)}`;
+      const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(economicPath)}&country=${encodeURIComponent(country)}`;
       
       try {
         window.open(proxyUrl, "_blank");
@@ -577,7 +578,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         showError("Unable to open invoice PDF via secure proxy.");
       }
     } else {
-      // If it's a public URL (e.g., from Supabase storage or another public CDN), open directly
       try {
         window.open(pdfUrl, "_blank");
         showSuccess("Opening invoice PDF");
@@ -586,8 +586,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
         showError("Unable to open invoice PDF");
       }
     }
-    // --- END NEW LOGIC FOR SECURE PDF PROXY ---
-  }, [handleUnauthorized]);
+  }, [handleUnauthorized, country]);
 
   const loadInvoices = useCallback(async () => {
     setLoadingInvoices(true);
@@ -608,7 +607,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     for (const path of paths) {
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path, method: "GET" },
+        body: { path, method: "GET", country },
       });
       if (!error && data) {
         const arr = extractList(data);
@@ -645,7 +644,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     } else {
       showError("No invoices found for this customer");
     }
-  }, [num, enrichInvoiceHeadings]);
+  }, [num, enrichInvoiceHeadings, country]);
 
   const fetchCustomerLedgerEntries = useCallback(async (endpoint: string, fromDate?: Date, toDate?: Date) => {
     let pathForProxy = `${endpoint}?customerNumber=${num}&pagesize=1000`;
@@ -657,7 +656,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       pathForProxy += `&toDate=${format(toDate, 'yyyy-MM-dd')}`;
     }
 
-    const requestBodyForProxy = { path: pathForProxy, method: "GET" };
+    const requestBodyForProxy = { path: pathForProxy, method: "GET", country };
 
     const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
       body: requestBodyForProxy,
@@ -670,7 +669,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
 
     const resp = data as EconomicProxyResponse<EconomicCollection<any>>;
     if (resp?.status === 404) {
-      // If 404, throw a specific error so the caller can try the fallback
       throw new Error(`404 Not Found on ${endpoint}`);
     }
     if (resp?.status && resp.status >= 400) {
@@ -680,9 +678,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     }
 
     return extractList(resp?.data);
-  }, [num]);
-
-  // Removed fetchGeneralLedgerEntries
+  }, [num, country]);
 
   const loadLedgerCard = useCallback(async () => {
     if (!num) {
@@ -693,7 +689,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      // Try standard path: /customer-ledger-entries (no dates)
       const list = await fetchCustomerLedgerEntries('/customer-ledger-entries');
       
       setLedgerCardData(list);
@@ -707,8 +702,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer }) => {
       setLoadingLedgerCard(false);
     }
   }, [num, customer.name, fetchCustomerLedgerEntries]);
-
-  // Removed loadAllTransactions
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
