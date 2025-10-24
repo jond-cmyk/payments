@@ -688,8 +688,32 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     setLoadingLedgerCard(true);
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
+    const endpointsToTry = [
+      '/reports/customer-ledger-card',
+      '/customer-ledger-entries'
+    ];
+
     try {
-      const list = await fetchCustomerLedgerEntries('/customer-ledger-entries');
+      let list: any[] = [];
+      let success = false;
+      for (const endpoint of endpointsToTry) {
+        try {
+          const result = await fetchCustomerLedgerEntries(endpoint);
+          list = result;
+          success = true;
+          break; // Stop on first success
+        } catch (e: any) {
+          if (e.message && e.message.includes('404')) {
+            console.warn(`Endpoint ${endpoint} returned 404, trying next one.`);
+            continue; // Try next endpoint
+          }
+          throw e; // Re-throw other errors
+        }
+      }
+
+      if (!success) {
+        throw new Error("Could not find a valid ledger card endpoint. Both /reports/customer-ledger-card and /customer-ledger-entries failed.");
+      }
       
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
