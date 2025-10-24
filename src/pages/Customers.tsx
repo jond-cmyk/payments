@@ -84,13 +84,6 @@ const pick = (obj: any, keys: string[]): any => {
   return undefined;
 };
 
-// --- Configuration ---
-// NOTE: This is a common default account number for customer receivables. 
-// It might need to be adjusted based on the specific e-conomic chart of accounts.
-const CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER = 5000; 
-// ---------------------
-
-
 const Customers: React.FC = () => {
   const { session, isLoading, userProfile } = useSession();
   const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
@@ -666,7 +659,46 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
     try {
-      const path = `/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`;
+      // 1. Determine the current accounting year
+      let year: string | null = null;
+
+      // Attempt 1: Fetch the 'current' accounting year directly
+      const { data: currentYearData, error: currentYearError } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: "/accounting-years/current", method: "GET", country },
+      });
+
+      if (!currentYearError) {
+        const currentYearResponse = currentYearData as EconomicProxyResponse<any>;
+        if (currentYearResponse?.ok && currentYearResponse?.data?.year) {
+          year = currentYearResponse.data.year;
+        }
+      }
+
+      // Attempt 2 (Fallback): Fetch all years and find the current one
+      if (!year) {
+        const { data: allYearsData, error: allYearsError } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path: "/accounting-years", method: "GET", country },
+        });
+        if (allYearsError) throw new Error(allYearsError.message);
+        const allYearsResponse = allYearsData as EconomicProxyResponse<any>;
+        if (allYearsResponse?.ok) {
+          const yearsCollection = extractList(allYearsResponse.data);
+          const today = new Date();
+          const currentYearObject = yearsCollection.find(y => {
+            const from = y.fromDate ? parseISO(y.fromDate) : null;
+            const to = y.toDate ? parseISO(y.toDate) : null;
+            return from && to && isWithinInterval(today, { start: from, end: to });
+          });
+          if (currentYearObject?.year) year = currentYearObject.year;
+        }
+      }
+
+      if (!year) {
+        throw new Error("Could not determine the current accounting year from e-conomic.");
+      }
+
+      // 2. Construct the correct path and fetch entries
+      const path = `/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`;
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path, method: "GET", country },
       });
@@ -681,30 +713,15 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         throw new Error(`e-conomic API Error: ${errorMessage}`);
       }
 
-      let list = extractList(resp?.data);
+      const list = extractList(resp?.data);
 
       if (list === null || list.length === 0) {
-        // If the primary endpoint fails, try a more specific one with the default receivables account
-        const fallbackPath = `/entries?filter=customer.customerNumber$eq:${num}&and:account.accountNumber$eq:${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}&pagesize=1000`;
-        const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke("economic-api-proxy", {
-            body: { path: fallbackPath, method: "GET", country },
-        });
-
-        if (fallbackError) throw new Error(fallbackError.message);
-        
-        const fallbackResp = fallbackData as EconomicProxyResponse<any>;
-        const fallbackList = extractList(fallbackResp?.data);
-
-        if (fallbackList && fallbackList.length > 0) {
-            list = fallbackList;
-        } else {
-            throw new Error("No ledger entries found for this customer in the standard receivables account.");
-        }
+        throw new Error("No ledger entries found for this customer in the current accounting year.");
       }
       
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
-      showSuccess(`Loaded ${list.length} ledger entries.`);
+      showSuccess(`Loaded ${list.length} ledger entries for year ${year}.`);
 
     } catch (err: any) {
       console.error("Error loading ledger card:", err);
