@@ -126,7 +126,7 @@ const Customers: React.FC = () => {
 
       if (debouncedSearch) {
         const term = `*${debouncedSearch}*`;
-        query.filter = `$or:name$like:${term},customerNumber$like:${term},email$like:${term}`;
+        query.filter = `$or(name$like:${term},customerNumber$like:${term},email$like:${term})`;
       }
 
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
@@ -245,7 +245,7 @@ const Customers: React.FC = () => {
                   ))
                 ) : (customersQuery.data || []).map((c) => (
                   <CustomerRow 
-                    key={c.customerNumber ?? c.name} 
+                    key={c.self ?? c.customerNumber ?? c.name} 
                     customer={c}
                     country={currentCountry}
                   />
