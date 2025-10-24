@@ -128,8 +128,8 @@ const PropertyReports = () => {
 
         // Dimension filter
         if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
-            const deptNum = entry.department?.departmentNumber;
-            if (!deptNum || deptNum < fromDimNum || deptNum > toDimNum) {
+            const deptNum = entry.departmentalDistribution?.departmentalDistributionNumber;
+            if (deptNum === undefined || deptNum === null || deptNum < fromDimNum || deptNum > toDimNum) {
                 return false;
             }
         }
