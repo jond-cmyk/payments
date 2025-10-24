@@ -33,7 +33,7 @@ type EconomicLedgerEntry = {
   text: string;
   amount: number;
   currency: string;
-  remainingAmount: number;
+  remainder: number; // Corrected from remainingAmount
   customer: {
     customerNumber: number;
     name: string;
@@ -76,6 +76,17 @@ const CustomerDepositReturns = () => {
     enabled: !!session && isAdmin,
   });
 
+  // Create a map of customer numbers to names for easy lookup
+  const customerNameMap = useMemo(() => {
+    if (!customers) return {};
+    return customers.reduce((acc, customer) => {
+      if (customer.customerNumber) {
+        acc[customer.customerNumber] = customer.name;
+      }
+      return acc;
+    }, {} as Record<number, string>);
+  }, [customers]);
+
   // Fetch ledger entries based on filter
   const { data: entries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
     queryKey: ['finalStatementEntries', selectedCustomer, currentCountry],
@@ -98,10 +109,10 @@ const CustomerDepositReturns = () => {
 
       // Step 2: For each year, fetch entries
       let allEntries: EconomicLedgerEntry[] = [];
-      // CHANGED: Use 'like' with wildcards for a more robust search
       let filter = `text$like:*Final Statement*`;
       if (selectedCustomer !== 'all') {
-        filter += `&customer.customerNumber$eq:${selectedCustomer}`;
+        // FIX: Use $and: to combine filters correctly
+        filter += `$and:customer.customerNumber$eq:${selectedCustomer}`;
       }
 
       const yearPromises = accountingYears.map(yearInfo => {
@@ -154,7 +165,10 @@ const CustomerDepositReturns = () => {
   const groupedEntries = useMemo(() => {
     if (!entries) return {};
     return entries.reduce((acc, entry) => {
-      const customerName = entry.customer?.name || `Customer #${entry.customer?.customerNumber}`;
+      const customerNumber = entry.customer?.customerNumber;
+      // FIX: Use the customerNameMap to get the correct name
+      const customerName = customerNumber ? (customerNameMap[customerNumber] || `Customer #${customerNumber}`) : 'Unknown Customer';
+      
       if (!acc[customerName]) {
         acc[customerName] = {
           customer: entry.customer,
@@ -164,7 +178,7 @@ const CustomerDepositReturns = () => {
       acc[customerName].entries.push(entry);
       return acc;
     }, {} as Record<string, { customer: EconomicCustomer; entries: EconomicLedgerEntry[] }>);
-  }, [entries]);
+  }, [entries, customerNameMap]);
 
   const handleViewInvoice = useCallback(async (entry: EconomicLedgerEntry) => {
     const toastId = showLoading("Fetching invoice PDF...");
@@ -230,7 +244,7 @@ const CustomerDepositReturns = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Customers</SelectItem>
-                    {customers?.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
+                    {customers?.sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => (
                       <SelectItem key={c.customerNumber} value={String(c.customerNumber)}>
                         {c.name} (#{c.customerNumber})
                       </SelectItem>
@@ -272,7 +286,8 @@ const CustomerDepositReturns = () => {
                             <TableRow key={entry.entryNumber}>
                               <TableCell>{entry.text}</TableCell>
                               <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                              <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainingAmount)} {entry.currency}</TableCell>
+                              {/* FIX: Use entry.remainder for the outstanding amount */}
+                              <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
                               <TableCell className="text-right">
                                 <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
                                   <FileText className="mr-2 h-4 w-4" /> View Invoice
