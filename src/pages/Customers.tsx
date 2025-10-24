@@ -688,37 +688,28 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     setLoadingLedgerCard(true);
     const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
 
-    const endpointsToTry = [
-      '/reports/customer-ledger-card',
-      '/customer-ledger-entries',
-      '/customer-ledger-items'
-    ];
-
     try {
-      let list: any[] = [];
-      let success = false;
-      for (const endpoint of endpointsToTry) {
-        try {
-          const result = await fetchCustomerLedgerEntries(endpoint);
-          list = result;
-          success = true;
-          break; // Stop on first success
-        } catch (e: any) {
-          if (e.message && e.message.includes('404')) {
-            console.warn(`Endpoint ${endpoint} returned 404, trying next one.`);
-            continue; // Try next endpoint
-          }
-          throw e; // Re-throw other errors
-        }
+      // Step 1: Get current accounting year
+      const { data: accountingYearData, error: accountingYearError } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: "/accounting-years/current", method: "GET", country },
+      });
+
+      if (accountingYearError) throw new Error(accountingYearError.message);
+      
+      const yearResponse = accountingYearData as EconomicProxyResponse<any>;
+      const year = yearResponse?.data?.year;
+
+      if (!year) {
+        throw new Error("Could not determine the current accounting year from e-conomic.");
       }
 
-      if (!success) {
-        throw new Error("Could not find a valid ledger card endpoint. All tried endpoints failed with 404.");
-      }
+      // Step 2: Fetch ledger items for that year
+      const endpoint = `/reports/accounting-years/${year}/customer-ledger-items`;
+      const list = await fetchCustomerLedgerEntries(endpoint);
       
       setLedgerCardData(list);
       setShowLedgerCardDialog(true);
-      showSuccess(`Loaded ${list.length} ledger entries.`);
+      showSuccess(`Loaded ${list.length} ledger entries for year ${year}.`);
     } catch (err: any) {
       console.error("Error loading ledger card:", err);
       showError("Failed to load ledger card: " + err.message);
@@ -726,7 +717,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
       dismissToast(toastId);
       setLoadingLedgerCard(false);
     }
-  }, [num, customer.name, fetchCustomerLedgerEntries]);
+  }, [num, customer.name, fetchCustomerLedgerEntries, country]);
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
