@@ -297,13 +297,43 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     queryKey: ["customerBalanceAndOverdue", num, country],
     queryFn: async () => {
       if (!num) return { balance: null, dueAmount: null };
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+
+      const getNumeric = (obj: any, keys: string[]): number | null => {
+        const value = pick(obj, keys);
+        if (value === null || value === undefined) return null;
+        const num = parseFloat(String(value));
+        return isNaN(num) ? null : num;
+      };
+
+      // Attempt 1: Fetch from the /totals endpoint
+      const { data: totalsData, error: totalsError } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: `/customers/${num}/totals`, method: "GET", country },
       });
-      if (error) throw new Error(error.message || "Failed to load balance/overdue");
-      const resp = data as EconomicProxyResponse<any>;
-      let balanceVal = pick(resp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount"]) ?? null;
-      let dueAmountVal = pick(resp?.data, ["dueAmount", "totals.dueAmount"]) ?? null;
+
+      if (totalsError) {
+        console.warn(`[CustomerRow] Failed to fetch from /totals for customer ${num}:`, totalsError.message);
+      }
+
+      const totalsResp = totalsData as EconomicProxyResponse<any>;
+      let balanceVal = getNumeric(totalsResp?.data, ["balance", "outstandingAmount"]);
+      let dueAmountVal = getNumeric(totalsResp?.data, ["dueAmount"]);
+
+      // Attempt 2 (Fallback): If values are missing, fetch from the base /customers/:num endpoint
+      if (balanceVal === null || dueAmountVal === null) {
+        console.log(`[CustomerRow] Balance/due not in /totals, falling back to /customers/${num}`);
+        const { data: customerData, error: customerError } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path: `/customers/${num}`, method: "GET", country },
+        });
+
+        if (customerError) {
+          throw new Error(customerError.message || `Failed to load balance for customer ${num}`);
+        }
+
+        const customerResp = customerData as EconomicProxyResponse<any>;
+        balanceVal = balanceVal ?? getNumeric(customerResp?.data, ["balance", "outstandingAmount"]);
+        dueAmountVal = dueAmountVal ?? getNumeric(customerResp?.data, ["dueAmount"]);
+      }
+
       return { balance: balanceVal, dueAmount: dueAmountVal };
     },
     enabled: !!num,
