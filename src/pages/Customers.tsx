@@ -243,9 +243,9 @@ const Customers: React.FC = () => {
                   Array.from({ length: parseInt(pageSize, 10) }).map((_, i) => (
                     <TableRow key={i}><TableCell colSpan={7}><div className="h-8 bg-gray-200 rounded animate-pulse" /></TableCell></TableRow>
                   ))
-                ) : (customersQuery.data || []).map((c) => (
+                ) : (customersQuery.data || []).map((c, index) => (
                   <CustomerRow 
-                    key={c.self ?? c.customerNumber ?? c.name} 
+                    key={c.self ?? c.customerNumber ?? index} 
                     customer={c}
                     country={currentCountry}
                   />
