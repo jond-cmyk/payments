@@ -293,7 +293,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-7xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[95vw] lg:max-w-[80vw] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="font-bold">{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

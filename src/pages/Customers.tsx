@@ -707,11 +707,13 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
       // --- Step 2: Try fetching ledger entries with a fallback strategy ---
       let list: any[] | null = null;
       const potentialPaths = [
-        // Attempt 1: The path from the developer hint with standard account number
-        `/accounts/${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
-        // Attempt 2 (Fallback): The simpler, more direct endpoint that sometimes works
+        // Attempt 1 (Most likely to have worked before): The simpler, more direct endpoint.
         `/customer-ledger-entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
-        // Attempt 3 (Global Fallback): Search all entries globally
+        // Attempt 2 (Based on hint): Accounting year context.
+        `/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
+        // Attempt 3 (Based on hint): Account + Accounting year context.
+        `/accounts/${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
+        // Attempt 4 (Last resort): The global entries endpoint that gives hints.
         `/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`
       ];
 
