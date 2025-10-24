@@ -66,18 +66,18 @@ const PropertyReports = () => {
     }
 
     setIsReportLoading(true);
-    const toastId = showLoading("Fetching Trial Balance report by department...");
+    const toastId = showLoading("Fetching account entries to build report...");
 
     try {
-      const queryParams: Record<string, string> = {
-        'dateInterval.startDate': format(fromDate, 'yyyy-MM-dd'),
-        'dateInterval.endDate': format(toDate, 'yyyy-MM-dd'),
-        'dimension.from': fromDimension,
-        'dimension.to': toDimension,
+      const filter = `date$gte:${format(fromDate, 'yyyy-MM-dd')}$and:date$lte:${format(toDate, 'yyyy-MM-dd')}$and:department.departmentNumber$gte:${fromDimension}$and:department.departmentNumber$lte:${toDimension}`;
+      
+      const queryParams = {
+        pagesize: 1000, // Get up to 1000 entries
+        filter: filter,
       };
 
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: "/reports/trial-balance", method: "GET", query: queryParams, country: currentCountry },
+        body: { path: "/entries", method: "GET", query: queryParams, country: currentCountry },
       });
 
       if (error) {
@@ -91,10 +91,41 @@ const PropertyReports = () => {
         throw new Error(`e-conomic API Error: ${errorMessage}`);
       }
 
-      const list = extractList(resp?.data);
-      setReportData(list);
+      const entries = extractList(resp?.data);
+
+      // Aggregate the entries into a trial balance format
+      const trialBalance: Record<string, { accountNumber: number; name: string; debit: number; credit: number; balance: number; }> = {};
+
+      entries.forEach(entry => {
+        const accountNumber = entry.account?.accountNumber;
+        const accountName = entry.account?.name || `Account ${accountNumber}`;
+        const amount = entry.amount || 0;
+
+        if (!accountNumber) return;
+
+        if (!trialBalance[accountNumber]) {
+          trialBalance[accountNumber] = {
+            accountNumber: accountNumber,
+            name: accountName,
+            debit: 0,
+            credit: 0,
+            balance: 0,
+          };
+        }
+
+        if (amount > 0) {
+          trialBalance[accountNumber].debit += amount;
+        } else {
+          trialBalance[accountNumber].credit += Math.abs(amount);
+        }
+        trialBalance[accountNumber].balance += amount;
+      });
+
+      const aggregatedData = Object.values(trialBalance);
+
+      setReportData(aggregatedData);
       setIsReportDialogOpen(true);
-      showSuccess(`Report fetched successfully! Found ${list.length} entries.`);
+      showSuccess(`Report generated! Found ${entries.length} entries, aggregated into ${aggregatedData.length} accounts.`);
     } catch (e: any) {
       console.error("Error fetching Trial Balance report:", e);
       showError(e.message || "Failed to fetch report.");
@@ -106,8 +137,8 @@ const PropertyReports = () => {
   }, [fromDate, toDate, fromDimension, toDimension, currentCountry]);
 
   const reportColumns: DialogColumn[] = [
-    { key: 'accountNumber', header: 'Account No.', path: ['account.accountNumber'] },
-    { key: 'name', header: 'Account Name', path: ['account.name'] },
+    { key: 'accountNumber', header: 'Account No.' },
+    { key: 'name', header: 'Account Name' },
     { key: 'debit', header: 'Debit', format: 'amount' },
     { key: 'credit', header: 'Credit', format: 'amount' },
     { key: 'balance', header: 'Balance', format: 'amount' },
