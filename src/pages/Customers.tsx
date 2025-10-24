@@ -13,16 +13,25 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast } from "@/utils/toast";
-import { List, FileText, BookText, ReceiptText, CalendarDays } from "lucide-react"; // Added CalendarDays icon
+import { List, FileText, BookText, ReceiptText, CalendarDays } from "lucide-react";
 import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAmount } from "@/components/economic/EconomicDetailDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import DatePicker from "@/components/DatePicker"; // Import DatePicker
-import { format, isWithinInterval, parseISO } from "date-fns"; // Import format and isWithinInterval
+import DatePicker from "@/components/DatePicker";
+import { format, isWithinInterval, parseISO } from "date-fns";
 import { useCountry } from "@/integrations/supabase/CountryContext";
 import CountrySelector from "@/components/CountrySelector";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+  PaginationEllipsis,
+} from "@/components/ui/pagination";
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -35,9 +44,9 @@ type EconomicProxyResponse<T = any> = {
 type EconomicCollection<T = any> = {
   collection?: T[];
   pagination?: any;
-  message?: string; // Added for error handling
-  developerHint?: string; // Added for error handling
-  httpStatusCode?: number; // Added for error handling
+  message?: string;
+  developerHint?: string;
+  httpStatusCode?: number;
 };
 
 type EconomicCustomer = {
@@ -55,7 +64,6 @@ type EconomicCustomer = {
   [key: string]: any;
 };
 
-// Helper to pick a value from an object given multiple possible keys/paths
 const pick = (obj: any, keys: string[]): any => {
   if (!obj) return undefined;
   for (const key of keys) {
@@ -84,12 +92,7 @@ const pick = (obj: any, keys: string[]): any => {
   return undefined;
 };
 
-// --- Configuration ---
-// NOTE: This is a common default account number for customer receivables. 
-// It might need to be adjusted based on the specific e-conomic chart of accounts.
-const CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER = 5000; 
-// ---------------------
-
+const CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER = 5000;
 
 const Customers: React.FC = () => {
   const { session, isLoading, userProfile } = useSession();
@@ -97,54 +100,81 @@ const Customers: React.FC = () => {
   const navigate = useNavigate();
 
   const [pageSize, setPageSize] = useState<string>("25");
-  const [search, setSearch] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCustomers, setTotalCustomers] = useState(0);
 
   const isAdmin = userProfile?.role === "admin";
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [searchTerm]);
+
   const customersQuery = useQuery({
-    queryKey: ["economicCustomers", pageSize, currentCountry],
+    queryKey: ["economicCustomers", pageSize, currentCountry, debouncedSearch, currentPage],
     queryFn: async () => {
-      const path = `/customers?pagesize=${pageSize}`;
-      console.log(`[Customers] Invoking economic-api-proxy for path: ${path}`);
+      let path: string;
+      const skipPages = currentPage - 1;
+
+      if (debouncedSearch) {
+        const term = encodeURIComponent(`*${debouncedSearch}*`);
+        const filter = `$or:name$like:${term},customerNumber$like:${term},email$like:${term}`;
+        path = `/customers?pagesize=${pageSize}&skipPages=${skipPages}&filter=${filter}`;
+      } else {
+        path = `/customers?pagesize=${pageSize}&skipPages=${skipPages}`;
+      }
+
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: path, method: "GET", country: currentCountry },
+        body: { path, method: "GET", country: currentCountry },
       });
-      console.log("[Customers] Raw response from economic-api-proxy:", { data, error });
+
       if (error) throw new Error(error.message || "Failed to load customers");
       const resp = data as EconomicProxyResponse<EconomicCollection<EconomicCustomer>>;
+      
+      const total = resp?.data?.pagination?.results || 0;
+      setTotalCustomers(total);
+
       const list = extractList(resp?.data);
-      console.log("[Customers] Extracted list from response:", list);
       return list as EconomicCustomer[];
     },
     staleTime: 60_000,
   });
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return customersQuery.data || [];
-    return (customersQuery.data || []).filter((c) => {
-      const fields = [
-        String(c.customerNumber || ""),
-        c.name || "",
-        c.email || "",
-        c.address?.street || "",
-        c.address?.postalCode || "",
-        c.address?.city || "",
-      ].map((s) => s.toLowerCase());
-      return fields.some((f) => f.includes(q));
-    });
-  }, [customersQuery.data, search]);
+  const totalPages = Math.ceil(totalCustomers / parseInt(pageSize, 10));
 
-  console.log("Customers Page State:", {
-    isLoading: isLoading,
-    customersQueryLoading: customersQuery.isLoading,
-    customersDataLength: customersQuery.data?.length,
-    filteredLength: filtered.length,
-  });
-  console.log("[Customers] Component rendered. customersQuery.data:", customersQuery.data?.map(c => ({ num: c.customerNumber, name: c.name })));
+  const renderPaginationItems = () => {
+    const items = [];
+    const maxPagesToShow = 5;
+    const startPage = Math.max(1, currentPage - Math.floor(maxPagesToShow / 2));
+    const endPage = Math.min(totalPages, startPage + maxPagesToShow - 1);
 
-  if (isLoading || customersQuery.isLoading) {
-    return <div className="flex items-center justify-center h-full text-lg">Loading customers...</div>;
+    if (startPage > 1) {
+      items.push(<PaginationItem key="1"><PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink></PaginationItem>);
+      if (startPage > 2) {
+        items.push(<PaginationItem key="ellipsis-start"><PaginationEllipsis /></PaginationItem>);
+      }
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
+      items.push(<PaginationItem key={i}><PaginationLink isActive={i === currentPage} onClick={() => setCurrentPage(i)}>{i}</PaginationLink></PaginationItem>);
+    }
+
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        items.push(<PaginationItem key="ellipsis-end"><PaginationEllipsis /></PaginationItem>);
+      }
+      items.push(<PaginationItem key={totalPages}><PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink></PaginationItem>);
+    }
+    return items;
+  };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
   }
   if (!session) {
     navigate("/login");
@@ -177,9 +207,9 @@ const Customers: React.FC = () => {
             </div>
             <div className="flex-1 min-w-[220px]">
               <Input
-                placeholder="Search by name, number, email..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search all records..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             <div className="w-[160px]">
@@ -209,14 +239,18 @@ const Customers: React.FC = () => {
                 <TableRow><TableHead className="w-24">Number</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Currency</TableHead><TableHead>Balance</TableHead><TableHead>Overdue</TableHead><TableHead className="w-64">Actions</TableHead></TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.map((c) => (
+                {customersQuery.isLoading ? (
+                  Array.from({ length: parseInt(pageSize, 10) }).map((_, i) => (
+                    <TableRow key={i}><TableCell colSpan={7}><div className="h-8 bg-gray-200 rounded animate-pulse" /></TableCell></TableRow>
+                  ))
+                ) : (customersQuery.data || []).map((c) => (
                   <CustomerRow 
                     key={c.customerNumber ?? c.name} 
                     customer={c}
                     country={currentCountry}
                   />
                 ))}
-                {filtered.length === 0 && (
+                {(customersQuery.data || []).length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground">
                       {customersQuery.isFetching ? "Loading customers..." : "No customers found."}
@@ -226,6 +260,15 @@ const Customers: React.FC = () => {
               </TableBody>
             </Table>
           </div>
+          {totalPages > 1 && (
+            <Pagination className="mt-4">
+              <PaginationContent>
+                <PaginationItem><PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} /></PaginationItem>
+                {renderPaginationItems()}
+                <PaginationItem><PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} /></PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -240,24 +283,16 @@ interface CustomerRowProps {
 const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
-
-  const [ledgerCardData, setLedgerCardData] = useState<any[] | null>(null);
-  const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
-  const [showLedgerCardDialog, setShowLedgerCardDialog] = useState(false);
-
   const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
-
   const [invoiceHeadings, setInvoiceHeadings] = useState<Record<string, string>>({});
+  
+  const [showLedgerCardDialog, setShowLedgerCardDialog] = useState(false);
+  const [accountingYears, setAccountingYears] = useState<{ year: string }[]>([]);
+  const [selectedAccountingYear, setSelectedAccountingYear] = useState<string | null>(null);
+  const [loadingLedgerCard, setLoadingLedgerCard] = useState(false);
 
   const num = customer.customerNumber;
 
-  console.log("CustomerRow Props for customer:", customer.customerNumber, {
-    customerNumber: customer.customerNumber,
-    loadingInvoices: loadingInvoices,
-    loadingLedgerCard: loadingLedgerCard,
-  });
-
-  // Fetch balance and overdue amount automatically using useQuery
   const { data: balanceData, isLoading: loadingBalance, error: balanceError } = useQuery<{ balance: number | null, dueAmount: number | null }>({
     queryKey: ["customerBalanceAndOverdue", num, country],
     queryFn: async () => {
@@ -265,35 +300,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: `/customers/${num}/totals`, method: "GET", country },
       });
-
-      if (error) {
-        console.error("Failed to load balance/overdue:", error);
-        throw new Error(error.message || "Failed to load balance/overdue");
-      }
-
+      if (error) throw new Error(error.message || "Failed to load balance/overdue");
       const resp = data as EconomicProxyResponse<any>;
-
-      const getNumeric = (obj: any, keys: string[]): number | null => {
-        for (const k of keys) {
-          const v = pick(obj, [k]);
-          if (typeof v === "number") return v;
-        }
-        return null;
-      };
-
-      let balanceVal = getNumeric(resp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount"]) ?? null;
-      let dueAmountVal = getNumeric(resp?.data, ["dueAmount", "totals.dueAmount"]) ?? null;
-
-      if (balanceVal === null || dueAmountVal === null) {
-        const { data: detailsData, error: detailsError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: `/customers/${num}`, method: "GET", country },
-        });
-        if (!detailsError) {
-          const detailsResp = detailsData as EconomicProxyResponse<any>;
-          balanceVal = balanceVal ?? (getNumeric(detailsResp?.data, ["balance", "outstandingAmount", "openEntriesAmount"]) ?? null);
-          dueAmountVal = dueAmountVal ?? (getNumeric(detailsResp?.data, ["dueAmount"]) ?? null);
-        }
-      }
+      let balanceVal = pick(resp?.data, ["balance", "totals.balance", "outstandingAmount", "openEntriesAmount"]) ?? null;
+      let dueAmountVal = pick(resp?.data, ["dueAmount", "totals.dueAmount"]) ?? null;
       return { balance: balanceVal, dueAmount: dueAmountVal };
     },
     enabled: !!num,
@@ -302,121 +312,62 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
 
   const { balance, dueAmount } = balanceData || { balance: null, dueAmount: null };
 
+  const { data: ledgerCardData, isLoading: isLedgerLoading } = useQuery({
+    queryKey: ['customerLedgerEntries', num, selectedAccountingYear, country],
+    queryFn: async () => {
+      if (!num || !selectedAccountingYear) return [];
+      const potentialPaths = [
+        `/customer-ledger-entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
+        `/accounts/${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}/accounting-years/${selectedAccountingYear}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
+        `/accounting-years/${selectedAccountingYear}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
+        `/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`
+      ];
+      for (const path of potentialPaths) {
+        const { data, error } = await supabase.functions.invoke("economic-api-proxy", { body: { path, method: "GET", country } });
+        if (!error && data) {
+          const resp = data as EconomicProxyResponse<any>;
+          if (resp.ok) {
+            const extracted = extractList(resp.data);
+            if (extracted && extracted.length > 0) return extracted;
+          }
+        }
+      }
+      throw new Error("No ledger entries found after trying all available endpoints.");
+    },
+    enabled: !!num && !!selectedAccountingYear && showLedgerCardDialog,
+  });
+
   const pathFromSelf = (self: string): string | undefined => {
     if (typeof self !== "string" || !self) return undefined;
     if (self.startsWith("http")) {
       const parts = self.split("/");
-      if (parts.length >= 4) {
-        return "/" + parts.slice(3).join("/");
-      }
       return "/" + parts.slice(3).join("/");
     }
-    if (self.startsWith("/")) return self;
-    return "/" + self;
+    return self.startsWith("/") ? self : "/" + self;
   };
 
-  const getInvoiceKey = (inv: any): string => {
-    if (inv?.self) return String(inv.self);
-    if (inv?.bookedInvoiceNumber) return `booked:${inv.bookedInvoiceNumber}`;
-    if (inv?.invoiceNumber) return `invoice:${inv.invoiceNumber}`;
-    if (inv?.id) return `id:${inv.id}`;
-    return JSON.stringify(inv);
-  };
-
-  const getInvoiceDescription = useCallback((inv: any): string => {
-    const candidates = [
-      inv?.description,
-      inv?.text,
-      inv?.notes?.text,
-      inv?.notes?.heading,
-      inv?.notes?.header,
-      inv?.notes?.noteHeading,
-      inv?.heading,
-      inv?.title,
-      inv?.header,
-      inv?.recipient?.name,
-      inv?.customer?.name,
-    ];
-
-    for (const c of candidates) {
-      if (typeof c === "string" && c.trim() !== "") {
-        return c;
-      }
-    }
-    return "-";
-  }, []);
+  const getInvoiceKey = (inv: any): string => inv?.self || inv?.bookedInvoiceNumber || inv?.invoiceNumber || inv?.id || JSON.stringify(inv);
+  const getInvoiceDescription = useCallback((inv: any): string => pick(inv, ['description', 'text', 'notes.text', 'notes.heading', 'heading', 'title', 'recipient.name', 'customer.name']) || "-", []);
 
   const fetchHeadingForInvoice = useCallback(async (inv: any) => {
-    const path =
-      pathFromSelf(inv?.self) ??
-      (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : undefined);
+    const path = pathFromSelf(inv?.self) ?? (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : undefined);
     if (!path) return;
-
-    const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-      body: { path, method: "GET", country },
-    });
+    const { data, error } = await supabase.functions.invoke("economic-api-proxy", { body: { path, method: "GET", country } });
     if (error || !data) return;
-
     const root = (data as any)?.data ?? data;
-
-    const candidates = [
-      root?.notes?.heading,
-      root?.notes?.header,
-      root?.notes?.noteHeading,
-      root?.heading,
-      root?.title,
-      root?.header,
-      root?.description,
-      root?.text,
-      root?.recipient?.name,
-      root?.customer?.name,
-    ];
-
-    let found: string | undefined;
-    for (const c of candidates) {
-      if (typeof c === "string" && c.trim() !== "") {
-        found = c;
-        break;
-      }
-    }
-
-    if (!found && root?.references) {
-      const refs = root.references;
-      const refCandidates = [refs?.heading, refs?.other, refs?.text, refs?.note];
-      for (const c of refCandidates) {
-        if (typeof c === "string" && c.trim() !== "") {
-          found = c;
-          break;
-        }
-      }
-    }
-
-    if (!found && inv?.orderNumber) {
-      found = `Order #${inv.orderNumber}`;
-    }
-    
-    if (!found) {
-      found = getInvoiceDescription(root);
-    }
-
-    if (!found || found === "-") return;
-
-    const key = getInvoiceKey(inv);
-    setInvoiceHeadings((prev) => ({ ...prev, [key]: found as string }));
-  }, [getInvoiceDescription, setInvoiceHeadings, country]);
+    const found = pick(root, ['notes.heading', 'heading', 'title', 'description', 'text', 'recipient.name', 'customer.name']) || getInvoiceDescription(root);
+    if (found && found !== "-") setInvoiceHeadings((prev) => ({ ...prev, [getInvoiceKey(inv)]: found }));
+  }, [getInvoiceDescription, country]);
 
   const enrichInvoiceHeadings = useCallback(async (list: any[]) => {
-    for (const inv of list) {
+    list.forEach(inv => {
       const key = getInvoiceKey(inv);
       if (!invoiceHeadings[key]) {
         const basic = getInvoiceDescription(inv);
-        if (basic && basic !== "-") {
-          setInvoiceHeadings((prev) => ({ ...prev, [key]: basic }));
-        } else {
-          fetchHeadingForInvoice(inv);
-        }
+        if (basic && basic !== "-") setInvoiceHeadings((prev) => ({ ...prev, [key]: basic }));
+        else fetchHeadingForInvoice(inv);
       }
-    }
+    });
   }, [invoiceHeadings, getInvoiceDescription, fetchHeadingForInvoice]);
 
   const handleUnauthorized = useCallback(async (economicErrorResponse: any, originalRequestPath: string): Promise<boolean> => {
@@ -426,369 +377,121 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         window.open(demoLink, "_blank");
         showSuccess("Opening demo invoice PDF");
         return true;
-      } catch (e) {
-        console.error("Failed to open demoLink:", e);
-      }
+      } catch (e) { console.error("Failed to open demoLink:", e); }
     }
-
     if (originalRequestPath) {
-      const { data: demoData } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: `${originalRequestPath}?demo=true`, method: "GET", country },
-      });
+      const { data: demoData } = await supabase.functions.invoke("economic-api-proxy", { body: { path: `${originalRequestPath}?demo=true`, method: "GET", country } });
       if (demoData) {
-        const demoResp = demoData as any;
-        const demoRoot = demoResp?.data ?? demoData;
-        const demoCandidates = [demoRoot?.url, demoRoot?.href, demoRoot?.download, demoRoot?.downloadUrl, demoRoot?.link];
-        let demoPdfUrl: string | undefined;
-        for (const c of demoCandidates) {
-          if (typeof c === "string" && c.trim() !== "") {
-            demoPdfUrl = c;
-            break;
-          }
-        }
+        const demoPdfUrl = pick(demoData, ['data.url', 'data.href', 'data.download', 'data.downloadUrl', 'data.link']);
         if (demoPdfUrl) {
           try {
             window.open(demoPdfUrl, "_blank");
             showSuccess("Opening demo invoice PDF");
             return true;
-          } catch (e) {
-            console.error("Failed to open ?demo=true PDF URL:", e);
-          }
+          } catch (e) { console.error("Failed to open ?demo=true PDF URL:", e); }
         }
       }
     }
-
-    showError("Unauthorized to access invoice PDF. Check ECONOMIC_APP_SECRET_TOKEN and ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.");
+    showError("Unauthorized to access invoice PDF. Check e-conomic tokens.");
     return false;
   }, [country]);
 
   const viewInvoice = useCallback(async (inv: any) => {
     const toastId = showLoading("Fetching invoice...");
-    const basePath =
-      pathFromSelf(inv?.self) ??
-      (inv?.bookedInvoiceNumber
-        ? `/invoices/booked/${inv.bookedInvoiceNumber}`
-        : inv?.invoiceNumber
-        ? `/invoices/${inv.invoiceNumber}`
-        : undefined);
+    const basePath = pathFromSelf(inv?.self) ?? (inv?.bookedInvoiceNumber ? `/invoices/booked/${inv.bookedInvoiceNumber}` : inv?.invoiceNumber ? `/invoices/${inv.invoiceNumber}` : undefined);
+    if (!basePath) { dismissToast(toastId); showError("Invoice path not available"); return; }
 
-    if (!basePath) {
-      dismissToast(toastId);
-      showError("Invoice path not available");
-      return;
-    }
-
-    const { data: initialProxyResponse, error: initialProxyError } = await supabase.functions.invoke("economic-api-proxy", {
-      body: { path: basePath, method: "GET", country },
-    });
+    const { data: initialProxyResponse, error: initialProxyError } = await supabase.functions.invoke("economic-api-proxy", { body: { path: basePath, method: "GET", country } });
     dismissToast(toastId);
+    if (initialProxyError) { showError(initialProxyError.message || "Failed to fetch invoice details."); return; }
 
-    if (initialProxyError) {
-      showError(initialProxyError.message || "Failed to fetch invoice details via proxy.");
-      return;
-    }
+    const initialRoot = (initialProxyResponse as any)?.data ?? initialProxyResponse;
+    if (initialRoot?.httpStatusCode === 401 || initialRoot?.status === 401) { if (await handleUnauthorized(initialRoot, basePath)) return; }
 
-    const initialEconomicResponse = initialProxyResponse as any;
-    const initialRoot = initialEconomicResponse?.data ?? initialProxyResponse;
-    const economicHttpStatus = initialRoot?.httpStatusCode || initialRoot?.status;
-
-    if (economicHttpStatus === 401) {
-      const handled = await handleUnauthorized(initialRoot, basePath);
-      if (handled) return;
-      return;
-    }
-
-    let pdfUrl: string | undefined;
-    const candidates = [
-      initialRoot?.pdf,
-      initialRoot?.pdf?.url,
-      initialRoot?.pdf?.href,
-      initialRoot?.pdf?.download,
-      initialRoot?.pdf?.downloadUrl,
-      initialRoot?.links?.pdf,
-      initialRoot?.links?.pdf?.href,
-    ];
-
-    for (const c of candidates) {
-      if (typeof c === "string" && c.trim() !== "") {
-        pdfUrl = c;
-        break;
-      }
-    }
-
-    if (!pdfUrl && typeof initialRoot?.pdf === "object" && initialRoot?.pdf) {
-      for (const val of Object.values(initialRoot.pdf)) {
-        if (typeof val === "string" && val.trim() !== "") {
-          pdfUrl = val as string;
-          break;
-        }
-      }
-    }
-
+    let pdfUrl = pick(initialRoot, ['pdf', 'pdf.url', 'pdf.href', 'pdf.download', 'pdf.downloadUrl', 'links.pdf', 'links.pdf.href']);
     if (!pdfUrl) {
       const pdfPath = basePath.endsWith("/pdf") ? basePath : `${basePath}/pdf`;
-      const { data: pdfProxyResponse, error: pdfProxyError } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: pdfPath, method: "GET", country },
-      });
-
-      if (pdfProxyError) {
-        showError(pdfProxyError.message || "Failed to fetch PDF subresource via proxy.");
-        return;
-      }
-
-      const pdfEconomicResponse = pdfProxyResponse as any;
-      const pdfRoot = pdfEconomicResponse?.data ?? pdfProxyResponse;
-      const pdfEconomicHttpStatus = pdfRoot?.httpStatusCode || pdfRoot?.status;
-
-      if (pdfEconomicHttpStatus === 401) {
-        const handled = await handleUnauthorized(pdfRoot, pdfPath);
-        if (handled) return;
-        return;
-      }
-
-      const moreCandidates = [
-        pdfRoot?.url,
-        pdfRoot?.href,
-        pdfRoot?.download,
-        pdfRoot?.downloadUrl,
-        pdfRoot?.link,
-      ];
-      for (const c of moreCandidates) {
-        if (typeof c === "string" && c.trim() !== "") {
-          pdfUrl = c;
-          break;
-        }
-      }
+      const { data: pdfProxyResponse, error: pdfProxyError } = await supabase.functions.invoke("economic-api-proxy", { body: { path: pdfPath, method: "GET", country } });
+      if (pdfProxyError) { showError(pdfProxyError.message || "Failed to fetch PDF subresource."); return; }
+      const pdfRoot = (pdfProxyResponse as any)?.data ?? pdfProxyResponse;
+      if (pdfRoot?.httpStatusCode === 401 || pdfRoot?.status === 401) { if (await handleUnauthorized(pdfRoot, pdfPath)) return; }
+      pdfUrl = pick(pdfRoot, ['url', 'href', 'download', 'downloadUrl', 'link']);
     }
 
-    if (!pdfUrl) {
-      showError("No PDF link available for this invoice");
-      return;
-    }
+    if (!pdfUrl) { showError("No PDF link available for this invoice"); return; }
 
-    const isEconomicUrl = pdfUrl.startsWith("https://restapi.e-conomic.com");
-    
-    if (isEconomicUrl) {
-      let economicPath: string;
-      try {
-        const urlObj = new URL(pdfUrl);
-        economicPath = urlObj.pathname + urlObj.search;
-      } catch (e) {
-        console.error("Failed to parse economic PDF URL:", e);
-        showError("Invalid PDF URL format received from e-conomic.");
-        return;
-      }
-      
+    if (pdfUrl.startsWith("https://restapi.e-conomic.com")) {
+      const economicPath = new URL(pdfUrl).pathname;
       const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(economicPath)}&country=${encodeURIComponent(country)}`;
-      
-      try {
-        window.open(proxyUrl, "_blank");
-        showSuccess("Opening invoice PDF securely.");
-      } catch (e) {
-        console.error("Error opening PDF proxy URL:", e);
-        showError("Unable to open invoice PDF via secure proxy.");
-      }
+      window.open(proxyUrl, "_blank");
+      showSuccess("Opening invoice PDF securely.");
     } else {
-      try {
-        window.open(pdfUrl, "_blank");
-        showSuccess("Opening invoice PDF");
-      } catch (e) {
-        console.error("Error opening PDF URL:", e);
-        showError("Unable to open invoice PDF");
-      }
+      window.open(pdfUrl, "_blank");
+      showSuccess("Opening invoice PDF");
     }
   }, [handleUnauthorized, country]);
 
   const loadInvoices = useCallback(async () => {
     setLoadingInvoices(true);
     const toastId = showLoading("Loading invoices...");
-
     let list: any[] = [];
-    const paths = num
-      ? [
-          `/customers/${num}/invoices?pagesize=100`,
-          `/customers/${num}/invoices/booked?pagesize=100`,
-          `/invoices?pagesize=100`,
-          `/invoices/booked?pagesize=100`,
-        ]
-      : [
-          `/invoices?pagesize=100`,
-          `/invoices/booked?pagesize=100`,
-        ];
-
+    const paths = num ? [`/customers/${num}/invoices?pagesize=100`, `/customers/${num}/invoices/booked?pagesize=100`] : [`/invoices?pagesize=100`, `/invoices/booked?pagesize=100`];
     for (const path of paths) {
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path, method: "GET", country },
-      });
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", { body: { path, method: "GET", country } });
       if (!error && data) {
         const arr = extractList(data);
-        if (arr.length > 0) {
-          list = arr;
-          break;
-        }
+        if (arr.length > 0) { list = [...list, ...arr]; }
       }
     }
-
     if (num != null && list.length > 0) {
-      list = list.filter((inv: any) => {
-        const cn = pick(inv, [
-          "customerNumber",
-          "customer.customerNumber",
-          "customer.number",
-          "customer_id",
-        ]);
-        return String(cn ?? "") === String(num);
-      });
+      list = list.filter((inv: any) => String(pick(inv, ["customerNumber", "customer.customerNumber", "customer.number", "customer_id"]) ?? "") === String(num));
     }
-
     dismissToast(toastId);
     setLoadingInvoices(false);
-
     setInvoiceData(list);
     setShowInvoicesDialog(true);
-    if (list.length > 0) {
-      enrichInvoiceHeadings(list);
-    }
-
-    if (list.length > 0) {
-      showSuccess(`Loaded ${list.length} invoices`);
-    } else {
-      showError("No invoices found for this customer");
-    }
+    if (list.length > 0) { enrichInvoiceHeadings(list); showSuccess(`Loaded ${list.length} invoices`); }
+    else { showError("No invoices found for this customer"); }
   }, [num, enrichInvoiceHeadings, country]);
 
   const loadLedgerCard = useCallback(async () => {
-    if (!num) {
-      showError("Customer number is missing.");
-      return;
-    }
+    if (!num) { showError("Customer number is missing."); return; }
     setLoadingLedgerCard(true);
-    const toastId = showLoading(`Loading ledger card for ${customer.name || 'customer'}...`);
-
+    const toastId = showLoading(`Loading accounting years...`);
     try {
-      // --- Step 1: Determine the current accounting year ---
-      let year: string | null = null;
-
-      // Attempt 1: Fetch the 'current' accounting year directly
-      const { data: currentYearData, error: currentYearError } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: "/accounting-years/current", method: "GET", country },
+      const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", { body: { path: "/accounting-years", method: "GET", country } });
+      if (yearsError) throw new Error(yearsError.message);
+      const yearsResponse = yearsData as EconomicProxyResponse<any>;
+      if (!yearsResponse.ok) throw new Error("Failed to fetch accounting years.");
+      const yearsList = extractList(yearsResponse.data);
+      setAccountingYears(yearsList);
+      const today = new Date();
+      const currentYearObject = yearsList.find(y => {
+        const from = y.fromDate ? parseISO(y.fromDate) : null;
+        const to = y.toDate ? parseISO(y.toDate) : null;
+        return from && to && isWithinInterval(today, { start: from, end: to });
       });
-
-      if (!currentYearError) {
-        const currentYearResponse = currentYearData as EconomicProxyResponse<any>;
-        if (currentYearResponse?.ok && currentYearResponse?.data?.year) {
-          year = currentYearResponse.data.year;
-        }
-      }
-
-      // Attempt 2 (Fallback): Fetch all years and find the current one
-      if (!year) {
-        const { data: allYearsData, error: allYearsError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: "/accounting-years", method: "GET", country },
-        });
-        if (allYearsError) throw new Error(allYearsError.message);
-        const allYearsResponse = allYearsData as EconomicProxyResponse<any>;
-        if (allYearsResponse?.ok) {
-          const yearsCollection = extractList(allYearsResponse.data);
-          const today = new Date();
-          const currentYearObject = yearsCollection.find(y => {
-            const from = y.fromDate ? parseISO(y.fromDate) : null;
-            const to = y.toDate ? parseISO(y.toDate) : null;
-            return from && to && isWithinInterval(today, { start: from, end: to });
-          });
-          if (currentYearObject?.year) year = currentYearObject.year;
-        }
-      }
-
-      if (!year) {
-        throw new Error("Could not determine the current accounting year from e-conomic.");
-      }
-
-      // --- Step 2: Try fetching ledger entries with a fallback strategy ---
-      let list: any[] | null = null;
-      const potentialPaths = [
-        // Attempt 1 (Most likely to have worked before): The simpler, more direct endpoint.
-        `/customer-ledger-entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
-        // Attempt 2 (Based on hint): Accounting year context.
-        `/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
-        // Attempt 3 (Based on hint): Account + Accounting year context.
-        `/accounts/${CUSTOMER_RECEIVABLES_ACCOUNT_NUMBER}/accounting-years/${year}/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`,
-        // Attempt 4 (Last resort): The global entries endpoint that gives hints.
-        `/entries?filter=customer.customerNumber$eq:${num}&pagesize=1000`
-      ];
-
-      for (const path of potentialPaths) {
-        console.log(`[loadLedgerCard] Attempting to fetch from path: ${path}`);
-        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path, method: "GET", country },
-        });
-
-        if (error) {
-          console.warn(`[loadLedgerCard] Error invoking proxy for path ${path}:`, error.message);
-          continue; // Try next path
-        }
-
-        const resp = data as EconomicProxyResponse<any>;
-        if (resp?.status && resp.status >= 400) {
-          console.warn(`[loadLedgerCard] API returned status ${resp.status} for path ${path}.`);
-          // If it's a 404, we continue to the next path. For other errors, we might want to stop.
-          if (resp.status === 404) {
-            continue; // Try next path
-          } else {
-             const errorMessage = resp.error || (resp.data as any)?.message || (resp.data as any)?.developerHint || 'Unknown error from e-conomic API';
-             throw new Error(`e-conomic API Error: ${errorMessage}`);
-          }
-        }
-        
-        const extracted = extractList(resp?.data);
-        if (extracted && extracted.length > 0) {
-          list = extracted;
-          console.log(`[loadLedgerCard] Successfully fetched ${list.length} entries from path: ${path}`);
-          break; // Success, exit the loop
-        }
-      }
-
-      if (list === null || list.length === 0) {
-        throw new Error("No ledger entries found for this customer after trying all available endpoints.");
-      }
-      
-      setLedgerCardData(list);
+      if (currentYearObject?.year) setSelectedAccountingYear(currentYearObject.year);
+      else if (yearsList.length > 0) setSelectedAccountingYear(yearsList[0].year);
+      else throw new Error("No accounting years found.");
       setShowLedgerCardDialog(true);
-      showSuccess(`Loaded ${list.length} ledger entries.`);
-
-    } catch (err: any) {
-      console.error("Error loading ledger card:", err);
-      showError("Failed to load ledger card: " + err.message);
-    } finally {
       dismissToast(toastId);
+    } catch (err: any) {
+      dismissToast(toastId);
+      showError("Failed to load accounting years: " + err.message);
+    } finally {
       setLoadingLedgerCard(false);
     }
-  }, [num, customer.name, country]);
+  }, [num, country]);
 
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
-    { key: 'text', header: 'Text', path: ['description', 'text', 'notes.text', 'notes.heading', 'notes.header', 'notes.noteHeading', 'heading', 'title', 'header', 'recipient.name', 'customer.name'],
-      render: (item) => {
-        const key = getInvoiceKey(item);
-        return invoiceHeadings[key] || getInvoiceDescription(item);
-      }
-    },
+    { key: 'text', header: 'Text', path: ['description', 'text', 'notes.text', 'notes.heading', 'heading', 'title', 'recipient.name', 'customer.name'], render: (item) => invoiceHeadings[getInvoiceKey(item)] || getInvoiceDescription(item) },
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'bookedDate', 'issueDate', 'invoiceDate', 'createdAt'] },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
     { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
     { key: 'status', header: 'Status', path: ['status.state', 'status.value', 'status', 'state', 'booked', 'paymentStatus', 'invoiceStatus', 'draft', 'sent'] },
-    { key: 'pdf', header: 'PDF',
-      render: (item) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => viewInvoice(item)}
-          className="flex items-center gap-1"
-        >
-          <FileText className="h-4 w-4 mr-1" /> View Invoice
-        </Button>
-      ),
-    },
+    { key: 'pdf', header: 'PDF', render: (item) => <Button size="sm" variant="outline" onClick={() => viewInvoice(item)} className="flex items-center gap-1"><FileText className="h-4 w-4 mr-1" /> View Invoice</Button> },
   ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
 
   const ledgerCardColumns: DialogColumn[] = [
@@ -801,27 +504,23 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     { key: 'dueDate', header: 'Due Date', format: 'date', path: ['dueDate', 'paymentTerms.dueDate'] },
   ];
 
+  const ledgerDialogDescription = (
+    <div className="flex items-center justify-between">
+      <span>{`Showing all ledger entries for customer number ${customer.customerNumber}.`}</span>
+      {accountingYears.length > 0 && (
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Accounting Year:</label>
+          <Select value={selectedAccountingYear || ''} onValueChange={setSelectedAccountingYear}>
+            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select year" /></SelectTrigger>
+            <SelectContent>{accountingYears.map(y => <SelectItem key={y.year} value={y.year}>{y.year}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
+  );
+
   const isCustomerNumberMissing = !customer.customerNumber;
-
-  const getButtonState = (buttonType: 'ledgerCard') => {
-    const isLoadingState = loadingLedgerCard;
-    let text = "Ledger Card";
-    let icon = <BookText className="h-4 w-4 mr-1" />;
-    let tooltip = "";
-    let isDisabled = isLoadingState;
-
-    if (isCustomerNumberMissing) {
-      text = "No Customer Number";
-      tooltip = "This customer has no associated customer number in e-conomic.";
-      isDisabled = true;
-    } else if (isLoadingState) {
-      text = "Loading...";
-    }
-
-    return { text, tooltip, isDisabled, icon };
-  };
-
-  const ledgerCardButtonState = getButtonState('ledgerCard');
+  const isLedgerButtonLoading = loadingLedgerCard || isLedgerLoading;
 
   return (
     <>
@@ -830,69 +529,24 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         <TableCell className="font-medium">{customer.name ?? "-"}</TableCell>
         <TableCell>{customer.email ?? "-"}</TableCell>
         <TableCell>{customer.currency ?? "-"}</TableCell>
-        <TableCell>
-          {loadingBalance ? (
-            "Loading..."
-          ) : balanceError ? (
-            <span className="text-red-500">Error</span>
-          ) : balance !== null ? (
-            <Badge className={cn("bg-dyad-blue text-white text-base px-3 py-2", "transform translate-x-0 translate-y-0")}>
-              {formatAmount(balance)} {customer.currency || ''}
-            </Badge>
-          ) : (
-            "N/A"
-          )}
-        </TableCell>
-        <TableCell>
-          {loadingBalance ? (
-            "Loading..."
-          ) : balanceError ? (
-            <span className="text-red-500">Error</span>
-          ) : (dueAmount !== null && dueAmount > 0) ? (
-            <Badge className={cn("bg-red-600 text-white text-base px-3 py-2", "transform translate-x-0 translate-y-0")}>
-              {formatAmount(dueAmount)} {customer.currency || ''}
-            </Badge>
-          ) : (
-            "-"
-          )}
-        </TableCell>
+        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : balance !== null ? <Badge className={cn("bg-dyad-blue text-white text-base px-3 py-2", "transform translate-x-0 translate-y-0")}>{formatAmount(balance)} {customer.currency || ''}</Badge> : "N/A"}</TableCell>
+        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : (dueAmount !== null && dueAmount > 0) ? <Badge className={cn("bg-red-600 text-white text-base px-3 py-2", "transform translate-x-0 translate-y-0")}>{formatAmount(dueAmount)} {customer.currency || ''}</Badge> : "-"}</TableCell>
         <TableCell>
           <div className="flex flex-col gap-2">
-            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>
-              {loadingInvoices ? "Loading..." : "View Invoices"}
-            </Button>
+            <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>{loadingInvoices ? "Loading..." : "View Invoices"}</Button>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={ledgerCardButtonState.isDisabled}>
-                  {ledgerCardButtonState.icon} {ledgerCardButtonState.text}
+                <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadLedgerCard} disabled={isCustomerNumberMissing || isLedgerButtonLoading}>
+                  <BookText className="h-4 w-4 mr-1" /> {isLedgerButtonLoading ? "Loading..." : "Ledger Card"}
                 </Button>
               </TooltipTrigger>
-              {ledgerCardButtonState.tooltip && <TooltipContent>{ledgerCardButtonState.tooltip}</TooltipContent>}
+              {isCustomerNumberMissing && <TooltipContent>This customer has no associated customer number in e-conomic.</TooltipContent>}
             </Tooltip>
           </div>
         </TableCell>
       </TableRow>
-
-      <EconomicDetailDialog
-        isOpen={showInvoicesDialog}
-        onOpenChange={setShowInvoicesDialog}
-        title={`Invoices for ${customer.name || 'Customer'}`}
-        description={`Showing all invoices for customer number ${customer.customerNumber}.`}
-        data={invoiceData}
-        columns={invoiceColumns}
-        isLoading={loadingInvoices}
-        defaultSort={{ key: 'invoiceNumber', direction: 'descending' }}
-      />
-
-      <EconomicDetailDialog
-        isOpen={showLedgerCardDialog}
-        onOpenChange={setShowLedgerCardDialog}
-        title={`Ledger Card for ${customer.name || 'Customer'}`}
-        description={`Showing all ledger entries for customer number ${customer.customerNumber}.`}
-        data={ledgerCardData}
-        columns={ledgerCardColumns}
-        isLoading={loadingLedgerCard}
-      />
+      <EconomicDetailDialog isOpen={showInvoicesDialog} onOpenChange={setShowInvoicesDialog} title={`Invoices for ${customer.name || 'Customer'}`} description={`Showing all invoices for customer number ${customer.customerNumber}.`} data={invoiceData} columns={invoiceColumns} isLoading={loadingInvoices} defaultSort={{ key: 'invoiceNumber', direction: 'descending' }} />
+      <EconomicDetailDialog isOpen={showLedgerCardDialog} onOpenChange={setShowLedgerCardDialog} title={`Ledger Card for ${customer.name || 'Customer'}`} description={ledgerDialogDescription} data={ledgerCardData as any[]} columns={ledgerCardColumns} isLoading={isLedgerLoading} />
     </>
   );
 };
