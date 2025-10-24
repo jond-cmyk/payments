@@ -405,32 +405,35 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   }, [invoiceHeadings, getInvoiceDescription, fetchHeadingForInvoice]);
 
   const viewInvoice = useCallback(async (item: any) => {
-    const toastId = showLoading("Fetching invoice PDF...");
     try {
       const invoiceObject = item.invoice || item;
-      const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber', 'invoice.bookedInvoiceNumber', 'invoiceNumber']);
       let basePath: string | undefined;
 
-      if (bookedInvoiceNumber) {
-        basePath = `/invoices/booked/${bookedInvoiceNumber}`;
-      } else {
-        const selfLink = pick(invoiceObject, ['self', 'invoice.self']);
-        basePath = pathFromSelf(selfLink);
+      basePath = pathFromSelf(invoiceObject?.self);
+
+      if (!basePath) {
+        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber', 'invoice.bookedInvoiceNumber']);
+        if (bookedInvoiceNumber) {
+          basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+        }
+      }
+      
+      if (!basePath) {
+        const invoiceNumber = pick(invoiceObject, ['invoiceNumber', 'invoice.invoiceNumber', 'number']);
+        if (invoiceNumber) {
+          basePath = `/invoices/booked/${invoiceNumber}`;
+        }
       }
 
       if (!basePath) {
-        throw new Error("Could not determine a valid invoice path for this entry. No booked invoice number or self link found.");
+        throw new Error("Could not determine a valid invoice path for this entry.");
       }
 
       const pdfPath = `${basePath}/pdf`;
       const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(pdfPath)}&country=${encodeURIComponent(country)}`;
 
       window.open(proxyUrl, '_blank');
-      
-      dismissToast(toastId);
-      showSuccess("Opening invoice PDF securely.");
     } catch (e: any) {
-      dismissToast(toastId);
       showError(e.message);
     }
   }, [country]);

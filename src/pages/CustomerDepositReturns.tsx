@@ -191,7 +191,6 @@ const CustomerDepositReturns = () => {
   };
 
   const handleViewInvoice = useCallback(async (entry: EconomicLedgerEntry) => {
-    const toastId = showLoading("Fetching invoice PDF...");
     try {
       const invoiceObject = entry.invoice || entry;
       const bookedInvoiceNumber = (invoiceObject as any).bookedInvoiceNumber || (invoiceObject as any).invoice?.bookedInvoiceNumber || (invoiceObject as any).invoiceNumber;
@@ -212,11 +211,7 @@ const CustomerDepositReturns = () => {
       const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(pdfPath)}&country=${encodeURIComponent(currentCountry)}`;
 
       window.open(proxyUrl, '_blank');
-      
-      dismissToast(toastId);
-      showSuccess("Opening invoice PDF securely.");
     } catch (e: any) {
-      dismissToast(toastId);
       showError(e.message);
     }
   }, [currentCountry]);
