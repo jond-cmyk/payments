@@ -66,7 +66,7 @@ const PropertyReports = () => {
     }
 
     setIsReportLoading(true);
-    const toastId = showLoading("Fetching accounting years and entries...");
+    const toastId = showLoading("Fetching report from e-conomic...");
 
     try {
       // Step 1: Fetch all accounting years
@@ -92,7 +92,6 @@ const PropertyReports = () => {
       const relevantYears = allAccountingYears.filter(year => {
         const yearFromDate = parseISO(year.fromDate);
         const yearToDate = parseISO(year.toDate);
-        // Check for overlap: (StartA <= EndB) and (EndA >= StartB)
         return yearFromDate <= userToDate && yearToDate >= userFromDate;
       });
 
@@ -103,20 +102,38 @@ const PropertyReports = () => {
         return;
       }
 
-      // Step 3: For each relevant year, fetch all pages of entries
+      // Step 3: Build the filter string for the API
+      const fromDimNum = parseInt(fromDimension, 10);
+      const toDimNum = parseInt(toDimension, 10);
+      const filters = [
+        `date$gte:${format(userFromDate, 'yyyy-MM-dd')}`,
+        `date$lte:${format(userToDate, 'yyyy-MM-dd')}`,
+      ];
+      if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
+        filters.push(`departmentalDistribution.departmentalDistributionNumber$gte:${fromDimNum}`);
+        filters.push(`departmentalDistribution.departmentalDistributionNumber$lte:${toDimNum}`);
+      }
+      const filterString = filters.join('$and:');
+
+      // Step 4: For each relevant year, fetch all pages of FILTERED entries
       let allEntries: any[] = [];
 
       const yearPromises = relevantYears.map(async (yearInfo) => {
         const year = yearInfo.year;
-        let nextPath: string | null = `/accounting-years/${year}/entries?pagesize=1000`;
+        let pathForProxy = `/accounting-years/${year}/entries`;
+        let queryForProxy: Record<string, string> = {
+          pagesize: '1000',
+          filter: filterString,
+        };
+        let hasMorePages = true;
 
-        while (nextPath) {
+        while (hasMorePages) {
           const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-            body: { path: nextPath, method: "GET", country: currentCountry },
+            body: { path: pathForProxy, query: queryForProxy, method: "GET", country: currentCountry },
           });
 
           if (error) {
-            console.warn(`Error fetching entries for year ${year} at path ${nextPath}:`, error.message);
+            console.warn(`Error fetching entries for year ${year}:`, error.message);
             break;
           }
 
@@ -127,9 +144,15 @@ const PropertyReports = () => {
               allEntries = allEntries.concat(entriesForPage);
             }
             const nextPageUrl = resp.data?.pagination?.nextPage;
-            nextPath = nextPageUrl ? new URL(nextPageUrl).pathname + new URL(nextPageUrl).search : null;
+            if (nextPageUrl) {
+              const url = new URL(nextPageUrl);
+              pathForProxy = url.pathname;
+              queryForProxy = Object.fromEntries(url.searchParams.entries());
+            } else {
+              hasMorePages = false;
+            }
           } else {
-            console.warn(`Non-OK response fetching entries for year ${year} at path ${nextPath}: Status ${resp.status}`);
+            console.warn(`Non-OK response for year ${year}: Status ${resp.status}`);
             break;
           }
         }
@@ -137,30 +160,10 @@ const PropertyReports = () => {
 
       await Promise.all(yearPromises);
 
-      // Step 4: Filter combined entries by date and dimension
-      const fromDimNum = parseInt(fromDimension, 10);
-      const toDimNum = parseInt(toDimension, 10);
-
-      const filteredEntries = allEntries.filter(entry => {
-        const entryDate = entry.date ? parseISO(entry.date) : null;
-        if (!entryDate || !isWithinInterval(entryDate, { start: userFromDate, end: userToDate })) {
-            return false;
-        }
-
-        if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
-            const deptNum = entry.departmentalDistribution?.departmentalDistributionNumber;
-            if (deptNum === undefined || deptNum === null || deptNum < fromDimNum || deptNum > toDimNum) {
-                return false;
-            }
-        }
-        
-        return true;
-      });
-
       // Step 5: Aggregate the filtered entries
       const trialBalance: Record<string, { accountNumber: number; name: string; debit: number; credit: number; balance: number; }> = {};
 
-      filteredEntries.forEach(entry => {
+      allEntries.forEach(entry => {
         const accountNumber = entry.account?.accountNumber;
         const accountName = entry.account?.name || `Account ${accountNumber}`;
         const amount = entry.amount || 0;
@@ -189,7 +192,7 @@ const PropertyReports = () => {
 
       setReportData(aggregatedData);
       setIsReportDialogOpen(true);
-      showSuccess(`Report generated! Found ${filteredEntries.length} entries, aggregated into ${aggregatedData.length} accounts.`);
+      showSuccess(`Report generated! Found ${allEntries.length} entries, aggregated into ${aggregatedData.length} accounts.`);
     } catch (e: any) {
       console.error("Error fetching Trial Balance report:", e);
       showError(e.message || "Failed to fetch report.");
