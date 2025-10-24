@@ -14,6 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { format } from 'date-fns';
 import { useCountry } from '@/integrations/supabase/CountryContext';
+import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -25,7 +26,7 @@ type EconomicProxyResponse<T = any> = {
 
 const PropertyReports = () => {
   const { session, isLoading, userProfile } = useSession();
-  const { currentCountry } = useCountry();
+  const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
   const navigate = useNavigate();
 
   const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
@@ -59,6 +60,10 @@ const PropertyReports = () => {
       showError("Please select both 'From Date' and 'To Date'.");
       return;
     }
+    if (!fromDimension || !toDimension) {
+      showError("Please enter both 'From Dimension' and 'To Dimension'.");
+      return;
+    }
 
     setIsReportLoading(true);
     const toastId = showLoading("Fetching Department Profit/Loss report...");
@@ -67,17 +72,11 @@ const PropertyReports = () => {
       const queryParams: Record<string, string> = {
         from: format(fromDate, 'yyyy-MM-dd'),
         to: format(toDate, 'yyyy-MM-dd'),
+        fromDimension: fromDimension,
+        toDimension: toDimension,
       };
 
-      if (fromDimension) {
-        queryParams.fromDimension = fromDimension;
-      }
-      if (toDimension) {
-        queryParams.toDimension = toDimension;
-      }
-
       const queryString = new URLSearchParams(queryParams).toString();
-      // UPDATED PATH: Using /accounting-reports/department-profit-loss
       const path = `/accounting-reports/department-profit-loss?${queryString}`;
 
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
@@ -134,6 +133,16 @@ const PropertyReports = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
+                <label htmlFor="country-selector" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                <CountrySelector
+                  value={currentCountry}
+                  onValueChange={setCurrentCountry}
+                  disabled={isCountryLocked && !isAdmin}
+                  availableCountries={isAdmin ? availableCountries : availableCountries.filter(c => c.value === userProfile?.country)}
+                />
+              </div>
+              <div></div> {/* Empty div for alignment */}
+              <div>
                 <label htmlFor="from-date" className="block text-sm font-medium text-gray-700 mb-1">From Date<span className="text-red-600 ml-1 text-lg font-bold">*</span></label>
                 <DatePicker
                   id="from-date"
@@ -154,7 +163,7 @@ const PropertyReports = () => {
                 />
               </div>
               <div>
-                <label htmlFor="from-dimension" className="block text-sm font-medium text-gray-700 mb-1">From Dimension (Optional)</label>
+                <label htmlFor="from-dimension" className="block text-sm font-medium text-gray-700 mb-1">From Dimension<span className="text-red-600 ml-1 text-lg font-bold">*</span></label>
                 <Input
                   id="from-dimension"
                   placeholder="e.g., 1000"
@@ -164,7 +173,7 @@ const PropertyReports = () => {
                 />
               </div>
               <div>
-                <label htmlFor="to-dimension" className="block text-sm font-medium text-gray-700 mb-1">To Dimension (Optional)</label>
+                <label htmlFor="to-dimension" className="block text-sm font-medium text-gray-700 mb-1">To Dimension<span className="text-red-600 ml-1 text-lg font-bold">*</span></label>
                 <Input
                   id="to-dimension"
                   placeholder="e.g., 2000"
@@ -176,7 +185,7 @@ const PropertyReports = () => {
             </div>
             <Button
               onClick={fetchDepartmentProfitLossReport}
-              disabled={isReportLoading || !fromDate || !toDate}
+              disabled={isReportLoading || !fromDate || !toDate || !fromDimension || !toDimension}
               className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
             >
               <Search className="mr-2 h-4 w-4" />
