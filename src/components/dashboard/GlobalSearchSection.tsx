@@ -50,11 +50,24 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
       const term = `%${debouncedSearchTerm}%`;
       const searchPromises: Promise<SearchResult[]>[] = [];
 
-      // Base query for payment requests
+      // Check if search term is a number
+      const searchTermAsNumber = parseFloat(debouncedSearchTerm.replace(/,/g, ''));
+      const isNumericSearch = !isNaN(searchTermAsNumber);
+
+      // --- Payment Requests Search ---
+      const prTextSearchFields = [
+        'supplier_name', 'sku_number', 'supplier_address', 'iban_number', 'currency',
+        'reason_for_payment', 'admin_action_reason', 'account_number', 'sort_code',
+        'bank_account_name', 'lease_id'
+      ];
+      let prFilterString = prTextSearchFields.map(field => `${field}.ilike.${term}`).join(',');
+      if (isNumericSearch) {
+        prFilterString += `,total_amount.eq.${searchTermAsNumber}`;
+      }
       let paymentRequestQuery = supabase
           .from('payment_requests')
           .select('*')
-          .or(`supplier_name.ilike.${term},sku_number.ilike.${term},supplier_address.ilike.${term},iban_number.ilike.${term},currency.ilike.${term},reason_for_payment.ilike.${term},admin_action_reason.ilike.${term}`);
+          .or(prFilterString);
       
       // Apply country filter for payment requests
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -73,13 +86,20 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
           }) as Promise<SearchResult[]>
       );
 
-      // Base query for transactions
+      // --- Transactions Search ---
+      const trTextSearchFields = [
+        'description', 'type', 'entry', 'bank', 'contra_account', 'currency', 'comment',
+        'sku', 'reason_for_payment', 'category', 'merchant_name', 'notes',
+        'original_transaction_id', 'bank_account'
+      ];
+      let trFilterString = trTextSearchFields.map(field => `${field}.ilike.${term}`).join(',');
+      if (isNumericSearch) {
+        trFilterString += `,amount.eq.${searchTermAsNumber}`;
+      }
       let transactionQuery = supabase
           .from('transactions')
           .select('*')
-          .eq('status', 'pending_input')
-          .eq('receipt_urls', '{}')
-          .or(`description.ilike.${term},type.ilike.${term},entry.ilike.${term},bank.ilike.${term},contra_account.ilike.${term},currency.ilike.${term},comment.ilike.${term},sku.ilike.${term},reason_for_payment.ilike.${term},category.ilike.${term},merchant_name.ilike.${term},notes.ilike.${term}`);
+          .or(trFilterString);
 
       // Apply country filter for transactions
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -98,11 +118,19 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
           }) as Promise<SearchResult[]>
       );
 
-      // NEW: Base query for standing orders
+      // --- Standing Orders Search ---
+      const soTextSearchFields = [
+        'payee', 'sku', 'account_name', 'account_address', 'iban_number', 'sort_code',
+        'account_number', 'payment_reference', 'currency', 'bank_account'
+      ];
+      let soFilterString = soTextSearchFields.map(field => `${field}.ilike.${term}`).join(',');
+      if (isNumericSearch) {
+        soFilterString += `,total_amount.eq.${searchTermAsNumber}`;
+      }
       let standingOrderQuery = supabase
           .from('standing_orders')
           .select('*')
-          .or(`payee.ilike.${term},sku.ilike.${term},account_name.ilike.${term},account_address.ilike.${term},iban_number.ilike.${term},sort_code.ilike.${term},account_number.ilike.${term},payment_reference.ilike.${term}`);
+          .or(soFilterString);
 
       // Apply country filter for standing orders
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -121,11 +149,18 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
           }) as Promise<SearchResult[]>
       );
 
-      // NEW: Base query for direct debits
+      // --- Direct Debits Search ---
+      const ddTextSearchFields = [
+        'payee', 'sku', 'account_number', 'payment_reference', 'bank_account', 'currency'
+      ];
+      let ddFilterString = ddTextSearchFields.map(field => `${field}.ilike.${term}`).join(',');
+      if (isNumericSearch) {
+        ddFilterString += `,total_amount.eq.${searchTermAsNumber}`;
+      }
       let directDebitQuery = supabase
           .from('direct_debits')
           .select('*')
-          .or(`payee.ilike.${term},sku.ilike.${term},category.ilike.${term},account_number.ilike.${term},payment_reference.ilike.${term},bank_account.ilike.${term}`);
+          .or(ddFilterString);
 
       // Apply country filter for direct debits
       if (userProfile?.role === 'requester' && userProfile.country) {
@@ -182,14 +217,15 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
       case 'queried':
         className = 'bg-gray-500 text-gray-50';
         break;
+      case 'paused':
+        className = 'bg-gray-500 text-gray-50';
+        displayText = 'Paused';
+        break;
       case 'active': // For Direct Debits and Standing Orders
         className = 'bg-green-500 text-green-50';
         break;
-      case 'paused': // For Direct Debits and Standing Orders
-        className = 'bg-yellow-500 text-yellow-50';
-        break;
       case 'cancelled': // For Direct Debits and Standing Orders
-        className = 'bg-red-500 text-red-50';
+        className = 'bg-orange-500 text-orange-50';
         break;
       case 'awaiting_info': // For Direct Debits and Standing Orders
         className = 'bg-orange-500 text-orange-50';

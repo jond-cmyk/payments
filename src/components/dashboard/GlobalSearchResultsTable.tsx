@@ -59,7 +59,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
             >
               <TableCell>
                 <Badge variant="outline" className={cn("bg-gray-100 text-gray-800", "border border-white")}> {/* Added white border */}
-                  {item.type === 'payment_request' ? 'Payment Request' : item.type === 'transaction' ? 'Missing Receipt' : item.type === 'standing_order' ? 'Standing Order' : 'Direct Debit'} {/* Updated display */}
+                  {item.type === 'payment_request' ? 'Payment Request' : item.type === 'transaction' ? 'Transaction' : item.type === 'standing_order' ? 'Standing Order' : 'Direct Debit'} {/* Updated display */}
                 </Badge>
               </TableCell>
               <TableCell className="font-medium">
@@ -70,6 +70,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
                 {item.type === 'payment_request' ? `${item.currency} ${item.total_amount?.toFixed(2)}` :
                  item.type === 'transaction' ? `${item.currency} ${item.amount.toFixed(2)}` :
                  item.type === 'standing_order' ? `${item.currency} ${item.total_amount?.toFixed(2)}` :
+                 item.type === 'direct_debit' ? `${item.currency || ''} ${item.total_amount?.toFixed(2)}` :
                  'N/A'}
               </TableCell>
               <TableCell>
