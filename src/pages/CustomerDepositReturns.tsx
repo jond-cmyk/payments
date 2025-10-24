@@ -80,44 +80,58 @@ const CustomerDepositReturns = () => {
   const { data: entries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
     queryKey: ['finalStatementEntries', selectedCustomer, currentCountry],
     queryFn: async () => {
-      // CHANGED: Use a more robust 'contains' filter which is case-insensitive and better with substrings
+      // Step 1: Fetch all accounting years
+      const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: "/accounting-years", method: "GET", country: currentCountry },
+      });
+
+      if (yearsError) throw new Error(yearsError.message);
+      const yearsResp = yearsData as EconomicProxyResponse<any>;
+      if (yearsResp.error || !yearsResp.ok) {
+        throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+      }
+      const accountingYears = extractList(yearsResp?.data);
+      if (!accountingYears || accountingYears.length === 0) {
+        showError("No accounting years found in e-conomic. Cannot fetch entries.");
+        return [];
+      }
+
+      // Step 2: For each year, fetch entries
+      let allEntries: EconomicLedgerEntry[] = [];
       let filter = `text$contains:Final Statement`;
       if (selectedCustomer !== 'all') {
         filter += `&customer.customerNumber$eq:${selectedCustomer}`;
       }
-      
-      const potentialPaths = [
-        `/customer-ledger-entries?pagesize=1000&filter=${filter}`,
-        `/entries?pagesize=1000&filter=${filter}`
-      ];
 
-      for (const path of potentialPaths) {
-        console.log(`[CustomerDepositReturns] Trying path: ${path}`);
-        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+      const yearPromises = accountingYears.map(yearInfo => {
+        const year = yearInfo.year;
+        const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
+        console.log(`[CustomerDepositReturns] Querying entries for year ${year} with path: ${path}`);
+        return supabase.functions.invoke("economic-api-proxy", {
           body: { path, method: "GET", country: currentCountry },
         });
+      });
 
-        if (error) {
-          console.warn(`[CustomerDepositReturns] Error on path ${path}:`, error.message);
-          continue; // Try next path
+      const yearResults = await Promise.all(yearPromises);
+
+      // Step 3: Combine results
+      for (const result of yearResults) {
+        if (result.error) {
+          console.warn("Error fetching entries for a year:", result.error.message);
+          continue;
         }
-
-        const resp = data as EconomicProxyResponse<any>;
-        if (resp.error || !resp.ok) {
-          console.warn(`[CustomerDepositReturns] Non-OK response on path ${path}:`, resp.error || `Status ${resp.status}`);
-          continue; // Try next path
-        }
-
-        const list = extractList(resp?.data);
-        if (list && list.length > 0) {
-          console.log(`[CustomerDepositReturns] Found ${list.length} entries on path ${path}. Using this result.`);
-          return list as EconomicLedgerEntry[];
+        const resp = result.data as EconomicProxyResponse<any>;
+        if (resp.ok) {
+          const entriesForYear = extractList(resp?.data);
+          if (entriesForYear && entriesForYear.length > 0) {
+            allEntries = allEntries.concat(entriesForYear);
+          }
+        } else {
+          console.warn(`Non-OK response fetching entries for a year: Status ${resp.status}`);
         }
       }
 
-      // If no path returned data
-      console.log("[CustomerDepositReturns] No entries found after trying all potential paths.");
-      return [];
+      return allEntries as EconomicLedgerEntry[];
     },
     enabled: false, // Only fetch when the button is clicked
   });
