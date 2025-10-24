@@ -407,26 +407,18 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const viewInvoice = useCallback(async (item: any) => {
     try {
       const invoiceObject = item.invoice || item;
+      const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber', 'invoice.bookedInvoiceNumber', 'invoiceNumber']);
       let basePath: string | undefined;
 
-      basePath = pathFromSelf(invoiceObject?.self);
-
-      if (!basePath) {
-        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber', 'invoice.bookedInvoiceNumber']);
-        if (bookedInvoiceNumber) {
-          basePath = `/invoices/booked/${bookedInvoiceNumber}`;
-        }
-      }
-      
-      if (!basePath) {
-        const invoiceNumber = pick(invoiceObject, ['invoiceNumber', 'invoice.invoiceNumber', 'number']);
-        if (invoiceNumber) {
-          basePath = `/invoices/booked/${invoiceNumber}`;
-        }
+      if (bookedInvoiceNumber) {
+        basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+      } else {
+        const selfLink = pick(invoiceObject, ['self', 'invoice.self']);
+        basePath = pathFromSelf(selfLink);
       }
 
       if (!basePath) {
-        throw new Error("Could not determine a valid invoice path for this entry.");
+        throw new Error("Could not determine a valid invoice path for this entry. No booked invoice number or self link found.");
       }
 
       const pdfPath = `${basePath}/pdf`;
