@@ -102,37 +102,39 @@ const PropertyReports = () => {
         return;
       }
 
-      // Step 3: For each relevant year, fetch entries, applying date filters only for closed years.
+      // Step 3: For each relevant year, fetch entries, applying API filters only for closed years.
       let allEntries: any[] = [];
 
       const yearPromises = relevantYears.map(async (yearInfo) => {
         const year = yearInfo.year;
         const isClosedYear = yearInfo.closed === true;
 
-        const fromDimNum = parseInt(fromDimension, 10);
-        const toDimNum = parseInt(toDimension, 10);
-        const filters = [];
-
-        // CRITICAL FIX: Only add date filters for closed years at the API level
-        if (isClosedYear) {
-            const yearFromDate = parseISO(yearInfo.fromDate);
-            const yearToDate = parseISO(yearInfo.toDate);
-            const effectiveFromDate = userFromDate > yearFromDate ? userFromDate : yearFromDate;
-            const effectiveToDate = userToDate < yearToDate ? userToDate : yearToDate;
-            filters.push(`date$gte:${format(effectiveFromDate, 'yyyy-MM-dd')}`);
-            filters.push(`date$lte:${format(effectiveToDate, 'yyyy-MM-dd')}`);
-        }
-
-        if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
-          filters.push(`departmentalDistribution.departmentalDistributionNumber$gte:${fromDimNum}`);
-          filters.push(`departmentalDistribution.departmentalDistributionNumber$lte:${toDimNum}`);
-        }
-        const filterString = filters.join('$and:');
-
         let pathForProxy = `/accounting-years/${year}/entries`;
         let queryForProxy: Record<string, string> = { pagesize: '1000' };
-        if (filterString) {
-            queryForProxy.filter = filterString;
+
+        if (isClosedYear) {
+          // For closed years, build the full filter string
+          const fromDimNum = parseInt(fromDimension, 10);
+          const toDimNum = parseInt(toDimension, 10);
+          const filters = [];
+
+          const yearFromDate = parseISO(yearInfo.fromDate);
+          const yearToDate = parseISO(yearInfo.toDate);
+          const effectiveFromDate = userFromDate > yearFromDate ? userFromDate : yearFromDate;
+          const effectiveToDate = userToDate < yearToDate ? userToDate : yearToDate;
+          filters.push(`date$gte:${format(effectiveFromDate, 'yyyy-MM-dd')}`);
+          filters.push(`date$lte:${format(effectiveToDate, 'yyyy-MM-dd')}`);
+
+          if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
+            filters.push(`departmentalDistribution.departmentalDistributionNumber$gte:${fromDimNum}`);
+            filters.push(`departmentalDistribution.departmentalDistributionNumber$lte:${toDimNum}`);
+          }
+          const filterString = filters.join('$and:');
+          if (filterString) {
+              queryForProxy.filter = filterString;
+          }
+        } else {
+          // For OPEN years, do NOT add any filter parameter. We will filter client-side later.
         }
         
         let hasMorePages = true;
@@ -170,10 +172,28 @@ const PropertyReports = () => {
       await Promise.all(yearPromises);
 
       // Step 4: Perform a final client-side filter on all fetched entries.
-      // This is crucial for entries from open years where no date filter was applied at the API level.
+      // This is crucial for entries from open years where no filters were applied at the API level.
+      const fromDimNum = parseInt(fromDimension, 10);
+      const toDimNum = parseInt(toDimension, 10);
+
       const filteredEntries = allEntries.filter(entry => {
+        // Filter by date
         const entryDate = entry.date ? parseISO(entry.date) : null;
-        return entryDate && isWithinInterval(entryDate, { start: userFromDate, end: userToDate });
+        const dateMatch = entryDate && isWithinInterval(entryDate, { start: userFromDate, end: userToDate });
+        if (!dateMatch) return false;
+
+        // Filter by dimension
+        if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
+            const deptNum = entry.departmentalDistribution?.departmentalDistributionNumber;
+            if (deptNum === undefined || deptNum === null) {
+                return false; // Exclude entries without a department if filtering by department
+            }
+            if (deptNum < fromDimNum || deptNum > toDimNum) {
+                return false;
+            }
+        }
+        
+        return true;
       });
 
       // Step 5: Aggregate the filtered entries
