@@ -24,7 +24,6 @@ import StandingOrderDetail from "./pages/StandingOrderDetail";
 import AdminUploadDirectDebits from "./pages/AdminUploadDirectDebits";
 import AdminUploadStandingOrders from "./pages/AdminUploadStandingOrders";
 import CustomerDepositReturns from "./pages/CustomerDepositReturns";
-import PropertyReports from "./pages/PropertyReports"; // NEW: Import PropertyReports
 import AdminFeedback from "./pages/AdminFeedback";
 import ProfilePage from "./pages/Profile";
 import Statistics from "./pages/Statistics";
@@ -104,7 +103,6 @@ const App = () => {
                       <Route path="/admin/upload-direct-debits" element={<AdminUploadDirectDebits />} />
                       <Route path="/admin/upload-standing-orders" element={<AdminUploadStandingOrders />} />
                       <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
-                      <Route path="/property-reports" element={<PropertyReports />} /> {/* NEW: Property Reports route */}
                       <Route path="/notifications" element={<NotificationsPage />} />
                       <Route path="/admin/feedback" element={<AdminFeedback />} />
                       <Route path="/admin/economic-integration" element={<EconomicIntegration />} />
