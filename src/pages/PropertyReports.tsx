@@ -69,7 +69,8 @@ const PropertyReports = () => {
     const toastId = showLoading("Fetching account entries to build report...");
 
     try {
-      const filter = `date$gte:${format(fromDate, 'yyyy-MM-dd')}$and:date$lte:${format(toDate, 'yyyy-MM-dd')}$and:department.departmentNumber$gte:${fromDimension}$and:department.departmentNumber$lte:${toDimension}`;
+      // Step 1: Fetch entries by date range only
+      const filter = `date$gte:${format(fromDate, 'yyyy-MM-dd')}$and:date$lte:${format(toDate, 'yyyy-MM-dd')}`;
       
       const queryParams = {
         pagesize: 1000, // Get up to 1000 entries
@@ -91,9 +92,20 @@ const PropertyReports = () => {
         throw new Error(`e-conomic API Error: ${errorMessage}`);
       }
 
-      const entries = extractList(resp?.data);
+      let entries = extractList(resp?.data);
 
-      // Aggregate the entries into a trial balance format
+      // Step 2: Filter entries by dimension in our code for reliability
+      const fromDimNum = parseInt(fromDimension, 10);
+      const toDimNum = parseInt(toDimension, 10);
+
+      if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
+        entries = entries.filter(entry => {
+          const deptNum = entry.department?.departmentNumber;
+          return deptNum && deptNum >= fromDimNum && deptNum <= toDimNum;
+        });
+      }
+
+      // Step 3: Aggregate the filtered entries into a trial balance format
       const trialBalance: Record<string, { accountNumber: number; name: string; debit: number; credit: number; balance: number; }> = {};
 
       entries.forEach(entry => {
