@@ -80,12 +80,12 @@ const CustomerDepositReturns = () => {
   const { data: entries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
     queryKey: ['finalStatementEntries', selectedCustomer, currentCountry],
     queryFn: async () => {
-      let filter = `text$like:*Final Statement*`;
+      // CHANGED: Use a more robust 'contains' filter which is case-insensitive and better with substrings
+      let filter = `text$contains:Final Statement`;
       if (selectedCustomer !== 'all') {
         filter += `&customer.customerNumber$eq:${selectedCustomer}`;
       }
       
-      // NEW: Try multiple endpoints to find the ledger entries
       const potentialPaths = [
         `/customer-ledger-entries?pagesize=1000&filter=${filter}`,
         `/entries?pagesize=1000&filter=${filter}`
