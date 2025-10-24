@@ -102,25 +102,27 @@ const PropertyReports = () => {
         return;
       }
 
-      // Step 3: For each relevant year, fetch all pages of FILTERED entries
+      // Step 3: For each relevant year, fetch entries, applying date filters only for closed years.
       let allEntries: any[] = [];
 
       const yearPromises = relevantYears.map(async (yearInfo) => {
         const year = yearInfo.year;
-        const yearFromDate = parseISO(yearInfo.fromDate);
-        const yearToDate = parseISO(yearInfo.toDate);
+        const isClosedYear = yearInfo.closed === true;
 
-        // Calculate the intersection of the user's date range and the current year's range
-        const effectiveFromDate = userFromDate > yearFromDate ? userFromDate : yearFromDate;
-        const effectiveToDate = userToDate < yearToDate ? userToDate : yearToDate;
-
-        // Build the filter string for THIS specific year
         const fromDimNum = parseInt(fromDimension, 10);
         const toDimNum = parseInt(toDimension, 10);
-        const filters = [
-          `date$gte:${format(effectiveFromDate, 'yyyy-MM-dd')}`,
-          `date$lte:${format(effectiveToDate, 'yyyy-MM-dd')}`,
-        ];
+        const filters = [];
+
+        // CRITICAL FIX: Only add date filters for closed years at the API level
+        if (isClosedYear) {
+            const yearFromDate = parseISO(yearInfo.fromDate);
+            const yearToDate = parseISO(yearInfo.toDate);
+            const effectiveFromDate = userFromDate > yearFromDate ? userFromDate : yearFromDate;
+            const effectiveToDate = userToDate < yearToDate ? userToDate : yearToDate;
+            filters.push(`date$gte:${format(effectiveFromDate, 'yyyy-MM-dd')}`);
+            filters.push(`date$lte:${format(effectiveToDate, 'yyyy-MM-dd')}`);
+        }
+
         if (!isNaN(fromDimNum) && !isNaN(toDimNum)) {
           filters.push(`departmentalDistribution.departmentalDistributionNumber$gte:${fromDimNum}`);
           filters.push(`departmentalDistribution.departmentalDistributionNumber$lte:${toDimNum}`);
@@ -128,12 +130,12 @@ const PropertyReports = () => {
         const filterString = filters.join('$and:');
 
         let pathForProxy = `/accounting-years/${year}/entries`;
-        let queryForProxy: Record<string, string> = {
-          pagesize: '1000',
-          filter: filterString,
-        };
+        let queryForProxy: Record<string, string> = { pagesize: '1000' };
+        if (filterString) {
+            queryForProxy.filter = filterString;
+        }
+        
         let hasMorePages = true;
-
         while (hasMorePages) {
           const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
             body: { path: pathForProxy, query: queryForProxy, method: "GET", country: currentCountry },
@@ -167,10 +169,17 @@ const PropertyReports = () => {
 
       await Promise.all(yearPromises);
 
-      // Step 4: Aggregate the filtered entries
+      // Step 4: Perform a final client-side filter on all fetched entries.
+      // This is crucial for entries from open years where no date filter was applied at the API level.
+      const filteredEntries = allEntries.filter(entry => {
+        const entryDate = entry.date ? parseISO(entry.date) : null;
+        return entryDate && isWithinInterval(entryDate, { start: userFromDate, end: userToDate });
+      });
+
+      // Step 5: Aggregate the filtered entries
       const trialBalance: Record<string, { accountNumber: number; name: string; debit: number; credit: number; balance: number; }> = {};
 
-      allEntries.forEach(entry => {
+      filteredEntries.forEach(entry => {
         const accountNumber = entry.account?.accountNumber;
         const accountName = entry.account?.name || `Account ${accountNumber}`;
         const amount = entry.amount || 0;
@@ -199,7 +208,7 @@ const PropertyReports = () => {
 
       setReportData(aggregatedData);
       setIsReportDialogOpen(true);
-      showSuccess(`Report generated! Found ${allEntries.length} entries, aggregated into ${aggregatedData.length} accounts.`);
+      showSuccess(`Report generated! Found ${filteredEntries.length} entries, aggregated into ${aggregatedData.length} accounts.`);
     } catch (e: any) {
       console.error("Error fetching Trial Balance report:", e);
       showError(e.message || "Failed to fetch report.");
