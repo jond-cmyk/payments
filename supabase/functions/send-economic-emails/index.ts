@@ -17,22 +17,29 @@ const ECONOMIC_EMAILS = {
 
 // Helper to download file content using the service role client and return as base64
 async function downloadFileAsBase64(supabaseClient: SupabaseClient, bucket: string, url: string): Promise<{ content: string, filename: string, mimeType: string }> {
-  console.log(`[send-economic-emails] Downloading file from URL: ${url} in bucket: ${bucket}`);
+  console.log(`[send-economic-emails] v2: Downloading file from URL: ${url} in bucket: ${bucket}`);
   
   const urlObject = new URL(url);
-  const pathParts = urlObject.pathname.split(`/public/${bucket}/`);
-  if (pathParts.length < 2) {
-    throw new Error(`Could not extract file path from URL for bucket '${bucket}'. URL: ${url}`);
+  const pathname = urlObject.pathname;
+  
+  // More robust path extraction. Finds the bucket name in the path and takes everything after it.
+  const bucketIdentifier = `/${bucket}/`;
+  const bucketIndex = pathname.indexOf(bucketIdentifier);
+  
+  if (bucketIndex === -1) {
+    throw new Error(`Could not find bucket identifier '${bucketIdentifier}' in URL path: ${pathname}`);
   }
-  const filePath = pathParts[1];
-  console.log(`[send-economic-emails] Extracted file path: ${filePath}`);
+  
+  // Get the path part of the URL and decode it to handle spaces or special characters in filenames.
+  const filePath = decodeURIComponent(pathname.substring(bucketIndex + bucketIdentifier.length));
+  console.log(`[send-economic-emails] v2: Extracted and decoded file path: ${filePath}`);
 
   const { data: blob, error: downloadError } = await supabaseClient.storage
     .from(bucket)
     .download(filePath);
 
   if (downloadError) {
-    console.error(`[send-economic-emails] Supabase storage download error for path ${filePath}:`, downloadError);
+    console.error(`[send-economic-emails] v2: Supabase storage download error for path ${filePath}:`, downloadError);
     throw new Error(`Failed to download file from storage: ${downloadError.message}`);
   }
 
@@ -46,7 +53,7 @@ async function downloadFileAsBase64(supabaseClient: SupabaseClient, bucket: stri
   const filename = filePath.split('/').pop() || 'attachment';
   const mimeType = blob.type || 'application/octet-stream';
 
-  console.log(`[send-economic-emails] Successfully downloaded and encoded file: ${filename}, size: ${buffer.byteLength} bytes`);
+  console.log(`[send-economic-emails] v2: Successfully downloaded and encoded file: ${filename}, size: ${buffer.byteLength} bytes`);
 
   return { content: base64Content, filename, mimeType };
 }
@@ -143,13 +150,13 @@ serve(async (req) => {
             content: result.content,
           });
         } else {
-          bodyText += `\n\nWARNING: Failed to attach document from URL: ${result.url}. Error: ${result.error}`;
+          bodyText += `\n\n[DEBUG] WARNING: Failed to attach document. URL: ${result.url}. Error: ${result.error}`;
         }
       });
     }
 
     if (attachments.length === 0) {
-      bodyText += `\n\nWARNING: No attachments could be processed for this email.`;
+      bodyText += `\n\n[DEBUG] WARNING: No attachments could be processed for this email. Attachment URLs found: ${attachmentUrls.join(', ')}`;
       console.warn(`[send-economic-emails] No attachments processed for email with subject: ${subject}`);
     }
 
