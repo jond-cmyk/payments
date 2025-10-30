@@ -1,7 +1,7 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 // @ts-ignore
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 // @ts-ignore
 import { Resend } from 'https://esm.sh/resend@3.4.0';
 
@@ -15,35 +15,42 @@ const ECONOMIC_EMAILS = {
   'United Kingdom': '505bilag1675383@e-conomic.dk',
 };
 
-// Helper to fetch file content from a public URL and return as base64
-async function fetchFileAsBase64(url: string): Promise<{ content: string, filename: string, mimeType: string }> {
-  console.log(`[send-economic-emails] Fetching file from URL: ${url}`);
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch file from URL: ${url}. Status: ${response.status}`);
-  }
-
-  const contentType = response.headers.get('Content-Type') || 'application/octet-stream';
-  const contentDisposition = response.headers.get('Content-Disposition');
+// Helper to download file content using the service role client and return as base64
+async function downloadFileAsBase64(supabaseClient: SupabaseClient, bucket: string, url: string): Promise<{ content: string, filename: string, mimeType: string }> {
+  console.log(`[send-economic-emails] Downloading file from URL: ${url} in bucket: ${bucket}`);
   
-  let filename = 'attachment';
-  if (contentDisposition) {
-    const match = contentDisposition.match(/filename="?([^"]+)"?/i);
-    if (match && match[1]) {
-      filename = match[1];
-    }
-  } else {
-    // Fallback to extract filename from URL path
-    const urlParts = new URL(url).pathname.split('/');
-    filename = urlParts[urlParts.length - 1] || 'attachment';
+  const urlObject = new URL(url);
+  const pathParts = urlObject.pathname.split(`/public/${bucket}/`);
+  if (pathParts.length < 2) {
+    throw new Error(`Could not extract file path from URL for bucket '${bucket}'. URL: ${url}`);
+  }
+  const filePath = pathParts[1];
+  console.log(`[send-economic-emails] Extracted file path: ${filePath}`);
+
+  const { data: blob, error: downloadError } = await supabaseClient.storage
+    .from(bucket)
+    .download(filePath);
+
+  if (downloadError) {
+    console.error(`[send-economic-emails] Supabase storage download error for path ${filePath}:`, downloadError);
+    throw new Error(`Failed to download file from storage: ${downloadError.message}`);
   }
 
-  const buffer = await response.arrayBuffer();
-  // Deno's btoa is used for base64 encoding
-  const base64Content = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  if (!blob) {
+    throw new Error(`No file data returned for path: ${filePath}`);
+  }
 
-  return { content: base64Content, filename, mimeType: contentType };
+  const buffer = await blob.arrayBuffer();
+  const base64Content = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+  
+  const filename = filePath.split('/').pop() || 'attachment';
+  const mimeType = blob.type || 'application/octet-stream';
+
+  console.log(`[send-economic-emails] Successfully downloaded and encoded file: ${filename}, size: ${buffer.byteLength} bytes`);
+
+  return { content: base64Content, filename, mimeType };
 }
+
 
 // @ts-ignore
 serve(async (req) => {
@@ -54,15 +61,24 @@ serve(async (req) => {
   try {
     // @ts-ignore
     const resendApiKey = Deno.env.get('RESEND_API_KEY');
-    if (!resendApiKey) {
-      console.error('[send-economic-emails] RESEND_API_KEY is missing.');
-      return new Response(JSON.stringify({ error: 'RESEND_API_KEY is missing.' }), {
+    // @ts-ignore
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    // @ts-ignore
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!resendApiKey || !supabaseUrl || !supabaseServiceRoleKey) {
+      console.error('[send-economic-emails] Missing environment variables.');
+      return new Response(JSON.stringify({ error: 'Missing environment variables.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
     
     const resend = new Resend(resendApiKey);
+    const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: { persistSession: false },
+    });
+    
     const payload = await req.json();
     const { record, table } = payload;
 
@@ -87,19 +103,18 @@ serve(async (req) => {
     let subject = '';
     let attachmentUrls: string[] = [];
     let bodyText = '';
+    let bucket = '';
 
-    if (table === 'payment_requests' && record.status === 'approved') {
-      // Flow 1: Payment Request Approved
+    if (table === 'payment_requests' && record.status === 'approved' && record.receipt_pdf_url) {
       subject = `Paid ${record.sku_number || 'N/A'}`;
-      if (record.receipt_pdf_url) {
-        attachmentUrls.push(record.receipt_pdf_url);
-      }
+      attachmentUrls.push(record.receipt_pdf_url);
+      bucket = 'receipts';
       bodyText = `Payment Request #${record.id.substring(0, 8)} for ${record.supplier_name} has been approved and paid. Receipt attached.`;
       console.log(`[send-economic-emails] Processing Payment Request Approved: ${record.id}`);
     } else if (table === 'transactions' && record.status === 'completed' && record.receipt_urls && record.receipt_urls.length > 0) {
-      // Flow 2: Transaction Completed (Receipt Added)
       subject = `Missing Receipt Entry ${record.entry || 'N/A'}`;
-      attachmentUrls = record.receipt_urls; // Use the whole array of URLs
+      attachmentUrls = record.receipt_urls;
+      bucket = 'transaction_receipts';
       bodyText = `Transaction #${record.id.substring(0, 8)} (Entry: ${record.entry || 'N/A'}) has been completed and the receipt has been added.`;
       console.log(`[send-economic-emails] Processing Transaction Completed: ${record.id}`);
     } else {
@@ -110,12 +125,11 @@ serve(async (req) => {
       });
     }
 
-    let attachments: { content: string, filename: string, mimeType: string }[] = [];
+    let attachments: { content: string, filename: string }[] = [];
     if (attachmentUrls.length > 0) {
       const attachmentPromises = attachmentUrls.map(url => 
-        fetchFileAsBase64(url).catch(e => {
-          console.error(`[send-economic-emails] Failed to fetch attachment from ${url}: ${e.message}`);
-          // Return a specific error object to handle it later
+        downloadFileAsBase64(supabaseClient, bucket, url).catch(e => {
+          console.error(`[send-economic-emails] Failed to download attachment from ${url}: ${e.message}`);
           return { error: e.message, url };
         })
       );
@@ -124,12 +138,19 @@ serve(async (req) => {
       
       settledAttachments.forEach(result => {
         if ('content' in result) {
-          attachments.push(result);
+          attachments.push({
+            filename: result.filename,
+            content: result.content,
+          });
         } else {
-          // Handle failed fetches by adding a warning to the email body
-          bodyText += `\n\nWARNING: Failed to attach document from URL: ${result.url}`;
+          bodyText += `\n\nWARNING: Failed to attach document from URL: ${result.url}. Error: ${result.error}`;
         }
       });
+    }
+
+    if (attachments.length === 0) {
+      bodyText += `\n\nWARNING: No attachments could be processed for this email.`;
+      console.warn(`[send-economic-emails] No attachments processed for email with subject: ${subject}`);
     }
 
     console.log(`[send-economic-emails] Sending email to ${recipientEmail} with subject: ${subject} and ${attachments.length} attachments.`);
@@ -139,10 +160,7 @@ serve(async (req) => {
       to: [recipientEmail],
       subject: subject,
       html: `<p>${bodyText.replace(/\n/g, '<br>')}</p>`,
-      attachments: attachments.map(a => ({
-        filename: a.filename,
-        content: a.content,
-      })),
+      attachments: attachments,
     });
 
     if (resendError) {
