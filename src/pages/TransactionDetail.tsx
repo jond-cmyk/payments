@@ -55,10 +55,10 @@ const TransactionDetail = () => {
     enabled: !!id,
   });
 
-  // Effect to set initial editing mode if transaction is pending_input and has no receipts
+  // Effect to set initial editing mode if transaction is pending_input
   useEffect(() => {
     if (transaction) {
-      const canAmendInitial = (transaction.status === 'pending_input' && transaction.receipt_urls.length === 0);
+      const canAmendInitial = transaction.status === 'pending_input';
       setIsEditing(canAmendInitial);
     }
   }, [transaction]); // Depend on transaction to ensure it runs after data is fetched
@@ -310,8 +310,8 @@ const TransactionDetail = () => {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Transaction not found.</div>;
   }
 
-  // The `canAmend` logic now allows any authenticated user to amend pending_input transactions without receipts
-  const canAmend = (transaction.status === 'pending_input' && transaction.receipt_urls.length === 0);
+  // Any user can amend a transaction as long as it's pending input.
+  const canAmend = transaction.status === 'pending_input';
 
   return (
     <div className="container mx-auto py-8">
