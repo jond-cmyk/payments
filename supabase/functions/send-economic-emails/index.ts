@@ -85,19 +85,21 @@ serve(async (req) => {
     }
 
     let subject = '';
-    let attachmentUrl: string | null = null;
+    let attachmentUrls: string[] = [];
     let bodyText = '';
 
     if (table === 'payment_requests' && record.status === 'approved') {
       // Flow 1: Payment Request Approved
       subject = `Paid ${record.sku_number || 'N/A'}`;
-      attachmentUrl = record.receipt_pdf_url;
+      if (record.receipt_pdf_url) {
+        attachmentUrls.push(record.receipt_pdf_url);
+      }
       bodyText = `Payment Request #${record.id.substring(0, 8)} for ${record.supplier_name} has been approved and paid. Receipt attached.`;
       console.log(`[send-economic-emails] Processing Payment Request Approved: ${record.id}`);
     } else if (table === 'transactions' && record.status === 'completed' && record.receipt_urls && record.receipt_urls.length > 0) {
       // Flow 2: Transaction Completed (Receipt Added)
       subject = `Missing Receipt Entry ${record.entry || 'N/A'}`;
-      attachmentUrl = record.receipt_urls[0]; // Use the first receipt URL
+      attachmentUrls = record.receipt_urls; // Use the whole array of URLs
       bodyText = `Transaction #${record.id.substring(0, 8)} (Entry: ${record.entry || 'N/A'}) has been completed and the receipt has been added.`;
       console.log(`[send-economic-emails] Processing Transaction Completed: ${record.id}`);
     } else {
@@ -109,18 +111,28 @@ serve(async (req) => {
     }
 
     let attachments: { content: string, filename: string, mimeType: string }[] = [];
-    if (attachmentUrl) {
-      try {
-        const attachment = await fetchFileAsBase64(attachmentUrl);
-        attachments.push(attachment);
-      } catch (e) {
-        console.error(`[send-economic-emails] Failed to fetch attachment: ${e.message}`);
-        // Continue without attachment, but log warning
-        bodyText += `\n\nWARNING: Failed to attach document from URL: ${attachmentUrl}`;
-      }
+    if (attachmentUrls.length > 0) {
+      const attachmentPromises = attachmentUrls.map(url => 
+        fetchFileAsBase64(url).catch(e => {
+          console.error(`[send-economic-emails] Failed to fetch attachment from ${url}: ${e.message}`);
+          // Return a specific error object to handle it later
+          return { error: e.message, url };
+        })
+      );
+
+      const settledAttachments = await Promise.all(attachmentPromises);
+      
+      settledAttachments.forEach(result => {
+        if ('content' in result) {
+          attachments.push(result);
+        } else {
+          // Handle failed fetches by adding a warning to the email body
+          bodyText += `\n\nWARNING: Failed to attach document from URL: ${result.url}`;
+        }
+      });
     }
 
-    console.log(`[send-economic-emails] Sending email to ${recipientEmail} with subject: ${subject}`);
+    console.log(`[send-economic-emails] Sending email to ${recipientEmail} with subject: ${subject} and ${attachments.length} attachments.`);
     
     const { data: resendData, error: resendError } = await resend.emails.send({
       from: 'KH Payments <no-reply@khpayments.com>',
