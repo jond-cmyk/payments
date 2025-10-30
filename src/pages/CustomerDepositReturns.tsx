@@ -36,12 +36,12 @@ type EconomicLedgerEntry = {
   text: string;
   amount: number;
   currency: string;
-  remainder: number; // Corrected from remainingAmount
+  remainder: number;
   customer: {
     customerNumber: number;
     name: string;
     self: string;
-    email?: string; // Added email to type
+    email?: string;
   };
   invoice: {
     bookedInvoiceNumber?: number;
@@ -55,7 +55,131 @@ type EconomicCustomer = {
   customerNumber: number;
   name: string;
   self: string;
-  email?: string; // Added email to type
+  email?: string;
+};
+
+// Helper to get nested values from an object
+const pick = (obj: any, keys: string[]): any => {
+  if (!obj) return undefined;
+  for (const key of keys) {
+    const parts = key.split('.');
+    let current = obj;
+    let found = true;
+    for (const part of parts) {
+      if (current && typeof current === 'object' && part in current) {
+        current = current[part];
+      } else {
+        current = undefined;
+        found = false;
+        break;
+      }
+    }
+    if (found) {
+      if (typeof current === "object" && current !== null && "value" in current && typeof current.value === "number") {
+        return current.value;
+      }
+      if (typeof current === "string" && !isNaN(parseFloat(current))) {
+        return parseFloat(current);
+      }
+      return current;
+    }
+  }
+  return undefined;
+};
+
+// New component to handle each customer's accordion item and balance fetching
+const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice }: { customerName: string; group: { customer: EconomicCustomer; entries: EconomicLedgerEntry[] }; country: string; handleViewInvoice: (entry: EconomicLedgerEntry) => void; }) => {
+  const { data: balanceData, isLoading: isLoadingBalance } = useQuery<{ balance: number | null }>({
+    queryKey: ['customerBalance', group.customer.customerNumber, country],
+    queryFn: async () => {
+      const customerNumber = group.customer.customerNumber;
+      if (!customerNumber) return { balance: null };
+
+      const getNumeric = (obj: any, keys: string[]): number | null => {
+        const value = pick(obj, keys);
+        if (value === null || value === undefined) return null;
+        const num = parseFloat(String(value));
+        return isNaN(num) ? null : num;
+      };
+
+      const { data: totalsData } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: `/customers/${customerNumber}/totals`, method: "GET", country },
+      });
+      const totalsResp = totalsData as EconomicProxyResponse<any>;
+      let balanceVal = getNumeric(totalsResp?.data, ["balance", "outstandingAmount"]);
+
+      if (balanceVal === null) {
+        const { data: customerData } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path: `/customers/${customerNumber}`, method: "GET", country },
+        });
+        const customerResp = customerData as EconomicProxyResponse<any>;
+        balanceVal = getNumeric(customerResp?.data, ["balance", "outstandingAmount"]);
+      }
+
+      return { balance: balanceVal };
+    },
+    enabled: !!group.customer.customerNumber,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const hasOutstandingBalance = balanceData?.balance != null && balanceData.balance > 0;
+
+  return (
+    <AccordionItem value={customerName}>
+      <AccordionTrigger className="text-lg font-semibold">
+        <span className="flex items-center gap-4">
+          {customerName} ({group.entries.length} entries)
+          {isLoadingBalance ? (
+            <Badge variant="outline">Checking balance...</Badge>
+          ) : hasOutstandingBalance && (
+            <Badge variant="destructive">Outstanding Balance</Badge>
+          )}
+        </span>
+      </AccordionTrigger>
+      <AccordionContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Entry Text</TableHead>
+              <TableHead className="text-right">Total Value</TableHead>
+              <TableHead className="text-right">Amount Outstanding</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {group.entries.map(entry => (
+              <TableRow key={entry.entryNumber}>
+                <TableCell>{entry.text}</TableCell>
+                <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex gap-2 justify-end">
+                    {entry.entryType !== 'customerPayment' && (
+                      <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
+                        <FileText className="mr-2 h-4 w-4" /> View Invoice
+                      </Button>
+                    )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span tabIndex={0}>
+                          <Button variant="destructive" size="sm" disabled>
+                            Request Repayment
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>This feature is coming soon.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </AccordionContent>
+    </AccordionItem>
+  );
 };
 
 const CustomerDepositReturns = () => {
@@ -68,7 +192,6 @@ const CustomerDepositReturns = () => {
 
   const isAdmin = userProfile?.role === "admin";
 
-  // Fetch all customers for the filter dropdown
   const { data: customers, isLoading: isLoadingCustomers } = useQuery<EconomicCustomer[]>({
     queryKey: ['allEconomicCustomers', currentCountry],
     queryFn: async () => {
@@ -82,7 +205,6 @@ const CustomerDepositReturns = () => {
     enabled: !!session && isAdmin,
   });
 
-  // Create a map of customer numbers to names for easy lookup
   const customerNameMap = useMemo(() => {
     if (!customers) return {};
     return customers.reduce((acc, customer) => {
@@ -93,11 +215,9 @@ const CustomerDepositReturns = () => {
     }, {} as Record<number, string>);
   }, [customers]);
 
-  // Fetch ledger entries based on filter
   const { data: entries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
     queryKey: ['finalStatementEntries', selectedCustomer, currentCountry],
     queryFn: async () => {
-      // Step 1: Fetch all accounting years
       const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
         body: { path: "/accounting-years", method: "GET", country: currentCountry },
       });
@@ -113,18 +233,15 @@ const CustomerDepositReturns = () => {
         return [];
       }
 
-      // Step 2: For each year, fetch entries
       let allEntries: EconomicLedgerEntry[] = [];
       let filter = `text$like:*Final Statement*`;
       if (selectedCustomer !== 'all') {
-        // FIX: Use $and: to combine filters correctly
         filter += `$and:customer.customerNumber$eq:${selectedCustomer}`;
       }
 
       const yearPromises = accountingYears.map(yearInfo => {
         const year = yearInfo.year;
         const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
-        console.log(`[CustomerDepositReturns] Querying entries for year ${year} with path: ${path}`);
         return supabase.functions.invoke("economic-api-proxy", {
           body: { path, method: "GET", country: currentCountry },
         });
@@ -132,7 +249,6 @@ const CustomerDepositReturns = () => {
 
       const yearResults = await Promise.all(yearPromises);
 
-      // Step 3: Combine results
       for (const result of yearResults) {
         if (result.error) {
           console.warn("Error fetching entries for a year:", result.error.message);
@@ -151,7 +267,7 @@ const CustomerDepositReturns = () => {
 
       return allEntries as EconomicLedgerEntry[];
     },
-    enabled: false, // Only fetch when the button is clicked
+    enabled: false,
   });
 
   const handleFetchReport = () => {
@@ -172,7 +288,6 @@ const CustomerDepositReturns = () => {
     if (!entries) return {};
     return entries.reduce((acc, entry) => {
       const customerNumber = entry.customer?.customerNumber;
-      // FIX: Use the customerNameMap to get the correct name
       const customerName = customerNumber ? (customerNameMap[customerNumber] || `Customer #${customerNumber}`) : 'Unknown Customer';
       
       if (!acc[customerName]) {
@@ -220,19 +335,6 @@ const CustomerDepositReturns = () => {
       showError(e.message);
     }
   }, [currentCountry]);
-
-  const handleRequestRepayment = (customer: EconomicCustomer, entry: EconomicLedgerEntry) => {
-    if (!customer.email) {
-      showError("This customer does not have an email address in e-conomic.");
-      return;
-    }
-
-    const subject = `Repayment Request for Final Statement: ${entry.text}`;
-    const body = `Dear ${customer.name},\n\nThis is a friendly reminder regarding an outstanding balance on your final statement.\n\nDetails:\n- Entry: ${entry.text}\n- Outstanding Amount: ${formatAmount(entry.remainder)} ${entry.currency}\n\nPlease arrange for repayment at your earliest convenience.\n\nBest regards,\nKH Payments`;
-
-    const mailtoLink = `mailto:${customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailtoLink;
-  };
 
   if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
@@ -303,68 +405,15 @@ const CustomerDepositReturns = () => {
             
             {entries && Object.keys(groupedEntries).length > 0 && (
               <Accordion type="multiple" className="w-full">
-                {Object.entries(groupedEntries).sort(([nameA], [nameB]) => nameA.localeCompare(nameB)).map(([customerName, group]) => {
-                  const hasOverdue = group.entries.some(entry => entry.remainder > 0);
-                  return (
-                    <AccordionItem key={customerName} value={customerName}>
-                      <AccordionTrigger className="text-lg font-semibold">
-                        <span className="flex items-center gap-4">
-                          {customerName} ({group.entries.length} entries)
-                          {hasOverdue && <Badge variant="destructive">Overdue</Badge>}
-                        </span>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Entry Text</TableHead>
-                              <TableHead className="text-right">Total Value</TableHead>
-                              <TableHead className="text-right">Amount Outstanding</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {group.entries.map(entry => (
-                              <TableRow key={entry.entryNumber}>
-                                <TableCell>{entry.text}</TableCell>
-                                <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                                <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
-                                <TableCell className="text-right">
-                                  <div className="flex gap-2 justify-end">
-                                    {entry.entryType !== 'customerPayment' && (
-                                      <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
-                                        <FileText className="mr-2 h-4 w-4" /> View Invoice
-                                      </Button>
-                                    )}
-                                    {entry.remainder > 0 && (
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="destructive"
-                                            size="sm"
-                                            onClick={() => handleRequestRepayment(group.customer, entry)}
-                                            disabled={!group.customer.email}
-                                          >
-                                            Request Repayment
-                                          </Button>
-                                        </TooltipTrigger>
-                                        {!group.customer.email && (
-                                          <TooltipContent>
-                                            No email address available for this customer.
-                                          </TooltipContent>
-                                        )}
-                                      </Tooltip>
-                                    )}
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
+                {Object.entries(groupedEntries).sort(([nameA], [nameB]) => nameA.localeCompare(nameB)).map(([customerName, group]) => (
+                  <CustomerAccordionItem
+                    key={customerName}
+                    customerName={customerName}
+                    group={group}
+                    country={currentCountry}
+                    handleViewInvoice={handleViewInvoice}
+                  />
+                ))}
               </Accordion>
             )}
 
