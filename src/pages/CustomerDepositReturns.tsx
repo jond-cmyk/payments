@@ -18,6 +18,8 @@ import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { formatAmount, extractList } from '@/components/economic/EconomicDetailDialog';
 import CountrySelector from '@/components/CountrySelector';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Types
 type EconomicProxyResponse<T = any> = {
@@ -39,6 +41,7 @@ type EconomicLedgerEntry = {
     customerNumber: number;
     name: string;
     self: string;
+    email?: string; // Added email to type
   };
   invoice: {
     bookedInvoiceNumber?: number;
@@ -52,6 +55,7 @@ type EconomicCustomer = {
   customerNumber: number;
   name: string;
   self: string;
+  email?: string; // Added email to type
 };
 
 const CustomerDepositReturns = () => {
@@ -217,6 +221,19 @@ const CustomerDepositReturns = () => {
     }
   }, [currentCountry]);
 
+  const handleRequestRepayment = (customer: EconomicCustomer, entry: EconomicLedgerEntry) => {
+    if (!customer.email) {
+      showError("This customer does not have an email address in e-conomic.");
+      return;
+    }
+
+    const subject = `Repayment Request for Final Statement: ${entry.text}`;
+    const body = `Dear ${customer.name},\n\nThis is a friendly reminder regarding an outstanding balance on your final statement.\n\nDetails:\n- Entry: ${entry.text}\n- Outstanding Amount: ${formatAmount(entry.remainder)} ${entry.currency}\n\nPlease arrange for repayment at your earliest convenience.\n\nBest regards,\nKH Payments`;
+
+    const mailtoLink = `mailto:${customer.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailtoLink;
+  };
+
   if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
   }
@@ -286,42 +303,68 @@ const CustomerDepositReturns = () => {
             
             {entries && Object.keys(groupedEntries).length > 0 && (
               <Accordion type="multiple" className="w-full">
-                {Object.entries(groupedEntries).sort(([nameA], [nameB]) => nameA.localeCompare(nameB)).map(([customerName, group]) => (
-                  <AccordionItem key={customerName} value={customerName}>
-                    <AccordionTrigger className="text-lg font-semibold">
-                      {customerName} ({group.entries.length} entries)
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Entry Text</TableHead>
-                            <TableHead className="text-right">Total Value</TableHead>
-                            <TableHead className="text-right">Amount Outstanding</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {group.entries.map(entry => (
-                            <TableRow key={entry.entryNumber}>
-                              <TableCell>{entry.text}</TableCell>
-                              <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                              {/* FIX: Use entry.remainder for the outstanding amount */}
-                              <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
-                              <TableCell className="text-right">
-                                {entry.entryType !== 'customerPayment' && (
-                                  <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
-                                    <FileText className="mr-2 h-4 w-4" /> View Invoice
-                                  </Button>
-                                )}
-                              </TableCell>
+                {Object.entries(groupedEntries).sort(([nameA], [nameB]) => nameA.localeCompare(nameB)).map(([customerName, group]) => {
+                  const hasOverdue = group.entries.some(entry => entry.remainder > 0);
+                  return (
+                    <AccordionItem key={customerName} value={customerName}>
+                      <AccordionTrigger className="text-lg font-semibold">
+                        <span className="flex items-center gap-4">
+                          {customerName} ({group.entries.length} entries)
+                          {hasOverdue && <Badge variant="destructive">Overdue</Badge>}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Entry Text</TableHead>
+                              <TableHead className="text-right">Total Value</TableHead>
+                              <TableHead className="text-right">Amount Outstanding</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
+                          </TableHeader>
+                          <TableBody>
+                            {group.entries.map(entry => (
+                              <TableRow key={entry.entryNumber}>
+                                <TableCell>{entry.text}</TableCell>
+                                <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                                <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex gap-2 justify-end">
+                                    {entry.entryType !== 'customerPayment' && (
+                                      <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
+                                        <FileText className="mr-2 h-4 w-4" /> View Invoice
+                                      </Button>
+                                    )}
+                                    {entry.remainder > 0 && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="destructive"
+                                            size="sm"
+                                            onClick={() => handleRequestRepayment(group.customer, entry)}
+                                            disabled={!group.customer.email}
+                                          >
+                                            Request Repayment
+                                          </Button>
+                                        </TooltipTrigger>
+                                        {!group.customer.email && (
+                                          <TooltipContent>
+                                            No email address available for this customer.
+                                          </TooltipContent>
+                                        )}
+                                      </Tooltip>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
               </Accordion>
             )}
 
