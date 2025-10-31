@@ -232,8 +232,7 @@ const PaymentRequestDetail = () => {
   
       const { new_invoice_files, ...dbUpdateFields } = payload;
   
-      let updatedInvoicePdfUrls = request?.invoice_pdf_urls || [];
-  
+      // Handle file uploads separately
       if (new_invoice_files && new_invoice_files.length > 0) {
         const newUploadedUrls: string[] = [];
         for (let i = 0; i < new_invoice_files.length; i++) {
@@ -241,9 +240,9 @@ const PaymentRequestDetail = () => {
           const fileExtension = file.name.split('.').pop();
           const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
   
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          const { error: uploadError } = await supabase.storage
             .from('invoices')
-            .upload(fileName, file, { cacheControl: '3600', upsert: false });
+            .upload(fileName, file);
   
           if (uploadError) throw new Error(`Failed to upload new invoice ${file.name}: ${uploadError.message}`);
   
@@ -251,24 +250,17 @@ const PaymentRequestDetail = () => {
           if (!publicUrlData?.publicUrl) throw new Error(`Failed to get public URL for new invoice ${file.name}.`);
           newUploadedUrls.push(publicUrlData.publicUrl);
         }
-        updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls];
+        dbUpdateFields.invoice_pdf_urls = [...(request?.invoice_pdf_urls || []), ...newUploadedUrls];
       }
   
-      const finalPayload = {
-        ...dbUpdateFields,
-        updated_at: new Date().toISOString(),
-        invoice_pdf_urls: updatedInvoicePdfUrls,
-      };
+      // Always add the updated_at timestamp
+      dbUpdateFields.updated_at = new Date().toISOString();
   
-      let query = supabase.from('payment_requests').update(finalPayload).eq('id', id);
-      
-      if (userProfile?.role === 'requester' && userProfile.country) {
-        query = query.eq('country', userProfile.country);
-      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
-        query = query.eq('country', currentCountry);
-      }
-  
-      const { data, error } = await query.select();
+      const { data, error } = await supabase
+        .from('payment_requests')
+        .update(dbUpdateFields)
+        .eq('id', id)
+        .select();
       
       if (error) {
         console.error("Supabase update error:", error);
