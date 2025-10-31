@@ -395,7 +395,6 @@ const PaymentRequestDetail = () => {
         admin_action_reason: reason || null,
         is_reminded: false,
         last_reminder_sent_at: null,
-        categories: request.categories, // ALWAYS INCLUDE EXISTING CATEGORIES
       };
 
       if (status === 'setup_awaiting_approval') {
