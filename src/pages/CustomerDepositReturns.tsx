@@ -176,7 +176,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
         categories: [{ category: '974_other', amount: Math.abs(selectedEntry.remainder) }],
         invoice_pdf_urls: [],
         bank_details_verified: formValues.bank_details_verified,
-        account_name: formValues.account_name,
+        bank_account_name: formValues.bank_account_name,
         iban_number: formValues.iban_number,
         // UK fields are not applicable here as this is for Switzerland
         sort_code: null,

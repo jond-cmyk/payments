@@ -12,7 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DollarSign } from 'lucide-react';
 
 const formSchema = z.object({
-  account_name: z.string().min(1, "Account Name is required."),
+  bank_account_name: z.string().min(1, "Bank Account Name is required."),
   account_address: z.string().min(1, "Account Address is required."),
   iban_number: z.string().min(1, "IBAN Number is required."),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
@@ -32,7 +32,7 @@ const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, ret
   const form = useForm<DepositReturnFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      account_name: "",
+      bank_account_name: "",
       account_address: "",
       iban_number: "",
       bank_details_verified: false,
@@ -48,10 +48,10 @@ const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, ret
         </div>
         <FormField
           control={form.control}
-          name="account_name"
+          name="bank_account_name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Account Name</FormLabel>
+              <FormLabel>Bank Account Name</FormLabel>
               <FormControl>
                 <Input placeholder="e.g., John Doe" {...field} />
               </FormControl>
