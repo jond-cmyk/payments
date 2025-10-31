@@ -330,6 +330,15 @@ const CustomerDepositReturns = () => {
 
   const isAdmin = userProfile?.role === "admin";
 
+  if (isSessionLoading) {
+    return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
+  }
+
+  if (!session) {
+    navigate("/login");
+    return null;
+  }
+
   const { data: customers, isLoading: isLoadingCustomers } = useQuery<EconomicCustomer[]>({
     queryKey: ['allEconomicCustomers', currentCountry],
     queryFn: async () => {
@@ -340,7 +349,7 @@ const CustomerDepositReturns = () => {
       const resp = data as EconomicProxyResponse<any>;
       return extractList(resp?.data) as EconomicCustomer[];
     },
-    enabled: !!session && isAdmin,
+    enabled: !!session,
   });
 
   const { data: existingDepositReturns } = useQuery<PaymentRequest[]>({
@@ -360,7 +369,7 @@ const CustomerDepositReturns = () => {
         if (error) throw error;
         return data;
     },
-    enabled: !!session && isAdmin,
+    enabled: !!session,
   });
 
   const activeReturnRequestEntryNumbers = useMemo(() => {
@@ -510,21 +519,6 @@ const CustomerDepositReturns = () => {
       showError(e.message);
     }
   }, [currentCountry]);
-
-  if (isSessionLoading) {
-    return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
-  }
-
-  if (!session) {
-    navigate('/login');
-    return null;
-  }
-
-  if (!isAdmin) {
-    showError("You do not have permission to view this page.");
-    navigate('/dashboard');
-    return null;
-  }
 
   return (
     <div className="container mx-auto py-8">
