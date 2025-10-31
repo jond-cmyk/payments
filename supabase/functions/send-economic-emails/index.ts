@@ -112,12 +112,12 @@ serve(async (req) => {
     let bodyText = '';
     let bucket = '';
 
-    if (table === 'payment_requests' && record.status === 'completed' && record.receipt_pdf_url) {
+    if (table === 'payment_requests' && record.status === 'approved' && record.receipt_pdf_url) {
       subject = `Paid ${record.sku_number || 'N/A'}`;
       attachmentUrls.push(record.receipt_pdf_url);
       bucket = 'receipts';
       bodyText = `Payment Request #${record.id.substring(0, 8)} for ${record.supplier_name} has been completed and paid. Receipt attached.`;
-      console.log(`[send-economic-emails] Processing Payment Request Completed: ${record.id}`);
+      console.log(`[send-economic-emails] Processing Payment Request Approved: ${record.id}`);
     } else if (table === 'transactions' && record.status === 'completed' && record.receipt_urls && record.receipt_urls.length > 0) {
       subject = `Missing Receipt Entry ${record.entry || 'N/A'}`;
       attachmentUrls = record.receipt_urls;

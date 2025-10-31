@@ -264,17 +264,23 @@ const PaymentRequestDetail = () => {
         updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls];
       }
 
-      // Explicitly cast categories here before sending to Supabase
-      const categoriesPayload = dbUpdateFields.categories ? dbUpdateFields.categories as PaymentRequestCategoryItem[] : undefined;
+      // Create a payload object and conditionally add 'categories'
+      const updatePayload: { [key: string]: any } = {
+        ...dbUpdateFields,
+        invoice_pdf_urls: updatedInvoicePdfUrls,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only include 'categories' in the payload if it's actually being changed.
+      if (dbUpdateFields.categories) {
+        updatePayload.categories = dbUpdateFields.categories as PaymentRequestCategoryItem[];
+      } else {
+        delete updatePayload.categories;
+      }
 
       let query = supabase
         .from('payment_requests')
-        .update({
-          ...dbUpdateFields,
-          categories: categoriesPayload, // Use the casted payload
-          invoice_pdf_urls: updatedInvoicePdfUrls,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', id);
       
       // Apply country filter for update
@@ -562,8 +568,7 @@ const PaymentRequestDetail = () => {
       }
 
       await updateRequestMutation.mutateAsync({ 
-        receipt_pdf_url: publicUrlData.publicUrl,
-        status: 'completed' 
+        receipt_pdf_url: publicUrlData.publicUrl
       });
       dismissToast(toastId);
     } catch (error: any) {

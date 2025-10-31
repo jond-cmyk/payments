@@ -25,8 +25,7 @@ export type PaymentRequestStatus =
   | 'declined'
   | 'queried'
   | 'cancelled'
-  | 'paused'
-  | 'completed';
+  | 'paused';
 
 export type PaymentRequestCategoryItem = {
   category: string;
