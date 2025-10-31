@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { PauseCircle, DollarSign } from 'lucide-react'; // Import DollarSign
+import { PauseCircle, DollarSign, AlertTriangle } from 'lucide-react'; // Import DollarSign
 
 import { editFormSchema, EditFormSchema } from '@/schemas/paymentRequestSchema';
 import PaymentRequestDisplayCards from '@/components/payment-requests/PaymentRequestDisplayCards';
@@ -579,15 +579,19 @@ const PaymentRequestDetail = () => {
   return (
     <div className="container mx-auto py-8">
       {request.is_deposit_return && (
-        <Card className="mb-8 bg-green-50 border-l-4 border-green-500 shadow-md">
-          <CardHeader>
-            <CardTitle className="flex items-center text-green-800">
-              <DollarSign className="mr-3 h-6 w-6" />
-              Customer Deposit Return
-            </CardTitle>
-            <CardDescription className="text-green-700">
-              This is a repayment to a customer for their deposit. Please handle with care.
-            </CardDescription>
+        <Card className="mb-8 bg-green-600 text-white border-none shadow-lg">
+          <CardHeader className="p-6">
+            <div className="flex items-center gap-4">
+              <AlertTriangle className="h-10 w-10 flex-shrink-0" />
+              <div>
+                <CardTitle className="text-2xl font-extrabold">
+                  Customer Deposit Return
+                </CardTitle>
+                <CardDescription className="text-green-100 text-base mt-1">
+                  This is a high-priority repayment to a customer for their deposit. Please handle with care and process promptly.
+                </CardDescription>
+              </div>
+            </div>
           </CardHeader>
         </Card>
       )}
