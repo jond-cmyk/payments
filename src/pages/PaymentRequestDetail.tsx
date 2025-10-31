@@ -227,38 +227,17 @@ const PaymentRequestDetail = () => {
   });
 
   const updateRequestMutation = useMutation({
-    mutationFn: async (payload: Partial<PaymentRequest> & { new_invoice_files?: FileList }) => {
-      if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
+    mutationFn: async (dbUpdateFields: Partial<PaymentRequest>) => {
+      if (!id) throw new Error("Request ID missing.");
   
-      const { new_invoice_files, ...dbUpdateFields } = payload;
-  
-      // Handle file uploads separately
-      if (new_invoice_files && new_invoice_files.length > 0) {
-        const newUploadedUrls: string[] = [];
-        for (let i = 0; i < new_invoice_files.length; i++) {
-          const file = new_invoice_files[i];
-          const fileExtension = file.name.split('.').pop();
-          const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
-  
-          const { error: uploadError } = await supabase.storage
-            .from('invoices')
-            .upload(fileName, file);
-  
-          if (uploadError) throw new Error(`Failed to upload new invoice ${file.name}: ${uploadError.message}`);
-  
-          const { data: publicUrlData } = supabase.storage.from('invoices').getPublicUrl(fileName);
-          if (!publicUrlData?.publicUrl) throw new Error(`Failed to get public URL for new invoice ${file.name}.`);
-          newUploadedUrls.push(publicUrlData.publicUrl);
-        }
-        dbUpdateFields.invoice_pdf_urls = [...(request?.invoice_pdf_urls || []), ...newUploadedUrls];
-      }
-  
-      // Always add the updated_at timestamp
-      dbUpdateFields.updated_at = new Date().toISOString();
+      const payloadToUpdate = {
+        ...dbUpdateFields,
+        updated_at: new Date().toISOString(),
+      };
   
       const { data, error } = await supabase
         .from('payment_requests')
-        .update(dbUpdateFields)
+        .update(payloadToUpdate)
         .eq('id', id)
         .select();
       
@@ -327,12 +306,25 @@ const PaymentRequestDetail = () => {
         throw new Error("User not authenticated or request data missing.");
       }
 
-      const invoiceFiles: FileList = values.invoice_pdf;
-      
-      // FIX: Use original country if form value is missing (due to disabled field)
+      let newUploadedUrls: string[] = [];
+      if (values.invoice_pdf && values.invoice_pdf.length > 0) {
+        for (let i = 0; i < values.invoice_pdf.length; i++) {
+          const file = values.invoice_pdf[i];
+          const fileExtension = file.name.split('.').pop();
+          const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
+
+          const { error: uploadError } = await supabase.storage.from('invoices').upload(fileName, file);
+          if (uploadError) throw new Error(`Failed to upload new invoice ${file.name}: ${uploadError.message}`);
+
+          const { data: publicUrlData } = supabase.storage.from('invoices').getPublicUrl(fileName);
+          if (!publicUrlData?.publicUrl) throw new Error(`Failed to get public URL for new invoice ${file.name}.`);
+          newUploadedUrls.push(publicUrlData.publicUrl);
+        }
+      }
+
       const countryForUpdate = (values.country && values.country.trim() !== '') ? values.country : request.country;
 
-      const updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList } = {
+      const updatedFields: Partial<PaymentRequest> = {
         supplier_name: values.supplier_name,
         sku_number: values.not_sku_related ? null : values.sku_number,
         not_sku_related: values.not_sku_related,
@@ -346,12 +338,11 @@ const PaymentRequestDetail = () => {
         country: countryForUpdate,
         categories: values.categories as PaymentRequestCategoryItem[],
         bank_details_verified: values.bank_details_verified,
+        invoice_pdf_urls: [...(request.invoice_pdf_urls || []), ...newUploadedUrls],
       };
 
-      // Set currency based on the determined country
       updatedFields.currency = countryForUpdate === 'United Kingdom' ? 'GBP' : values.currency;
 
-      // Conditionally add bank details to updatedFields based on the determined country
       if (countryForUpdate === 'United Kingdom') {
         updatedFields.iban_number = null;
         updatedFields.sort_code = values.sort_code;
@@ -362,10 +353,6 @@ const PaymentRequestDetail = () => {
         updatedFields.sort_code = null;
         updatedFields.account_number = null;
         updatedFields.bank_account_name = countryForUpdate === 'Switzerland' ? values.bank_account_name : null;
-      }
-
-      if (values.invoice_pdf && values.invoice_pdf.length > 0) {
-        updatedFields.new_invoice_files = values.invoice_pdf;
       }
 
       await updateRequestMutation.mutateAsync(updatedFields);
@@ -381,7 +368,6 @@ const PaymentRequestDetail = () => {
     try {
       if (!user?.id) throw new Error("User not authenticated.");
 
-      // If declining, first add the reason as a comment
       if (status === 'declined' && reason) {
         await addCommentMutation.mutateAsync(`Declined: ${reason}`);
       }
@@ -394,9 +380,8 @@ const PaymentRequestDetail = () => {
         status: status === 'reverted_to_pending' ? 'pending' : status,
         admin_action_by: user.id,
         admin_action_reason: reason || null,
-        updated_at: new Date().toISOString(),
-        is_reminded: false, // Reset reminder status on any admin action
-        last_reminder_sent_at: null, // Reset reminder timestamp
+        is_reminded: false,
+        last_reminder_sent_at: null,
       };
 
       if (status === 'setup_awaiting_approval') {
