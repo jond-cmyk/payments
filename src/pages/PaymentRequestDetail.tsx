@@ -391,37 +391,17 @@ const PaymentRequestDetail = () => {
         await addCommentMutation.mutateAsync(`Request cancelled by user.`);
       }
 
-      const updatedFields: Partial<PaymentRequest> = {
-        status: status === 'reverted_to_pending' ? 'pending' : status,
-        admin_action_by: user.id,
-        admin_action_reason: reason || null,
-        is_reminded: false,
-        last_reminder_sent_at: null,
-        updated_at: new Date().toISOString(),
-      };
-
-      if (status === 'setup_awaiting_approval') {
-        updatedFields.payment_setup_date = new Date().toISOString();
-      } else if (status === 'approved') {
-        updatedFields.payment_approved_date = new Date().toISOString();
-      } else if (status === 'reverted_to_pending') {
-        updatedFields.payment_setup_date = null;
-        updatedFields.payment_approved_date = null;
-      }
-
-      // *** DIRECT SUPABASE CALL - Bypassing shared mutation ***
-      const { data, error } = await supabase
-        .from('payment_requests')
-        .update(updatedFields)
-        .eq('id', id)
-        .select();
+      // *** NEW LOGIC: Call the RPC function ***
+      const { error } = await supabase.rpc('update_payment_request_status', {
+        request_id: id,
+        new_status: status,
+        user_id: user.id,
+        reason: reason || null,
+      });
 
       if (error) {
-        console.error("Direct Supabase update error in handleAdminAction:", error);
-        throw new Error(`Supabase update failed: ${error.message}`);
-      }
-      if (!data || data.length === 0) {
-        throw new Error("Update failed: No matching record found or insufficient permissions (RLS).");
+        console.error("RPC call error in handleAdminAction:", error);
+        throw new Error(`RPC call failed: ${error.message}`);
       }
 
       // Manually handle success actions
