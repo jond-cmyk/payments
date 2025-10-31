@@ -21,9 +21,6 @@ interface DashboardSummaryGroupsProps {
     paused: number;
     queried_and_paused: number;
     missing_receipts: number;
-    pending_standing_orders: number;
-    active_direct_debits: number;
-    active_standing_orders: number;
     total: number;
   };
 }
@@ -104,30 +101,6 @@ const SummaryCardItem: React.FC<{
         description = 'Transactions awaiting receipts';
         link = `/missing-receipts`;
         break;
-      case 'pending_standing_orders':
-        borderClass = 'border-purple-500';
-        textClass = 'text-purple-600 dark:text-purple-400';
-        icon = <Repeat className="h-4 w-4" />;
-        title = 'Pending Standing Order';
-        description = 'Standing orders awaiting approval';
-        link = `/standing-orders?status=pending`;
-        break;
-      case 'active_standing_orders':
-        borderClass = 'border-green-500';
-        textClass = 'text-green-600 dark:text-green-400';
-        icon = <Repeat className="h-4 w-4" />;
-        title = 'Active Standing Order';
-        description = 'Currently active standing orders';
-        link = `/standing-orders?status=active`;
-        break;
-      case 'active_direct_debits':
-        borderClass = 'border-indigo-500';
-        textClass = 'text-indigo-600 dark:text-indigo-400';
-        icon = <Banknote className="h-4 w-4" />;
-        title = 'Active Direct Debit';
-        description = 'Currently active direct debits';
-        link = `/direct-debits?status=active`;
-        break;
       default:
         // Fallback for unknown status
         break;
@@ -176,8 +149,6 @@ const SummaryCardItem: React.FC<{
 
 const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts }) => {
   const { currentCountry } = useCountry();
-  const { userProfile } = useSession();
-  const isAdmin = userProfile?.role === 'admin';
 
   const criticalKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
     'pending', 
@@ -185,16 +156,10 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
     'approved', 
   ];
 
-  const column1Keys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
+  const secondaryKeys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
     'queried_and_paused', 
     'declined', 
     'missing_receipts',
-  ];
-
-  const column2Keys: (keyof DashboardSummaryGroupsProps['counts'])[] = [
-    'pending_standing_orders', 
-    'active_standing_orders', 
-    'active_direct_debits',
   ];
 
   return (
@@ -221,33 +186,17 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
             ))}
           </div>
 
-          {/* Tier 2: Secondary Metrics (2 columns, strict vertical flow) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Column 1: Payment Request Statuses & Receipts */}
-            <div className="space-y-3">
-              {column1Keys.map((key) => (
-                <SummaryCardItem
-                  key={key}
-                  statusKey={key}
-                  count={counts[key]}
-                  currentCountry={currentCountry}
-                  isCritical={false}
-                />
-              ))}
-            </div>
-
-            {/* Column 2: Recurring Payments */}
-            <div className="space-y-3">
-              {column2Keys.map((key) => (
-                <SummaryCardItem
-                  key={key}
-                  statusKey={key}
-                  count={counts[key]}
-                  currentCountry={currentCountry}
-                  isCritical={false}
-                />
-              ))}
-            </div>
+          {/* Tier 2: Secondary Metrics (now a single row of 3) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {secondaryKeys.map((key) => (
+              <SummaryCardItem
+                key={key}
+                statusKey={key}
+                count={counts[key]}
+                currentCountry={currentCountry}
+                isCritical={false}
+              />
+            ))}
           </div>
         </div>
       </CardContent>
