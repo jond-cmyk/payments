@@ -30,6 +30,7 @@ interface DashboardMainContentProps {
   itemsPerPage: number | 'all';
   currentPage: number;
   setCurrentPage: (page: number) => void;
+  viewMode: 'my' | 'all';
 }
 
 const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
@@ -37,6 +38,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
   itemsPerPage,
   currentPage,
   setCurrentPage,
+  viewMode,
 }) => {
   const { session, user, userProfile } = useSession();
   const { currentCountry } = useCountry();
@@ -284,7 +286,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
     enabled: !!session && isAllRequestsPage,
   });
 
-  const tableQueryKey = ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatuses, filterDatePaymentRequired, filterRequesters, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage, itemsPerPage];
+  const tableQueryKey = ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatuses, filterDatePaymentRequired, filterRequesters, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage, itemsPerPage, viewMode];
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
@@ -304,6 +306,11 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
+      }
+
+      // NEW: Apply viewMode filter for requesters on the main dashboard
+      if (userRole === 'requester' && !isAllRequestsPage && viewMode === 'my') {
+        query = query.eq('requester_id', user.id);
       }
 
       // Determine which statuses to filter by

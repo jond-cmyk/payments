@@ -22,6 +22,9 @@ const Dashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
+  // View mode state for requester toggle
+  const [viewMode, setViewMode] = useState<'my' | 'all'>('my');
+
   // Pagination states lifted from DashboardMainContent
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState<number | 'all'>(ITEMS_PER_PAGE);
@@ -94,6 +97,8 @@ const Dashboard = () => {
           itemsPerPage={itemsPerPage}
           onItemsPerPageChange={handleItemsPerPageChange}
           isAllRequestsPage={isAllRequestsPage}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
       </div>
       <GlobalSearchSection onSearchTermChange={setDebouncedSearchTerm} debouncedSearchTerm={debouncedSearchTerm} />
@@ -103,6 +108,7 @@ const Dashboard = () => {
           itemsPerPage={itemsPerPage}
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
+          viewMode={viewMode}
         />
       )}
     </div>

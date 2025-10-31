@@ -12,12 +12,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import FeedbackForm from '@/components/feedback/FeedbackForm';
 import { cn } from '@/lib/utils'; // Ensure cn is imported
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 interface DashboardHeaderProps {
   debouncedSearchTerm: string;
   itemsPerPage: number | 'all';
   onItemsPerPageChange: (value: number | 'all') => void;
   isAllRequestsPage: boolean;
+  viewMode: 'my' | 'all';
+  onViewModeChange: (mode: 'my' | 'all') => void;
 }
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -25,6 +28,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   itemsPerPage,
   onItemsPerPageChange,
   isAllRequestsPage,
+  viewMode,
+  onViewModeChange,
 }) => {
   const { userProfile } = useSession();
   const navigate = useNavigate();
@@ -80,6 +85,23 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
         {/* Right Side: Action Buttons */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {userRole === 'requester' && !isAllRequestsPage && (
+            <ToggleGroup
+              type="single"
+              value={viewMode}
+              onValueChange={(value) => {
+                if (value) onViewModeChange(value as 'my' | 'all');
+              }}
+              className="bg-muted p-1 rounded-md"
+            >
+              <ToggleGroupItem value="my" aria-label="Toggle my requests">
+                My Requests
+              </ToggleGroupItem>
+              <ToggleGroupItem value="all" aria-label="Toggle all requests">
+                All Requests
+              </ToggleGroupItem>
+            </ToggleGroup>
+          )}
           {isAllRequestsPage && (
             <div className="flex items-center gap-2">
               <label htmlFor="items-per-page-header" className="text-sm font-medium text-gray-700">
