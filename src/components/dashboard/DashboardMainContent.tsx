@@ -284,11 +284,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
     enabled: !!session && isAllRequestsPage,
   });
 
+  const tableQueryKey = ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatuses, filterDatePaymentRequired, filterRequesters, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage, itemsPerPage];
+
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
     (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
   >({
-    queryKey: ['paymentRequestsForTable', user?.id, userRole, filterSupplierName, filterSkuNumber, filterStatuses, filterDatePaymentRequired, filterRequesters, filterStartDate, filterEndDate, isAllRequestsPage, sortColumn, sortDirection, currentCountry, currentPage, itemsPerPage],
+    queryKey: tableQueryKey,
     queryFn: async () => {
       if (!user?.id || !userRole || debouncedSearchTerm) return [];
 
@@ -374,36 +376,46 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
     enabled: !!user?.id && !!userRole && !debouncedSearchTerm,
   });
 
-  // Mutation for toggling urgent status
+  // Mutation for toggling urgent status with optimistic updates
   const toggleUrgentMutation = useMutation({
     mutationFn: async ({ id, is_urgent }: { id: string; is_urgent: boolean }) => {
       if (!user?.id) throw new Error("User not authenticated.");
       const { error } = await supabase
         .from('payment_requests')
         .update({ is_urgent: is_urgent, updated_at: new Date().toISOString() })
-        .eq('id', id)
-        .eq('country', currentCountry);
+        .eq('id', id);
       if (error) throw error;
       return true;
     },
-    onSuccess: (_, variables) => {
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: tableQueryKey });
+      const previousData = queryClient.getQueryData(tableQueryKey);
+      queryClient.setQueryData(tableQueryKey, (oldData: any) => {
+        if (!oldData) return oldData;
+        return oldData.map((req: PaymentRequest) =>
+          req.id === variables.id ? { ...req, is_urgent: variables.is_urgent } : req
+        );
+      });
+      return { previousData };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(tableQueryKey, context.previousData);
+      }
+      showError("Failed to update urgent status. Reverting change.");
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
       queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
-      showSuccess(`Request marked as ${variables.is_urgent ? 'urgent' : 'not urgent'}!`);
-    },
-    onError: (error: any) => {
-      showError(error.message || "Failed to update urgent status.");
-      console.error("Toggle urgent status error:", error);
     },
   });
 
   const handleToggleUrgent = async (requestId: string, currentUrgentStatus: boolean) => {
-    const toastId = showLoading(currentUrgentStatus ? "Removing urgent status..." : "Marking as urgent...");
     try {
       await toggleUrgentMutation.mutateAsync({ id: requestId, is_urgent: !currentUrgentStatus });
-      dismissToast(toastId);
+      showSuccess(`Request marked as ${!currentUrgentStatus ? 'urgent' : 'not urgent'}!`);
     } catch (error) {
-      dismissToast(toastId);
+      // Error is handled by the mutation's onError callback
     }
   };
 
@@ -476,9 +488,6 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
         break;
       case 'active': // For Direct Debits and Standing Orders
         className = 'bg-green-500 text-green-50';
-        break;
-      case 'paused': // For Direct Debits and Standing Orders
-        className = 'bg-yellow-500 text-yellow-50';
         break;
       case 'cancelled':
         className = 'bg-orange-500 text-orange-50';
@@ -623,10 +632,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
         </p>
       )}
 
-      {/* NEW: Pending Standing Orders Table, shown only on dashboard and if there are pending orders */}
-      {!isAllRequestsPage && <PendingStandingOrderTable />}
+      {/* Pending Standing Orders Table, shown only on dashboard for admins */}
+      {!isAllRequestsPage && userRole === 'admin' && <PendingStandingOrderTable />}
 
-      {/* NEW: Recent Activity Feed, shown only on dashboard and if no search term */}
+      {/* Recent Activity Feed, shown only on dashboard and if no search term */}
       {!isAllRequestsPage && !debouncedSearchTerm && <RecentActivityFeed />}
     </>
   );

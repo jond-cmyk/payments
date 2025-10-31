@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Transaction, Profile } from '@/types/supabase';
 import { format } from 'date-fns';
-import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown, FileDown } from 'lucide-react';
+import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter, RotateCcw, ArrowUp, ArrowDown, FileDown, Users } from 'lucide-react';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { exportToCsv } from '@/utils/exportToCsv';
@@ -35,6 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import DatePicker from '@/components/DatePicker';
@@ -48,7 +49,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
-import CountrySelector from '@/components/CountrySelector'; // <--- ADDED THIS IMPORT
+import CountrySelector from '@/components/CountrySelector';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -58,6 +59,8 @@ const MissingReceipts = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedTransactionIds, setSelectedTransactionIds] = useState<string[]>([]);
+  const [isReassignDialogOpen, setIsReassignDialogOpen] = useState(false);
+  const [reassignToUserId, setReassignToUserId] = useState<string | null>(null);
 
   // Filter states (debounced for query)
   const [filterAmount, setFilterAmount] = useState<string>('');
@@ -246,6 +249,30 @@ const MissingReceipts = () => {
     },
   });
 
+  const bulkReassignMutation = useMutation({
+    mutationFn: async ({ ids, newRequesterId }: { ids: string[]; newRequesterId: string }) => {
+      if (!user?.id) throw new Error("User not authenticated.");
+      const { error } = await supabase.rpc('bulk_reassign_transactions', {
+        transaction_ids: ids,
+        new_requester_id: newRequesterId,
+        changer_id: user.id,
+      });
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['missingReceipts'] });
+      setSelectedTransactionIds([]);
+      setIsReassignDialogOpen(false);
+      setReassignToUserId(null);
+      showSuccess("Selected transactions reassigned successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to reassign transactions.");
+      console.error("Bulk reassign error:", error);
+    },
+  });
+
   const handleSelectAll = useCallback((checked: boolean) => {
     if (checked) {
       const allIds = transactions?.map(t => t.id) || [];
@@ -275,6 +302,20 @@ const MissingReceipts = () => {
     const toastId = showLoading("Reassigning transaction...");
     try {
       await assignTransactionMutation.mutateAsync({ transactionId, newRequesterId });
+      dismissToast(toastId);
+    } catch (error) {
+      dismissToast(toastId);
+    }
+  };
+
+  const handleBulkReassign = async () => {
+    if (!reassignToUserId) {
+      showError("Please select a user to reassign to.");
+      return;
+    }
+    const toastId = showLoading(`Reassigning ${selectedTransactionIds.length} transactions...`);
+    try {
+      await bulkReassignMutation.mutateAsync({ ids: selectedTransactionIds, newRequesterId: reassignToUserId });
       dismissToast(toastId);
     } catch (error) {
       dismissToast(toastId);
@@ -457,29 +498,34 @@ const MissingReceipts = () => {
                 </Select>
               </div>
               {isAdmin && selectedTransactionIds.length > 0 && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" disabled={bulkDeleteMutation.isPending} className="shadow-sm">
-                      <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedTransactionIds.length})
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. This will permanently delete {selectedTransactionIds.length} selected transactions and all associated data.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDeleteSelected} asChild>
-                        <Button variant="destructive">
-                          Delete
-                        </Button>
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <>
+                  <Button variant="outline" onClick={() => setIsReassignDialogOpen(true)} className="shadow-sm">
+                    <Users className="mr-2 h-4 w-4" /> Reassign Selected ({selectedTransactionIds.length})
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" disabled={bulkDeleteMutation.isPending} className="shadow-sm">
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Selected ({selectedTransactionIds.length})
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete {selectedTransactionIds.length} selected transactions and all associated data.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteSelected} asChild>
+                          <Button variant="destructive">
+                            Delete
+                          </Button>
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
               )}
             </div>
           </div>
@@ -681,6 +727,36 @@ const MissingReceipts = () => {
           )}
         </CardContent>
       </Card>
+      <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reassign Transactions</DialogTitle>
+            <DialogDescription>
+              Select a user to reassign the {selectedTransactionIds.length} selected transactions to.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Select onValueChange={setReassignToUserId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a user..." />
+              </SelectTrigger>
+              <SelectContent>
+                {allProfiles?.map((profile) => (
+                  <SelectItem key={profile.id} value={profile.id}>
+                    {profile.first_name || ''} {profile.last_name || ''} ({profile.user_email})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setIsReassignDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkReassign} disabled={!reassignToUserId || bulkReassignMutation.isPending}>
+              {bulkReassignMutation.isPending ? "Reassigning..." : "Confirm Reassignment"}
+            </Button>
+          </AlertDialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

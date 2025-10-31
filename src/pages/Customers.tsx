@@ -11,9 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSession } from "@/integrations/supabase/SessionContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast, showInfo } from "@/utils/toast";
-import { List, FileText, BookText, ReceiptText, CalendarDays } from "lucide-react";
+import { List, FileText, BookText, ReceiptText, CalendarDays, AlertTriangle } from "lucide-react";
 import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -32,6 +32,9 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from "@/components/ui/pagination";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import DepositReturnForm from "@/components/deposits/DepositReturnForm";
+import { PaymentRequest } from "@/types/supabase";
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -306,6 +309,8 @@ interface CustomerRowProps {
 }
 
 const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
   const [loadingInvoices, setLoadingInvoices] = useState(false);
   const [invoiceData, setInvoiceData] = useState<any[] | null>(null);
   const [showInvoicesDialog, setShowInvoicesDialog] = useState(false);
@@ -319,6 +324,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const [loadingOutstanding, setLoadingOutstanding] = useState(false);
   const [outstandingData, setOutstandingData] = useState<any[] | null>(null);
   const [showOutstandingDialog, setShowOutstandingDialog] = useState(false);
+
+  const [showDepositReturnDialog, setShowDepositReturnDialog] = useState(false);
+  const [isSubmittingDepositReturn, setIsSubmittingDepositReturn] = useState(false);
 
   const num = customer.customerNumber;
 
@@ -369,7 +377,75 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: existingDepositReturns } = useQuery<PaymentRequest[]>({
+    queryKey: ['existingDepositReturnsForCustomer', num, country],
+    queryFn: async () => {
+        if (!num) return [];
+        const { data, error } = await supabase
+            .from('payment_requests')
+            .select('*')
+            .eq('is_deposit_return', true)
+            .not('status', 'eq', 'declined')
+            .ilike('supplier_name', `%#${num}%`); // Search for customer number in name
+        if (error) throw error;
+        return data;
+    },
+    enabled: !!num,
+  });
+
+  const hasActiveReturnRequest = existingDepositReturns && existingDepositReturns.length > 0;
   const { balance, dueAmount } = balanceData || { balance: null, dueAmount: null };
+  const hasCreditBalance = balance !== null && balance < 0;
+
+  const handleCreateDepositReturnRequest = async (formValues: any) => {
+    if (!user || !customer.customerNumber || balance === null || balance >= 0) return;
+    setIsSubmittingDepositReturn(true);
+    const toastId = showLoading("Creating deposit return request...");
+
+    try {
+      const customerAddress = [
+        customer.address?.street,
+        customer.address?.city,
+        customer.address?.postalCode,
+        customer.country,
+      ].filter(Boolean).join(', ');
+
+      const { error } = await supabase.from('payment_requests').insert({
+        requester_id: user.id,
+        supplier_name: `${customer.name} #${customer.customerNumber}`,
+        supplier_address: customerAddress || 'Address not available in e-conomic',
+        currency: customer.currency || 'CHF',
+        total_amount: Math.abs(balance),
+        reason_for_payment: `Deposit Return for Customer #${customer.customerNumber}`,
+        date_payment_required: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        country: country,
+        is_deposit_return: true,
+        not_sku_related: true,
+        categories: [{ category: '8201_customer_deposit', amount: Math.abs(balance) }],
+        invoice_pdf_urls: [],
+        bank_details_verified: formValues.bank_details_verified,
+        bank_account_name: formValues.bank_account_name,
+        iban_number: formValues.iban_number,
+        sort_code: null,
+        account_number: null,
+      });
+
+      if (error) throw error;
+
+      dismissToast(toastId);
+      showSuccess("Deposit return request created successfully!");
+      setShowDepositReturnDialog(false);
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['existingDepositReturnsForCustomer', num, country] });
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to create request.");
+    } finally {
+      setIsSubmittingDepositReturn(false);
+    }
+  };
 
   const { data: ledgerCardData, isLoading: isLedgerLoading } = useQuery({
     queryKey: ['customerLedgerEntries', num, selectedAccountingYear, country],
@@ -639,7 +715,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         <TableCell>{customer.customerNumber ?? "-"}</TableCell>
         <TableCell className="font-medium">{customer.name ?? "-"}</TableCell>
         <TableCell>{customer.email ?? "-"}</TableCell>
-        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : balance !== null ? <Badge className={cn("bg-dyad-blue text-white text-base px-3 py-2 whitespace-nowrap", "transform translate-x-0 translate-y-0")}>{formatAmount(balance)} {customer.currency || ''}</Badge> : "N/A"}</TableCell>
+        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : balance !== null ? <Badge className={cn("text-base px-3 py-2 whitespace-nowrap", balance < 0 ? "bg-green-600 text-white" : "bg-dyad-blue text-white", "transform translate-x-0 translate-y-0")}>{formatAmount(balance)} {customer.currency || ''}</Badge> : "N/A"}</TableCell>
         <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : (dueAmount !== null && dueAmount > 0) ? <Badge className={cn("bg-red-600 text-white text-base px-3 py-2 whitespace-nowrap", "transform translate-x-0 translate-y-0")}>{formatAmount(dueAmount)} {customer.currency || ''}</Badge> : "-"}</TableCell>
         <TableCell>
           <div className="flex flex-col gap-2">
@@ -660,6 +736,22 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
               </TooltipTrigger>
               {isCustomerNumberMissing && <TooltipContent>This customer has no associated customer number in e-conomic.</TooltipContent>}
             </Tooltip>
+            {hasCreditBalance && (
+              hasActiveReturnRequest ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="secondary" className="w-full justify-center py-2">Request Pending</Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>A deposit return request for this customer already exists.</p>
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
+                <Button size="sm" variant="secondary" className="flex-1 bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowDepositReturnDialog(true)}>
+                  Request Deposit Return
+                </Button>
+              )
+            )}
           </div>
         </TableCell>
       </TableRow>
@@ -675,6 +767,25 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         isLoading={loadingOutstanding} 
         defaultSort={{ key: 'date', direction: 'descending' }}
       />
+      {hasCreditBalance && (
+        <Dialog open={showDepositReturnDialog} onOpenChange={setShowDepositReturnDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Deposit Return</DialogTitle>
+              <DialogDescription>
+                Please provide the customer's bank details for the repayment.
+              </DialogDescription>
+            </DialogHeader>
+            <DepositReturnForm
+              customerName={`${customer.name} #${customer.customerNumber}`}
+              returnAmount={Math.abs(balance || 0)}
+              currency={customer.currency || 'CHF'}
+              onSubmit={handleCreateDepositReturnRequest}
+              isSubmitting={isSubmittingDepositReturn}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };

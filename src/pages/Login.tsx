@@ -38,11 +38,11 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-dyad-blue p-4">
-      <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
+      <div className="w-full max-w-md bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg">
         <div className="flex justify-center mb-6">
           <img src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" alt="KH Payments Logo" className="h-16" />
         </div>
-        <h2 className="text-2xl font-bold text-center mb-6">Sign In / Sign Up</h2>
+        <h2 className="text-2xl font-bold text-center mb-6 text-gray-800 dark:text-white">Sign In / Sign Up</h2>
         <Auth
           supabaseClient={supabase}
           providers={[]}
