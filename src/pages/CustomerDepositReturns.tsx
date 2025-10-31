@@ -103,6 +103,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
   const [showFormDialog, setShowFormDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<EconomicLedgerEntry | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNoRefundDialog, setShowNoRefundDialog] = useState(false); // New state for no refund dialog
 
   const { data: balanceData, isLoading: isLoadingBalance } = useQuery<{ balance: number | null }>({
     queryKey: ['customerBalance', group.customer.customerNumber, country],
@@ -140,7 +141,9 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
   const hasOutstandingBalance = balanceData?.balance != null && balanceData.balance > 0;
 
   const handleRequestRepaymentClick = (entry: EconomicLedgerEntry) => {
-    if (hasOutstandingBalance) {
+    if (entry.remainder >= 0) {
+      setShowNoRefundDialog(true);
+    } else if (hasOutstandingBalance) {
       setShowErrorDialog(true);
     } else {
       setSelectedEntry(entry);
@@ -247,7 +250,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
         </AccordionContent>
       </AccordionItem>
 
-      {/* Error Dialog */}
+      {/* Error Dialog for outstanding balance */}
       <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
         <DialogContent>
           <DialogHeader>
@@ -257,6 +260,21 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
             </DialogTitle>
             <DialogDescription className="pt-4 text-base">
               This customer has an outstanding balance. A deposit return cannot be made until the balance is cleared.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Error Dialog for no balance to refund */}
+      <Dialog open={showNoRefundDialog} onOpenChange={setShowNoRefundDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-destructive">
+              <AlertTriangle className="mr-2 h-6 w-6" />
+              No Balance to Refund
+            </DialogTitle>
+            <DialogDescription className="pt-4 text-base">
+              There is no credit balance on this entry. A deposit return cannot be made.
             </DialogDescription>
           </DialogHeader>
         </DialogContent>
