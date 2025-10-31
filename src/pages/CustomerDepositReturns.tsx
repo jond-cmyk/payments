@@ -4,8 +4,8 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { format, isWithinInterval, parseISO } from 'date-fns';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,13 +13,15 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, FileText, Search, Filter, RotateCcw } from 'lucide-react';
+import { Home, FileText, Search, Filter, RotateCcw, AlertTriangle } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { formatAmount, extractList } from '@/components/economic/EconomicDetailDialog';
 import CountrySelector from '@/components/CountrySelector';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import DepositReturnForm from '@/components/deposits/DepositReturnForm';
 
 // Types
 type EconomicProxyResponse<T = any> = {
@@ -42,6 +44,12 @@ type EconomicLedgerEntry = {
     name: string;
     self: string;
     email?: string;
+    address?: {
+      street?: string;
+      city?: string;
+      postalCode?: string;
+      country?: string;
+    };
   };
   invoice: {
     bookedInvoiceNumber?: number;
@@ -88,7 +96,14 @@ const pick = (obj: any, keys: string[]): any => {
 };
 
 // New component to handle each customer's accordion item and balance fetching
-const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice }: { customerName: string; group: { customer: EconomicCustomer; entries: EconomicLedgerEntry[] }; country: string; handleViewInvoice: (entry: EconomicLedgerEntry) => void; }) => {
+const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice }: { customerName: string; group: { customer: EconomicCustomer & { address?: any }; entries: EconomicLedgerEntry[] }; country: string; handleViewInvoice: (entry: EconomicLedgerEntry) => void; }) => {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [showFormDialog, setShowFormDialog] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<EconomicLedgerEntry | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const { data: balanceData, isLoading: isLoadingBalance } = useQuery<{ balance: number | null }>({
     queryKey: ['customerBalance', group.customer.customerNumber, country],
     queryFn: async () => {
@@ -124,61 +139,150 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
 
   const hasOutstandingBalance = balanceData?.balance != null && balanceData.balance > 0;
 
+  const handleRequestRepaymentClick = (entry: EconomicLedgerEntry) => {
+    if (hasOutstandingBalance) {
+      setShowErrorDialog(true);
+    } else {
+      setSelectedEntry(entry);
+      setShowFormDialog(true);
+    }
+  };
+
+  const handleCreateDepositReturnRequest = async (formValues: any) => {
+    if (!selectedEntry || !user) return;
+    setIsSubmitting(true);
+    const toastId = showLoading("Creating deposit return request...");
+
+    try {
+      const customerAddress = [
+        group.customer.address?.street,
+        group.customer.address?.city,
+        group.customer.address?.postalCode,
+        group.customer.address?.country,
+      ].filter(Boolean).join(', ');
+
+      const { error } = await supabase.from('payment_requests').insert({
+        requester_id: user.id,
+        supplier_name: group.customer.name,
+        supplier_address: customerAddress || 'Address not available in e-conomic',
+        currency: selectedEntry.currency,
+        total_amount: Math.abs(selectedEntry.remainder),
+        reason_for_payment: `Deposit Return for Final Statement - Entry #${selectedEntry.entryNumber}`,
+        date_payment_required: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        country: country,
+        is_deposit_return: true,
+        not_sku_related: true,
+        categories: [{ category: '974_other', amount: Math.abs(selectedEntry.remainder) }],
+        invoice_pdf_urls: [],
+        bank_details_verified: formValues.bank_details_verified,
+        account_name: formValues.account_name,
+        iban_number: formValues.iban_number,
+        // UK fields are not applicable here as this is for Switzerland
+        sort_code: null,
+        account_number: null,
+      });
+
+      if (error) throw error;
+
+      dismissToast(toastId);
+      showSuccess("Deposit return request created successfully!");
+      setShowFormDialog(false);
+      setSelectedEntry(null);
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to create request.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <AccordionItem value={customerName}>
-      <AccordionTrigger className="text-lg font-semibold">
-        <span className="flex items-center gap-4">
-          {customerName} ({group.entries.length} entries)
-          {isLoadingBalance ? (
-            <Badge variant="outline">Checking balance...</Badge>
-          ) : hasOutstandingBalance && (
-            <Badge variant="destructive">Outstanding Balance</Badge>
-          )}
-        </span>
-      </AccordionTrigger>
-      <AccordionContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Entry Text</TableHead>
-              <TableHead className="text-right">Total Value</TableHead>
-              <TableHead className="text-right">Amount Outstanding</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {group.entries.map(entry => (
-              <TableRow key={entry.entryNumber}>
-                <TableCell>{entry.text}</TableCell>
-                <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex gap-2 justify-end">
-                    {entry.entryType !== 'customerPayment' && (
-                      <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
-                        <FileText className="mr-2 h-4 w-4" /> View Invoice
-                      </Button>
-                    )}
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span tabIndex={0}>
-                          <Button variant="destructive" size="sm" disabled>
-                            Request Repayment
-                          </Button>
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>This feature is coming soon.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </div>
-                </TableCell>
+    <>
+      <AccordionItem value={customerName}>
+        <AccordionTrigger className="text-lg font-semibold">
+          <span className="flex items-center gap-4">
+            {customerName} ({group.entries.length} entries)
+            {isLoadingBalance ? (
+              <Badge variant="outline">Checking balance...</Badge>
+            ) : hasOutstandingBalance && (
+              <Badge variant="destructive">Outstanding Balance</Badge>
+            )}
+          </span>
+        </AccordionTrigger>
+        <AccordionContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Entry Text</TableHead>
+                <TableHead className="text-right">Total Value</TableHead>
+                <TableHead className="text-right">Amount Outstanding</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </AccordionContent>
-    </AccordionItem>
+            </TableHeader>
+            <TableBody>
+              {group.entries.map(entry => (
+                <TableRow key={entry.entryNumber}>
+                  <TableCell>{entry.text}</TableCell>
+                  <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                  <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex gap-2 justify-end">
+                      {entry.entryType !== 'customerPayment' && (
+                        <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
+                          <FileText className="mr-2 h-4 w-4" /> View Invoice
+                        </Button>
+                      )}
+                      <Button variant="destructive" size="sm" onClick={() => handleRequestRepaymentClick(entry)}>
+                        Request Repayment
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* Error Dialog */}
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-destructive">
+              <AlertTriangle className="mr-2 h-6 w-6" />
+              Outstanding Balance
+            </DialogTitle>
+            <DialogDescription className="pt-4 text-base">
+              This customer has an outstanding balance. A deposit return cannot be made until the balance is cleared.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      {/* Form Dialog */}
+      {selectedEntry && (
+        <Dialog open={showFormDialog} onOpenChange={setShowFormDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Deposit Return</DialogTitle>
+              <DialogDescription>
+                Please provide the customer's bank details for the repayment.
+              </DialogDescription>
+            </DialogHeader>
+            <DepositReturnForm
+              customerName={customerName}
+              returnAmount={Math.abs(selectedEntry.remainder)}
+              currency={selectedEntry.currency}
+              onSubmit={handleCreateDepositReturnRequest}
+              isSubmitting={isSubmitting}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
   );
 };
 
@@ -298,7 +402,7 @@ const CustomerDepositReturns = () => {
       }
       acc[customerName].entries.push(entry);
       return acc;
-    }, {} as Record<string, { customer: EconomicCustomer; entries: EconomicLedgerEntry[] }>);
+    }, {} as Record<string, { customer: EconomicCustomer & { address?: any }; entries: EconomicLedgerEntry[] }>);
   }, [entries, customerNameMap]);
 
   const pathFromSelf = (self: string): string | undefined => {

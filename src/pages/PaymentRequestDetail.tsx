@@ -11,7 +11,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { PauseCircle } from 'lucide-react';
+import { PauseCircle, DollarSign } from 'lucide-react'; // Import DollarSign
 
 import { editFormSchema, EditFormSchema } from '@/schemas/paymentRequestSchema';
 import PaymentRequestDisplayCards from '@/components/payment-requests/PaymentRequestDisplayCards';
@@ -22,7 +22,7 @@ import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUp
 import PaymentRequestAuditTrailCard from '@/components/payment-requests/PaymentRequestAuditTrailCard';
 import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentRequestCommentsCard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 
 // Zod schema for admin query note (kept here as it's admin-specific)
@@ -578,6 +578,20 @@ const PaymentRequestDetail = () => {
 
   return (
     <div className="container mx-auto py-8">
+      {request.is_deposit_return && (
+        <Card className="mb-8 bg-green-50 border-l-4 border-green-500 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center text-green-800">
+              <DollarSign className="mr-3 h-6 w-6" />
+              Customer Deposit Return
+            </CardTitle>
+            <CardDescription className="text-green-700">
+              This is a repayment to a customer for their deposit. Please handle with care.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
       {request.status === 'paused' && (
         <Card className="mb-8 bg-yellow-50 border-l-4 border-yellow-400 shadow-md">
           <CardHeader>

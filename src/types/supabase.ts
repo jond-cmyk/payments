@@ -64,6 +64,7 @@ export type PaymentRequest = {
   is_reminded: boolean;
   categories: PaymentRequestCategoryItem[];
   bank_details_verified: boolean;
+  is_deposit_return: boolean; // New field
 };
 
 /** Payment Request Audits */
