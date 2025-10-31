@@ -31,7 +31,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
 
 interface PaymentRequestTableProps {
-  paymentRequests: (PaymentRequest & { requester_profile: { first_name: string | null } | null })[] | undefined;
+  paymentRequests: (PaymentRequest & { requester_profile: { first_name: string | null, last_name: string | null } | null })[] | undefined;
   userRole: string | null;
   handleSort: (column: keyof PaymentRequest) => void;
   renderSortIcon: (column: keyof PaymentRequest) => React.ReactNode;
@@ -172,7 +172,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
               ))
             ) : (
               paymentRequests?.map((request) => {
-                console.log(`[PaymentRequestTable] Request ID: ${request.id.substring(0, 8)}, is_urgent: ${request.is_urgent}, is_reminded: ${request.is_reminded}, status: ${request.status}`);
+                const requesterName = request.requester_profile ? `${request.requester_profile.first_name || ''} ${request.requester_profile.last_name || ''}`.trim() : null;
                 return (
                   <TableRow
                     key={request.id}
@@ -196,7 +196,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                     <TableCell>
                       {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
                     </TableCell>
-                    <TableCell>{request.requester_profile?.first_name || 'N/A'}</TableCell>
+                    <TableCell>{requesterName || 'N/A'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <CountryFlag countryName={request.country} />

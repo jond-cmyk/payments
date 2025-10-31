@@ -215,7 +215,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
 
   // --- Data for Table Display (Conditional) ---
   const { data: paymentRequestsForTable, isLoading: isRequestsTableLoading, error: requestsError } = useQuery<
-    (PaymentRequest & { requester_profile: { first_name: string | null } | null })[]
+    (PaymentRequest & { requester_profile: { first_name: string | null, last_name: string | null } | null })[]
   >({
     queryKey: tableQueryKey,
     queryFn: async () => {
@@ -224,7 +224,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
       const from = itemsPerPage === 'all' ? 0 : (currentPage - 1) * (itemsPerPage as number);
       const to = itemsPerPage === 'all' ? null : from + (itemsPerPage as number) - 1;
 
-      let query = supabase.from('payment_requests').select('*, requester_profile:profiles(first_name)', { count: 'exact' });
+      let query = supabase.from('payment_requests').select('*, requester_profile:profiles!requester_id(first_name, last_name)', { count: 'exact' });
 
       // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
