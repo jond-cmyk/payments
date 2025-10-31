@@ -308,7 +308,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
         query = query.eq('country', currentCountry);
       }
 
-      // NEW: Apply viewMode filter for requesters on the main dashboard
+      // Apply viewMode filter for requesters on the main dashboard
       if (userRole === 'requester' && !isAllRequestsPage && viewMode === 'my') {
         query = query.eq('requester_id', user.id);
       }
@@ -352,9 +352,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
           query = query.in('requester_id', filterRequesters);
         }
       } else { // This is the main dashboard view (for both requester and admin)
-        // Filter by active statuses AND (is_urgent OR is_reminded)
-        query = query.in('status', statusesToFilter)
-                     .or('is_urgent.eq.true,is_reminded.eq.true');
+        // Filter by active statuses
+        if (statusesToFilter.length > 0) {
+          query = query.in('status', statusesToFilter);
+        }
       }
 
       // Always sort urgent requests to the top, then reminded, then by the selected column

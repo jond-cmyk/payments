@@ -197,28 +197,6 @@ const DashboardSummaryGroups: React.FC<DashboardSummaryGroupsProps> = ({ counts 
     'active_direct_debits',
   ];
 
-  // For requesters, only show a limited set of cards
-  if (!isAdmin) {
-    return (
-      <Card className="shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center text-xl font-bold">
-            <Activity className="mr-2 h-5 w-5" /> My Activity Overview
-          </CardTitle>
-          <CardDescription>Summary of your payment and transaction activities.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
-            <SummaryCardItem statusKey="pending" count={counts.pending} currentCountry={currentCountry} isCritical={true} urgentCount={counts.urgent_pending} />
-            <SummaryCardItem statusKey="queried_and_paused" count={counts.queried_and_paused} currentCountry={currentCountry} isCritical={false} />
-            <SummaryCardItem statusKey="missing_receipts" count={counts.missing_receipts} currentCountry={currentCountry} isCritical={false} />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Admin view
   return (
     <Card className="shadow-lg">
       <CardHeader>
