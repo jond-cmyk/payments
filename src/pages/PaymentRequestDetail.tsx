@@ -229,85 +229,79 @@ const PaymentRequestDetail = () => {
   const updateRequestMutation = useMutation({
     mutationFn: async (updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList }) => {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
-
-      const { new_invoice_files, ...dbUpdateFields } = updatedFields;
-
+  
+      const { new_invoice_files } = updatedFields;
+  
       let updatedInvoicePdfUrls = request?.invoice_pdf_urls || [];
-
+  
       if (new_invoice_files && new_invoice_files.length > 0) {
         const newUploadedUrls: string[] = [];
         for (let i = 0; i < new_invoice_files.length; i++) {
           const file = new_invoice_files[i];
           const fileExtension = file.name.split('.').pop();
           const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
-
+  
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('invoices')
-            .upload(fileName, file, {
-              cacheControl: '3600',
-              upsert: false,
-            });
-
-          if (uploadError) {
-            throw new Error(`Failed to upload new invoice ${file.name}: ${uploadError.message}`);
-          }
-
-          const { data: publicUrlData } = supabase.storage
-            .from('invoices')
-            .getPublicUrl(fileName);
-
-          if (!publicUrlData?.publicUrl) {
-            throw new Error(`Failed to get public URL for new invoice ${file.name}.`);
-          }
+            .upload(fileName, file, { cacheControl: '3600', upsert: false });
+  
+          if (uploadError) throw new Error(`Failed to upload new invoice ${file.name}: ${uploadError.message}`);
+  
+          const { data: publicUrlData } = supabase.storage.from('invoices').getPublicUrl(fileName);
+          if (!publicUrlData?.publicUrl) throw new Error(`Failed to get public URL for new invoice ${file.name}.`);
           newUploadedUrls.push(publicUrlData.publicUrl);
         }
         updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls];
       }
-
-      const updatePayload = {
-        ...dbUpdateFields,
-        invoice_pdf_urls: updatedInvoicePdfUrls,
+  
+      // Manually construct the payload to be certain about what's being sent.
+      const updatePayload: { [key: string]: any } = {
         updated_at: new Date().toISOString(),
+        invoice_pdf_urls: updatedInvoicePdfUrls,
       };
-
-      let query = supabase
-        .from('payment_requests')
-        .update(updatePayload)
-        .eq('id', id);
+  
+      const allowedFields: (keyof PaymentRequest)[] = [
+        'supplier_name', 'sku_number', 'not_sku_related', 'lease_id', 'supplier_address',
+        'iban_number', 'sort_code', 'account_number', 'bank_account_name', 'currency',
+        'total_amount', 'reason_for_payment', 'date_payment_required', 'receipt_required',
+        'is_urgent', 'country', 'categories', 'bank_details_verified', 'status',
+        'admin_action_by', 'admin_action_reason', 'payment_setup_date', 'payment_approved_date',
+        'is_reminded', 'last_reminder_sent_at'
+      ];
+  
+      for (const key of allowedFields) {
+        if (key in updatedFields) {
+          updatePayload[key] = updatedFields[key as keyof typeof updatedFields];
+        }
+      }
+  
+      let query = supabase.from('payment_requests').update(updatePayload).eq('id', id);
       
-      // Apply country filter for update
       if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
-        // Only apply country filter if a specific country is selected by the admin
         query = query.eq('country', currentCountry);
       }
-
-      // IMPORTANT: Add .select() to the update query to get the affected rows
-      const { data, error } = await query.select(); 
+  
+      const { data, error } = await query.select();
       
       if (error) {
         console.error("Supabase update error:", error);
-        // Throw a more descriptive error if possible
         throw new Error(`Supabase update failed: ${error.message} (Code: ${error.code}, Hint: ${error.hint})`);
       }
       
-      // Log the data returned by Supabase
-      console.log("Supabase update data:", data);
-      
       if (!data || data.length === 0) {
-        // If no data is returned, it means no rows were updated, likely due to RLS
         console.warn("Supabase update returned no data. This might be due to RLS preventing the update.");
         throw new Error("Update failed: No matching record found or insufficient permissions (RLS).");
       }
-
+  
       return true;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentRequest', id] });
       queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
-      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Invalidate dashboard table
-      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] }); // Invalidate summary cards
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
       showSuccess("Payment request updated successfully!");
       setIsEditing(false);
     },
