@@ -85,13 +85,12 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
   useEffect(() => {
     const statusParams = searchParams.getAll('status');
     if (statusParams.length > 0) {
-      // 1. If status is passed via URL, set it as the initial filterStatuses array
       setFilterStatuses(statusParams as PaymentRequest['status'][]);
     } else if (location.pathname === '/admin/requests') {
-      // 2. Default for All Requests page: show ALL statuses if no filter is set
-      setFilterStatuses(allPossibleStatuses); // <-- CHANGE 1: Default to all statuses
+      // Default for All Requests page: show ALL statuses, but have no filter selected initially
+      setFilterStatuses([]);
     } else {
-      // 3. Default for Dashboard: select only active statuses
+      // Default for Dashboard: select only active statuses
       setFilterStatuses(activeDashboardStatuses);
     }
     setCurrentPage(1); // Reset page when URL params change
@@ -325,7 +324,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
           query = query.ilike('sku_number', `%${filterSkuNumber}%`);
         }
         
-        // CHANGE 2: Only apply status filter if statusesToFilter is NOT empty
+        // Only apply status filter if statusesToFilter is NOT empty
         if (statusesToFilter.length > 0) {
           query = query.in('status', statusesToFilter);
         }
@@ -411,7 +410,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
   const clearFilters = () => {
     setFilterSupplierName('');
     setFilterSkuNumber('');
-    setFilterStatuses(isAllRequestsPage ? allPossibleStatuses : activeDashboardStatuses); // Reset based on page
+    setFilterStatuses(isAllRequestsPage ? [] : activeDashboardStatuses); // Reset based on page
     setFilterDatePaymentRequired(undefined);
     setFilterRequesters([]); // Reset to no specific requesters
     setFilterStartDate(undefined);
