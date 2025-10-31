@@ -255,6 +255,11 @@ const PaymentRequestDetail = () => {
   
       // Always add the updated_at timestamp
       dbUpdateFields.updated_at = new Date().toISOString();
+
+      // NEW STRATEGY: If this is a full object update, remove fields that cannot/should not be updated.
+      delete (dbUpdateFields as any).id;
+      delete (dbUpdateFields as any).created_at;
+      delete (dbUpdateFields as any).requester_profile; // This is from a join, not in the table
   
       const { data, error } = await supabase
         .from('payment_requests')
@@ -384,31 +389,36 @@ const PaymentRequestDetail = () => {
       if (status === 'declined' && reason) {
         await addCommentMutation.mutateAsync(`Declined: ${reason}`);
       }
-
       if (status === 'paused') {
         await addCommentMutation.mutateAsync(`Request paused by user.`);
       }
-
-      const updatedFields: Partial<PaymentRequest> = {
-        status: status === 'reverted_to_pending' ? 'pending' : status,
-        admin_action_by: user.id,
-        admin_action_reason: reason || null,
-        is_reminded: false,
-        last_reminder_sent_at: null,
-      };
-
-      if (status === 'setup_awaiting_approval') {
-        updatedFields.payment_setup_date = new Date().toISOString();
-      } else if (status === 'approved') {
-        updatedFields.payment_approved_date = new Date().toISOString();
-      } else if (status === 'reverted_to_pending') {
-        updatedFields.payment_setup_date = null;
-        updatedFields.payment_approved_date = null;
-      } else if (status === 'cancelled') {
+      if (status === 'cancelled') {
         await addCommentMutation.mutateAsync(`Request cancelled by user.`);
       }
 
-      await updateRequestMutation.mutateAsync(updatedFields);
+      // NEW STRATEGY: Create a full copy of the existing request data to ensure data integrity
+      const fullUpdateRequest = { ...request };
+
+      // Apply the specific changes for this action
+      fullUpdateRequest.status = status === 'reverted_to_pending' ? 'pending' : status;
+      fullUpdateRequest.admin_action_by = user.id;
+      fullUpdateRequest.admin_action_reason = reason || null;
+      fullUpdateRequest.is_reminded = false;
+      fullUpdateRequest.last_reminder_sent_at = null;
+
+      if (status === 'setup_awaiting_approval') {
+        fullUpdateRequest.payment_setup_date = new Date().toISOString();
+      } else if (status === 'approved') {
+        fullUpdateRequest.payment_approved_date = new Date().toISOString();
+      } else if (status === 'reverted_to_pending') {
+        fullUpdateRequest.payment_setup_date = null;
+        fullUpdateRequest.payment_approved_date = null;
+      }
+
+      // The `categories` field is already in `fullUpdateRequest` in the correct object format.
+      // We pass the entire object to the mutation.
+      await updateRequestMutation.mutateAsync(fullUpdateRequest);
+      
       dismissToast(toastId);
       return true;
     } catch (error: any) {
