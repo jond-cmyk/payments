@@ -6,6 +6,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, isWithinInterval, parseISO } from 'date-fns';
+import { PaymentRequest } from '@/types/supabase';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -96,14 +97,14 @@ const pick = (obj: any, keys: string[]): any => {
 };
 
 // New component to handle each customer's accordion item and balance fetching
-const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice }: { customerName: string; group: { customer: EconomicCustomer & { address?: any }; entries: EconomicLedgerEntry[] }; country: string; handleViewInvoice: (entry: EconomicLedgerEntry) => void; }) => {
+const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice, activeReturnRequestEntryNumbers }: { customerName: string; group: { customer: EconomicCustomer & { address?: any }; entries: EconomicLedgerEntry[] }; country: string; handleViewInvoice: (entry: EconomicLedgerEntry) => void; activeReturnRequestEntryNumbers: Set<number>; }) => {
   const { user } = useSession();
   const queryClient = useQueryClient();
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [showFormDialog, setShowFormDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<EconomicLedgerEntry | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showNoRefundDialog, setShowNoRefundDialog] = useState(false); // New state for no refund dialog
+  const [showNoRefundDialog, setShowNoRefundDialog] = useState(false);
 
   const { data: balanceData, isLoading: isLoadingBalance } = useQuery<{ balance: number | null }>({
     queryKey: ['customerBalance', group.customer.customerNumber, country],
@@ -194,6 +195,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
       setSelectedEntry(null);
       queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
       queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['existingDepositReturns'] }); // Invalidate to update the button state
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "Failed to create request.");
@@ -226,25 +228,39 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
               </TableRow>
             </TableHeader>
             <TableBody>
-              {group.entries.map(entry => (
-                <TableRow key={entry.entryNumber}>
-                  <TableCell>{entry.text}</TableCell>
-                  <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                  <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
-                      {entry.entryType !== 'customerPayment' && (
-                        <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
-                          <FileText className="mr-2 h-4 w-4" /> View Invoice
-                        </Button>
-                      )}
-                      <Button variant="destructive" size="sm" onClick={() => handleRequestRepaymentClick(entry)}>
-                        Request Repayment
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {group.entries.map(entry => {
+                const requestAlreadyExists = activeReturnRequestEntryNumbers.has(entry.entryNumber);
+                return (
+                  <TableRow key={entry.entryNumber}>
+                    <TableCell>{entry.text}</TableCell>
+                    <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                    <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        {entry.entryType !== 'customerPayment' && (
+                          <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
+                            <FileText className="mr-2 h-4 w-4" /> View Invoice
+                          </Button>
+                        )}
+                        {requestAlreadyExists ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="secondary">Request Pending</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>A payment request for this deposit return already exists and is not declined.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Button variant="destructive" size="sm" onClick={() => handleRequestRepaymentClick(entry)}>
+                            Request Repayment
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </AccordionContent>
@@ -326,6 +342,43 @@ const CustomerDepositReturns = () => {
     },
     enabled: !!session && isAdmin,
   });
+
+  const { data: existingDepositReturns } = useQuery<PaymentRequest[]>({
+    queryKey: ['existingDepositReturns', currentCountry],
+    queryFn: async () => {
+        let query = supabase
+            .from('payment_requests')
+            .select('*')
+            .eq('is_deposit_return', true)
+            .not('status', 'eq', 'declined');
+
+        if (currentCountry !== 'all') {
+            query = query.eq('country', currentCountry);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return data;
+    },
+    enabled: !!session && isAdmin,
+  });
+
+  const activeReturnRequestEntryNumbers = useMemo(() => {
+    if (!existingDepositReturns) return new Set<number>();
+
+    const entryNumbers = new Set<number>();
+    const regex = /Entry #(\d+)/;
+
+    existingDepositReturns.forEach(req => {
+        if (req.reason_for_payment) {
+            const match = req.reason_for_payment.match(regex);
+            if (match && match[1]) {
+                entryNumbers.add(parseInt(match[1], 10));
+            }
+        }
+    });
+    return entryNumbers;
+  }, [existingDepositReturns]);
 
   const customerNameMap = useMemo(() => {
     if (!customers) return {};
@@ -534,6 +587,7 @@ const CustomerDepositReturns = () => {
                     group={group}
                     country={currentCountry}
                     handleViewInvoice={handleViewInvoice}
+                    activeReturnRequestEntryNumbers={activeReturnRequestEntryNumbers}
                   />
                 ))}
               </Accordion>
