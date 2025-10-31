@@ -31,23 +31,26 @@ type ActivityItem =
 
 interface RecentActivityFeedProps {
   limit?: number;
+  viewMode: 'my' | 'all';
 }
 
-const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5 }) => {
-  const { session, userProfile } = useSession();
+const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5, viewMode }) => {
+  const { session, user, userProfile } = useSession();
   const { currentCountry } = useCountry();
 
   const isAdmin = userProfile?.role === 'admin';
 
   // Fetch recent Payment Requests
   const { data: recentPaymentRequests = [], isLoading: isLoadingPR } = useQuery<PaymentRequest[]>({
-    queryKey: ['recentPaymentRequests', currentCountry],
+    queryKey: ['recentPaymentRequests', currentCountry, viewMode],
     queryFn: async () => {
       let query = supabase
         .from('payment_requests')
         .select('*');
       
-      if (userProfile?.role === 'requester' && userProfile.country) {
+      if (userProfile?.role === 'requester' && viewMode === 'my' && user) {
+        query = query.eq('requester_id', user.id);
+      } else if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (isAdmin && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
@@ -62,7 +65,7 @@ const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5 }) =>
 
   // Fetch recent Transactions (missing receipts)
   const { data: recentTransactions = [], isLoading: isLoadingTR } = useQuery<Transaction[]>({
-    queryKey: ['recentTransactions', currentCountry],
+    queryKey: ['recentTransactions', currentCountry, viewMode],
     queryFn: async () => {
       let query = supabase
         .from('transactions')
@@ -70,7 +73,9 @@ const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5 }) =>
         .eq('status', 'pending_input')
         .eq('receipt_urls', '{}');
       
-      if (userProfile?.role === 'requester' && userProfile.country) {
+      if (userProfile?.role === 'requester' && viewMode === 'my' && user) {
+        query = query.eq('requester_id', user.id);
+      } else if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (isAdmin && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
@@ -85,13 +90,15 @@ const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5 }) =>
 
   // Fetch recent Standing Orders
   const { data: recentStandingOrders = [], isLoading: isLoadingSO } = useQuery<StandingOrder[]>({
-    queryKey: ['recentStandingOrders', currentCountry],
+    queryKey: ['recentStandingOrders', currentCountry, viewMode],
     queryFn: async () => {
       let query = supabase
         .from('standing_orders')
         .select('*');
       
-      if (userProfile?.role === 'requester' && userProfile.country) {
+      if (userProfile?.role === 'requester' && viewMode === 'my' && user) {
+        query = query.eq('requester_id', user.id);
+      } else if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (isAdmin && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);
@@ -106,13 +113,15 @@ const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5 }) =>
 
   // Fetch recent Direct Debits
   const { data: recentDirectDebits = [], isLoading: isLoadingDD } = useQuery<DirectDebit[]>({
-    queryKey: ['recentDirectDebits', currentCountry],
+    queryKey: ['recentDirectDebits', currentCountry, viewMode],
     queryFn: async () => {
       let query = supabase
         .from('direct_debits')
         .select('*');
       
-      if (userProfile?.role === 'requester' && userProfile.country) {
+      if (userProfile?.role === 'requester' && viewMode === 'my' && user) {
+        query = query.eq('requester_id', user.id);
+      } else if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (isAdmin && currentCountry !== 'all') {
         query = query.eq('country', currentCountry);

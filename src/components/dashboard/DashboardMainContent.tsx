@@ -103,20 +103,19 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
 
   // --- Data for Summary Cards (Global Totals) ---
   const allPaymentRequestsForSummaryQuery = useQuery<PaymentRequest[]>({
-    queryKey: ['allPaymentRequestsForSummary', currentCountry],
+    queryKey: ['allPaymentRequestsForSummary', currentCountry, userRole, viewMode],
     queryFn: async () => {
       let query = supabase
         .from('payment_requests')
         .select('*');
       
-      // Admins see all countries in summary, requesters see only their country
-      if (userProfile?.role === 'requester' && userProfile.country) {
+      if (userProfile?.role === 'requester' && viewMode === 'my' && user) {
+        query = query.eq('requester_id', user.id);
+      } else if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
-        // If admin and a specific country is selected, filter by it
         query = query.eq('country', currentCountry);
       }
-      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
       const { data, error } = await query;
       if (error) throw error;
@@ -126,7 +125,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
   });
 
   const allMissingReceiptsCountForSummaryQuery = useQuery<number>({
-    queryKey: ['allMissingReceiptsCountForSummary', currentCountry],
+    queryKey: ['allMissingReceiptsCountForSummary', currentCountry, userRole, viewMode],
     queryFn: async () => {
       let query = supabase
         .from('transactions')
@@ -134,14 +133,13 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
         .eq('status', 'pending_input')
         .eq('receipt_urls', '{}');
 
-      // Admins see all countries in summary, requesters see only their country
-      if (userProfile?.role === 'requester' && userProfile.country) {
+      if (userProfile?.role === 'requester' && viewMode === 'my' && user) {
+        query = query.eq('requester_id', user.id);
+      } else if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
-        // If admin and a specific country is selected, filter by it
         query = query.eq('country', currentCountry);
       }
-      // If admin and currentCountry is 'all', no country filter is applied, showing all countries
 
       const { count, error } = await query;
       if (error) throw error;
@@ -279,10 +277,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
           query = query.in('requester_id', filterRequesters);
         }
       } else { // This is the main dashboard view (for both requester and admin)
-        // Filter by active statuses
-        if (statusesToFilter.length > 0) {
-          query = query.in('status', statusesToFilter);
-        }
+        // Filter by active statuses AND (is_urgent OR is_reminded)
+        query = query.in('status', statusesToFilter)
+                     .or('is_urgent.eq.true,is_reminded.eq.true');
       }
 
       // Always sort urgent requests to the top, then reminded, then by the selected column
@@ -571,7 +568,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
       {!isAllRequestsPage && userRole === 'admin' && <PendingStandingOrderTable />}
 
       {/* Recent Activity Feed, shown only on dashboard and if no search term */}
-      {!isAllRequestsPage && !debouncedSearchTerm && <RecentActivityFeed />}
+      {!isAllRequestsPage && !debouncedSearchTerm && <RecentActivityFeed viewMode={viewMode} />}
     </>
   );
 };
