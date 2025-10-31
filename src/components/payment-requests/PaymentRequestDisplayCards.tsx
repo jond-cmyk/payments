@@ -30,6 +30,8 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
         return 'Payment Setup';
       case 'approved':
         return 'Payment Complete';
+      case 'completed':
+        return 'Completed (Receipt Added)';
       case 'declined':
         return 'Declined';
       case 'queried':
@@ -59,6 +61,7 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
               request.status === 'pending' ? 'text-yellow-600' :
               request.status === 'setup_awaiting_approval' ? 'text-blue-600' :
               request.status === 'approved' ? 'text-green-600' :
+              request.status === 'completed' ? 'text-green-700' :
               request.status === 'declined' ? 'text-red-600' :
               request.status === 'queried' ? 'text-gray-600' :
               'text-gray-600'

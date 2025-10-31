@@ -156,7 +156,7 @@ const PaymentRequestDetail = () => {
       bank_account_name: "",
       currency: "CHF", // Default to CHF
       total_amount: 0.00,
-      notes: "", // CHANGED: Default to notes
+      notes: "", // CHANGED: Renamed from reason_for_payment
       date_payment_required: undefined,
       invoice_pdf: undefined,
       receipt_required: false,
@@ -561,7 +561,10 @@ const PaymentRequestDetail = () => {
         throw new Error("Failed to get public URL for receipt.");
       }
 
-      await updateRequestMutation.mutateAsync({ receipt_pdf_url: publicUrlData.publicUrl });
+      await updateRequestMutation.mutateAsync({ 
+        receipt_pdf_url: publicUrlData.publicUrl,
+        status: 'completed' 
+      });
       dismissToast(toastId);
     } catch (error: any) {
       dismissToast(toastId);
