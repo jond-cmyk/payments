@@ -264,18 +264,11 @@ const PaymentRequestDetail = () => {
         updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls];
       }
 
-      // Create a payload object, but OMIT categories for now.
-      const { categories, ...restOfDbFields } = dbUpdateFields;
-      const updatePayload: { [key: string]: any } = {
-        ...restOfDbFields,
+      const updatePayload = {
+        ...dbUpdateFields,
         invoice_pdf_urls: updatedInvoicePdfUrls,
         updated_at: new Date().toISOString(),
       };
-
-      // Only add 'categories' to the payload if it was explicitly passed in the update.
-      if (categories !== undefined) {
-        updatePayload.categories = categories;
-      }
 
       let query = supabase
         .from('payment_requests')
