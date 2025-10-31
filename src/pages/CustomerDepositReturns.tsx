@@ -173,7 +173,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
         country: country,
         is_deposit_return: true,
         not_sku_related: true,
-        categories: [{ category: '974_other', amount: Math.abs(selectedEntry.remainder) }],
+        categories: [{ category: '8201_customer_deposit', amount: Math.abs(selectedEntry.remainder) }],
         invoice_pdf_urls: [],
         bank_details_verified: formValues.bank_details_verified,
         bank_account_name: formValues.bank_account_name,

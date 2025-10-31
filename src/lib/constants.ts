@@ -34,6 +34,7 @@ export const categoryOptions = [
   { value: '3476_travel_hotels', label: '3476 - Travel and hotels' },
   { value: '3480_marketing', label: '3480 – Marketing' },
   { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
+  { value: '8201_customer_deposit', label: '8201 - Customer Deposit' },
 ].sort((a, b) => {
   // Extract numerical prefix from label
   const getPrefix = (label: string) => {
