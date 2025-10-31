@@ -163,7 +163,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
 
       const { error } = await supabase.from('payment_requests').insert({
         requester_id: user.id,
-        supplier_name: group.customer.name,
+        supplier_name: group.customer.name || `Customer #${group.customer.customerNumber}`,
         supplier_address: customerAddress || 'Address not available in e-conomic',
         currency: selectedEntry.currency,
         total_amount: Math.abs(selectedEntry.remainder),
