@@ -391,13 +391,13 @@ const PaymentRequestDetail = () => {
         await addCommentMutation.mutateAsync(`Request cancelled by user.`);
       }
 
-      // REVERTED LOGIC: Build a MINIMAL object with ONLY the fields to change.
       const updatedFields: Partial<PaymentRequest> = {
         status: status === 'reverted_to_pending' ? 'pending' : status,
         admin_action_by: user.id,
         admin_action_reason: reason || null,
         is_reminded: false,
         last_reminder_sent_at: null,
+        updated_at: new Date().toISOString(),
       };
 
       if (status === 'setup_awaiting_approval') {
@@ -409,8 +409,28 @@ const PaymentRequestDetail = () => {
         updatedFields.payment_approved_date = null;
       }
 
-      // Pass ONLY the minimal changes. DO NOT include `categories` or other complex fields.
-      await updateRequestMutation.mutateAsync(updatedFields);
+      // *** DIRECT SUPABASE CALL - Bypassing shared mutation ***
+      const { data, error } = await supabase
+        .from('payment_requests')
+        .update(updatedFields)
+        .eq('id', id)
+        .select();
+
+      if (error) {
+        console.error("Direct Supabase update error in handleAdminAction:", error);
+        throw new Error(`Supabase update failed: ${error.message}`);
+      }
+      if (!data || data.length === 0) {
+        throw new Error("Update failed: No matching record found or insufficient permissions (RLS).");
+      }
+
+      // Manually handle success actions
+      queryClient.invalidateQueries({ queryKey: ['paymentRequest', id] });
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
+      showSuccess("Payment request updated successfully!");
+      setIsEditing(false);
       
       dismissToast(toastId);
       return true;
