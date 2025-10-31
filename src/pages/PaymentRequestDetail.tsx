@@ -230,14 +230,12 @@ const PaymentRequestDetail = () => {
     mutationFn: async (updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList }) => {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
   
-      const { new_invoice_files } = updatedFields;
-  
       let updatedInvoicePdfUrls = request?.invoice_pdf_urls || [];
   
-      if (new_invoice_files && new_invoice_files.length > 0) {
+      if (updatedFields.new_invoice_files && updatedFields.new_invoice_files.length > 0) {
         const newUploadedUrls: string[] = [];
-        for (let i = 0; i < new_invoice_files.length; i++) {
-          const file = new_invoice_files[i];
+        for (let i = 0; i < updatedFields.new_invoice_files.length; i++) {
+          const file = updatedFields.new_invoice_files[i];
           const fileExtension = file.name.split('.').pop();
           const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
   
@@ -254,7 +252,7 @@ const PaymentRequestDetail = () => {
         updatedInvoicePdfUrls = [...updatedInvoicePdfUrls, ...newUploadedUrls];
       }
   
-      // Manually construct the payload to be certain about what's being sent.
+      // Manually and defensively construct the payload
       const updatePayload: { [key: string]: any } = {
         updated_at: new Date().toISOString(),
         invoice_pdf_urls: updatedInvoicePdfUrls,
@@ -264,15 +262,20 @@ const PaymentRequestDetail = () => {
         'supplier_name', 'sku_number', 'not_sku_related', 'lease_id', 'supplier_address',
         'iban_number', 'sort_code', 'account_number', 'bank_account_name', 'currency',
         'total_amount', 'reason_for_payment', 'date_payment_required', 'receipt_required',
-        'is_urgent', 'country', 'categories', 'bank_details_verified', 'status',
+        'is_urgent', 'country', 'bank_details_verified', 'status',
         'admin_action_by', 'admin_action_reason', 'payment_setup_date', 'payment_approved_date',
-        'is_reminded', 'last_reminder_sent_at'
+        'is_reminded', 'last_reminder_sent_at', 'receipt_pdf_url'
       ];
   
       for (const key of allowedFields) {
-        if (key in updatedFields) {
+        if (key in updatedFields && updatedFields[key as keyof typeof updatedFields] !== undefined) {
           updatePayload[key] = updatedFields[key as keyof typeof updatedFields];
         }
+      }
+
+      // Special handling for categories to ensure it's a valid array
+      if (updatedFields.categories && Array.isArray(updatedFields.categories)) {
+        updatePayload.categories = updatedFields.categories;
       }
   
       let query = supabase.from('payment_requests').update(updatePayload).eq('id', id);
