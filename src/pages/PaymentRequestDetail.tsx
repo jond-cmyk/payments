@@ -391,6 +391,7 @@ const PaymentRequestDetail = () => {
         await addCommentMutation.mutateAsync(`Request cancelled by user.`);
       }
 
+      // REVERTED LOGIC: Build a MINIMAL object with ONLY the fields to change.
       const updatedFields: Partial<PaymentRequest> = {
         status: status === 'reverted_to_pending' ? 'pending' : status,
         admin_action_by: user.id,
@@ -408,7 +409,9 @@ const PaymentRequestDetail = () => {
         updatedFields.payment_approved_date = null;
       }
 
+      // Pass ONLY the minimal changes. DO NOT include `categories` or other complex fields.
       await updateRequestMutation.mutateAsync(updatedFields);
+      
       dismissToast(toastId);
       return true;
     } catch (error: any) {
