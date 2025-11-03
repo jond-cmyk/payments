@@ -1,8 +1,8 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,9 @@ import { PaymentRequest, Transaction, StandingOrder, DirectDebit } from '@/types
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useCountry } from '@/integrations/supabase/CountryContext';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Filter } from 'lucide-react';
 
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }) | (DirectDebit & { type: 'direct_debit' });
@@ -20,7 +23,12 @@ interface GlobalSearchResultsProps {
 
 const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSearchTerm }) => {
   const { session, userProfile } = useSession();
-  const { currentCountry } = useCountry();
+  const { currentCountry, availableCountries } = useCountry();
+
+  // New filter states
+  const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [descriptionFilter, setDescriptionFilter] = useState<string>('');
+  const [countryFilter, setCountryFilter] = useState<string>('all');
 
   // --- Global Search Query ---
   const { data: searchResults, isLoading: isSearchLoading, error: searchError } = useQuery<SearchResult[]>({
@@ -167,6 +175,33 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSear
     enabled: !!debouncedSearchTerm && !!session,
   });
 
+  const filteredResults = useMemo(() => {
+    if (!searchResults) return [];
+    return searchResults.filter(item => {
+      // Type filter
+      if (typeFilter !== 'all' && item.type !== typeFilter) {
+        return false;
+      }
+      // Country filter
+      if (countryFilter !== 'all' && item.country !== countryFilter) {
+        return false;
+      }
+      // Description/supplier/payee filter
+      if (descriptionFilter) {
+        const lowerDescriptionFilter = descriptionFilter.toLowerCase();
+        const description = (
+          item.type === 'payment_request' ? item.supplier_name :
+          item.type === 'transaction' ? item.description :
+          item.payee // for standing_order and direct_debit
+        ) || '';
+        if (!description.toLowerCase().includes(lowerDescriptionFilter)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [searchResults, typeFilter, descriptionFilter, countryFilter]);
+
   const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
     let className = '';
@@ -224,15 +259,66 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSear
 
   return (
     <Card className="shadow-sm">
-      {isSearchLoading ? (
-        <div className="p-4 text-center text-muted-foreground">Loading search results...</div>
-      ) : (
-        <GlobalSearchResultsTable
-          searchResults={searchResults}
-          debouncedSearchTerm={debouncedSearchTerm}
-          getStatusBadge={getStatusBadge}
-        />
-      )}
+      <CardHeader>
+        <CardTitle>Search Results for "{debouncedSearchTerm}"</CardTitle>
+        <div className="mt-4 p-4 border rounded-md bg-gray-50 shadow-sm">
+          <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
+            <Filter className="mr-2 h-5 w-5" /> Filter Results
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label htmlFor="type-filter" className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger id="type-filter">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="payment_request">Payment Request</SelectItem>
+                  <SelectItem value="transaction">Transaction</SelectItem>
+                  <SelectItem value="standing_order">Standing Order</SelectItem>
+                  <SelectItem value="direct_debit">Direct Debit</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label htmlFor="description-filter" className="block text-sm font-medium text-gray-700 mb-1">Description / Supplier / Payee</label>
+              <Input
+                id="description-filter"
+                placeholder="Filter by name..."
+                value={descriptionFilter}
+                onChange={(e) => setDescriptionFilter(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="country-filter" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+              <Select value={countryFilter} onValueChange={setCountryFilter}>
+                <SelectTrigger id="country-filter">
+                  <SelectValue placeholder="All Countries" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableCountries.map((country) => (
+                    <SelectItem key={country.value} value={country.value}>
+                      {country.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isSearchLoading ? (
+          <div className="p-4 text-center text-muted-foreground">Loading search results...</div>
+        ) : (
+          <GlobalSearchResultsTable
+            searchResults={filteredResults}
+            debouncedSearchTerm={debouncedSearchTerm}
+            getStatusBadge={getStatusBadge}
+          />
+        )}
+      </CardContent>
     </Card>
   );
 };
