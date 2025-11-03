@@ -135,17 +135,17 @@ const Header = () => {
       
       <div className="ml-auto flex items-center gap-4">
         <div className="relative flex-1 md:grow-0">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-dyad-blue-foreground/70" />
           <Input
             type="search"
             placeholder="Search all records..."
             value={searchTerm}
             onChange={handleSearchChange}
-            className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px] border shadow-md"
+            className="w-full rounded-lg bg-dyad-blue text-dyad-blue-foreground placeholder:text-dyad-blue-foreground/70 pl-8 md:w-[200px] lg:w-[336px] border-dyad-blue-light"
           />
           {searchTerm && (
             <XCircle
-              className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground"
+              className="absolute right-2.5 top-2.5 h-4 w-4 text-dyad-blue-foreground/70 cursor-pointer hover:text-dyad-blue-foreground"
               onClick={clearSearch}
             />
           )}
