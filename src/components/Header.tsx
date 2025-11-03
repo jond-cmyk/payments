@@ -1,16 +1,54 @@
 "use client";
 
-import React from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { Menu } from 'lucide-react';
+import { Menu, Search, XCircle } from 'lucide-react';
 import Sidebar from './Sidebar';
 import PageTitle from './PageTitle';
-import { ThemeToggle } from './ThemeToggle'; // NEW: Import ThemeToggle
+import { ThemeToggle } from './ThemeToggle';
+import { Input } from '@/components/ui/input';
 
 const Header = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync search input with URL query param
+  useEffect(() => {
+    setSearchTerm(searchParams.get('q') || '');
+  }, [searchParams]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      if (term) {
+        // Always navigate to dashboard to show results
+        navigate(`/dashboard?q=${encodeURIComponent(term)}`);
+      } else {
+        // If search is cleared and we are on dashboard, remove query param.
+        if (location.pathname === '/dashboard') {
+          navigate('/dashboard');
+        }
+      }
+    }, 700);
+  };
+
+  const clearSearch = () => {
+    setSearchTerm('');
+    if (location.pathname === '/dashboard') {
+      navigate('/dashboard');
+    }
+  };
 
   // Function to get a user-friendly title based on the current path
   const getPageTitle = (pathname: string) => {
@@ -93,9 +131,26 @@ const Header = () => {
         </SheetContent>
       </Sheet>
 
-      <h2 className="text-xl font-semibold">{title.replace(' - KH Payments', '')}</h2>
+      <h2 className="text-xl font-semibold hidden md:block">{title.replace(' - KH Payments', '')}</h2>
+      
       <div className="ml-auto flex items-center gap-4">
-        <ThemeToggle /> {/* NEW: Add ThemeToggle here */}
+        <div className="relative flex-1 md:grow-0">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Search all records..."
+            value={searchTerm}
+            onChange={handleSearchChange}
+            className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px]"
+          />
+          {searchTerm && (
+            <XCircle
+              className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground cursor-pointer hover:text-foreground"
+              onClick={clearSearch}
+            />
+          )}
+        </div>
+        <ThemeToggle />
       </div>
     </header>
   );

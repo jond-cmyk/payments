@@ -1,11 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { XCircle } from 'lucide-react';
-
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
 import { useSession } from '@/integrations/supabase/SessionContext';
@@ -18,28 +14,13 @@ import { useCountry } from '@/integrations/supabase/CountryContext';
 // Define a union type for search results
 type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }) | (DirectDebit & { type: 'direct_debit' });
 
-interface GlobalSearchSectionProps {
-  onSearchTermChange: (term: string) => void;
+interface GlobalSearchResultsProps {
   debouncedSearchTerm: string;
 }
 
-const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermChange, debouncedSearchTerm }) => {
+const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSearchTerm }) => {
   const { session, userProfile } = useSession();
   const { currentCountry } = useCountry();
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Debounce for text inputs (filters and global search)
-  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleTextFilterChange = useCallback((value: string) => {
-    setSearchTerm(value);
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current);
-    }
-    debounceTimeoutRef.current = setTimeout(() => {
-      onSearchTermChange(value);
-    }, 700); // 700ms debounce for global search
-  }, [onSearchTermChange]);
 
   // --- Global Search Query ---
   const { data: searchResults, isLoading: isSearchLoading, error: searchError } = useQuery<SearchResult[]>({
@@ -242,36 +223,18 @@ const GlobalSearchSection: React.FC<GlobalSearchSectionProps> = ({ onSearchTermC
   }
 
   return (
-    <>
-      <div className="mb-8 flex items-center gap-2">
-        <Input
-          placeholder="Search all records..."
-          value={searchTerm}
-          onChange={(e) => handleTextFilterChange(e.target.value)}
-          className="flex-1 shadow-sm"
+    <Card className="shadow-sm">
+      {isSearchLoading ? (
+        <div className="p-4 text-center text-muted-foreground">Loading search results...</div>
+      ) : (
+        <GlobalSearchResultsTable
+          searchResults={searchResults}
+          debouncedSearchTerm={debouncedSearchTerm}
+          getStatusBadge={getStatusBadge}
         />
-        {searchTerm && (
-          <Button variant="outline" onClick={() => { setSearchTerm(''); onSearchTermChange(''); }} className="flex items-center gap-1 shadow-sm">
-            <XCircle className="h-4 w-4" /> Clear Search
-          </Button>
-        )}
-      </div>
-
-      {debouncedSearchTerm && (
-        <Card className="shadow-sm">
-          {isSearchLoading ? (
-            <div className="p-4 text-center text-muted-foreground">Loading search results...</div>
-          ) : (
-            <GlobalSearchResultsTable
-              searchResults={searchResults}
-              debouncedSearchTerm={debouncedSearchTerm}
-              getStatusBadge={getStatusBadge}
-            />
-          )}
-        </Card>
       )}
-    </>
+    </Card>
   );
 };
 
-export default GlobalSearchSection;
+export default GlobalSearchResults;

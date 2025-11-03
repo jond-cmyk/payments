@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useSession } from "@/integrations/supabase/SessionContext";
 import { useQueryClient } from "@tanstack/react-query";
 import { showInfo } from "@/utils/toast";
 
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import GlobalSearchSection from '@/components/dashboard/GlobalSearchSection';
+import GlobalSearchResults from '@/components/dashboard/GlobalSearchResults';
 import DashboardMainContent from '@/components/dashboard/DashboardMainContent';
 
 const ITEMS_PER_PAGE = 10;
@@ -17,10 +17,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
 
-  // Global Search state
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  // Global Search term from URL
+  const debouncedSearchTerm = searchParams.get('q') || '';
 
   // View mode state for requester toggle
   const [viewMode, setViewMode] = useState<'my' | 'all'>('my');
@@ -36,18 +36,6 @@ const Dashboard = () => {
     setItemsPerPage(value);
     setCurrentPage(1);
   };
-
-  // Effect to debounce global search term
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      console.log(`[Dashboard] Debounced global search term: ${searchTerm}`);
-      setDebouncedSearchTerm(searchTerm);
-    }, 700);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [searchTerm]);
 
   // Effect for auto-refreshing dashboard data every 2 minutes
   useEffect(() => {
@@ -91,7 +79,7 @@ const Dashboard = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="mb-8"> {/* Added mb-8 wrapper for spacing */}
+      <div className="mb-8">
         <DashboardHeader
           debouncedSearchTerm={debouncedSearchTerm}
           itemsPerPage={itemsPerPage}
@@ -101,8 +89,10 @@ const Dashboard = () => {
           onViewModeChange={setViewMode}
         />
       </div>
-      <GlobalSearchSection onSearchTermChange={setDebouncedSearchTerm} debouncedSearchTerm={debouncedSearchTerm} />
-      {!debouncedSearchTerm && (
+      
+      {debouncedSearchTerm ? (
+        <GlobalSearchResults debouncedSearchTerm={debouncedSearchTerm} />
+      ) : (
         <DashboardMainContent
           debouncedSearchTerm={debouncedSearchTerm}
           itemsPerPage={itemsPerPage}

@@ -38,21 +38,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
   const userRole = userProfile?.role || null;
 
-  const getTitle = () => {
-    if (debouncedSearchTerm) {
-      return `Search Results for "${debouncedSearchTerm}"`;
-    }
-    if (isAllRequestsPage) {
-      return 'All Payment Requests';
-    }
-    // Remove "Summary of Payment Requests" title from the main dashboard view
-    if (location.pathname === '/dashboard') {
-      return '';
-    }
-    return '';
-  };
-
-  const mainTitle = getTitle();
+  const mainTitle = isAllRequestsPage ? 'All Payment Requests' : '';
 
   const handleFeedbackSubmitted = () => {
     setIsFeedbackDialogOpen(false);
@@ -60,7 +46,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Row 1: Title (only if present, e.g., Search Results or All Requests) */}
+      {/* Row 1: Title (only if present, e.g., All Requests) */}
       {mainTitle && <h1 className="text-3xl font-bold">{mainTitle}</h1>}
       
       {/* Row 2: Country Selector (Left) and Action Buttons (Right) */}
