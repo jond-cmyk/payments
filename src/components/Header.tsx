@@ -141,7 +141,7 @@ const Header = () => {
             placeholder="Search all records..."
             value={searchTerm}
             onChange={handleSearchChange}
-            className="w-full rounded-lg bg-muted pl-8 md:w-[200px] lg:w-[336px] shadow-sm"
+            className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[336px] border shadow-md"
           />
           {searchTerm && (
             <XCircle
