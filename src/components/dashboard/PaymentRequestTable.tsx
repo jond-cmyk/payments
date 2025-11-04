@@ -125,53 +125,53 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   return (
     <>
       <div className="overflow-x-auto">
-        <Table>
+        <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('supplier_name')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[150px]" onClick={() => handleSort('supplier_name')}>
                 <div className="flex items-center">
                   Supplier Name {renderSortIcon('supplier_name')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('sku_number')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[100px]" onClick={() => handleSort('sku_number')}>
                 <div className="flex items-center">
                   SKU {renderSortIcon('sku_number')}
                 </div>
               </TableHead>
-              <TableHead className="th-resizable">Property Address</TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('date_payment_required')}>
+              <TableHead className="th-resizable w-[150px]">Property Address</TableHead>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('date_payment_required')}>
                 <div className="flex items-center">
                   Payment Due {renderSortIcon('date_payment_required')}
                 </div>
               </TableHead>
-              <TableHead className="th-resizable">Status</TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('created_at')}>
+              <TableHead className="th-resizable w-[130px]">Status</TableHead>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('created_at')}>
                 <div className="flex items-center">
                   Created {renderSortIcon('created_at')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_setup_date')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('payment_setup_date')}>
                 <div className="flex items-center">
                   Setup {renderSortIcon('payment_setup_date')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_approved_date')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('payment_approved_date')}>
                 <div className="flex items-center">
                   Approved {renderSortIcon('payment_approved_date')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('requester_id')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[150px]" onClick={() => handleSort('requester_id')}>
                 <div className="flex items-center">
                   Requester {renderSortIcon('requester_id')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('country')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('country')}>
                 <div className="flex items-center">
                   Country {renderSortIcon('country')}
                 </div>
               </TableHead>
-              {userRole === 'admin' && <TableHead className="text-center th-resizable">Urgent</TableHead>}
-              <TableHead className="text-right th-resizable">Actions</TableHead>
+              {userRole === 'admin' && <TableHead className="text-center th-resizable w-[70px]">Urgent</TableHead>}
+              <TableHead className="text-right th-resizable w-[110px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

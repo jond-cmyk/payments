@@ -665,7 +665,7 @@ const DirectDebits = () => {
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead className="th-resizable">Property Address</TableHead>
+                    <TableHead className="th-resizable w-[150px]">Property Address</TableHead>
                     <TableHead className="th-resizable">Categories</TableHead>
                     <TableHead className="th-resizable">Total Amount</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_day')}>
@@ -704,7 +704,7 @@ const DirectDebits = () => {
                         <TableCell>
                           {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
                         </TableCell>
-                        <TableCell className="truncate">
+                        <TableCell>
                           {debit.not_property_related ? 'N/A' : getAddressFromSku(debit.sku)}
                         </TableCell>
                         <TableCell>

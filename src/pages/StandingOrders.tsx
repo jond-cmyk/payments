@@ -711,7 +711,7 @@ const StandingOrders = () => {
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead className="th-resizable">Property Address</TableHead>
+                    <TableHead className="th-resizable w-[150px]">Property Address</TableHead>
                     <TableHead className="th-resizable">Categories</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('total_amount')}>
                       <div className="flex items-center">
@@ -762,7 +762,7 @@ const StandingOrders = () => {
                       <TableCell>
                         {order.not_property_related ? 'N/A (Not Property Related)' : (order.sku || 'N/A')}
                       </TableCell>
-                      <TableCell className="truncate">
+                      <TableCell>
                         {order.not_property_related ? 'N/A' : getAddressFromSku(order.sku)}
                       </TableCell>
                       <TableCell>
