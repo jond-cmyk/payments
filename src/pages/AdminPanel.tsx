@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import PageTitle from '@/components/PageTitle';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Upload, Banknote, Repeat, MessageSquareText, Globe, Settings } from 'lucide-react';
+import { Users, Upload, Banknote, Repeat, MessageSquareText, Globe, Settings, Building2 } from 'lucide-react';
 import { showError } from '@/utils/toast';
 
 const adminLinks = [
@@ -44,6 +44,12 @@ const adminLinks = [
     icon: <Globe className="h-8 w-8 text-dyad-blue" />,
     title: 'E-conomic Integration',
     description: 'Test and manage the integration with e-conomic.',
+  },
+  {
+    to: '/admin/departments',
+    icon: <Building2 className="h-8 w-8 text-dyad-blue" />,
+    title: 'Departments',
+    description: 'View and manage e-conomic departments.',
   },
 ];
 

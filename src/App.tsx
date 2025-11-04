@@ -29,6 +29,7 @@ import ProfilePage from "./pages/Profile";
 import Statistics from "./pages/Statistics";
 import EconomicIntegration from "./pages/EconomicIntegration";
 import AdminPanel from "./pages/AdminPanel";
+import AdminDepartments from "./pages/AdminDepartments";
 import { SessionContextProvider, useSession } from "./integrations/supabase/SessionContext";
 import { NotificationProvider } from "./integrations/supabase/NotificationContext";
 import { CountryProvider } from "./integrations/supabase/CountryContext";
@@ -106,6 +107,7 @@ const App = () => {
                       <Route path="/notifications" element={<NotificationsPage />} />
                       <Route path="/admin/feedback" element={<AdminFeedback />} />
                       <Route path="/admin/economic-integration" element={<EconomicIntegration />} />
+                      <Route path="/admin/departments" element={<AdminDepartments />} />
                     </Route>
 
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
