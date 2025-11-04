@@ -16,10 +16,6 @@ const PropertyAddressField: React.FC<PropertyAddressFieldProps> = ({ skuValue, c
   const { data: departments, isLoading, error } = useDepartments(country);
 
   useEffect(() => {
-    if (country !== 'Switzerland') {
-      return; // Don't do anything if not in Switzerland
-    }
-
     if (!skuValue) {
       setAddress('Enter a valid SKU to see the address.');
       return;
@@ -46,11 +42,6 @@ const PropertyAddressField: React.FC<PropertyAddressFieldProps> = ({ skuValue, c
     setAddress(department ? department.name : 'No Address Found');
 
   }, [skuValue, country, departments, isLoading, error]);
-
-  // Only render the component if the country is Switzerland
-  if (country !== 'Switzerland') {
-    return null;
-  }
 
   return (
     <div className="space-y-2">

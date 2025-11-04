@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +11,7 @@ import { FileText, CheckCircle, Clock, XCircle, FileX, Trash2, UserPlus, Filter,
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { exportToCsv } from '@/utils/exportToCsv';
+import { useDepartments } from '@/hooks/useDepartments';
 
 import {
   Table,
@@ -80,6 +81,22 @@ const MissingReceipts = () => {
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof Transaction | null>('transaction_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // NEW: Fetch departments
+  const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
+
+  // NEW: Create a map for quick SKU to address lookup
+  const departmentMap = useMemo(() => {
+    if (!departments) return new Map<number, string>();
+    return new Map(departments.map(d => [d.departmentNumber, d.name]));
+  }, [departments]);
+
+  const getAddressFromSku = (sku: string | null | undefined): string => {
+    if (!sku) return 'N/A';
+    const numericSku = parseInt(sku.replace(/\D/g, ''), 10);
+    if (isNaN(numericSku)) return 'N/A';
+    return departmentMap.get(numericSku) || 'Not Found';
+  };
 
   // Debounce for text inputs
   const debounceTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -410,7 +427,7 @@ const MissingReceipts = () => {
     return items;
   };
 
-  if (isSessionLoading || isTransactionsLoading || isProfilesLoading) {
+  if (isSessionLoading || isTransactionsLoading || isProfilesLoading || isLoadingDepartments) {
     return <div className="flex items-center justify-center h-full text-lg">Loading missing receipts...</div>;
   }
 
@@ -645,6 +662,7 @@ const MissingReceipts = () => {
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
+                    <TableHead className="th-resizable w-[150px]">Property Address</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('reason_for_payment')}>
                       <div className="flex items-center">
                         Reason for Payment {renderSortIcon('reason_for_payment')}
@@ -675,6 +693,9 @@ const MissingReceipts = () => {
                       <TableCell>{transaction.currency} {transaction.amount.toFixed(2)}</TableCell>
                       <TableCell>{getStatusBadge(transaction.status)}</TableCell>
                       <TableCell>{transaction.sku || 'N/A'}</TableCell>
+                      <TableCell>
+                        {transaction.not_sku_related ? 'N/A' : getAddressFromSku(transaction.sku)}
+                      </TableCell>
                       <TableCell>{transaction.reason_for_payment || 'N/A'}</TableCell>
                       <TableCell>
                         <Select
