@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // @ts-ignore
 serve(async (req) => {
-  console.log("[economic-proxy] --- FUNCTION START (v1.0.16) ---");
+  console.log("[economic-proxy] --- FUNCTION START (v1.0.18) ---");
   console.log("[economic-proxy] Request URL:", req.url);
   console.log("[economic-proxy] Request Method:", req.method);
 
@@ -18,27 +18,24 @@ serve(async (req) => {
   }
 
   try {
-    // Get default (UK) tokens
+    // Get UK tokens
     // @ts-ignore
-    const defaultAppSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
+    const ukAppSecretToken = Deno.env.get("ECONOMIC_APP_UK_SECRET_TOKEN");
     // @ts-ignore
-    const defaultAgreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
+    const ukAgreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_UK_GRANT_TOKEN");
 
-    // Get Swiss tokens
+    // Get Swiss tokens (with fallback to older names)
     // @ts-ignore
-    const swissAppSecretToken = Deno.env.get("SWISS_ECONOMIC_APP_SECRET_TOKEN");
+    let swissAppSecretToken = Deno.env.get("SWISS_ECONOMIC_APP_SECRET_TOKEN");
     // @ts-ignore
-    const swissAgreementGrantToken = Deno.env.get("SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN");
-
-    if (!defaultAppSecretToken || !defaultAgreementGrantToken) {
-      console.error("[economic-proxy] Missing default ECONOMIC_APP_SECRET_TOKEN or ECONOMIC_AGREEMENT_GRANT_TOKEN.");
-      return new Response(
-        JSON.stringify({
-          error:
-            "Missing default e-conomic secrets. Set both in Supabase → Edge Functions → Manage Secrets.",
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    let swissAgreementGrantToken = Deno.env.get("SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN");
+    if (!swissAppSecretToken) {
+      // @ts-ignore
+      swissAppSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
+    }
+    if (!swissAgreementGrantToken) {
+      // @ts-ignore
+      swissAgreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
     }
 
     const rawBody = await req.text();
@@ -69,7 +66,7 @@ serve(async (req) => {
     if (!country) {
       console.error("[economic-proxy] Missing 'country' in request body.");
       return new Response(
-        JSON.stringify({ error: "Missing 'country' in request body. Please specify 'Switzerland' or another country." }),
+        JSON.stringify({ error: "Missing 'country' in request body. Please specify 'Switzerland' or 'United Kingdom'." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -79,20 +76,36 @@ serve(async (req) => {
 
     if (country === 'Switzerland') {
       if (!swissAppSecretToken || !swissAgreementGrantToken) {
-        console.error("[economic-proxy] Missing SWISS_ECONOMIC_APP_SECRET_TOKEN or SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN for Switzerland request.");
+        console.error("[economic-proxy] Missing Swiss e-conomic secrets.");
         return new Response(
           JSON.stringify({
             error:
-              "Missing Swiss e-conomic secrets. Set both SWISS_ECONOMIC_APP_SECRET_TOKEN and SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN in Supabase Secrets.",
+              "Missing Swiss e-conomic secrets. Set SWISS_ECONOMIC_APP_SECRET_TOKEN and SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN (or the older names) in Supabase Secrets.",
           }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
       activeAppSecretToken = swissAppSecretToken;
       activeAgreementGrantToken = swissAgreementGrantToken;
+    } else if (country === 'United Kingdom') {
+      if (!ukAppSecretToken || !ukAgreementGrantToken) {
+        console.error("[economic-proxy] Missing UK e-conomic secrets.");
+        return new Response(
+          JSON.stringify({
+            error:
+              "Missing UK e-conomic secrets. Set both ECONOMIC_APP_UK_SECRET_TOKEN and ECONOMIC_AGREEMENT_UK_GRANT_TOKEN in Supabase Secrets.",
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      activeAppSecretToken = ukAppSecretToken;
+      activeAgreementGrantToken = ukAgreementGrantToken;
     } else {
-      activeAppSecretToken = defaultAppSecretToken;
-      activeAgreementGrantToken = defaultAgreementGrantToken;
+      console.error(`[economic-proxy] Unsupported country: ${country}`);
+      return new Response(
+        JSON.stringify({ error: `Unsupported country specified: ${country}. Supported countries are 'Switzerland' and 'United Kingdom'.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;

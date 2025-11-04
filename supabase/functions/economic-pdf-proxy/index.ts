@@ -14,23 +14,24 @@ serve(async (req) => {
   }
 
   try {
-    // Get default (UK) tokens
+    // Get UK tokens
     // @ts-ignore
-    const defaultAppSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
+    const ukAppSecretToken = Deno.env.get("ECONOMIC_APP_UK_SECRET_TOKEN");
     // @ts-ignore
-    const defaultAgreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
+    const ukAgreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_UK_GRANT_TOKEN");
 
-    // Get Swiss tokens
+    // Get Swiss tokens (with fallback to older names)
     // @ts-ignore
-    const swissAppSecretToken = Deno.env.get("SWISS_ECONOMIC_APP_SECRET_TOKEN");
+    let swissAppSecretToken = Deno.env.get("SWISS_ECONOMIC_APP_SECRET_TOKEN");
     // @ts-ignore
-    const swissAgreementGrantToken = Deno.env.get("SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN");
-
-    if (!defaultAppSecretToken || !defaultAgreementGrantToken) {
-      return new Response(
-        JSON.stringify({ error: "Missing default e-conomic secrets." }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    let swissAgreementGrantToken = Deno.env.get("SWISS_ECONOMIC_AGREEMENT_GRANT_TOKEN");
+    if (!swissAppSecretToken) {
+      // @ts-ignore
+      swissAppSecretToken = Deno.env.get("ECONOMIC_APP_SECRET_TOKEN");
+    }
+    if (!swissAgreementGrantToken) {
+      // @ts-ignore
+      swissAgreementGrantToken = Deno.env.get("ECONOMIC_AGREEMENT_GRANT_TOKEN");
     }
 
     // Extract path and country from query parameters
@@ -57,9 +58,20 @@ serve(async (req) => {
       }
       activeAppSecretToken = swissAppSecretToken;
       activeAgreementGrantToken = swissAgreementGrantToken;
+    } else if (country === 'United Kingdom') {
+      if (!ukAppSecretToken || !ukAgreementGrantToken) {
+        return new Response(
+          JSON.stringify({ error: "Missing UK e-conomic secrets." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+      activeAppSecretToken = ukAppSecretToken;
+      activeAgreementGrantToken = ukAgreementGrantToken;
     } else {
-      activeAppSecretToken = defaultAppSecretToken;
-      activeAgreementGrantToken = defaultAgreementGrantToken;
+      return new Response(
+        JSON.stringify({ error: `Unsupported country specified: ${country}.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const baseUrl = "https://restapi.e-conomic.com";
@@ -71,7 +83,7 @@ serve(async (req) => {
       "User-Agent": "SupabaseEdge/1.0",
     };
 
-    console.log(`[economic-pdf-proxy] Fetching PDF URL for ${country}: ${fullUrl}. Version: 1.0.2`);
+    console.log(`[economic-pdf-proxy] Fetching PDF URL for ${country}: ${fullUrl}. Version: 1.0.4`);
 
     const response = await fetch(fullUrl, {
       method: "GET",
