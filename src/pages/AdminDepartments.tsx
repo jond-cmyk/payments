@@ -34,7 +34,7 @@ const AdminDepartments = () => {
     queryKey: ['economicDepartments', currentCountry],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: "/departments", method: "GET", country: currentCountry },
+        body: { path: "/departments?pagesize=1000", method: "GET", country: currentCountry },
       });
 
       if (error) throw new Error(error.message);
