@@ -655,37 +655,37 @@ const DirectDebits = () => {
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payee')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[150px]" onClick={() => handleSort('payee')}>
                       <div className="flex items-center">
                         Payee {renderSortIcon('payee')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('sku')}>
                       <div className="flex items-center">
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead>Property Address</TableHead>
+                    <TableHead className="w-[150px]">Property Address</TableHead>
                     <TableHead>Categories</TableHead>
                     <TableHead>Total Amount</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
                         Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
                     <TableHead>Payment Reference</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('status')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('country')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('country')}>
                       <div className="flex items-center">
                         Country {renderSortIcon('country')}
                       </div>
                     </TableHead>
                     <TableHead>Supplier Account Number</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right w-[200px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -701,7 +701,7 @@ const DirectDebits = () => {
                           />
                         </TableCell>
                         <TableCell className="font-medium w-[150px] truncate">{debit.payee}</TableCell>
-                        <TableCell>
+                        <TableCell className="w-[120px]">
                           {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
                         </TableCell>
                         <TableCell className="w-[150px] truncate">
@@ -719,12 +719,12 @@ const DirectDebits = () => {
                           ) : 'N/A'}
                         </TableCell>
                         <TableCell>{formatAmount(debit.total_amount)}</TableCell>
-                        <TableCell>{debit.payment_day !== null && debit.payment_day !== undefined ? debit.payment_day : 'N/A'}</TableCell>
+                        <TableCell className="w-[120px]">{debit.payment_day !== null && debit.payment_day !== undefined ? debit.payment_day : 'N/A'}</TableCell>
                         <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
-                        <TableCell>{getStatusBadge(debit.status)}</TableCell>
-                        <TableCell>{debit.country}</TableCell>
+                        <TableCell className="w-[120px]">{getStatusBadge(debit.status)}</TableCell>
+                        <TableCell className="w-[120px]">{debit.country}</TableCell>
                         <TableCell>{debit.account_number}</TableCell>
-                        <TableCell className="text-right flex items-center justify-end space-x-2">
+                        <TableCell className="text-right flex items-center justify-end space-x-2 w-[200px]">
                           <Button
                             variant="outline"
                             size="sm"

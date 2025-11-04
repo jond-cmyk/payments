@@ -128,68 +128,68 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('supplier_name')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[150px]" onClick={() => handleSort('supplier_name')}>
                 <div className="flex items-center">
                   Supplier Name {renderSortIcon('supplier_name')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku_number')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('sku_number')}>
                 <div className="flex items-center">
                   SKU Number {renderSortIcon('sku_number')}
                 </div>
               </TableHead>
-              <TableHead>Property Address</TableHead>
-              <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('date_payment_required')}>
+              <TableHead className="w-[150px]">Property Address</TableHead>
+              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('date_payment_required')}>
                 <div className="flex items-center">
                   Payment Required {renderSortIcon('date_payment_required')}
                 </div>
               </TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('created_at')}>
+              <TableHead className="w-[150px]">Status</TableHead>
+              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('created_at')}>
                 <div className="flex items-center">
                   Created At {renderSortIcon('created_at')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_setup_date')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_setup_date')}>
                 <div className="flex items-center">
                   Payment Setup Date {renderSortIcon('payment_setup_date')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_approved_date')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_approved_date')}>
                 <div className="flex items-center">
                   Payment Approved Date {renderSortIcon('payment_approved_date')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('requester_id')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[150px]" onClick={() => handleSort('requester_id')}>
                 <div className="flex items-center">
                   Requester {renderSortIcon('requester_id')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('country')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('country')}>
                 <div className="flex items-center">
                   Country {renderSortIcon('country')}
                 </div>
               </TableHead>
-              {userRole === 'admin' && <TableHead className="text-center">Urgent</TableHead>}
-              <TableHead className="text-right">Actions</TableHead>
+              {userRole === 'admin' && <TableHead className="text-center w-[80px]">Urgent</TableHead>}
+              <TableHead className="text-right w-[120px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               Array.from({ length: itemsPerPage === 'all' ? 10 : itemsPerPage as number }).map((_, index) => (
                 <TableRow key={index}>
-                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   {userRole === 'admin' && <TableCell className="text-center"><Skeleton className="h-6 w-10 mx-auto" /></TableCell>}
-                  <TableCell className="text-right"><Skeleton className="h-8 w-[100px] ml-auto" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-8 w-full ml-auto" /></TableCell>
                 </TableRow>
               ))
             ) : (
@@ -206,30 +206,30 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                     )}
                   >
                     <TableCell className="font-medium w-[150px] truncate">{request.supplier_name}</TableCell>
-                    <TableCell>{request.sku_number}</TableCell>
+                    <TableCell className="w-[120px]">{request.sku_number}</TableCell>
                     <TableCell className="w-[150px] truncate">
                       {request.not_sku_related ? 'N/A' : getAddressFromSku(request.sku_number)}
                     </TableCell>
-                    <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
-                    <TableCell>
+                    <TableCell className="w-[120px]">{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
+                    <TableCell className="w-[150px]">
                       {getStatusBadge(request.status, 'payment_request')}
                     </TableCell>
-                    <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
-                    <TableCell>
+                    <TableCell className="w-[120px]">{format(new Date(request.created_at), 'PPP')}</TableCell>
+                    <TableCell className="w-[120px]">
                       {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="w-[120px]">
                       {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
                     </TableCell>
-                    <TableCell>{requesterName || 'N/A'}</TableCell>
-                    <TableCell>
+                    <TableCell className="w-[150px] truncate">{requesterName || 'N/A'}</TableCell>
+                    <TableCell className="w-[120px]">
                       <div className="flex items-center gap-2">
                         <CountryFlag countryName={request.country} />
                         <span>{request.country}</span>
                       </div>
                     </TableCell>
                     {userRole === 'admin' && (
-                      <TableCell className="text-center">
+                      <TableCell className="text-center w-[80px]">
                         <Switch
                           checked={request.is_urgent}
                           onCheckedChange={() => handleToggleUrgent(request.id, request.is_urgent)}
@@ -238,7 +238,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                         />
                       </TableCell>
                     )}
-                    <TableCell className="text-right">
+                    <TableCell className="text-right w-[120px]">
                       <Button
                         asChild
                         variant="outline"

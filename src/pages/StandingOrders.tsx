@@ -701,49 +701,49 @@ const StandingOrders = () => {
                         disabled={!isAdmin}
                       />
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payee')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[150px]" onClick={() => handleSort('payee')}>
                       <div className="flex items-center">
                         Payee {renderSortIcon('payee')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('sku')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('sku')}>
                       <div className="flex items-center">
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead>Property Address</TableHead>
+                    <TableHead className="w-[150px]">Property Address</TableHead>
                     <TableHead>Categories</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('total_amount')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('total_amount')}>
                       <div className="flex items-center">
                         Amount {renderSortIcon('total_amount')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_date')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_date')}>
                       <div className="flex items-center">
                         Start Date {renderSortIcon('payment_date')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_end_date')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_end_date')}>
                       <div className="flex items-center">
                         End Date {renderSortIcon('payment_end_date')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
                         Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('status')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('country')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('country')}>
                       <div className="flex items-center">
                         Country {renderSortIcon('country')}
                       </div>
                     </TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right w-[200px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -759,7 +759,7 @@ const StandingOrders = () => {
                         />
                       </TableCell>
                       <TableCell className="font-medium w-[150px] truncate">{order.payee}</TableCell>
-                      <TableCell>
+                      <TableCell className="w-[120px]">
                         {order.not_property_related ? 'N/A (Not Property Related)' : (order.sku || 'N/A')}
                       </TableCell>
                       <TableCell className="w-[150px] truncate">
@@ -776,13 +776,13 @@ const StandingOrders = () => {
                           </div>
                         ) : 'N/A'}
                       </TableCell>
-                      <TableCell>{formatAmount(order.total_amount)}</TableCell>
-                      <TableCell>{format(new Date(order.payment_date), 'PPP')}</TableCell>
-                      <TableCell>{order.payment_end_date ? format(new Date(order.payment_end_date), 'PPP') : 'No end date'}</TableCell>
-                      <TableCell>{order.payment_day ? `Day ${order.payment_day}` : 'N/A'}</TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
-                      <TableCell>{order.country}</TableCell>
-                      <TableCell className="text-right flex items-center justify-end space-x-2">
+                      <TableCell className="w-[120px]">{formatAmount(order.total_amount)}</TableCell>
+                      <TableCell className="w-[120px]">{format(new Date(order.payment_date), 'PPP')}</TableCell>
+                      <TableCell className="w-[120px]">{order.payment_end_date ? format(new Date(order.payment_end_date), 'PPP') : 'No end date'}</TableCell>
+                      <TableCell className="w-[120px]">{order.payment_day ? `Day ${order.payment_day}` : 'N/A'}</TableCell>
+                      <TableCell className="w-[120px]">{getStatusBadge(order.status)}</TableCell>
+                      <TableCell className="w-[120px]">{order.country}</TableCell>
+                      <TableCell className="text-right flex items-center justify-end space-x-2 w-[200px]">
                         <Button
                           variant="outline"
                           size="sm"
