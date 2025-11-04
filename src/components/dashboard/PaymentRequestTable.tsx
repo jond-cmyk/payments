@@ -50,6 +50,7 @@ interface PaymentRequestTableProps {
   totalItems: number; // New prop
   onPageChange: (page: number) => void; // New prop
   isLoading: boolean; // NEW: Add isLoading prop
+  isAllRequestsPage: boolean;
 }
 
 const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
@@ -66,6 +67,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   totalItems,
   onPageChange,
   isLoading, // NEW: Destructure isLoading
+  isAllRequestsPage,
 }) => {
   const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / (itemsPerPage as number));
 
@@ -125,53 +127,57 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   return (
     <>
       <div className="overflow-x-auto">
-        <Table className="w-full table-fixed">
+        <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[150px]" onClick={() => handleSort('supplier_name')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('supplier_name')}>
                 <div className="flex items-center">
                   Supplier Name {renderSortIcon('supplier_name')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[100px]" onClick={() => handleSort('sku_number')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('sku_number')}>
                 <div className="flex items-center">
                   SKU {renderSortIcon('sku_number')}
                 </div>
               </TableHead>
-              <TableHead className="th-resizable w-[150px]">Property Address</TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('date_payment_required')}>
+              <TableHead className="th-resizable w-[200px]">Property Address</TableHead>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('date_payment_required')}>
                 <div className="flex items-center">
                   Payment Due {renderSortIcon('date_payment_required')}
                 </div>
               </TableHead>
-              <TableHead className="th-resizable w-[130px]">Status</TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('created_at')}>
+              <TableHead className="th-resizable">Status</TableHead>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('created_at')}>
                 <div className="flex items-center">
                   Created {renderSortIcon('created_at')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('payment_setup_date')}>
-                <div className="flex items-center">
-                  Setup {renderSortIcon('payment_setup_date')}
-                </div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('payment_approved_date')}>
-                <div className="flex items-center">
-                  Approved {renderSortIcon('payment_approved_date')}
-                </div>
-              </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[150px]" onClick={() => handleSort('requester_id')}>
+              {!isAllRequestsPage && (
+                <>
+                  <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_setup_date')}>
+                    <div className="flex items-center">
+                      Setup {renderSortIcon('payment_setup_date')}
+                    </div>
+                  </TableHead>
+                  <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_approved_date')}>
+                    <div className="flex items-center">
+                      Approved {renderSortIcon('payment_approved_date')}
+                    </div>
+                  </TableHead>
+                </>
+              )}
+              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('requester_id')}>
                 <div className="flex items-center">
                   Requester {renderSortIcon('requester_id')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary th-resizable w-[110px]" onClick={() => handleSort('country')}>
+              <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('country')}>
                 <div className="flex items-center">
                   Country {renderSortIcon('country')}
                 </div>
               </TableHead>
-              {userRole === 'admin' && <TableHead className="text-center th-resizable w-[70px]">Urgent</TableHead>}
-              <TableHead className="text-right th-resizable w-[110px]">Actions</TableHead>
+              {userRole === 'admin' && <TableHead className="text-center th-resizable">Urgent</TableHead>}
+              <TableHead className="text-right th-resizable">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -184,8 +190,8 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  {!isAllRequestsPage && <TableCell><Skeleton className="h-4 w-full" /></TableCell>}
+                  {!isAllRequestsPage && <TableCell><Skeleton className="h-4 w-full" /></TableCell>}
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   {userRole === 'admin' && <TableCell className="text-center"><Skeleton className="h-6 w-10 mx-auto" /></TableCell>}
@@ -207,7 +213,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                   >
                     <TableCell className="font-medium">{request.supplier_name}</TableCell>
                     <TableCell>{request.sku_number}</TableCell>
-                    <TableCell>
+                    <TableCell className="max-w-[200px] break-words">
                       {request.not_sku_related ? 'N/A' : getAddressFromSku(request.sku_number)}
                     </TableCell>
                     <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
@@ -215,12 +221,16 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                       {getStatusBadge(request.status, 'payment_request')}
                     </TableCell>
                     <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
-                    <TableCell>
-                      {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
-                    </TableCell>
-                    <TableCell>
-                      {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
-                    </TableCell>
+                    {!isAllRequestsPage && (
+                      <>
+                        <TableCell>
+                          {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
+                        </TableCell>
+                        <TableCell>
+                          {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
+                        </TableCell>
+                      </>
+                    )}
                     <TableCell>{requesterName || 'N/A'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

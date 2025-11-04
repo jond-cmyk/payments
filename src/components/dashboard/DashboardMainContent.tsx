@@ -425,7 +425,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
       case 'active': // For Direct Debits and Standing Orders
         className = 'bg-green-500 text-green-50';
         break;
-      case 'cancelled':
+      case 'cancelled': // For Direct Debits and Standing Orders
         className = 'bg-orange-500 text-orange-50';
         break;
       case 'awaiting_info': // For Direct Debits and Standing Orders
@@ -561,6 +561,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
             totalItems={totalItems}
             onPageChange={setCurrentPage}
             isLoading={isRequestsTableLoading || isLoadingDepartments}
+            isAllRequestsPage={isAllRequestsPage}
           />
         </Card>
       ) : (
