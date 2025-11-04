@@ -20,6 +20,7 @@ import { Transaction } from '@/types/supabase';
 import PrefixedInput from '@/components/PrefixedInput'; // Import PrefixedInput
 import { transactionDetailSchema, TransactionDetailSchema } from '@/schemas/transactionSchema'; // Import centralized schema
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 interface TransactionEditFormCardProps {
   transaction: Transaction;
@@ -42,6 +43,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
 
   // Watch the not_sku_related field to dynamically update validation and input state
   const notSkuRelated = form.watch("not_sku_related");
+  const skuValue = form.watch("sku");
 
   // Filter category options based on the transaction's country
   const filteredCategoryOptions = categoryOptions.filter(option =>
@@ -123,6 +125,7 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
                 </FormItem>
               )}
             />
+            <PropertyAddressField skuValue={skuValue} country={transaction.country} />
             <FormField
               control={form.control}
               name="not_sku_related"

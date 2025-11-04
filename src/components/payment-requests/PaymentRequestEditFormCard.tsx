@@ -24,6 +24,7 @@ import { Separator } from '@/components/ui/separator';
 import { PaymentRequest, PayeeSuggestion } from '@/types/supabase';
 import { categoryOptions } from '@/lib/constants';
 import { majorCurrencies, EditFormSchema } from '@/schemas/paymentRequestSchema';
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 interface PaymentRequestEditFormCardProps {
   request: PaymentRequest;
@@ -60,6 +61,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   // Watch fields
   const notSkuRelated = editForm.watch("not_sku_related");
   const formCountry = editForm.watch("country");
+  const skuValue = editForm.watch("sku_number");
   const skuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
 
   const watchedCategories = useWatch({
@@ -384,6 +386,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 </FormItem>
               )}
             />
+            <PropertyAddressField skuValue={skuValue} country={formCountry} />
             <FormField
               control={editForm.control}
               name="not_sku_related"

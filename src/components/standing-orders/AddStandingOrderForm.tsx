@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
 import { Card, CardTitle } from '@/components/ui/card'; // Import Card and CardTitle for suggestions
 import { Separator } from '@/components/ui/separator'; // Import Separator
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -230,6 +231,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
+  const skuValue = form.watch("sku");
   const isAdmin = userProfile?.role === 'admin';
   
   // Watch the entire categories array for changes
@@ -480,14 +482,13 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             <FormItem>
               <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
               <FormControl>
-                <Input
-                  placeholder="e.g., Rent Co."
-                  {...field}
+                <Input 
+                  placeholder="e.g., Rent Co." 
+                  {...field} 
                   onBlur={(e) => {
                     field.onBlur();
                     handlePayeeBlur();
                   }}
-                  disabled={form.formState.isSubmitting || isSearchingPayee}
                 />
               </FormControl>
               <FormMessage />
@@ -655,6 +656,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             </FormItem>
           )}
         />
+        <PropertyAddressField skuValue={skuValue} country={formCountry} />
         <FormField
           control={form.control}
           name="not_property_related"
@@ -985,8 +987,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
         </Button>
       </form>
-
-      {/* Payee Suggestions Dialog */}
       <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>

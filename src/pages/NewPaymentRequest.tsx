@@ -26,6 +26,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
 import { Separator } from '@/components/ui/separator'; // Import Separator
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 // Define the Zod schema for form validation (replicated from schema file for local use)
 const formSchema = z.object({
@@ -49,7 +50,7 @@ const formSchema = z.object({
   }),
   invoice_pdf: z.any()
     .refine((files) => files?.length > 0, "At least one Invoice document is required.")
-    .refine((files) => Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024, "Max file size is 5MB per file."))
+    .refine((files) => Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
     .refine((files) => Array.from(files as FileList).every(file => file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png"), "Only .pdf, .jpg, .jpeg, .png files are accepted."),
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false),
@@ -250,6 +251,7 @@ const NewPaymentRequest = () => {
   // Watch fields
   const notSkuRelated = form.watch("not_sku_related");
   const formCountry = form.watch("country");
+  const skuValue = form.watch("sku_number");
   const watchedCategories = useWatch({ // NEW: Watch categories for total calculation
     control: form.control,
     name: "categories",
@@ -719,6 +721,7 @@ const NewPaymentRequest = () => {
                   </FormItem>
                 )}
               />
+              <PropertyAddressField skuValue={skuValue} country={formCountry} />
               <FormField
                 control={form.control}
                 name="not_sku_related"

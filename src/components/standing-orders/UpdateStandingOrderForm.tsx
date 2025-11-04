@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
 import { Card, CardTitle } from '@/components/ui/card'; // Import Card and CardTitle for suggestions
 import { Separator } from '@/components/ui/separator'; // Import Separator
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
@@ -227,6 +228,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
+  const skuValue = form.watch("sku");
   const isAdmin = userProfile?.role === 'admin';
 
   const watchedCategories = useWatch({
@@ -673,7 +675,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               </FormItem>
             )}
           />
-
+          <PropertyAddressField skuValue={skuValue} country={formCountry} />
           <FormField
             control={form.control}
             name="not_property_related"

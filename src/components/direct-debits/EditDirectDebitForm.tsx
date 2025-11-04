@@ -22,6 +22,7 @@ import PrefixedInput from '@/components/PrefixedInput';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Card } from '@/components/ui/card';
 import MultiSelectFormField from '@/components/MultiSelectFormField';
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 // Zod schema for editing a direct debit
 const editDirectDebitFormSchema = z.object({
@@ -130,6 +131,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
+  const skuValue = form.watch("sku");
   const isAdmin = userProfile?.role === 'admin';
   const isRequester = user?.id === directDebit.requester_id;
 
@@ -344,6 +346,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               </FormItem>
             )}
           />
+          <PropertyAddressField skuValue={skuValue} country={formCountry} />
           <FormField
             control={form.control}
             name="not_property_related"
