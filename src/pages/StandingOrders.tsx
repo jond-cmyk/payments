@@ -689,11 +689,11 @@ const StandingOrders = () => {
 
           {standingOrders && standingOrders.length > 0 ? (
             <div className="overflow-x-auto">
-              <Table className="table-fixed w-full">
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow>
                     {/* NEW: Select-all checkbox column */}
-                    <TableHead className="w-12">
+                    <TableHead className="w-12 th-resizable">
                       <Checkbox
                         checked={isAllSelected}
                         onCheckedChange={(checked) => handleToggleSelectAll(!!checked)}
@@ -701,56 +701,56 @@ const StandingOrders = () => {
                         disabled={!isAdmin}
                       />
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payee')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payee')}>
                       <div className="flex items-center">
                         Payee {renderSortIcon('payee')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[100px]" onClick={() => handleSort('sku')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('sku')}>
                       <div className="flex items-center">
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead className="w-[120px]">Property Address</TableHead>
-                    <TableHead>Categories</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[100px]" onClick={() => handleSort('total_amount')}>
+                    <TableHead className="th-resizable">Property Address</TableHead>
+                    <TableHead className="th-resizable">Categories</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('total_amount')}>
                       <div className="flex items-center">
                         Amount {renderSortIcon('total_amount')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('payment_date')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_date')}>
                       <div className="flex items-center">
                         Start Date {renderSortIcon('payment_date')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('payment_end_date')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_end_date')}>
                       <div className="flex items-center">
                         End Date {renderSortIcon('payment_end_date')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[100px]" onClick={() => handleSort('payment_day')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
                         Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('status')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('country')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('country')}>
                       <div className="flex items-center">
                         Country {renderSortIcon('country')}
                       </div>
                     </TableHead>
-                    <TableHead className="text-right w-[180px]">Actions</TableHead>
+                    <TableHead className="text-right th-resizable">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {standingOrders.map((order) => (
                     <TableRow key={order.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
                       {/* NEW: Row selection checkbox */}
-                      <TableCell className="w-12">
+                      <TableCell>
                         <Checkbox
                           checked={selectedStandingOrderIds.includes(order.id)}
                           onCheckedChange={(checked) => handleToggleSelect(order.id, !!checked)}

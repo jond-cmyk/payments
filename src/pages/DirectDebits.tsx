@@ -645,47 +645,47 @@ const DirectDebits = () => {
 
           {directDebits && directDebits.length > 0 ? (
             <div className="overflow-x-auto">
-              <Table className="table-fixed w-full">
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12">
+                    <TableHead className="w-12 th-resizable">
                       <Checkbox
                         checked={allVisibleSelected}
                         onCheckedChange={(checked) => toggleSelectAllVisible(Boolean(checked))}
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payee')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payee')}>
                       <div className="flex items-center">
                         Payee {renderSortIcon('payee')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[100px]" onClick={() => handleSort('sku')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('sku')}>
                       <div className="flex items-center">
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead className="w-[120px]">Property Address</TableHead>
-                    <TableHead>Categories</TableHead>
-                    <TableHead>Total Amount</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[100px]" onClick={() => handleSort('payment_day')}>
+                    <TableHead className="th-resizable">Property Address</TableHead>
+                    <TableHead className="th-resizable">Categories</TableHead>
+                    <TableHead className="th-resizable">Total Amount</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
                         Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
-                    <TableHead>Payment Reference</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('status')}>
+                    <TableHead className="th-resizable">Payment Reference</TableHead>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('country')}>
+                    <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('country')}>
                       <div className="flex items-center">
                         Country {renderSortIcon('country')}
                       </div>
                     </TableHead>
-                    <TableHead>Supplier Account Number</TableHead>
-                    <TableHead className="text-right w-[180px]">Actions</TableHead>
+                    <TableHead className="th-resizable">Supplier Account Number</TableHead>
+                    <TableHead className="text-right th-resizable">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -693,7 +693,7 @@ const DirectDebits = () => {
                     const isRequester = user?.id === debit.requester_id;
                     return (
                       <TableRow key={debit.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
-                        <TableCell className="w-12">
+                        <TableCell>
                           <Checkbox
                             checked={selectedIds.includes(debit.id)}
                             onCheckedChange={(checked) => toggleRowSelection(debit.id, Boolean(checked))}

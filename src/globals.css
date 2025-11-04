@@ -126,4 +126,10 @@
   h6 {
     @apply text-sm text-dyad-blue font-bold;
   }
+
+  .th-resizable {
+    resize: horizontal;
+    overflow: auto;
+    border-right: 1px solid hsl(var(--border));
+  }
 }

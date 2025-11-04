@@ -106,10 +106,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
   const { user, userProfile } = useSession();
   const { currentCountry, availableCountries, isCountryLocked } = useCountry();
 
-  const [payeeSuggestions, setPayeeSuggestions] = useState<PayeeSuggestion[]>([]);
-  const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
-  const [isSearchingPayee, setIsSearchingPayee] = useState(false);
-
   const initialCountry = currentCountry === 'all' ? 'Switzerland' : currentCountry;
 
   const form = useForm<z.infer<typeof addDirectDebitFormSchema>>({
@@ -148,66 +144,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       total_amount: 0,
     }));
   }, [formCountry, form]);
-
-  const handlePayeeBlur = async () => {
-    const payeeName = form.getValues('payee');
-    const currentFormCountry = form.getValues('country');
-
-    if (!payeeName || payeeName.trim() === '') {
-      setPayeeSuggestions([]);
-      setIsSuggestionDialogOpen(false);
-      return;
-    }
-
-    setIsSearchingPayee(true);
-    const toastId = showLoading("Searching for existing payees...");
-
-    try {
-      const { data, error } = await supabase.functions.invoke('search-all-payees', {
-        body: { searchTerm: payeeName, country: currentFormCountry },
-      });
-
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(data.error);
-
-      if (data && data.suggestions && data.suggestions.length > 0) {
-        setPayeeSuggestions(data.suggestions);
-        setIsSuggestionDialogOpen(true);
-        dismissToast(toastId);
-        showSuccess(`Found ${data.suggestions.length} existing payee suggestion(s)!`);
-      } else {
-        setPayeeSuggestions([]);
-        setIsSuggestionDialogOpen(false);
-        dismissToast(toastId);
-        showSuccess("No existing payee found with similar name. Please enter details manually.");
-      }
-    } catch (error: any) {
-      dismissToast(toastId);
-      showError(error.message || "Failed to search for existing payees.");
-      console.error("Payee search error:", error);
-      setPayeeSuggestions([]);
-      setIsSuggestionDialogOpen(false);
-    } finally {
-      setIsSearchingPayee(false);
-    }
-  };
-
-  const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
-    const options = { shouldValidate: true, shouldDirty: true };
-    form.setValue('payee', suggestion.name, options);
-    
-    const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
-    form.setValue('account_number', cleanAccountNumber, options);
-    
-    form.setValue('payment_reference', suggestion.payment_reference || '', options);
-    form.setValue('currency', suggestion.currency || undefined, options);
-    form.setValue('bank_account', suggestion.bank_account || undefined, options);
-    
-    form.setValue('categories', [], options);
-    form.setValue('total_amount', 0.00, options);
-
-    setIsSuggestionDialogOpen(false);
-  };
 
   const onSubmit = async (values: z.infer<typeof addDirectDebitFormSchema>) => {
     const toastId = showLoading("Adding new direct debit...");
@@ -316,10 +252,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
                 <Input 
                   placeholder="e.g., Electricity Company" 
                   {...field} 
-                  onBlur={(e) => {
-                    field.onBlur();
-                    handlePayeeBlur();
-                  }}
                 />
               </FormControl>
               <FormMessage />
@@ -546,52 +478,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           {form.formState.isSubmitting ? "Adding Direct Debit..." : "Add Direct Debit"}
         </Button>
       </form>
-      <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            {payeeSuggestions.length > 0 ? (
-              payeeSuggestions.map((suggestion, index) => (
-                <Card key={index} className="p-4 border shadow-sm">
-                  <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
-                  <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : 'Standing Order'}</p>
-                  <p className="text-sm text-muted-foreground">Account Name: {suggestion.bank_account_name || 'N/A'}</p>
-                  <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
-                  {suggestion.country === 'United Kingdom' ? (
-                    <>
-                      <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
-                      <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
-                      <p className="text-sm text-muted-foreground">Address: {suggestion.address || 'N/A'}</p>
-                      {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
-                    </>
-                  )}
-                  <Button
-                    onClick={() => handleUseSuggestion(suggestion)}
-                    className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
-                  >
-                    Use This Information
-                  </Button>
-                </Card>
-              ))
-            ) : (
-              <p className="text-center text-muted-foreground">No suggestions found.</p>
-            )}
-          </div>
-          <Button
-            variant="destructive"
-            onClick={() => setIsSuggestionDialogOpen(false)}
-            className="mt-4 w-full"
-          >
-            Enter New Details
-          </Button>
-        </DialogContent>
-      </Dialog>
     </Form>
   );
 };
