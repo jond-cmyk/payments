@@ -136,7 +136,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             <>
               <Dialog open={isAddDirectDebitDialogOpen} onOpenChange={setIsAddDirectDebitDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="lg">
+                  <Button size="lg" className="bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground">
                     <Banknote className="mr-2 h-5 w-5" />
                     New Direct Debit
                   </Button>
@@ -151,7 +151,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
               <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="lg">
+                  <Button size="lg" className="bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground">
                     <Repeat className="mr-2 h-5 w-5" />
                     New Standing Order
                   </Button>
@@ -164,9 +164,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                 </DialogContent>
               </Dialog>
 
-              <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
+              <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground" size="lg">
                 <PlusCircle className="mr-2 h-5 w-5" />
-                Create New Request
+                New Payment Request
               </Button>
             </>
           )}
