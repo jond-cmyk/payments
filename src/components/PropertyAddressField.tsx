@@ -26,7 +26,7 @@ const PropertyAddressField: React.FC<PropertyAddressFieldProps> = ({ skuValue, c
     }
 
     if (isLoading) {
-      setAddress('Loading property addresses...');
+      // The skeleton is shown during loading, so no need to set text.
       return;
     }
 
@@ -54,11 +54,11 @@ const PropertyAddressField: React.FC<PropertyAddressFieldProps> = ({ skuValue, c
 
   return (
     <div className="space-y-2">
-      <Label>Property Address</Label>
-      {isLoading && (!Array.isArray(departments) || departments.length === 0) ? (
+      <Label className="font-bold">Property Address</Label>
+      {isLoading ? (
         <Skeleton className="h-10 w-full" />
       ) : (
-        <Input value={address} readOnly disabled className="bg-muted/50 cursor-default" />
+        <Input value={address} readOnly disabled className="cursor-default text-foreground" />
       )}
     </div>
   );
