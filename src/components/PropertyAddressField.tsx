@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDepartments } from '@/hooks/useDepartments';
 import { Input } from '@/components/ui/input';
-import { FormLabel } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface PropertyAddressFieldProps {
@@ -54,8 +54,8 @@ const PropertyAddressField: React.FC<PropertyAddressFieldProps> = ({ skuValue, c
 
   return (
     <div className="space-y-2">
-      <FormLabel>Property Address</FormLabel>
-      {isLoading && !departments?.length ? (
+      <Label>Property Address</Label>
+      {isLoading && (!Array.isArray(departments) || departments.length === 0) ? (
         <Skeleton className="h-10 w-full" />
       ) : (
         <Input value={address} readOnly disabled className="bg-muted/50 cursor-default" />
