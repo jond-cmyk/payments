@@ -700,11 +700,11 @@ const DirectDebits = () => {
                             aria-label={`Select ${debit.payee}`}
                           />
                         </TableCell>
-                        <TableCell className="font-medium">{debit.payee}</TableCell>
+                        <TableCell className="font-medium w-[150px] truncate">{debit.payee}</TableCell>
                         <TableCell>
                           {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
                         </TableCell>
-                        <TableCell className="w-[200px] truncate">
+                        <TableCell className="w-[150px] truncate">
                           {debit.not_property_related ? 'N/A' : getAddressFromSku(debit.sku)}
                         </TableCell>
                         <TableCell>

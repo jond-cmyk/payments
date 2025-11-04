@@ -180,7 +180,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                 <TableRow key={index}>
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
@@ -205,9 +205,9 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                       "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
                     )}
                   >
-                    <TableCell className="font-medium">{request.supplier_name}</TableCell>
+                    <TableCell className="font-medium w-[150px] truncate">{request.supplier_name}</TableCell>
                     <TableCell>{request.sku_number}</TableCell>
-                    <TableCell className="w-[200px] truncate">
+                    <TableCell className="w-[150px] truncate">
                       {request.not_sku_related ? 'N/A' : getAddressFromSku(request.sku_number)}
                     </TableCell>
                     <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
