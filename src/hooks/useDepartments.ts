@@ -14,8 +14,8 @@ export const useDepartments = (country: string) => {
   return useQuery<EconomicDepartment[]>({
     queryKey: ['economicDepartments', country],
     queryFn: async () => {
-      // Only fetch for Switzerland as requested
-      if (country !== 'Switzerland') {
+      if (country === 'all') {
+        console.warn("useDepartments hook called with 'all' country. Returning empty array as departments are country-specific.");
         return [];
       }
 

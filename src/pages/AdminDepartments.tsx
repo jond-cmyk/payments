@@ -3,11 +3,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
 import { showError } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { extractList } from '@/components/economic/EconomicDetailDialog';
+import { useDepartments } from '@/hooks/useDepartments';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -30,25 +28,8 @@ const AdminDepartments = () => {
 
   const isAdmin = userProfile?.role === 'admin';
 
-  const { data: departments, isLoading: isDepartmentsLoading, error: departmentsError, refetch } = useQuery<EconomicDepartment[]>({
-    queryKey: ['economicDepartments', currentCountry],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: "/departments?pagesize=1000", method: "GET", country: currentCountry },
-      });
-
-      if (error) throw new Error(error.message);
-      
-      const resp = data as { ok?: boolean; status?: number; data?: any; error?: string };
-      if (resp.error || !resp.ok) {
-        throw new Error(resp.error || `Failed to fetch departments: Status ${resp.status}`);
-      }
-
-      return extractList(resp?.data) as EconomicDepartment[];
-    },
-    enabled: !!session && isAdmin,
-    staleTime: 1000 * 60 * 60 * 24, // Cache for 24 hours
-  });
+  // Use the centralized hook
+  const { data: departments, isLoading: isDepartmentsLoading, error: departmentsError, refetch } = useDepartments(currentCountry);
 
   if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
