@@ -125,53 +125,53 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   return (
     <>
       <div className="overflow-x-auto">
-        <Table>
+        <Table className="table-fixed w-full">
           <TableHeader>
             <TableRow>
-              <TableHead className="cursor-pointer hover:text-primary w-[150px]" onClick={() => handleSort('supplier_name')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('supplier_name')}>
                 <div className="flex items-center">
                   Supplier Name {renderSortIcon('supplier_name')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('sku_number')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[100px]" onClick={() => handleSort('sku_number')}>
                 <div className="flex items-center">
-                  SKU Number {renderSortIcon('sku_number')}
+                  SKU {renderSortIcon('sku_number')}
                 </div>
               </TableHead>
-              <TableHead className="w-[150px]">Property Address</TableHead>
-              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('date_payment_required')}>
+              <TableHead className="w-[120px]">Property Address</TableHead>
+              <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('date_payment_required')}>
                 <div className="flex items-center">
-                  Payment Required {renderSortIcon('date_payment_required')}
+                  Payment Due {renderSortIcon('date_payment_required')}
                 </div>
               </TableHead>
-              <TableHead className="w-[150px]">Status</TableHead>
-              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('created_at')}>
+              <TableHead className="w-[130px]">Status</TableHead>
+              <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('created_at')}>
                 <div className="flex items-center">
-                  Created At {renderSortIcon('created_at')}
+                  Created {renderSortIcon('created_at')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_setup_date')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('payment_setup_date')}>
                 <div className="flex items-center">
-                  Payment Setup Date {renderSortIcon('payment_setup_date')}
+                  Setup {renderSortIcon('payment_setup_date')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_approved_date')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('payment_approved_date')}>
                 <div className="flex items-center">
-                  Payment Approved Date {renderSortIcon('payment_approved_date')}
+                  Approved {renderSortIcon('payment_approved_date')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary w-[150px]" onClick={() => handleSort('requester_id')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('requester_id')}>
                 <div className="flex items-center">
                   Requester {renderSortIcon('requester_id')}
                 </div>
               </TableHead>
-              <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('country')}>
+              <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('country')}>
                 <div className="flex items-center">
                   Country {renderSortIcon('country')}
                 </div>
               </TableHead>
-              {userRole === 'admin' && <TableHead className="text-center w-[80px]">Urgent</TableHead>}
-              <TableHead className="text-right w-[120px]">Actions</TableHead>
+              {userRole === 'admin' && <TableHead className="text-center w-[70px]">Urgent</TableHead>}
+              <TableHead className="text-right w-[110px]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -205,31 +205,31 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                       "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
                     )}
                   >
-                    <TableCell className="font-medium w-[150px] truncate">{request.supplier_name}</TableCell>
-                    <TableCell className="w-[120px]">{request.sku_number}</TableCell>
-                    <TableCell className="w-[150px] truncate">
+                    <TableCell className="font-medium truncate">{request.supplier_name}</TableCell>
+                    <TableCell>{request.sku_number}</TableCell>
+                    <TableCell className="truncate">
                       {request.not_sku_related ? 'N/A' : getAddressFromSku(request.sku_number)}
                     </TableCell>
-                    <TableCell className="w-[120px]">{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
-                    <TableCell className="w-[150px]">
+                    <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
+                    <TableCell>
                       {getStatusBadge(request.status, 'payment_request')}
                     </TableCell>
-                    <TableCell className="w-[120px]">{format(new Date(request.created_at), 'PPP')}</TableCell>
-                    <TableCell className="w-[120px]">
+                    <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
+                    <TableCell>
                       {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
                     </TableCell>
-                    <TableCell className="w-[120px]">
+                    <TableCell>
                       {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
                     </TableCell>
-                    <TableCell className="w-[150px] truncate">{requesterName || 'N/A'}</TableCell>
-                    <TableCell className="w-[120px]">
+                    <TableCell className="truncate">{requesterName || 'N/A'}</TableCell>
+                    <TableCell>
                       <div className="flex items-center gap-2">
                         <CountryFlag countryName={request.country} />
                         <span>{request.country}</span>
                       </div>
                     </TableCell>
                     {userRole === 'admin' && (
-                      <TableCell className="text-center w-[80px]">
+                      <TableCell className="text-center">
                         <Switch
                           checked={request.is_urgent}
                           onCheckedChange={() => handleToggleUrgent(request.id, request.is_urgent)}
@@ -238,7 +238,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                         />
                       </TableCell>
                     )}
-                    <TableCell className="text-right w-[120px]">
+                    <TableCell className="text-right">
                       <Button
                         asChild
                         variant="outline"

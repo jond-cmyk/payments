@@ -645,7 +645,7 @@ const DirectDebits = () => {
 
           {directDebits && directDebits.length > 0 ? (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">
@@ -655,37 +655,37 @@ const DirectDebits = () => {
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[150px]" onClick={() => handleSort('payee')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payee')}>
                       <div className="flex items-center">
                         Payee {renderSortIcon('payee')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('sku')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[100px]" onClick={() => handleSort('sku')}>
                       <div className="flex items-center">
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
-                    <TableHead className="w-[150px]">Property Address</TableHead>
+                    <TableHead className="w-[120px]">Property Address</TableHead>
                     <TableHead>Categories</TableHead>
                     <TableHead>Total Amount</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('payment_day')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[100px]" onClick={() => handleSort('payment_day')}>
                       <div className="flex items-center">
                         Payment Day {renderSortIcon('payment_day')}
                       </div>
                     </TableHead>
                     <TableHead>Payment Reference</TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('status')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('status')}>
                       <div className="flex items-center">
                         Status {renderSortIcon('status')}
                       </div>
                     </TableHead>
-                    <TableHead className="cursor-pointer hover:text-primary w-[120px]" onClick={() => handleSort('country')}>
+                    <TableHead className="cursor-pointer hover:text-primary w-[110px]" onClick={() => handleSort('country')}>
                       <div className="flex items-center">
                         Country {renderSortIcon('country')}
                       </div>
                     </TableHead>
                     <TableHead>Supplier Account Number</TableHead>
-                    <TableHead className="text-right w-[200px]">Actions</TableHead>
+                    <TableHead className="text-right w-[180px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -700,11 +700,11 @@ const DirectDebits = () => {
                             aria-label={`Select ${debit.payee}`}
                           />
                         </TableCell>
-                        <TableCell className="font-medium w-[150px] truncate">{debit.payee}</TableCell>
-                        <TableCell className="w-[120px]">
+                        <TableCell className="font-medium truncate">{debit.payee}</TableCell>
+                        <TableCell>
                           {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
                         </TableCell>
-                        <TableCell className="w-[150px] truncate">
+                        <TableCell className="truncate">
                           {debit.not_property_related ? 'N/A' : getAddressFromSku(debit.sku)}
                         </TableCell>
                         <TableCell>
@@ -719,12 +719,12 @@ const DirectDebits = () => {
                           ) : 'N/A'}
                         </TableCell>
                         <TableCell>{formatAmount(debit.total_amount)}</TableCell>
-                        <TableCell className="w-[120px]">{debit.payment_day !== null && debit.payment_day !== undefined ? debit.payment_day : 'N/A'}</TableCell>
+                        <TableCell>{debit.payment_day !== null && debit.payment_day !== undefined ? debit.payment_day : 'N/A'}</TableCell>
                         <TableCell>{debit.payment_reference || 'N/A'}</TableCell>
-                        <TableCell className="w-[120px]">{getStatusBadge(debit.status)}</TableCell>
-                        <TableCell className="w-[120px]">{debit.country}</TableCell>
+                        <TableCell>{getStatusBadge(debit.status)}</TableCell>
+                        <TableCell>{debit.country}</TableCell>
                         <TableCell>{debit.account_number}</TableCell>
-                        <TableCell className="text-right flex items-center justify-end space-x-2 w-[200px]">
+                        <TableCell className="text-right flex items-center justify-end space-x-2">
                           <Button
                             variant="outline"
                             size="sm"
