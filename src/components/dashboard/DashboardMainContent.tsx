@@ -393,7 +393,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
 
     switch (status) {
       case 'pending':
-        if (itemType === 'standing_order' || itemType === 'direct_debit') {
+        if (itemType === 'standing_order') {
           className = 'bg-orange-500 text-orange-50';
         } else { // Default for payment_request
           className = 'bg-yellow-500 text-yellow-50';
@@ -428,9 +428,11 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
       case 'cancelled': // For Direct Debits and Standing Orders
         className = 'bg-orange-500 text-orange-50';
         break;
-      case 'awaiting_info': // For Direct Debits and Standing Orders
-        className = 'bg-orange-500 text-orange-50';
-        displayText = 'Awaiting Info';
+      case 'awaiting_info': // For Standing Orders
+        if (itemType === 'standing_order') {
+            className = 'bg-orange-500 text-orange-50';
+            displayText = 'Awaiting Info';
+        }
         break;
       default:
         className = 'bg-gray-500 text-gray-50';

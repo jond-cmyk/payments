@@ -154,7 +154,11 @@ const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5, view
 
     switch (status) {
       case 'pending':
-        className = 'bg-yellow-500 text-yellow-50';
+        if (itemType === 'standing_order') {
+          className = 'bg-orange-500 text-orange-50';
+        } else { // Default for payment_request
+          className = 'bg-yellow-500 text-yellow-50';
+        }
         break;
       case 'pending_input':
         className = 'bg-yellow-500 text-yellow-50';
@@ -183,6 +187,12 @@ const RecentActivityFeed: React.FC<RecentActivityFeedProps> = ({ limit = 5, view
         break;
       case 'cancelled':
         className = 'bg-red-500 text-red-50';
+        break;
+      case 'awaiting_info':
+        if (itemType === 'standing_order') {
+          className = 'bg-orange-500 text-orange-50';
+          displayText = 'Awaiting Info';
+        }
         break;
       default:
         className = 'bg-gray-500 text-gray-50';

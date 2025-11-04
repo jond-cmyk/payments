@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form'; // Import useWatch
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,9 +41,9 @@ const addDirectDebitFormSchema = z.object({
   total_amount: z.coerce.number().min(0.01, "Total amount must be positive."),
   account_number: z.string().min(1, "Supplier Account Number is required."),
   payment_reference: z.string().optional(),
-  status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], {
+  status: z.enum(['active', 'cancelled', 'paused'], {
     required_error: "Status is required.",
-  }).default('awaiting_info'),
+  }).default('active'),
   country: z.string().min(1, "Country is required."),
   bank_account: z.string().optional(),
   currency: z.string().optional(),
@@ -119,7 +119,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       total_amount: 0,
       account_number: "",
       payment_reference: "",
-      status: "awaiting_info",
+      status: "active",
       country: initialCountry,
       bank_account: undefined,
       currency: initialCountry === 'United Kingdom' ? 'GBP' : (initialCountry === 'Switzerland' ? 'CHF' : undefined),
@@ -195,7 +195,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         total_amount: 0,
         account_number: "",
         payment_reference: "",
-        status: "awaiting_info",
+        status: "active",
         country: formCountry,
         bank_account: undefined,
         currency: formCountry === 'United Kingdom' ? 'GBP' : (formCountry === 'Switzerland' ? 'CHF' : undefined),
@@ -459,15 +459,13 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
               <FormDescription>
-                {isAdmin ? "Select the current status of this direct debit." : "New direct debits are 'Awaiting Info' by default and can only be changed by an administrator."}
+                {isAdmin ? "Select the current status of this direct debit." : "New direct debits are 'Active' by default and can only be changed by an administrator."}
               </FormDescription>
               <FormMessage />
             </FormItem>
