@@ -58,7 +58,7 @@ const PropertyAddressField: React.FC<PropertyAddressFieldProps> = ({ skuValue, c
       {isLoading ? (
         <Skeleton className="h-10 w-full" />
       ) : (
-        <Input value={address} readOnly disabled className="cursor-default text-foreground" />
+        <Input value={address} readOnly className="cursor-default text-foreground" />
       )}
     </div>
   );
