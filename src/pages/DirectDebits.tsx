@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { exportToCsv } from '@/utils/exportToCsv';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
+import { useDepartments } from '@/hooks/useDepartments';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -97,6 +98,22 @@ const DirectDebits = () => {
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof DirectDebit | null>('payment_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // NEW: Fetch departments
+  const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
+
+  // NEW: Create a map for quick SKU to address lookup
+  const departmentMap = useMemo(() => {
+    if (!departments) return new Map<number, string>();
+    return new Map(departments.map(d => [d.departmentNumber, d.name]));
+  }, [departments]);
+
+  const getAddressFromSku = (sku: string | null | undefined): string => {
+    if (!sku) return 'N/A';
+    const numericSku = parseInt(sku.replace(/\D/g, ''), 10);
+    if (isNaN(numericSku)) return 'N/A';
+    return departmentMap.get(numericSku) || 'Not Found';
+  };
 
   // Define options for MultiSelectFilter
   const statusOptions = [
@@ -421,7 +438,7 @@ const DirectDebits = () => {
     return items;
   };
 
-  if (isSessionLoading || isDirectDebitsLoading) {
+  if (isSessionLoading || isDirectDebitsLoading || isLoadingDepartments) {
     return <div className="flex items-center justify-center h-full text-lg">Loading direct debits...</div>;
   }
 
@@ -648,6 +665,7 @@ const DirectDebits = () => {
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
+                    <TableHead>Property Address</TableHead>
                     <TableHead>Categories</TableHead>
                     <TableHead>Total Amount</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('payment_day')}>
@@ -685,6 +703,9 @@ const DirectDebits = () => {
                         <TableCell className="font-medium">{debit.payee}</TableCell>
                         <TableCell>
                           {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
+                        </TableCell>
+                        <TableCell className="w-[250px] truncate">
+                          {debit.not_property_related ? 'N/A' : getAddressFromSku(debit.sku)}
                         </TableCell>
                         <TableCell>
                           {debit.categories && debit.categories.length > 0 ? (

@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { exportToCsv } from '@/utils/exportToCsv';
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useDepartments } from '@/hooks/useDepartments';
 
 interface DashboardMainContentProps {
   debouncedSearchTerm: string;
@@ -66,6 +67,9 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
 
   // Debounce for text inputs (filters)
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // NEW: Fetch departments for address lookup
+  const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
   // Shared debounce function for all text inputs
   const handleTextFilterChange = useCallback((setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
@@ -545,6 +549,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
           </CardHeader>
           <PaymentRequestTable
             paymentRequests={paymentRequestsForTable}
+            departments={departments}
             userRole={userRole}
             handleSort={handleSort}
             renderSortIcon={renderSortIcon}
@@ -555,7 +560,7 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
             itemsPerPage={itemsPerPage}
             totalItems={totalItems}
             onPageChange={setCurrentPage}
-            isLoading={isRequestsTableLoading}
+            isLoading={isRequestsTableLoading || isLoadingDepartments}
           />
         </Card>
       ) : (

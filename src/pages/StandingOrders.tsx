@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { exportToCsv } from '@/utils/exportToCsv';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
+import { useDepartments } from '@/hooks/useDepartments';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -94,6 +95,22 @@ const StandingOrders = () => {
   // Sorting states
   const [sortColumn, setSortColumn] = useState<keyof StandingOrder>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // NEW: Fetch departments
+  const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
+
+  // NEW: Create a map for quick SKU to address lookup
+  const departmentMap = useMemo(() => {
+    if (!departments) return new Map<number, string>();
+    return new Map(departments.map(d => [d.departmentNumber, d.name]));
+  }, [departments]);
+
+  const getAddressFromSku = (sku: string | null | undefined): string => {
+    if (!sku) return 'N/A';
+    const numericSku = parseInt(sku.replace(/\D/g, ''), 10);
+    if (isNaN(numericSku)) return 'N/A';
+    return departmentMap.get(numericSku) || 'Not Found';
+  };
 
   // Define options for MultiSelectFilter
   const statusOptions = [
@@ -344,7 +361,7 @@ const StandingOrders = () => {
         className = 'bg-gray-500 text-gray-50';
     }
     return (
-      <Badge className={cn(className)}>
+      <Badge className={cn(className, "border border-white")}> {/* Added white border */}
         {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
       </Badge>
     );
@@ -470,7 +487,7 @@ const StandingOrders = () => {
     return items;
   };
 
-  if (isSessionLoading || isStandingOrdersLoading) {
+  if (isSessionLoading || isStandingOrdersLoading || isLoadingDepartments) {
     return <div className="flex items-center justify-center h-full text-lg">Loading standing orders...</div>;
   }
 
@@ -694,6 +711,7 @@ const StandingOrders = () => {
                         SKU {renderSortIcon('sku')}
                       </div>
                     </TableHead>
+                    <TableHead>Property Address</TableHead>
                     <TableHead>Categories</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('total_amount')}>
                       <div className="flex items-center">
@@ -743,6 +761,9 @@ const StandingOrders = () => {
                       <TableCell className="font-medium">{order.payee}</TableCell>
                       <TableCell>
                         {order.not_property_related ? 'N/A (Not Property Related)' : (order.sku || 'N/A')}
+                      </TableCell>
+                      <TableCell className="w-[250px] truncate">
+                        {order.not_property_related ? 'N/A' : getAddressFromSku(order.sku)}
                       </TableCell>
                       <TableCell>
                         {order.categories && order.categories.length > 0 ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Table,
@@ -30,8 +30,15 @@ import {
 } from "@/components/ui/pagination"; // Import pagination components
 import { Skeleton } from '@/components/ui/skeleton'; // NEW: Import Skeleton
 
+type EconomicDepartment = {
+  departmentNumber: number;
+  name: string;
+  self: string;
+};
+
 interface PaymentRequestTableProps {
   paymentRequests: (PaymentRequest & { requester_profile: { first_name: string | null, last_name: string | null } | null })[] | undefined;
+  departments: EconomicDepartment[] | undefined;
   userRole: string | null;
   handleSort: (column: keyof PaymentRequest) => void;
   renderSortIcon: (column: keyof PaymentRequest) => React.ReactNode;
@@ -47,6 +54,7 @@ interface PaymentRequestTableProps {
 
 const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   paymentRequests,
+  departments,
   userRole,
   handleSort,
   renderSortIcon,
@@ -60,6 +68,18 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   isLoading, // NEW: Destructure isLoading
 }) => {
   const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / (itemsPerPage as number));
+
+  const departmentMap = useMemo(() => {
+    if (!departments) return new Map<number, string>();
+    return new Map(departments.map(d => [d.departmentNumber, d.name]));
+  }, [departments]);
+
+  const getAddressFromSku = (sku: string | null | undefined): string => {
+    if (!sku) return 'N/A';
+    const numericSku = parseInt(sku.replace(/\D/g, ''), 10);
+    if (isNaN(numericSku)) return 'N/A';
+    return departmentMap.get(numericSku) || 'Not Found';
+  };
 
   const renderPaginationItems = () => {
     const items = [];
@@ -118,6 +138,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                   SKU Number {renderSortIcon('sku_number')}
                 </div>
               </TableHead>
+              <TableHead>Property Address</TableHead>
               <TableHead className="cursor-pointer hover:text-primary" onClick={() => handleSort('date_payment_required')}>
                 <div className="flex items-center">
                   Payment Required {renderSortIcon('date_payment_required')}
@@ -155,10 +176,11 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              Array.from({ length: itemsPerPage === 'all' ? 10 : itemsPerPage }).map((_, index) => (
+              Array.from({ length: itemsPerPage === 'all' ? 10 : itemsPerPage as number }).map((_, index) => (
                 <TableRow key={index}>
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
@@ -185,6 +207,9 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                   >
                     <TableCell className="font-medium">{request.supplier_name}</TableCell>
                     <TableCell>{request.sku_number}</TableCell>
+                    <TableCell className="w-[250px] truncate">
+                      {request.not_sku_related ? 'N/A' : getAddressFromSku(request.sku_number)}
+                    </TableCell>
                     <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
                     <TableCell>
                       {getStatusBadge(request.status, 'payment_request')}
