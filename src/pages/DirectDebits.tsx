@@ -704,7 +704,7 @@ const DirectDebits = () => {
                         <TableCell>
                           {debit.not_property_related ? 'N/A (Not Property Related)' : (debit.sku || 'N/A')}
                         </TableCell>
-                        <TableCell className="w-[250px] truncate">
+                        <TableCell className="w-[200px] truncate">
                           {debit.not_property_related ? 'N/A' : getAddressFromSku(debit.sku)}
                         </TableCell>
                         <TableCell>

@@ -207,7 +207,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                   >
                     <TableCell className="font-medium">{request.supplier_name}</TableCell>
                     <TableCell>{request.sku_number}</TableCell>
-                    <TableCell className="w-[250px] truncate">
+                    <TableCell className="w-[200px] truncate">
                       {request.not_sku_related ? 'N/A' : getAddressFromSku(request.sku_number)}
                     </TableCell>
                     <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>

@@ -762,7 +762,7 @@ const StandingOrders = () => {
                       <TableCell>
                         {order.not_property_related ? 'N/A (Not Property Related)' : (order.sku || 'N/A')}
                       </TableCell>
-                      <TableCell className="w-[250px] truncate">
+                      <TableCell className="w-[200px] truncate">
                         {order.not_property_related ? 'N/A' : getAddressFromSku(order.sku)}
                       </TableCell>
                       <TableCell>
