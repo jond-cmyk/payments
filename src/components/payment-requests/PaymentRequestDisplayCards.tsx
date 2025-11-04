@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { Download, Info, Banknote, CalendarDays, UserCircle2, AlertTriangle, DollarSign } from 'lucide-react'; // Import DollarSign
+import { Download, Info, Banknote, CalendarDays, UserCircle2, AlertTriangle, DollarSign, Home } from 'lucide-react';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { PaymentRequest } from '@/types/supabase';
 import { cn } from '@/lib/utils';
 import { categoryOptions } from '@/lib/constants';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Import Table components
-import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { formatAmount } from '@/components/economic/EconomicDetailDialog';
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 interface PaymentRequestDisplayCardsProps {
   request: PaymentRequest;
@@ -82,6 +83,24 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
               <p>{request.supplier_name}</p>
             </div>
             <div>
+              <p className="font-bold">Supplier Address:</p>
+              <p>{request.supplier_address}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* NEW: Property Details Card */}
+      <Card className="shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Home className="mr-2 h-5 w-5" /> Property Details
+          </CardTitle>
+          <CardDescription>SKU, Lease, and Property Address information.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4 text-sm">
+            <div>
               <p className="font-bold">SKU Number:</p>
               <p>{request.not_sku_related ? 'N/A (Not SKU Related)' : request.sku_number}</p>
             </div>
@@ -89,10 +108,7 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
               <p className="font-bold">Lease ID:</p>
               <p>{request.lease_id || 'N/A'}</p>
             </div>
-            <div>
-              <p className="font-bold">Supplier Address:</p>
-              <p>{request.supplier_address}</p>
-            </div>
+            <PropertyAddressField skuValue={request.sku_number} country={request.country} />
           </div>
         </CardContent>
       </Card>
