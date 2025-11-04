@@ -152,20 +152,6 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                   Created {renderSortIcon('created_at')}
                 </div>
               </TableHead>
-              {!isAllRequestsPage && (
-                <>
-                  <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_setup_date')}>
-                    <div className="flex items-center">
-                      Setup {renderSortIcon('payment_setup_date')}
-                    </div>
-                  </TableHead>
-                  <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payment_approved_date')}>
-                    <div className="flex items-center">
-                      Approved {renderSortIcon('payment_approved_date')}
-                    </div>
-                  </TableHead>
-                </>
-              )}
               <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('requester_id')}>
                 <div className="flex items-center">
                   Requester {renderSortIcon('requester_id')}
@@ -190,8 +176,6 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
-                  {!isAllRequestsPage && <TableCell><Skeleton className="h-4 w-full" /></TableCell>}
-                  {!isAllRequestsPage && <TableCell><Skeleton className="h-4 w-full" /></TableCell>}
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                   {userRole === 'admin' && <TableCell className="text-center"><Skeleton className="h-6 w-10 mx-auto" /></TableCell>}
@@ -221,16 +205,6 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                       {getStatusBadge(request.status, 'payment_request')}
                     </TableCell>
                     <TableCell>{format(new Date(request.created_at), 'PPP')}</TableCell>
-                    {!isAllRequestsPage && (
-                      <>
-                        <TableCell>
-                          {request.payment_setup_date ? format(new Date(request.payment_setup_date), 'PPP') : 'N/A'}
-                        </TableCell>
-                        <TableCell>
-                          {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
-                        </TableCell>
-                      </>
-                    )}
                     <TableCell>{requesterName || 'N/A'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

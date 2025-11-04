@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { PlusCircle, MessageSquarePlus } from 'lucide-react';
+import { PlusCircle, MessageSquarePlus, Banknote, Repeat } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 import CountrySelector from '@/components/CountrySelector';
@@ -10,6 +11,8 @@ import CountryFlag from '@/components/CountryFlag';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import FeedbackForm from '@/components/feedback/FeedbackForm';
+import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm';
+import AddStandingOrderForm from '@/components/standing-orders/AddStandingOrderForm';
 import { cn } from '@/lib/utils'; // Ensure cn is imported
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -34,7 +37,10 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const { userProfile } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const [isFeedbackDialogOpen, setIsFeedbackDialogOpen] = React.useState(false);
+  const [isAddDirectDebitDialogOpen, setIsAddDirectDebitDialogOpen] = React.useState(false);
+  const [isAddStandingOrderDialogOpen, setIsAddStandingOrderDialogOpen] = React.useState(false);
 
   const userRole = userProfile?.role || null;
 
@@ -42,6 +48,19 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
   const handleFeedbackSubmitted = () => {
     setIsFeedbackDialogOpen(false);
+  };
+
+  const handleDirectDebitAdded = () => {
+    setIsAddDirectDebitDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['directDebits'] });
+    queryClient.invalidateQueries({ queryKey: ['recentDirectDebits'] });
+  };
+
+  const handleStandingOrderAdded = () => {
+    setIsAddStandingOrderDialogOpen(false);
+    queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+    queryClient.invalidateQueries({ queryKey: ['pendingStandingOrders'] });
+    queryClient.invalidateQueries({ queryKey: ['recentStandingOrders'] });
   };
 
   return (
@@ -114,10 +133,42 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             </div>
           )}
           {(userRole === 'requester' || userRole === 'admin') && (
-            <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
-              <PlusCircle className="mr-2 h-5 w-5" />
-              Create New Request
-            </Button>
+            <>
+              <Dialog open={isAddDirectDebitDialogOpen} onOpenChange={setIsAddDirectDebitDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="lg">
+                    <Banknote className="mr-2 h-5 w-5" />
+                    New Direct Debit
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Add New Direct Debit</DialogTitle>
+                  </DialogHeader>
+                  <AddDirectDebitForm onDirectDebitAdded={handleDirectDebitAdded} />
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={isAddStandingOrderDialogOpen} onOpenChange={setIsAddStandingOrderDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="lg">
+                    <Repeat className="mr-2 h-5 w-5" />
+                    New Standing Order
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Add New Standing Order</DialogTitle>
+                  </DialogHeader>
+                  <AddStandingOrderForm onStandingOrderAdded={handleStandingOrderAdded} />
+                </DialogContent>
+              </Dialog>
+
+              <Button onClick={() => navigate('/new-request')} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground" size="lg">
+                <PlusCircle className="mr-2 h-5 w-5" />
+                Create New Request
+              </Button>
+            </>
           )}
           <Dialog open={isFeedbackDialogOpen} onOpenChange={setIsFeedbackDialogOpen}>
             <DialogTrigger asChild>
