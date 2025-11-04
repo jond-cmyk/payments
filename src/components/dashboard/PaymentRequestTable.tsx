@@ -125,7 +125,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   return (
     <>
       <div className="overflow-x-auto">
-        <Table className="w-full table-fixed">
+        <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('supplier_name')}>
@@ -205,9 +205,9 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                       "hover:bg-gradient-to-r hover:from-dyad-blue-light/10 hover:to-background"
                     )}
                   >
-                    <TableCell className="font-medium truncate">{request.supplier_name}</TableCell>
+                    <TableCell className="font-medium">{request.supplier_name}</TableCell>
                     <TableCell>{request.sku_number}</TableCell>
-                    <TableCell className="truncate">
+                    <TableCell>
                       {request.not_sku_related ? 'N/A' : getAddressFromSku(request.sku_number)}
                     </TableCell>
                     <TableCell>{format(new Date(request.date_payment_required), 'PPP')}</TableCell>
@@ -221,7 +221,7 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
                     <TableCell>
                       {request.payment_approved_date ? format(new Date(request.payment_approved_date), 'PPP') : 'N/A'}
                     </TableCell>
-                    <TableCell className="truncate">{requesterName || 'N/A'}</TableCell>
+                    <TableCell>{requesterName || 'N/A'}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <CountryFlag countryName={request.country} />

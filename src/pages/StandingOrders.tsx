@@ -689,7 +689,7 @@ const StandingOrders = () => {
 
           {standingOrders && standingOrders.length > 0 ? (
             <div className="overflow-x-auto">
-              <Table className="w-full table-fixed">
+              <Table>
                 <TableHeader>
                   <TableRow>
                     {/* NEW: Select-all checkbox column */}
@@ -758,7 +758,7 @@ const StandingOrders = () => {
                           disabled={!isAdmin}
                         />
                       </TableCell>
-                      <TableCell className="font-medium truncate">{order.payee}</TableCell>
+                      <TableCell className="font-medium">{order.payee}</TableCell>
                       <TableCell>
                         {order.not_property_related ? 'N/A (Not Property Related)' : (order.sku || 'N/A')}
                       </TableCell>
@@ -782,48 +782,50 @@ const StandingOrders = () => {
                       <TableCell>{order.payment_day ? `Day ${order.payment_day}` : 'N/A'}</TableCell>
                       <TableCell>{getStatusBadge(order.status)}</TableCell>
                       <TableCell>{order.country}</TableCell>
-                      <TableCell className="text-right flex items-center justify-end space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="shadow-sm"
-                          onClick={() => navigate(`/standing-order/${order.id}`)}
-                        >
-                          <Eye className="h-4 w-4" /> View
-                        </Button>
-                        {isAdmin && (
-                          <Button variant="outline" size="sm" className="shadow-sm" onClick={() => handleEditClick(order)}>
-                            <Edit className="h-4 w-4" />
+                      <TableCell className="text-right">
+                        <div className="flex flex-col items-end space-y-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="shadow-sm w-full"
+                            onClick={() => navigate(`/standing-order/${order.id}`)}
+                          >
+                            <Eye className="h-4 w-4 mr-2" /> View
                           </Button>
-                        )}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm"
-                              disabled={deleteStandingOrderMutation.isPending || !isAdmin}
-                            >
-                              <Trash2 className="h-4 w-4" />
+                          {isAdmin && (
+                            <Button variant="outline" size="sm" className="shadow-sm w-full" onClick={() => handleEditClick(order)}>
+                              <Edit className="h-4 w-4 mr-2" /> Edit
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the standing order for <strong>{order.payee}</strong>.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteStandingOrderMutation.mutate(order.id)} asChild>
-                                <Button variant="destructive">
-                                  Delete
-                                </Button>
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                          )}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-500 border-red-500 hover:bg-red-50 shadow-sm w-full"
+                                disabled={deleteStandingOrderMutation.isPending || !isAdmin}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the standing order for <strong>{order.payee}</strong>.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteStandingOrderMutation.mutate(order.id)} asChild>
+                                  <Button variant="destructive">
+                                    Delete
+                                  </Button>
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
