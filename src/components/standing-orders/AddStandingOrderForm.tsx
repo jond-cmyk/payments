@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react'; // Import DollarSign
+import { PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react'; // Import icons
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
@@ -590,15 +590,15 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         </Card>
 
         {/* Currency field: Conditional rendering */}
-        {formCountry === 'Switzerland' ? (
+        {formCountry !== 'United Kingdom' ? (
           <FormField
             control={form.control}
             name="currency"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger id={field.name}>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <SelectTrigger>
                     <FormControl>
                       <SelectValue placeholder="Select a currency" />
                     </FormControl>
@@ -615,13 +615,13 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
               </FormItem>
             )}
           />
-        ) : formCountry === 'United Kingdom' ? (
+        ) : (
           <div className="space-y-2">
             <FormLabel className="font-semibold">Currency</FormLabel>
             <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
             <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
           </div>
-        ) : null}
+        )}
 
         <FormField
           control={form.control}
@@ -885,6 +885,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormDescription className="text-blue-600">
                   Please ensure the bank details are correct to avoid payment delays or errors.
                 </FormDescription>
+                <FormMessage />
               </div>
             </FormItem>
           )}
