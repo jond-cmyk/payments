@@ -26,6 +26,15 @@ import { Card, CardTitle } from '@/components/ui/card'; // Import Card and CardT
 import { Separator } from '@/components/ui/separator'; // Import Separator
 import PropertyAddressField from '@/components/PropertyAddressField';
 
+// Helper function to format UK account number for display
+const formatUkAccountNumber = (raw: string | undefined | null): string => {
+  if (raw === undefined || raw === null) return '';
+  let value = String(raw).replace(/\D/g, '');
+  if (value.length > 8) value = value.substring(0, 8);
+  if (value.length > 4) return value.slice(0, 4) + ' ' + value.slice(4);
+  return value;
+};
+
 // Helper for days of the month
 const daysOfMonth = Array.from({ length: 31 }, (_, i) => String(i + 1));
 
@@ -248,8 +257,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
 
   // NEW: Payee Search Logic
   const handlePayeeBlur = async () => {
-    // REMOVED: if (!isAdmin) return; // Allow all users to trigger search on edit form
-
     const payeeName = form.getValues('payee');
     const currentFormCountry = form.getValues('country');
 
@@ -298,7 +305,16 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     form.setValue('account_name', suggestion.bank_account_name || '', options);
     form.setValue('account_address', suggestion.address || '', options);
     form.setValue('iban_number', suggestion.iban_number || '', options);
-    form.setValue('sort_code', suggestion.sort_code || '', options);
+    
+    let formattedSortCode = suggestion.sort_code || '';
+    if (formattedSortCode) {
+      let value = formattedSortCode.replace(/\D/g, '');
+      if (value.length > 6) value = value.substring(0, 6);
+      if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+      else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
+      formattedSortCode = value;
+    }
+    form.setValue('sort_code', formattedSortCode, options);
     
     const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
     form.setValue('account_number', cleanAccountNumber, options);
@@ -432,12 +448,12 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 <FormControl>
                   <Input 
                     placeholder="e.g., Rent Co." 
-                    {...field} 
-                    disabled={!isAdmin || form.formState.isSubmitting || isSearchingPayee}
+                    {...field}
                     onBlur={(e) => {
                       field.onBlur();
-                      handlePayeeBlur(); // Call our custom blur handler
+                      handlePayeeBlur();
                     }}
+                    disabled={!isAdmin || form.formState.isSubmitting || isSearchingPayee}
                   />
                 </FormControl>
                 <FormMessage />
@@ -753,10 +769,10 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                       <Input
                         placeholder="e.g., 1234 5678"
                         {...field}
+                        value={formatUkAccountNumber(field.value)}
                         onChange={(e) => {
                           let value = e.target.value.replace(/\D/g, '');
                           if (value.length > 8) value = value.substring(0, 8);
-                          if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
                           field.onChange(value);
                         }}
                         disabled={!isAdmin}

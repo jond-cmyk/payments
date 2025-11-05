@@ -212,7 +212,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       placeholder="e.g., ABC Corp"
                       {...field}
                       onBlur={(e) => {
-                        field.onBlur();
+                        field.onBlur(); // Call original onBlur
                         handleSupplierNameBlur(); // Call our custom blur handler
                       }}
                       disabled={editForm.formState.isSubmitting || isSearchingSupplier}
@@ -477,11 +477,10 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <Input
                           placeholder="e.g., 1234 5678"
                           {...field}
-                          value={formatUkAccountNumber(field.value)} // Apply formatting for display
+                          value={formatUkAccountNumber(field.value)}
                           onChange={(e) => {
                             let value = e.target.value.replace(/\D/g, '');
                             if (value.length > 8) value = value.substring(0, 8);
-                            if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
                             field.onChange(value);
                           }}
                         />
@@ -551,22 +550,24 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
               control={editForm.control}
               name="bank_details_verified"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-blue-700">
-                      I have verified these bank details with the payee.<span className="text-red-600 ml-1 text-lg font-bold">*</span>
-                    </FormLabel>
-                    <FormDescription className="text-blue-600">
-                      Please ensure the bank details are correct to avoid payment delays or errors.
-                    </FormDescription>
-                    <FormMessage />
+                <FormItem>
+                  <div className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-blue-700">
+                        I have verified these bank details with the payee.<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+                      </FormLabel>
+                      <FormDescription className="text-blue-600">
+                        Please ensure the bank details are correct to avoid payment delays or errors.
+                      </FormDescription>
+                    </div>
                   </div>
+                  <FormMessage />
                 </FormItem>
               )}
             />

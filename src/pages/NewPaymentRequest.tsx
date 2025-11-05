@@ -28,14 +28,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Separator } from '@/components/ui/separator'; // Import Separator
 import PropertyAddressField from '@/components/PropertyAddressField';
 
+// Helper function to format UK account number for display
+const formatUkAccountNumber = (raw: string | undefined | null): string => {
+  if (raw === undefined || raw === null) return '';
+  let value = String(raw).replace(/\D/g, '');
+  if (value.length > 8) value = value.substring(0, 8);
+  if (value.length > 4) return value.slice(0, 4) + ' ' + value.slice(4);
+  return value;
+};
+
 // Define the Zod schema for form validation (replicated from schema file for local use)
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
   sku_number: z.string().optional(),
   not_sku_related: z.boolean().default(false),
   lease_id: z.string().optional().refine((val) => {
-    if (val === undefined || val === null || val.trim() === '') return true;
-    return /^\d+$/.test(val);
+    if (val === undefined || val === null || val.trim() === '') return true; // Optional, so empty is fine
+    return /^\d+$/.test(val); // Must be numerical if present
   }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().optional(),
@@ -196,16 +205,6 @@ const formSchema = z.object({
   }
 });
 
-// Helper function to format UK account number for display
-const formatUkAccountNumber = (raw: string | undefined | null): string => {
-  if (raw === undefined || raw === null) return '';
-  let value = String(raw).replace(/\D/g, '');
-  if (value.length > 8) value = value.substring(0, 8);
-  if (value.length > 4) return value.slice(0, 4) + ' ' + value.slice(4);
-  return value;
-};
-
-
 const NewPaymentRequest = () => {
   const { session, isLoading, user, userProfile } = useSession();
   const { currentCountry, availableCountries, isCountryLocked } = useCountry();
@@ -350,9 +349,20 @@ const NewPaymentRequest = () => {
     form.setValue('supplier_name', suggestion.name, options);
     form.setValue('supplier_address', suggestion.address || '', options);
     form.setValue('iban_number', suggestion.iban_number || '', options);
-    form.setValue('sort_code', suggestion.sort_code || '', options);
     
-    // FIX: Ensure account number is clean before setting
+    let formattedSortCode = suggestion.sort_code || '';
+    if (formattedSortCode) {
+      let value = formattedSortCode.replace(/\D/g, '');
+      if (value.length > 6) value = value.substring(0, 6);
+      if (value.length > 4) {
+        value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+      } else if (value.length > 2) {
+        value = value.slice(0, 2) + '-' + value.slice(2);
+      }
+      formattedSortCode = value;
+    }
+    form.setValue('sort_code', formattedSortCode, options);
+    
     const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
     form.setValue('account_number', cleanAccountNumber, options);
     
@@ -804,11 +814,10 @@ const NewPaymentRequest = () => {
                           <Input
                             placeholder="e.g., 1234 5678"
                             {...field}
-                            value={formatUkAccountNumber(field.value)} // Apply formatting for display
+                            value={formatUkAccountNumber(field.value)}
                             onChange={(e) => {
-                              let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                              if (value.length > 8) value = value.substring(0, 8); // Max 8 digits
-                              if (value.length > 4) value = value.slice(0, 4) + ' ' + value.slice(4);
+                              let value = e.target.value.replace(/\D/g, '');
+                              if (value.length > 8) value = value.substring(0, 8);
                               field.onChange(value);
                             }}
                           />
