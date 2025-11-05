@@ -21,7 +21,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import DatePicker from '@/components/DatePicker';
 import PrefixedInput from '@/components/PrefixedInput';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Import Dialog components
 import { Card, CardTitle } from '@/components/ui/card'; // Import Card and CardTitle for suggestions
 import { Separator } from '@/components/ui/separator'; // Import Separator
 import PropertyAddressField from '@/components/PropertyAddressField';
@@ -956,6 +956,9 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
+            <DialogDescription>
+              We found existing payees with a similar name. You can use their details to pre-fill the form.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             {payeeSuggestions.length > 0 ? (

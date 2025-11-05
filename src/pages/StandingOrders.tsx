@@ -41,7 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import AddStandingOrderForm from '@/components/standing-orders/AddStandingOrderForm';
 import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm';
 import { cn } from '@/lib/utils';
@@ -336,6 +336,7 @@ const StandingOrders = () => {
     setFilterEndDate(undefined);
     setFilterPaymentDay(undefined);
     setCurrentPage(1);
+    setSelectedStandingOrderIds([]);
     queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
   };
 
@@ -548,6 +549,9 @@ const StandingOrders = () => {
                 <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add New Standing Order</DialogTitle>
+                    <DialogDescription>
+                      Fill in the details to create a new recurring standing order.
+                    </DialogDescription>
                   </DialogHeader>
                   <AddStandingOrderForm onStandingOrderAdded={handleStandingOrderAdded} />
                 </DialogContent>
@@ -835,7 +839,7 @@ const StandingOrders = () => {
           ) : (
             <p className="text-center text-muted-foreground mt-8">No standing orders found matching your criteria.</p>
           )}
-          {totalPages > 1 && (
+          {itemsPerPage !== 'all' && totalPages > 1 && (
             <Pagination className="mt-4">
               <PaginationContent>
                 <PaginationItem>
@@ -856,6 +860,9 @@ const StandingOrders = () => {
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Standing Order: {editingStandingOrder.payee}</DialogTitle>
+              <DialogDescription>
+                Update the details for this recurring standing order.
+              </DialogDescription>
             </DialogHeader>
             <UpdateStandingOrderForm standingOrder={editingStandingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
           </DialogContent>
