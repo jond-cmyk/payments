@@ -602,13 +602,10 @@ const NewPaymentRequest = () => {
                                 step="0.01" 
                                 placeholder="Amount" 
                                 {...field}
-                                // FIX: Ensure value is always a string representation of the number, and handle empty string correctly
                                 value={field.value === 0 ? "" : String(field.value)}
                                 onChange={(e) => {
-                                  // Only allow numbers and a single decimal point
                                   const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                                  // Pass the cleaned string back to RHF. RHF/Zod will coerce it to a number.
-                                  field.onChange(rawValue);
+                                  field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
                                 }}
                               />
                             </FormControl>
