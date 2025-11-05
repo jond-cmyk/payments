@@ -59,7 +59,7 @@ const updateStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().optional(),
-  status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], {
+  status: z.enum(['active', 'cancelled', 'paused', 'pending'], {
     required_error: "Status is required.",
   }).default('active'),
   country: z.string().min(1, "Country is required."),
@@ -75,7 +75,7 @@ const updateStandingOrderFormSchema = z.object({
     if (!data.sku || data.sku.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `SKU is required unless 'Not Property Related' is checked.`,
+        message: `SKU is required unless 'Not SKU Related' is checked.`,
         path: ['sku'],
       });
     } else if (!data.sku.startsWith(skuPrefix)) {
@@ -221,7 +221,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       from_day: String(standingOrder.from_day),
       to_day: String(standingOrder.to_day),
       payment_reference: standingOrder.payment_reference || "", // Default to empty string
-      status: standingOrder.status,
+      status: standingOrder.status === 'awaiting_info' ? 'pending' : standingOrder.status,
       country: standingOrder.country,
       bank_details_verified: standingOrder.bank_details_verified,
       payment_day: standingOrder.payment_day ? String(standingOrder.payment_day) : undefined,
@@ -336,7 +336,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     setIsSuggestionDialogOpen(false);
   };
 
+  const onInvalid = (errors: any) => {
+    console.error("Form validation failed:", errors);
+    showError("Form validation failed. Please check the console for details.");
+  };
+
   const onSubmit = async (values: z.infer<typeof updateStandingOrderFormSchema>) => {
+    console.log("Form submitted with values:", values);
     const toastId = showLoading("Updating standing order...");
 
     try {
@@ -421,7 +427,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Form validation failed:", errors))} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
           <FormField
             control={form.control}
             name="country"
@@ -957,7 +963,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     </FormControl>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
                     <SelectItem value="pending">Pending</SelectItem>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="paused">Paused</SelectItem>

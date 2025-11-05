@@ -115,7 +115,6 @@ const StandingOrders = () => {
   // Define options for MultiSelectFilter
   const statusOptions = [
     { value: 'all', label: 'All Statuses' },
-    { value: 'awaiting_info', label: 'Awaiting Info' },
     { value: 'pending', label: 'Pending' },
     { value: 'active', label: 'Active' },
     { value: 'paused', label: 'Paused' },

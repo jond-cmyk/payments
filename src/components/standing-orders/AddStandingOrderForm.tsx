@@ -59,9 +59,9 @@ const addStandingOrderFormSchema = z.object({
   from_day: z.string().min(1, "From Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   to_day: z.string().min(1, "To Day is required.").refine(val => parseInt(val) >= 1 && parseInt(val) <= 31, "Invalid day."),
   payment_reference: z.string().optional(),
-  status: z.enum(['active', 'cancelled', 'paused', 'pending', 'awaiting_info'], { // Added 'awaiting_info' status
+  status: z.enum(['active', 'cancelled', 'paused', 'pending'], {
     required_error: "Status is required.",
-  }).default('awaiting_info'), // Default to 'awaiting_info'
+  }).default('pending'),
   country: z.string().min(1, "Country is required."),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
   total_amount: z.coerce.number(), // REMOVED .min(0.01) to prevent silent validation failure
@@ -223,7 +223,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       from_day: "1", // Default to 1st day
       to_day: "31", // Default to 31st day
       payment_reference: "",
-      status: "awaiting_info", // Default to 'awaiting_info'
+      status: "pending",
       country: initialCountry, // Default to Switzerland if 'all' is selected
       bank_details_verified: false,
       total_amount: 0, // Initialize total amount
@@ -368,7 +368,13 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     setIsSuggestionDialogOpen(false);
   };
 
+  const onInvalid = (errors: any) => {
+    console.error("Form validation failed:", errors);
+    showError("Form validation failed. Please check the console for details.");
+  };
+
   const onSubmit = async (values: z.infer<typeof addStandingOrderFormSchema>) => {
+    console.log("Form submitted with values:", values);
     const toastId = showLoading("Adding new standing order...");
 
     try {
@@ -446,7 +452,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         from_day: "1",
         to_day: "31",
         payment_reference: "",
-        status: "awaiting_info",
+        status: "pending",
         country: formCountry,
         bank_details_verified: false,
         payment_day: undefined, // Reset payment_day
@@ -468,7 +474,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Form validation failed:", errors))} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
         <FormField
           control={form.control}
           name="country"
@@ -989,7 +995,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   </FormControl>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="paused">Paused</SelectItem>
@@ -997,7 +1002,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 </SelectContent>
               </Select>
               <FormDescription>
-                {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Awaiting Info' by default and can only be changed by an administrator."}
+                {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Pending' by default and can only be changed by an administrator."}
               </FormDescription>
               <FormMessage />
             </FormItem>
