@@ -326,7 +326,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     setIsSuggestionDialogOpen(false);
   };
 
+  const onInvalid = (errors: any) => {
+    console.error("Form validation failed:", errors);
+    showError("Form validation failed. Please check the console for details.");
+  };
+
   const onSubmit = async (values: z.infer<typeof updateStandingOrderFormSchema>) => {
+    console.log("Form submitted with values:", values);
     const toastId = showLoading("Updating standing order...");
 
     try {
@@ -411,7 +417,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   return (
     <>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
           <FormField
             control={form.control}
             name="country"

@@ -75,7 +75,7 @@ const addStandingOrderFormSchema = z.object({
     if (!data.sku || data.sku.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `SKU is required unless 'Not Property Related' is checked.`,
+        message: `SKU is required unless 'Not SKU Related' is checked.`,
         path: ['sku'],
       });
     } else if (!data.sku.startsWith(skuPrefix)) {
@@ -362,7 +362,13 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     setIsSuggestionDialogOpen(false);
   };
 
+  const onInvalid = (errors: any) => {
+    console.error("Form validation failed:", errors);
+    showError("Form validation failed. Please check the console for details.");
+  };
+
   const onSubmit = async (values: z.infer<typeof addStandingOrderFormSchema>) => {
+    console.log("Form submitted with values:", values);
     const toastId = showLoading("Adding new standing order...");
 
     try {
@@ -462,7 +468,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
         <FormField
           control={form.control}
           name="country"

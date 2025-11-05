@@ -321,6 +321,7 @@ const PaymentRequestDetail = () => {
   });
 
   const handleRequesterEditSubmit = async (values: EditFormSchema) => {
+    console.log("Form submitted with values:", values);
     const toastId = showLoading("Updating payment request...");
     try {
       if (!user?.id || !request) {

@@ -161,6 +161,11 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
     setIsSuggestionDialogOpen(false);
   };
 
+  const onInvalid = (errors: any) => {
+    console.error("Form validation failed:", errors);
+    showError("Form validation failed. Please check the console for details.");
+  };
+
   return (
     <Card className="mb-8 shadow-sm">
       <CardHeader>
@@ -173,7 +178,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
       </CardHeader>
       <CardContent>
         <Form {...editForm}>
-          <form id="edit-request-form" onSubmit={editForm.handleSubmit(handleRequesterEditSubmit)} className="space-y-6">
+          <form id="edit-request-form" onSubmit={editForm.handleSubmit(handleRequesterEditSubmit, onInvalid)} className="space-y-6">
             <FormField
               control={editForm.control}
               name="country"
