@@ -330,45 +330,45 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
 
   const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
     const options = { shouldValidate: true, shouldDirty: true };
+    const currentFormCountry = form.getValues('country');
+
     form.setValue('payee', suggestion.name, options);
     form.setValue('account_name', suggestion.bank_account_name || '', options);
-    form.setValue('account_address', suggestion.address || '', options);
-    form.setValue('iban_number', suggestion.iban_number || '', options);
-    
-    let formattedSortCode = suggestion.sort_code || '';
-    if (formattedSortCode) {
-      let value = formattedSortCode.replace(/\D/g, '');
-      if (value.length > 6) value = value.substring(0, 6);
-      if (value.length > 4) {
-        value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
-      } else if (value.length > 2) {
-        value = value.slice(0, 2) + '-' + value.slice(2);
-      }
-      formattedSortCode = value;
-    }
-    form.setValue('sort_code', formattedSortCode, options);
-    
-    const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
-    form.setValue('account_number', cleanAccountNumber, options);
-    
     form.setValue('bank_details_verified', false, options);
     form.setValue('currency', suggestion.currency || undefined, options);
     form.setValue('bank_account', suggestion.bank_account || undefined, options);
+
+    if (currentFormCountry === 'United Kingdom') {
+        let formattedSortCode = suggestion.sort_code || '';
+        if (formattedSortCode) {
+            let value = formattedSortCode.replace(/\D/g, '');
+            if (value.length > 6) value = value.substring(0, 6);
+            if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+            else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
+            formattedSortCode = value;
+        }
+        form.setValue('sort_code', formattedSortCode, options);
+        
+        const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
+        form.setValue('account_number', cleanAccountNumber, options);
+
+        form.setValue('account_address', '', options);
+        form.setValue('iban_number', '', options);
+    } else {
+        form.setValue('account_address', suggestion.address || '', options);
+        form.setValue('iban_number', suggestion.iban_number || '', options);
+
+        form.setValue('sort_code', '', options);
+        form.setValue('account_number', '', options);
+    }
     
-    // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
     form.setValue('categories', [{ category: "", amount: 0 }], options);
     form.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
   };
 
-  const onInvalid = (errors: any) => {
-    console.error("Form validation failed:", errors);
-    showError("Form validation failed. Please check the console for details.");
-  };
-
   const onSubmit = async (values: z.infer<typeof addStandingOrderFormSchema>) => {
-    console.log("Form submitted with values:", values);
     const toastId = showLoading("Adding new standing order...");
 
     try {
@@ -468,7 +468,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Form validation failed:", errors))} className="space-y-6">
         <FormField
           control={form.control}
           name="country"

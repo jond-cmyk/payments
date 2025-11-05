@@ -346,31 +346,42 @@ const NewPaymentRequest = () => {
 
   const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
     const options = { shouldValidate: true, shouldDirty: true };
+    const currentFormCountry = form.getValues('country');
+
     form.setValue('supplier_name', suggestion.name, options);
-    form.setValue('supplier_address', suggestion.address || '', options);
-    form.setValue('iban_number', suggestion.iban_number || '', options);
-    
-    let formattedSortCode = suggestion.sort_code || '';
-    if (formattedSortCode) {
-      let value = formattedSortCode.replace(/\D/g, '');
-      if (value.length > 6) value = value.substring(0, 6);
-      if (value.length > 4) {
-        value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
-      } else if (value.length > 2) {
-        value = value.slice(0, 2) + '-' + value.slice(2);
-      }
-      formattedSortCode = value;
-    }
-    form.setValue('sort_code', formattedSortCode, options);
-    
-    const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
-    form.setValue('account_number', cleanAccountNumber, options);
-    
-    form.setValue('bank_account_name', suggestion.bank_account_name || '', options);
-    form.setValue('currency', suggestion.currency || (form.getValues('country') === 'United Kingdom' ? 'GBP' : 'CHF'), options);
     form.setValue('bank_details_verified', false, options);
+    form.setValue('currency', suggestion.currency || (currentFormCountry === 'United Kingdom' ? 'GBP' : 'CHF'), options);
+
+    if (currentFormCountry === 'United Kingdom') {
+        form.setValue('bank_account_name', suggestion.bank_account_name || '', options);
+        let formattedSortCode = suggestion.sort_code || '';
+        if (formattedSortCode) {
+            let value = formattedSortCode.replace(/\D/g, '');
+            if (value.length > 6) value = value.substring(0, 6);
+            if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+            else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
+            formattedSortCode = value;
+        }
+        form.setValue('sort_code', formattedSortCode, options);
+        
+        const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
+        form.setValue('account_number', cleanAccountNumber, options);
+
+        form.setValue('supplier_address', suggestion.address || '', options);
+        form.setValue('iban_number', '', options);
+    } else {
+        form.setValue('supplier_address', suggestion.address || '', options);
+        form.setValue('iban_number', suggestion.iban_number || '', options);
+        if (currentFormCountry === 'Switzerland') {
+            form.setValue('bank_account_name', suggestion.bank_account_name || '', options);
+        } else {
+            form.setValue('bank_account_name', '', options);
+        }
+
+        form.setValue('sort_code', '', options);
+        form.setValue('account_number', '', options);
+    }
     
-    // Clear categories and total amount when using suggestion, as search-all-payees doesn't return this data
     form.setValue('categories', [{ category: "", amount: 0 }], options);
     form.setValue('total_amount', 0.00, options);
 
@@ -513,7 +524,7 @@ const NewPaymentRequest = () => {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Form validation failed:", errors))} className="space-y-6">
               <FormField
                 control={form.control}
                 name="country"
