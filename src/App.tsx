@@ -9,6 +9,7 @@ import { NotificationProvider } from "./integrations/supabase/NotificationContex
 import { CountryProvider } from "./integrations/supabase/CountryContext";
 import Layout from "./components/Layout";
 import React, { Suspense, lazy } from 'react';
+import VersionChecker from "./components/VersionChecker"; // Import the new component
 
 // Lazy load all page components
 const Index = lazy(() => import("./pages/Index"));
@@ -76,6 +77,7 @@ const App = () => {
             <SessionContextProvider>
               <NotificationProvider>
                 <CountryProvider>
+                  <VersionChecker /> {/* Add the VersionChecker here */}
                   <Suspense fallback={<div className="flex items-center justify-center h-screen text-lg">Loading page...</div>}>
                     <Routes>
                       <Route path="/login" element={<Login />} />
