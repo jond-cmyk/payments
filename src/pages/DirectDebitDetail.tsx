@@ -27,7 +27,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Import Dialog components
 import { cn } from '@/lib/utils';
 import DirectDebitAuditTrailCard from '@/components/direct-debits/DirectDebitAuditTrailCard'; // Import the new audit card
 import DirectDebitCommentsCard from '@/components/direct-debits/DirectDebitCommentsCard'; // NEW: Import DirectDebitCommentsCard
@@ -410,6 +410,9 @@ const DirectDebitDetail = () => {
           <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Direct Debit: {directDebit.payee}</DialogTitle>
+              <DialogDescription>
+                Update the details for this recurring direct debit.
+              </DialogDescription>
             </DialogHeader>
             <EditDirectDebitForm directDebit={directDebit} onDirectDebitUpdated={handleDirectDebitUpdated} />
           </DialogContent>

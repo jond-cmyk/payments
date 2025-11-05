@@ -41,7 +41,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import AddDirectDebitForm from '@/components/direct-debits/AddDirectDebitForm';
 import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm';
 import { cn } from '@/lib/utils';
@@ -491,6 +491,9 @@ const DirectDebits = () => {
                 <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Add New Direct Debit</DialogTitle>
+                    <DialogDescription>
+                      Fill in the details to create a new recurring direct debit.
+                    </DialogDescription>
                   </DialogHeader>
                   <AddDirectDebitForm onDirectDebitAdded={handleDirectDebitAdded} />
                 </DialogContent>
@@ -798,6 +801,9 @@ const DirectDebits = () => {
           <DialogContent className="sm:max-w-[425px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Direct Debit: {editingDirectDebit.payee}</DialogTitle>
+              <DialogDescription>
+                Update the details for this recurring direct debit.
+              </DialogDescription>
             </DialogHeader>
             <EditDirectDebitForm directDebit={editingDirectDebit} onDirectDebitUpdated={handleDirectDebitUpdated} />
           </DialogContent>

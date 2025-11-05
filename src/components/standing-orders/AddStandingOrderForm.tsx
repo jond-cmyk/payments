@@ -55,7 +55,7 @@ const addStandingOrderFormSchema = z.object({
   }).default('awaiting_info'), // Default to 'awaiting_info'
   country: z.string().min(1, "Country is required."),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
-  total_amount: z.coerce.number().min(0.01, "Total amount must be positive."), // Added total_amount to schema
+  total_amount: z.coerce.number(), // REMOVED .min(0.01) to prevent silent validation failure
   payment_day: z.string().optional(), // Add payment_day to schema
   currency: z.string().optional(), // NEW: Add currency field
   bank_account: z.string().optional(), // NEW: Add bank_account field

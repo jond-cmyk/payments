@@ -24,7 +24,7 @@ import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'; // Import Dialog components
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Import Dialog components
 import { Separator } from '@/components/ui/separator'; // Import Separator
 import PropertyAddressField from '@/components/PropertyAddressField';
 
@@ -43,7 +43,7 @@ const formSchema = z.object({
   account_number: z.string().optional(),
   bank_account_name: z.string().optional(),
   currency: z.string().min(1, "Currency is required"),
-  total_amount: z.coerce.number().min(0.01, "Total Amount must be positive."), // CHANGED
+  total_amount: z.coerce.number(), // REMOVED .min(0.01) to prevent silent validation failure
   notes: z.string().optional(), // CHANGED: Renamed from reason_for_payment
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
@@ -260,15 +260,10 @@ const NewPaymentRequest = () => {
 
   // Calculate total amount whenever categories array changes
   React.useEffect(() => {
-    // console.log("[NewPaymentRequest] useEffect triggered for watchedCategories change.");
-    // console.log("[NewPaymentRequest] watchedCategories:", JSON.stringify(watchedCategories));
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
-      // Ensure amount is treated as a number, defaulting to 0 if invalid
-      const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
-      // console.log(`[NewPaymentRequest] Reducing item: sum=${sum}, amount=${parsedAmount}`);
+      const parsedAmount = parseFloat(categoryItem?.amount as any) || 0; // Ensure it's a number
       return sum + parsedAmount;
     }, 0);
-    // console.log("[NewPaymentRequest] Calculated newTotal:", newTotal);
     form.setValue("total_amount", newTotal, { shouldValidate: true });
   }, [watchedCategories, form]);
 
@@ -605,7 +600,7 @@ const NewPaymentRequest = () => {
                                 value={field.value === 0 ? "" : String(field.value)}
                                 onChange={(e) => {
                                   const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                                  field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
+                                  field.onChange(rawValue);
                                 }}
                               />
                             </FormControl>
@@ -1013,6 +1008,9 @@ const NewPaymentRequest = () => {
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
+                <DialogDescription>
+                  We found existing payees with a similar name. You can use their details to pre-fill the form.
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 {supplierSuggestions.length > 0 ? (
