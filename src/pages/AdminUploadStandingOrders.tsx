@@ -22,6 +22,7 @@ const AdminUploadStandingOrders = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedUploadCountry, setSelectedUploadCountry] = useState<string>(currentCountry === 'all' ? 'Switzerland' : currentCountry);
   const [uploadResult, setUploadResult] = useState<{ message: string; errors: string[] } | null>(null);
+  const [serverDebugInfo, setServerDebugInfo] = useState<string>('');
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -65,6 +66,7 @@ const AdminUploadStandingOrders = () => {
     const toastId = showLoading("Uploading and processing standing orders spreadsheet...");
     setIsUploading(true);
     setUploadResult(null); // Clear previous results
+    setServerDebugInfo(''); // Clear previous debug info
 
     try {
       const fileContent = await file.text();
@@ -84,15 +86,20 @@ const AdminUploadStandingOrders = () => {
       }
 
       if (data) {
+        const resultData = data as any;
         setUploadResult({
-          message: data.message || "Processing complete.",
-          errors: data.errors || [],
+          message: resultData.message || "Processing complete.",
+          errors: resultData.errors || [],
         });
 
-        if (!data.success || (data.errors && data.errors.length > 0)) {
-          showError(data.message || `Upload completed with ${data.errors?.length || 0} errors.`);
+        if (resultData.serverDebugInfo) {
+          setServerDebugInfo(resultData.serverDebugInfo);
+        }
+
+        if (!resultData.success || (resultData.errors && resultData.errors.length > 0)) {
+          showError(resultData.message || `Upload completed with ${resultData.errors?.length || 0} errors.`);
         } else {
-          showSuccess(data.message || "Standing orders spreadsheet uploaded and processed successfully!");
+          showSuccess(resultData.message || "Standing orders spreadsheet uploaded and processed successfully!");
         }
       } else {
         throw new Error("Received an empty response from the server.");
@@ -152,17 +159,22 @@ const AdminUploadStandingOrders = () => {
               <AlertDescription>
                 <p className="font-semibold">{uploadResult.message}</p>
                 {uploadResult.errors.length > 0 && (
-                  <div className="mt-2 max-h-40 overflow-y-auto">
-                    <p className="font-bold">Specific Errors:</p>
-                    <ul className="list-disc pl-5 text-xs space-y-1">
-                      {uploadResult.errors.map((error, index) => (
-                        <li key={index}>{error}</li>
-                      ))}
-                    </ul>
+                  <div className="mt-2 max-h-60 overflow-y-auto bg-gray-100 p-2 rounded">
+                    <p className="font-bold text-sm">Specific Errors:</p>
+                    <pre className="text-xs whitespace-pre-wrap">
+                      {uploadResult.errors.join('\n\n')}
+                    </pre>
                   </div>
                 )}
               </AlertDescription>
             </Alert>
+          )}
+
+          {serverDebugInfo && (
+            <div className="mt-4 p-4 bg-gray-800 text-white rounded-md">
+              <h4 className="font-semibold mb-2">Server Debug Information:</h4>
+              <pre className="text-xs overflow-auto max-h-60 whitespace-pre-wrap">{serverDebugInfo}</pre>
+            </div>
           )}
 
           <p className="text-sm text-muted-foreground text-center">

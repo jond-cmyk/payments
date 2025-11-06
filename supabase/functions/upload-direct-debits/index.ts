@@ -96,7 +96,15 @@ serve(async (req) => {
     const missingHeaders = REQUIRED_HEADERS.filter(key => !findHeader(headers, key));
     if (missingHeaders.length > 0) {
       const friendlyNames = missingHeaders.map(key => HEADER_MAP[key][0].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
-      throw new Error(`CSV file is missing required columns: ${friendlyNames.join(', ')}.`);
+      const debugInfo = `Detected Headers: [${headers.join(', ')}]\nNumber of Headers Detected: ${headers.length}\nFirst Header Raw: "${parsedRows[0][0]}"\nFirst Header Trimmed: "${headers[0]}"\nFirst Header Char Codes: [${headers[0].split('').map(c => c.charCodeAt(0)).join(', ')}]`;
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: 'An unexpected server error occurred.', 
+        errors: [`CSV file is missing required columns: ${friendlyNames.join(', ')}.`] ,
+        serverDebugInfo: debugInfo
+      }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const directDebitsToInsert = [];

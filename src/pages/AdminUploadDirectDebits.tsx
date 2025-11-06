@@ -21,8 +21,8 @@ const AdminUploadDirectDebits = () => {
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedUploadCountry, setSelectedUploadCountry] = useState<string>(currentCountry === 'all' ? 'Switzerland' : currentCountry);
-  const [serverDebugInfo, setServerDebugInfo] = useState<string>('');
   const [uploadResult, setUploadResult] = useState<{ message: string; errors: string[] } | null>(null);
+  const [serverDebugInfo, setServerDebugInfo] = useState<string>('');
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -161,17 +161,22 @@ const AdminUploadDirectDebits = () => {
                 <AlertDescription>
                   <p className="font-semibold">{uploadResult.message}</p>
                   {uploadResult.errors.length > 0 && (
-                    <div className="mt-2 max-h-40 overflow-y-auto">
-                      <p className="font-bold">Specific Errors:</p>
-                      <ul className="list-disc pl-5 text-xs space-y-1">
-                        {uploadResult.errors.map((error, index) => (
-                          <li key={index}>{error}</li>
-                        ))}
-                      </ul>
+                    <div className="mt-2 max-h-60 overflow-y-auto bg-gray-100 p-2 rounded">
+                      <p className="font-bold text-sm">Specific Errors:</p>
+                      <pre className="text-xs whitespace-pre-wrap">
+                        {uploadResult.errors.join('\n\n')}
+                      </pre>
                     </div>
                   )}
                 </AlertDescription>
               </Alert>
+            )}
+
+            {serverDebugInfo && (
+              <div className="mt-4 p-4 bg-gray-800 text-white rounded-md">
+                <h4 className="font-semibold mb-2">Server Debug Information:</h4>
+                <pre className="text-xs overflow-auto max-h-60 whitespace-pre-wrap">{serverDebugInfo}</pre>
+              </div>
             )}
 
             <p className="text-sm text-muted-foreground text-center">
@@ -183,13 +188,6 @@ const AdminUploadDirectDebits = () => {
               <br />
               For Switzerland, the CSV must include: `Currency` and `Bank Account` (required).
             </p>
-            
-            {serverDebugInfo && (
-              <div className="mt-4 p-4 bg-gray-100 rounded-md">
-                <h4 className="font-semibold mb-2">Server Debug Information:</h4>
-                <pre className="text-xs overflow-auto max-h-40">{serverDebugInfo}</pre>
-              </div>
-            )}
           </CardContent>
         </Card>
       </div>
