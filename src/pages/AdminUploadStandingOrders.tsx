@@ -80,10 +80,20 @@ const AdminUploadStandingOrders = () => {
 
       if (invokeError) {
         console.error("Supabase Function Invoke Error:", invokeError);
-        if (data?.error) {
-          throw new Error(data.error);
+        try {
+          const errorData = await invokeError.context.json();
+          if (errorData.errors && Array.isArray(errorData.errors)) {
+            setUploadResult({
+              message: errorData.message || 'An error occurred during processing.',
+              errors: errorData.errors,
+            });
+            showError(`Upload failed with ${errorData.errors.length} critical errors. See details below.`);
+            return;
+          }
+          throw new Error(errorData.error || invokeError.message);
+        } catch (e) {
+          throw new Error(invokeError.message);
         }
-        throw new Error(invokeError.message);
       }
 
       if (data?.error) {
@@ -97,7 +107,7 @@ const AdminUploadStandingOrders = () => {
         });
 
         if (data.errors && data.errors.length > 0) {
-          showError(`Upload completed with ${data.errors.length} errors. See details on the page.`);
+          showError(`Upload completed with ${data.errors.length} warnings. See details below.`);
         } else {
           showSuccess(data.message || "Standing orders spreadsheet uploaded and processed successfully!");
         }

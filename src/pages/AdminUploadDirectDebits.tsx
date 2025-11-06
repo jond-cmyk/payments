@@ -63,32 +63,14 @@ const AdminUploadDirectDebits = () => {
     }
 
     const file = selectedFile[0];
-    console.log(`[Client] Starting upload of file: ${file.name}`);
-    console.log(`[Client] File size: ${file.size} bytes`);
-    console.log(`[Client] Selected country: ${selectedUploadCountry}`);
-    
     const toastId = showLoading("Uploading and processing direct debits spreadsheet...");
     setIsUploading(true);
     setServerDebugInfo('');
     setUploadResult(null); // Clear previous results
 
     try {
-      console.log(`[Client] Reading file content...`);
       const fileContent = await file.text();
-      console.log(`[Client] File content length: ${fileContent.length} characters`);
-      
-      // Show first 500 characters to see the CSV structure
-      console.log(`[Client] First 500 chars of file: ${fileContent.substring(0, 500)}`);
-      
-      // Try to parse and show the first few lines
-      const lines = fileContent.split('\n');
-      console.log(`[Client] Total lines in file: ${lines.length}`);
-      console.log(`[Client] First 5 lines:`);
-      lines.slice(0, 5).forEach((line, index) => {
-        console.log(`Line ${index + 1}: "${line}"`);
-      });
 
-      console.log(`[Client] Calling upload-direct-debits function...`);
       const { data, error: invokeError } = await supabase.functions.invoke('upload-direct-debits', {
         body: {
           fileName: file.name,
@@ -98,19 +80,22 @@ const AdminUploadDirectDebits = () => {
         },
       });
 
-      console.log(`[Client] Function response:`, { data, invokeError });
-
       if (invokeError) {
         console.error("[Client] Supabase Function Invoke Error:", invokeError);
-        let errorMessage = "Failed to upload and process direct debits spreadsheet.";
         try {
           const errorData = await invokeError.context.json();
-          if (errorData.error) errorMessage = errorData.error;
-          else if (errorData.message) errorMessage = errorData.message;
+          if (errorData.errors && Array.isArray(errorData.errors)) {
+            setUploadResult({
+              message: errorData.message || 'An error occurred during processing.',
+              errors: errorData.errors,
+            });
+            showError(`Upload failed with ${errorData.errors.length} critical errors. See details below.`);
+            return;
+          }
+          throw new Error(errorData.error || invokeError.message);
         } catch (e) {
-          console.error("[Client] Could not parse error response from edge function:", e);
+          throw new Error(invokeError.message);
         }
-        throw new Error(errorMessage);
       }
 
       if (data) {
@@ -125,7 +110,7 @@ const AdminUploadDirectDebits = () => {
         }
 
         if (resultData.errors && resultData.errors.length > 0) {
-          showError(`Upload completed with ${resultData.errors.length} errors. See details on the page.`);
+          showError(`Upload completed with ${resultData.errors.length} warnings. See details below.`);
         } else {
           showSuccess(resultData.message || "Direct debits spreadsheet uploaded and processed successfully!");
         }

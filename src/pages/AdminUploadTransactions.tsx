@@ -81,22 +81,20 @@ const AdminUploadTransactions = () => {
 
       if (invokeError) {
         console.error("Supabase Function Invoke Error:", invokeError);
-        let errorMessage = invokeError.message; // Default message
         try {
-          // The error response body is in the context property
           const errorData = await invokeError.context.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          } else if (errorData.message) {
-            errorMessage = errorData.message;
-          } else if (errorData.errors && Array.isArray(errorData.errors)) {
-            errorMessage = errorData.errors.join('; ');
+          if (errorData.errors && Array.isArray(errorData.errors)) {
+            setUploadResult({
+              message: errorData.message || 'An error occurred during processing.',
+              errors: errorData.errors,
+            });
+            showError(`Upload failed with ${errorData.errors.length} critical errors. See details below.`);
+            return;
           }
+          throw new Error(errorData.error || invokeError.message);
         } catch (e) {
-          // If parsing the error response fails, stick with the default message
-          console.error("Could not parse error response from edge function:", e);
+          throw new Error(invokeError.message);
         }
-        throw new Error(errorMessage);
       }
 
       if (data?.error) {
@@ -110,7 +108,7 @@ const AdminUploadTransactions = () => {
         });
 
         if (data.errors && data.errors.length > 0) {
-          showError(`Upload completed with ${data.errors.length} errors. See details on the page.`);
+          showError(`Upload completed with ${data.errors.length} warnings. See details below.`);
         } else {
           showSuccess(data.message || "Spreadsheet uploaded and processed successfully!");
         }
@@ -118,7 +116,6 @@ const AdminUploadTransactions = () => {
 
       setSelectedFile(null);
     } catch (error: any) {
-      dismissToast(toastId);
       showError(error.message || "Failed to upload and process spreadsheet.");
       console.error("Spreadsheet upload error:", error);
     } finally {
