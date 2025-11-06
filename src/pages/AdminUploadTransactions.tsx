@@ -80,38 +80,26 @@ const AdminUploadTransactions = () => {
       });
 
       if (invokeError) {
+        // This block now only handles network/gateway errors, not application logic errors
         console.error("Supabase Function Invoke Error:", invokeError);
-        try {
-          const errorData = await invokeError.context.json();
-          if (errorData.errors && Array.isArray(errorData.errors)) {
-            setUploadResult({
-              message: errorData.message || 'An error occurred during processing.',
-              errors: errorData.errors,
-            });
-            showError(`Upload failed with ${errorData.errors.length} critical errors. See details below.`);
-            return;
-          }
-          throw new Error(errorData.error || invokeError.message);
-        } catch (e) {
-          throw new Error(invokeError.message);
-        }
+        throw new Error(`Network error: ${invokeError.message}`);
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
+      // The function now ALWAYS returns a data object, even on failure.
       if (data) {
         setUploadResult({
           message: data.message || "Processing complete.",
           errors: data.errors || [],
         });
 
-        if (data.errors && data.errors.length > 0) {
-          showError(`Upload completed with ${data.errors.length} warnings. See details below.`);
+        if (!data.success || (data.errors && data.errors.length > 0)) {
+          showError(data.message || `Upload completed with ${data.errors?.length || 0} errors.`);
         } else {
           showSuccess(data.message || "Spreadsheet uploaded and processed successfully!");
         }
+      } else {
+        // This case should ideally not happen with the new server-side logic
+        throw new Error("Received an empty response from the server.");
       }
 
       setSelectedFile(null);

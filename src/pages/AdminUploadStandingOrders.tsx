@@ -80,24 +80,7 @@ const AdminUploadStandingOrders = () => {
 
       if (invokeError) {
         console.error("Supabase Function Invoke Error:", invokeError);
-        try {
-          const errorData = await invokeError.context.json();
-          if (errorData.errors && Array.isArray(errorData.errors)) {
-            setUploadResult({
-              message: errorData.message || 'An error occurred during processing.',
-              errors: errorData.errors,
-            });
-            showError(`Upload failed with ${errorData.errors.length} critical errors. See details below.`);
-            return;
-          }
-          throw new Error(errorData.error || invokeError.message);
-        } catch (e) {
-          throw new Error(invokeError.message);
-        }
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
+        throw new Error(`Network error: ${invokeError.message}`);
       }
 
       if (data) {
@@ -106,11 +89,13 @@ const AdminUploadStandingOrders = () => {
           errors: data.errors || [],
         });
 
-        if (data.errors && data.errors.length > 0) {
-          showError(`Upload completed with ${data.errors.length} warnings. See details below.`);
+        if (!data.success || (data.errors && data.errors.length > 0)) {
+          showError(data.message || `Upload completed with ${data.errors?.length || 0} errors.`);
         } else {
           showSuccess(data.message || "Standing orders spreadsheet uploaded and processed successfully!");
         }
+      } else {
+        throw new Error("Received an empty response from the server.");
       }
 
       setSelectedFile(null);

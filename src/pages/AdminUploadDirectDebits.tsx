@@ -82,20 +82,7 @@ const AdminUploadDirectDebits = () => {
 
       if (invokeError) {
         console.error("[Client] Supabase Function Invoke Error:", invokeError);
-        try {
-          const errorData = await invokeError.context.json();
-          if (errorData.errors && Array.isArray(errorData.errors)) {
-            setUploadResult({
-              message: errorData.message || 'An error occurred during processing.',
-              errors: errorData.errors,
-            });
-            showError(`Upload failed with ${errorData.errors.length} critical errors. See details below.`);
-            return;
-          }
-          throw new Error(errorData.error || invokeError.message);
-        } catch (e) {
-          throw new Error(invokeError.message);
-        }
+        throw new Error(`Network error: ${invokeError.message}`);
       }
 
       if (data) {
@@ -109,11 +96,13 @@ const AdminUploadDirectDebits = () => {
           setServerDebugInfo(resultData.serverDebugInfo);
         }
 
-        if (resultData.errors && resultData.errors.length > 0) {
-          showError(`Upload completed with ${resultData.errors.length} warnings. See details below.`);
+        if (!resultData.success || (resultData.errors && resultData.errors.length > 0)) {
+          showError(resultData.message || `Upload completed with ${resultData.errors?.length || 0} errors.`);
         } else {
           showSuccess(resultData.message || "Direct debits spreadsheet uploaded and processed successfully!");
         }
+      } else {
+        throw new Error("Received an empty response from the server.");
       }
       
       setSelectedFile(null);
