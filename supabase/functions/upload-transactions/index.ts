@@ -81,7 +81,8 @@ serve(async (req) => {
       throw new Error('Invalid request: Missing file data, uploader ID, or country.');
     }
 
-    const separator = fileContent.includes(';') ? ';' : ',';
+    const firstLine = fileContent.split('\n')[0];
+    const separator = firstLine.includes(';') ? ';' : ',';
     const parsedRows = await parse(fileContent, { header: false, separator, trimLeadingWhitespace: true, lazyQuotes: true }) as string[][];
 
     if (parsedRows.length < 2) {
