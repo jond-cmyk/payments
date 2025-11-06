@@ -65,9 +65,7 @@ serve(async (req) => {
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
-      return new Response(JSON.stringify({ success: false, message: 'Server configuration error.', errors: ['Missing Supabase credentials.'] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('Server configuration error: Missing Supabase credentials.');
     }
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });
@@ -75,9 +73,7 @@ serve(async (req) => {
     const { fileName, fileContent, uploaderId, country } = payload;
 
     if (!fileName || !fileContent || !uploaderId || !country) {
-      return new Response(JSON.stringify({ success: false, message: 'Invalid request.', errors: ['Missing file data, uploader ID, or country.'] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('Invalid request: Missing file data, uploader ID, or country.');
     }
 
     const separator = fileContent.includes(';') ? ';' : ',';
@@ -92,12 +88,15 @@ serve(async (req) => {
     const headers = parsedRows[0].map(h => h.trim());
     const dataRows = parsedRows.slice(1);
 
+    // Strip BOM from the first header if it exists
+    if (headers[0] && headers[0].startsWith('\uFEFF')) {
+      headers[0] = headers[0].substring(1);
+    }
+
     const missingHeaders = REQUIRED_HEADERS.filter(key => !findHeader(headers, key));
     if (missingHeaders.length > 0) {
       const friendlyNames = missingHeaders.map(key => HEADER_MAP[key][0].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
-      return new Response(JSON.stringify({ success: false, message: 'CSV file is missing required columns.', errors: [`Please ensure your file has the following columns: ${friendlyNames.join(', ')}.`] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error(`CSV file is missing required columns: ${friendlyNames.join(', ')}.`);
     }
 
     const directDebitsToInsert = [];

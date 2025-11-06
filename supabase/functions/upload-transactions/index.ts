@@ -93,6 +93,11 @@ serve(async (req) => {
     const headers = parsedRows[0].map(h => h.trim());
     const dataRows = parsedRows.slice(1);
 
+    // Strip BOM from the first header if it exists
+    if (headers[0] && headers[0].startsWith('\uFEFF')) {
+      headers[0] = headers[0].substring(1);
+    }
+
     const missingHeaders = REQUIRED_HEADERS.filter(key => !findHeader(headers, key));
     if (missingHeaders.length > 0) {
       const friendlyNames = missingHeaders.map(key => HEADER_MAP[key][0].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
