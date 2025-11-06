@@ -10,7 +10,7 @@ import { useCountry } from '@/integrations/supabase/CountryContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
-import { UploadCloud } from 'lucide-react';
+import { UploadCloud, Info } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
@@ -125,6 +125,13 @@ const AdminUploadStandingOrders = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>Pro Tip for Large Files</AlertTitle>
+            <AlertDescription>
+              If you are uploading a large spreadsheet (e.g., more than 500 rows) and experience a 'Network error' or timeout, please split the file into smaller chunks and upload them separately. This ensures the server has enough time to process each file.
+            </AlertDescription>
+          </Alert>
           <div className="flex flex-col space-y-2">
             <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
               Select Country for Upload
