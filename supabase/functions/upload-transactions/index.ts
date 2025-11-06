@@ -82,7 +82,7 @@ serve(async (req) => {
     }
 
     const separator = fileContent.includes(';') ? ';' : ',';
-    const parsedRows = await parse(fileContent, { header: false, separator, trimLeadingWhitespace: true }) as string[][];
+    const parsedRows = await parse(fileContent, { header: false, separator, trimLeadingWhitespace: true, lazyQuotes: true }) as string[][];
 
     if (parsedRows.length < 2) {
       return new Response(JSON.stringify({ success: false, message: 'CSV file is empty or has no data rows.', errors: [] }), {

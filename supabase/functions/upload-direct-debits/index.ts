@@ -81,7 +81,7 @@ serve(async (req) => {
     }
 
     const separator = fileContent.includes(';') ? ';' : ',';
-    const parsedRows = await parse(fileContent, { header: false, separator, trimLeadingWhitespace: true }) as string[][];
+    const parsedRows = await parse(fileContent, { header: false, separator, trimLeadingWhitespace: true, lazyQuotes: true }) as string[][];
 
     if (parsedRows.length < 2) {
       return new Response(JSON.stringify({ success: false, message: 'CSV file is empty or has no data rows.', errors: [] }), {
@@ -162,11 +162,11 @@ serve(async (req) => {
           }
         }
 
-        const not_sku_related_str = getValue(record, 'not_property_related');
-        const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
+        const not_property_related_str = getValue(record, 'not_property_related');
+        const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
 
         const amountStr = getValue(record, 'total_amount');
-        const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, ''));
+        const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, '').replace(/\s/g, ''));
         const total_amount = isNaN(parsedAmount) ? 0 : parsedAmount;
 
         const category = getValue(record, 'category') || '974_other';
@@ -181,8 +181,8 @@ serve(async (req) => {
           payee,
           payment_date,
           payment_day,
-          sku: not_sku_related ? null : (getValue(record, 'sku') || null),
-          not_property_related: not_sku_related,
+          sku: not_property_related ? null : (getValue(record, 'sku') || null),
+          not_property_related,
           categories: [category],
           total_amount,
           account_number: getValue(record, 'account_number') || 'UNKNOWN',

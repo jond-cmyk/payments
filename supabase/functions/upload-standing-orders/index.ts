@@ -73,9 +73,7 @@ serve(async (req) => {
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
-      return new Response(JSON.stringify({ success: false, message: 'Server configuration error.', errors: ['Missing Supabase credentials.'] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('Server configuration error: Missing Supabase credentials.');
     }
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });
@@ -83,13 +81,11 @@ serve(async (req) => {
     const { fileName, fileContent, uploaderId, country } = payload;
 
     if (!fileName || !fileContent || !uploaderId || !country) {
-      return new Response(JSON.stringify({ success: false, message: 'Invalid request.', errors: ['Missing file data, uploader ID, or country.'] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('Invalid request: Missing file data, uploader ID, or country.');
     }
 
     const separator = fileContent.includes(';') ? ';' : ',';
-    const parsedRows = await parse(fileContent, { header: false, separator, trimLeadingWhitespace: true }) as string[][];
+    const parsedRows = await parse(fileContent, { header: false, separator, trimLeadingWhitespace: true, lazyQuotes: true }) as string[][];
 
     if (parsedRows.length < 2) {
       return new Response(JSON.stringify({ success: false, message: 'CSV file is empty or has no data rows.', errors: [] }), {
@@ -103,9 +99,7 @@ serve(async (req) => {
     const missingHeaders = REQUIRED_HEADERS.filter(key => !findHeader(headers, key));
     if (missingHeaders.length > 0) {
       const friendlyNames = missingHeaders.map(key => HEADER_MAP[key][0].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
-      return new Response(JSON.stringify({ success: false, message: 'CSV file is missing required columns.', errors: [`Please ensure your file has the following columns: ${friendlyNames.join(', ')}.`] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error(`CSV file is missing required columns: ${friendlyNames.join(', ')}.`);
     }
 
     const standingOrdersToInsert = [];
@@ -164,8 +158,8 @@ serve(async (req) => {
         }
         const payment_end_date = parseDate(getValue(record, 'payment_end_date'));
 
-        const not_sku_related_str = getValue(record, 'not_property_related');
-        const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
+        const not_property_related_str = getValue(record, 'not_property_related');
+        const not_property_related = not_property_related_str?.toLowerCase() === 'yes' || not_property_related_str?.toLowerCase() === 'true';
 
         const amountStr = getValue(record, 'total_amount');
         const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, '').replace(/\s/g, ''));
@@ -193,8 +187,8 @@ serve(async (req) => {
           payment_date,
           payment_end_date,
           payment_day: parseInt(getValue(record, 'payment_day') || '0', 10) || null,
-          sku: not_sku_related ? null : (getValue(record, 'sku') || null),
-          not_property_related: not_sku_related,
+          sku: not_property_related ? null : (getValue(record, 'sku') || null),
+          not_property_related,
           categories: [{ category, amount: total_amount }],
           total_amount,
           account_name: getValue(record, 'account_name') || null,
