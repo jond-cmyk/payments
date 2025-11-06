@@ -110,105 +110,111 @@ serve(async (req) => {
 
     const standingOrdersToInsert = [];
     const errors: string[] = [];
+    const userEmailToIdCache: Record<string, string> = {};
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       const rowNum = i + 2;
 
-      if (row.length !== headers.length) {
-        errors.push(`Row ${rowNum}: Column count mismatch. Skipping.`);
-        continue;
-      }
-
-      const record: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        record[header] = row[index];
-      });
-
-      const payee = getValue(record, 'payee');
-      if (!payee) {
-        errors.push(`Row ${rowNum}: Missing required value for 'Payee'. Skipping.`);
-        continue;
-      }
-
-      let requesterId = uploaderId;
-      const userEmail = getValue(record, 'user_email');
-      if (userEmail) {
-        const { data: profileRow } = await supabaseClient.from('profile_with_email').select('id').eq('user_email', userEmail).single();
-        if (profileRow?.id) {
-          requesterId = profileRow.id;
-        } else {
-          errors.push(`Row ${rowNum}: Could not find user with email '${userEmail}'. Assigning to uploader.`);
+      try {
+        if (row.length !== headers.length) {
+          throw new Error(`Column count mismatch. Expected ${headers.length}, but got ${row.length}.`);
         }
-      }
 
-      const parseDate = (dateStr: string | undefined) => {
-        if (!dateStr) return null;
-        const parts = dateStr.split(/[./-]/);
-        if (parts.length === 3) {
-          const [d, m, y] = parts;
-          if (d.length === 4) return `${d}-${m}-${d}`; // YYYY-MM-DD
-          return `${y}-${m}-${d}`; // DD.MM.YYYY
+        const record: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          record[header] = row[index] || "";
+        });
+
+        const payee = getValue(record, 'payee');
+        if (!payee) {
+          throw new Error(`Missing required value for 'Payee'.`);
         }
-        return null;
-      };
 
-      const payment_date = parseDate(getValue(record, 'payment_date'));
-      if (!payment_date) {
-        errors.push(`Row ${rowNum}: Invalid or missing Payment Start Date. Please use DD.MM.YYYY. Skipping.`);
-        continue;
+        let requesterId = uploaderId;
+        const userEmail = getValue(record, 'user_email');
+        if (userEmail) {
+          if (userEmailToIdCache[userEmail]) {
+            requesterId = userEmailToIdCache[userEmail];
+          } else {
+            const { data: profileRow, error: profileError } = await supabaseClient.from('profile_with_email').select('id').eq('user_email', userEmail).single();
+            if (profileError || !profileRow) {
+              errors.push(`Row ${rowNum}: Could not find user with email '${userEmail}'. Assigning to uploader.`);
+            } else {
+              requesterId = profileRow.id;
+              userEmailToIdCache[userEmail] = profileRow.id;
+            }
+          }
+        }
+
+        const parseDate = (dateStr: string | undefined) => {
+          if (!dateStr) return null;
+          const parts = dateStr.split(/[./-]/);
+          if (parts.length === 3) {
+            const [p1, p2, p3] = parts;
+            if (p1.length === 4) return `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`; // YYYY-MM-DD
+            return `${p3.length === 2 ? `20${p3}` : p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`; // DD.MM.YYYY
+          }
+          return null;
+        };
+
+        const payment_date = parseDate(getValue(record, 'payment_date'));
+        if (!payment_date) {
+          throw new Error(`Invalid or missing Payment Start Date. Please use DD.MM.YYYY or YYYY-MM-DD.`);
+        }
+        const payment_end_date = parseDate(getValue(record, 'payment_end_date'));
+
+        const not_sku_related_str = getValue(record, 'not_property_related');
+        const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
+
+        const amountStr = getValue(record, 'total_amount');
+        const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, '').replace(/\s/g, ''));
+        const total_amount = isNaN(parsedAmount) ? 0 : parsedAmount;
+
+        const category = getValue(record, 'category') || '974_other';
+
+        let currency = getValue(record, 'currency');
+        if (country === 'United Kingdom') {
+          currency = 'GBP';
+        }
+
+        const fromDayStr = getValue(record, 'from_day') || '1';
+        const toDayStr = getValue(record, 'to_day') || '31';
+        const from_day = parseInt(fromDayStr, 10);
+        const to_day = parseInt(toDayStr, 10);
+
+        if (isNaN(from_day) || isNaN(to_day)) {
+          throw new Error(`Invalid 'From Day' or 'To Day'.`);
+        }
+
+        standingOrdersToInsert.push({
+          requester_id: requesterId,
+          payee,
+          payment_date,
+          payment_end_date,
+          payment_day: parseInt(getValue(record, 'payment_day') || '0', 10) || null,
+          sku: not_sku_related ? null : (getValue(record, 'sku') || null),
+          not_property_related: not_sku_related,
+          categories: [{ category, amount: total_amount }],
+          total_amount,
+          account_name: getValue(record, 'account_name') || null,
+          account_address: getValue(record, 'account_address') || null,
+          iban_number: getValue(record, 'iban_number') || null,
+          sort_code: getValue(record, 'sort_code') || null,
+          account_number: getValue(record, 'account_number') || null,
+          from_day,
+          to_day,
+          payment_reference: getValue(record, 'payment_reference') || null,
+          comments: getValue(record, 'comments') || null,
+          status: 'awaiting_info',
+          country,
+          bank_details_verified: false,
+          currency,
+          bank_account: getValue(record, 'bank_account') || null,
+        });
+      } catch (rowError) {
+        errors.push(`Row ${rowNum}: ${rowError.message}`);
       }
-      const payment_end_date = parseDate(getValue(record, 'payment_end_date'));
-
-      const not_sku_related_str = getValue(record, 'not_property_related');
-      const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
-
-      const amountStr = getValue(record, 'total_amount');
-      const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, ''));
-      const total_amount = isNaN(parsedAmount) ? 0 : parsedAmount;
-
-      const category = getValue(record, 'category') || '974_other';
-
-      let currency = getValue(record, 'currency');
-      if (country === 'United Kingdom') {
-        currency = 'GBP';
-      }
-
-      const fromDayStr = getValue(record, 'from_day') || '1';
-      const toDayStr = getValue(record, 'to_day') || '31';
-      const from_day = parseInt(fromDayStr, 10);
-      const to_day = parseInt(toDayStr, 10);
-
-      if (isNaN(from_day) || isNaN(to_day)) {
-        errors.push(`Row ${rowNum}: Invalid 'From Day' or 'To Day'. Skipping.`);
-        continue;
-      }
-
-      standingOrdersToInsert.push({
-        requester_id: requesterId,
-        payee,
-        payment_date,
-        payment_end_date,
-        payment_day: parseInt(getValue(record, 'payment_day') || '0', 10) || null,
-        sku: not_sku_related ? null : getValue(record, 'sku'),
-        not_property_related: not_sku_related,
-        categories: [{ category, amount: total_amount }],
-        total_amount,
-        account_name: getValue(record, 'account_name') || null,
-        account_address: getValue(record, 'account_address') || null,
-        iban_number: getValue(record, 'iban_number') || null,
-        sort_code: getValue(record, 'sort_code') || null,
-        account_number: getValue(record, 'account_number') || null,
-        from_day,
-        to_day,
-        payment_reference: getValue(record, 'payment_reference') || null,
-        comments: getValue(record, 'comments') || null,
-        status: 'awaiting_info',
-        country,
-        bank_details_verified: false,
-        currency,
-        bank_account: getValue(record, 'bank_account') || null,
-      });
     }
 
     let insertedCount = 0;
@@ -226,7 +232,7 @@ serve(async (req) => {
       insertedCount = insertData?.length || 0;
     }
 
-    const success = errors.length === 0;
+    const success = errors.length === 0 && insertedCount > 0;
     let message = `${insertedCount} of ${dataRows.length} standing orders processed successfully.`;
     if (errors.length > 0) {
       message = `${insertedCount} standing orders inserted. ${errors.length} records were skipped due to errors.`;

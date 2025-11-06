@@ -102,91 +102,99 @@ serve(async (req) => {
 
     const directDebitsToInsert = [];
     const errors: string[] = [];
+    const userEmailToIdCache: Record<string, string> = {};
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
       const rowNum = i + 2;
 
-      if (row.length !== headers.length) {
-        errors.push(`Row ${rowNum}: Column count mismatch. Skipping.`);
-        continue;
-      }
-
-      const record: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        record[header] = row[index];
-      });
-
-      const payee = getValue(record, 'payee');
-      if (!payee) {
-        errors.push(`Row ${rowNum}: Missing required value for 'Payee' or 'Text'. Skipping.`);
-        continue;
-      }
-
-      let requesterId = uploaderId;
-      const userEmail = getValue(record, 'user_email');
-      if (userEmail) {
-        const { data: profileRow } = await supabaseClient.from('profile_with_email').select('id').eq('user_email', userEmail).single();
-        if (profileRow?.id) {
-          requesterId = profileRow.id;
-        } else {
-          errors.push(`Row ${rowNum}: Could not find user with email '${userEmail}'. Assigning to uploader.`);
+      try {
+        if (row.length !== headers.length) {
+          throw new Error(`Column count mismatch. Expected ${headers.length}, but got ${row.length}.`);
         }
-      }
 
-      const paymentDayStr = getValue(record, 'payment_day');
-      let payment_day: number | null = null;
-      if (paymentDayStr) {
-        const day = parseInt(paymentDayStr, 10);
-        if (!isNaN(day) && day >= 1 && day <= 31) {
-          payment_day = day;
-        } else {
-          errors.push(`Row ${rowNum}: Invalid Payment Day '${paymentDayStr}'. It must be a number between 1 and 31.`);
+        const record: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          record[header] = row[index] || "";
+        });
+
+        const payee = getValue(record, 'payee');
+        if (!payee) {
+          throw new Error(`Missing required value for 'Payee' or 'Text'.`);
         }
-      }
 
-      const paymentDateStr = getValue(record, 'payment_date');
-      let payment_date: string | null = null;
-      if (paymentDateStr) {
-        const dateParts = paymentDateStr.split(/[./-]/);
-        if (dateParts.length === 3) {
-          const [d, m, y] = dateParts;
-          payment_date = `${y}-${m}-${d}`;
-        } else {
-          errors.push(`Row ${rowNum}: Invalid Payment Date format '${paymentDateStr}'. Please use DD.MM.YYYY.`);
+        let requesterId = uploaderId;
+        const userEmail = getValue(record, 'user_email');
+        if (userEmail) {
+          if (userEmailToIdCache[userEmail]) {
+            requesterId = userEmailToIdCache[userEmail];
+          } else {
+            const { data: profileRow, error: profileError } = await supabaseClient.from('profile_with_email').select('id').eq('user_email', userEmail).single();
+            if (profileError || !profileRow) {
+              errors.push(`Row ${rowNum}: Could not find user with email '${userEmail}'. Assigning to uploader.`);
+            } else {
+              requesterId = profileRow.id;
+              userEmailToIdCache[userEmail] = profileRow.id;
+            }
+          }
         }
+
+        const paymentDayStr = getValue(record, 'payment_day');
+        let payment_day: number | null = null;
+        if (paymentDayStr) {
+          const day = parseInt(paymentDayStr, 10);
+          if (!isNaN(day) && day >= 1 && day <= 31) {
+            payment_day = day;
+          } else {
+            throw new Error(`Invalid Payment Day '${paymentDayStr}'. It must be a number between 1 and 31.`);
+          }
+        }
+
+        const paymentDateStr = getValue(record, 'payment_date');
+        let payment_date: string | null = null;
+        if (paymentDateStr) {
+          const dateParts = paymentDateStr.split(/[./-]/);
+          if (dateParts.length === 3) {
+            const [d, m, y] = dateParts;
+            payment_date = `${y.length === 2 ? `20${y}` : y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+          } else {
+            throw new Error(`Invalid Payment Date format '${paymentDateStr}'. Please use DD.MM.YYYY.`);
+          }
+        }
+
+        const not_sku_related_str = getValue(record, 'not_property_related');
+        const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
+
+        const amountStr = getValue(record, 'total_amount');
+        const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, '').replace(/\s/g, ''));
+        const total_amount = isNaN(parsedAmount) ? 0 : parsedAmount;
+
+        const category = getValue(record, 'category') || '974_other';
+
+        let currency = getValue(record, 'currency');
+        if (country === 'United Kingdom') {
+          currency = 'GBP';
+        }
+
+        directDebitsToInsert.push({
+          requester_id: requesterId,
+          payee,
+          payment_date,
+          payment_day,
+          sku: not_sku_related ? null : (getValue(record, 'sku') || null),
+          not_property_related: not_sku_related,
+          categories: [category],
+          total_amount,
+          account_number: getValue(record, 'account_number') || 'UNKNOWN',
+          payment_reference: getValue(record, 'payment_reference') || null,
+          status: 'awaiting_info',
+          country,
+          bank_account: getValue(record, 'bank_account') || null,
+          currency,
+        });
+      } catch (rowError) {
+        errors.push(`Row ${rowNum}: ${rowError.message}`);
       }
-
-      const not_sku_related_str = getValue(record, 'not_property_related');
-      const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
-
-      const amountStr = getValue(record, 'total_amount');
-      const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, ''));
-      const total_amount = isNaN(parsedAmount) ? 0 : parsedAmount;
-
-      const category = getValue(record, 'category') || '974_other';
-
-      let currency = getValue(record, 'currency');
-      if (country === 'United Kingdom') {
-        currency = 'GBP';
-      }
-
-      directDebitsToInsert.push({
-        requester_id: requesterId,
-        payee,
-        payment_date,
-        payment_day,
-        sku: not_sku_related ? null : getValue(record, 'sku'),
-        not_property_related: not_sku_related,
-        categories: [category],
-        total_amount,
-        account_number: getValue(record, 'account_number') || 'UNKNOWN',
-        payment_reference: getValue(record, 'payment_reference') || null,
-        status: 'awaiting_info',
-        country,
-        bank_account: getValue(record, 'bank_account') || null,
-        currency,
-      });
     }
 
     let insertedCount = 0;
@@ -204,7 +212,7 @@ serve(async (req) => {
       insertedCount = insertData?.length || 0;
     }
 
-    const success = errors.length === 0;
+    const success = errors.length === 0 && insertedCount > 0;
     let message = `${insertedCount} of ${dataRows.length} direct debits processed successfully.`;
     if (errors.length > 0) {
       message = `${insertedCount} direct debits inserted. ${errors.length} records were skipped due to errors.`;

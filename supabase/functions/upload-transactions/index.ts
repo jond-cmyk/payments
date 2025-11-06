@@ -116,89 +116,105 @@ serve(async (req) => {
       });
     }
     const existingEntries = new Set(existingEntriesData?.map(row => row.entry).filter(Boolean) || []);
+    const userEmailToIdCache: Record<string, string> = {};
 
     const transactionsToInsert = [];
     const errors: string[] = [];
 
     for (let i = 0; i < dataRows.length; i++) {
       const row = dataRows[i];
-      const rowNum = i + 2; // 1-based index + header row
+      const rowNum = i + 2;
 
-      if (row.length !== headers.length) {
-        errors.push(`Row ${rowNum}: Column count mismatch. Skipping.`);
-        continue;
+      try {
+        if (row.length !== headers.length) {
+          throw new Error(`Column count mismatch. Expected ${headers.length}, but got ${row.length}.`);
+        }
+
+        const record: Record<string, string> = {};
+        headers.forEach((header, index) => {
+          record[header] = row[index] || "";
+        });
+
+        const transaction_date_str = getValue(record, 'transaction_date');
+        const description = getValue(record, 'description');
+        const amount_str = getValue(record, 'amount');
+        const currency = getValue(record, 'currency');
+        const entry = getValue(record, 'entry');
+
+        if (!transaction_date_str || !description || !amount_str || !currency) {
+          throw new Error(`Missing required value for Date, Text, Amount, or Currency.`);
+        }
+
+        if (entry && existingEntries.has(entry)) {
+          throw new Error(`Duplicate Entry number '${entry}' already exists for this country.`);
+        }
+
+        const dateParts = transaction_date_str.split(/[./-]/);
+        let transaction_date: string;
+        if (dateParts.length === 3) {
+          const [p1, p2, p3] = dateParts;
+          if (p1.length === 4) transaction_date = `${p1}-${p2.padStart(2, '0')}-${p3.padStart(2, '0')}`; // YYYY-MM-DD
+          else transaction_date = `${p3.length === 2 ? `20${p3}` : p3}-${p2.padStart(2, '0')}-${p1.padStart(2, '0')}`; // DD.MM.YYYY
+        } else {
+          throw new Error(`Invalid date format '${transaction_date_str}'. Please use DD.MM.YYYY or YYYY-MM-DD.`);
+        }
+
+        const parsedAmount = parseFloat(amount_str.replace(/,/g, '').replace(/\s/g, ''));
+        if (isNaN(parsedAmount)) {
+          throw new Error(`Invalid amount '${amount_str}'.`);
+        }
+
+        let parsedExchangeRate: number | null = null;
+        const exchange_rate_str = getValue(record, 'exchange_rate');
+        if (exchange_rate_str) {
+          const rate = parseFloat(exchange_rate_str.replace(',', '.').replace(/\s/g, ''));
+          if (!isNaN(rate)) parsedExchangeRate = rate;
+        }
+
+        const not_sku_related_str = getValue(record, 'not_sku_related');
+        const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
+
+        let requesterId = uploaderId;
+        const userEmail = getValue(record, 'user_email');
+        if (userEmail) {
+          if (userEmailToIdCache[userEmail]) {
+            requesterId = userEmailToIdCache[userEmail];
+          } else {
+            const { data: profileRow, error: profileError } = await supabaseClient.from('profile_with_email').select('id').eq('user_email', userEmail).single();
+            if (profileError || !profileRow) {
+              errors.push(`Row ${rowNum}: Could not find user with email '${userEmail}'. Assigning to uploader.`);
+            } else {
+              requesterId = profileRow.id;
+              userEmailToIdCache[userEmail] = profileRow.id;
+            }
+          }
+        }
+
+        transactionsToInsert.push({
+          requester_id: requesterId,
+          status: 'pending_input',
+          type: getValue(record, 'type') || null,
+          transaction_date,
+          entry: entry || null,
+          description,
+          amount: parsedAmount,
+          bank: getValue(record, 'bank') || null,
+          contra_account: getValue(record, 'contra_account') || null,
+          currency,
+          exchange_rate: parsedExchangeRate,
+          comment: getValue(record, 'comment') || null,
+          sku: not_sku_related ? null : (getValue(record, 'sku') || null),
+          reason_for_payment: getValue(record, 'reason_for_payment') || null,
+          receipt_urls: [],
+          category: getValue(record, 'category') || null,
+          merchant_name: getValue(record, 'merchant_name') || null,
+          notes: null,
+          not_sku_related,
+          country,
+        });
+      } catch (rowError) {
+        errors.push(`Row ${rowNum}: ${rowError.message}`);
       }
-
-      const record: Record<string, string> = {};
-      headers.forEach((header, index) => {
-        record[header] = row[index];
-      });
-
-      const transaction_date_str = getValue(record, 'transaction_date');
-      const description = getValue(record, 'description');
-      const amount_str = getValue(record, 'amount');
-      const currency = getValue(record, 'currency');
-      const entry = getValue(record, 'entry');
-
-      if (!transaction_date_str || !description || !amount_str || !currency) {
-        errors.push(`Row ${rowNum}: Missing required value for Date, Text, Amount, or Currency. Skipping.`);
-        continue;
-      }
-
-      if (entry && existingEntries.has(entry)) {
-        errors.push(`Row ${rowNum}: Duplicate Entry number '${entry}' already exists for this country. Skipping.`);
-        continue;
-      }
-
-      const dateParts = transaction_date_str.split(/[./-]/);
-      let transaction_date: string;
-      if (dateParts.length === 3) {
-        const [d, m, y] = dateParts;
-        if (d.length === 4) transaction_date = `${d}-${m}-${d}`; // YYYY-MM-DD
-        else transaction_date = `${y}-${m}-${d}`; // DD.MM.YYYY
-      } else {
-        errors.push(`Row ${rowNum}: Invalid date format '${transaction_date_str}'. Please use DD.MM.YYYY. Skipping.`);
-        continue;
-      }
-
-      const parsedAmount = parseFloat(amount_str.replace(/,/g, ''));
-      if (isNaN(parsedAmount)) {
-        errors.push(`Row ${rowNum}: Invalid amount '${amount_str}'. Skipping.`);
-        continue;
-      }
-
-      let parsedExchangeRate: number | null = null;
-      const exchange_rate_str = getValue(record, 'exchange_rate');
-      if (exchange_rate_str) {
-        parsedExchangeRate = parseFloat(exchange_rate_str.replace(',', '.'));
-        if (isNaN(parsedExchangeRate)) parsedExchangeRate = null;
-      }
-
-      const not_sku_related_str = getValue(record, 'not_sku_related');
-      const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
-
-      transactionsToInsert.push({
-        requester_id: uploaderId,
-        status: 'pending_input',
-        type: getValue(record, 'type') || null,
-        transaction_date,
-        entry: entry || null,
-        description,
-        amount: parsedAmount,
-        bank: getValue(record, 'bank') || null,
-        contra_account: getValue(record, 'contra_account') || null,
-        currency,
-        exchange_rate: parsedExchangeRate,
-        comment: getValue(record, 'comment') || null,
-        sku: not_sku_related ? null : getValue(record, 'sku'),
-        reason_for_payment: getValue(record, 'reason_for_payment') || null,
-        receipt_urls: [],
-        category: getValue(record, 'category') || null,
-        merchant_name: getValue(record, 'merchant_name') || null,
-        notes: null,
-        not_sku_related,
-        country,
-      });
     }
 
     let insertedCount = 0;
@@ -216,7 +232,7 @@ serve(async (req) => {
       insertedCount = insertData?.length || 0;
     }
 
-    const success = errors.length === 0;
+    const success = errors.length === 0 && insertedCount > 0;
     let message = `${insertedCount} of ${dataRows.length} transactions processed successfully.`;
     if (errors.length > 0) {
       message = `${insertedCount} transactions inserted. ${errors.length} records were skipped due to errors.`;
