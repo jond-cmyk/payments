@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const AdminUploadStandingOrders = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -20,6 +21,7 @@ const AdminUploadStandingOrders = () => {
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedUploadCountry, setSelectedUploadCountry] = useState<string>(currentCountry === 'all' ? 'Switzerland' : currentCountry);
+  const [uploadResult, setUploadResult] = useState<{ message: string; errors: string[] } | null>(null);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -62,6 +64,7 @@ const AdminUploadStandingOrders = () => {
     const file = selectedFile[0];
     const toastId = showLoading("Uploading and processing standing orders spreadsheet...");
     setIsUploading(true);
+    setUploadResult(null); // Clear previous results
 
     try {
       const fileContent = await file.text();
@@ -87,36 +90,23 @@ const AdminUploadStandingOrders = () => {
         throw new Error(data.error);
       }
 
-      // Always show the full response so we can see errors or 0 inserts
-      showSuccess(
-        data?.message ||
-        "Standing orders spreadsheet uploaded and processed successfully!"
-      );
+      if (data) {
+        setUploadResult({
+          message: data.message || "Processing complete.",
+          errors: data.errors || [],
+        });
 
-      // If backend returned an errors array, toast it too
-      if (data?.errors && Array.isArray(data.errors) && data.errors.length > 0) {
-        showError("Upload issues:\n" + data.errors.slice(0, 5).join("\n"));
+        if (data.errors && data.errors.length > 0) {
+          showError(`Upload completed with ${data.errors.length} errors. See details on the page.`);
+        } else {
+          showSuccess(data.message || "Standing orders spreadsheet uploaded and processed successfully!");
+        }
       }
 
       setSelectedFile(null);
     } catch (error: any) {
       console.error("Standing orders upload error:", error);
-      console.error("Error details:", {
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-        fullError: error
-      });
-      
-      // Try to extract more detailed error information
-      let errorMessage = "Failed to upload and process standing orders spreadsheet.";
-      if (error.message) {
-        errorMessage = error.message;
-      } else if (error.details) {
-        errorMessage = error.details;
-      }
-      
-      showError(errorMessage);
+      showError(error.message || "Failed to upload and process standing orders spreadsheet.");
     } finally {
       dismissToast(toastId);
       setIsUploading(false);
@@ -160,6 +150,26 @@ const AdminUploadStandingOrders = () => {
             <UploadCloud className="mr-2 h-4 w-4" />
             {isUploading ? "Uploading..." : "Upload and Process"}
           </Button>
+
+          {uploadResult && (
+            <Alert variant={uploadResult.errors.length > 0 ? "destructive" : "default"} className="mt-4">
+              <AlertTitle>{uploadResult.errors.length > 0 ? "Upload Completed with Errors" : "Upload Successful"}</AlertTitle>
+              <AlertDescription>
+                <p className="font-semibold">{uploadResult.message}</p>
+                {uploadResult.errors.length > 0 && (
+                  <div className="mt-2 max-h-40 overflow-y-auto">
+                    <p className="font-bold">Specific Errors:</p>
+                    <ul className="list-disc pl-5 text-xs space-y-1">
+                      {uploadResult.errors.map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <p className="text-sm text-muted-foreground text-center">
             Accepted format: CSV. Max file size: 5MB.
             <br />

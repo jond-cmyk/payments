@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector'; // Import CountrySelector
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const AdminUploadTransactions = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -20,6 +21,7 @@ const AdminUploadTransactions = () => {
   const [selectedFile, setSelectedFile] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedUploadCountry, setSelectedUploadCountry] = useState<string>(currentCountry === 'all' ? 'Switzerland' : currentCountry); // State for selected country, default to Switzerland if currentCountry is 'all'
+  const [uploadResult, setUploadResult] = useState<{ message: string; errors: string[] } | null>(null);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -63,6 +65,7 @@ const AdminUploadTransactions = () => {
     const file = selectedFile[0];
     const toastId = showLoading("Uploading and processing spreadsheet...");
     setIsUploading(true);
+    setUploadResult(null); // Clear previous results
 
     try {
       const fileContent = await file.text();
@@ -100,7 +103,19 @@ const AdminUploadTransactions = () => {
         throw new Error(data.error);
       }
 
-      showSuccess(data?.message || "Spreadsheet uploaded and processed successfully!");
+      if (data) {
+        setUploadResult({
+          message: data.message || "Processing complete.",
+          errors: data.errors || [],
+        });
+
+        if (data.errors && data.errors.length > 0) {
+          showError(`Upload completed with ${data.errors.length} errors. See details on the page.`);
+        } else {
+          showSuccess(data.message || "Spreadsheet uploaded and processed successfully!");
+        }
+      }
+
       setSelectedFile(null);
     } catch (error: any) {
       dismissToast(toastId);
@@ -151,6 +166,26 @@ const AdminUploadTransactions = () => {
             <UploadCloud className="mr-2 h-4 w-4" />
             {isUploading ? "Uploading..." : "Upload and Process"}
           </Button>
+
+          {uploadResult && (
+            <Alert variant={uploadResult.errors.length > 0 ? "destructive" : "default"} className="mt-4">
+              <AlertTitle>{uploadResult.errors.length > 0 ? "Upload Completed with Errors" : "Upload Successful"}</AlertTitle>
+              <AlertDescription>
+                <p className="font-semibold">{uploadResult.message}</p>
+                {uploadResult.errors.length > 0 && (
+                  <div className="mt-2 max-h-40 overflow-y-auto">
+                    <p className="font-bold">Specific Errors:</p>
+                    <ul className="list-disc pl-5 text-xs space-y-1">
+                      {uploadResult.errors.map((error, index) => (
+                        <li key={index}>{error}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <p className="text-sm text-muted-foreground text-center">
             Accepted format: CSV. Max file size: 5MB.
             <br />

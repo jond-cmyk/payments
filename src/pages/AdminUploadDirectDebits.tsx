@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import FileInput from '@/components/FileInput';
 import { UploadCloud } from 'lucide-react';
 import CountrySelector from '@/components/CountrySelector';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const AdminUploadDirectDebits = () => {
   const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
@@ -21,6 +22,7 @@ const AdminUploadDirectDebits = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [selectedUploadCountry, setSelectedUploadCountry] = useState<string>(currentCountry === 'all' ? 'Switzerland' : currentCountry);
   const [serverDebugInfo, setServerDebugInfo] = useState<string>('');
+  const [uploadResult, setUploadResult] = useState<{ message: string; errors: string[] } | null>(null);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -68,6 +70,7 @@ const AdminUploadDirectDebits = () => {
     const toastId = showLoading("Uploading and processing direct debits spreadsheet...");
     setIsUploading(true);
     setServerDebugInfo('');
+    setUploadResult(null); // Clear previous results
 
     try {
       console.log(`[Client] Reading file content...`);
@@ -97,64 +100,40 @@ const AdminUploadDirectDebits = () => {
 
       console.log(`[Client] Function response:`, { data, invokeError });
 
-      // Handle function returning a JSON error payload with success === false
-      if (data && typeof data === 'object' && ((data as any).success === false || (data as any).error)) {
-        const body: any = data;
-        if (body.serverDebugInfo) {
-          setServerDebugInfo(body.serverDebugInfo);
-          console.log(`[Client] Server debug info received:`, body.serverDebugInfo);
-        }
-        const errorMessage = body.error || body.message || "Failed to upload and process direct debits spreadsheet.";
-        console.error("[Client] Function returned error payload:", errorMessage);
-        showError(errorMessage);
-        throw new Error(errorMessage);
-      }
-
       if (invokeError) {
         console.error("[Client] Supabase Function Invoke Error:", invokeError);
-        console.error("[Client] Full error details:", JSON.stringify(invokeError, null, 2));
-        console.error("[Client] Data object during invokeError:", data); 
-        
-        let errorMessage = "Failed to upload and process direct debits spreadsheet."; // Default generic message
-
-        // Try to get error from data object first (if data is populated)
-        if (data && (data as any).error) {
-          errorMessage = (data as any).error;
-        } else if (data && (data as any).message) {
-          errorMessage = (data as any).message;
-        } 
-        // If data is not helpful, try to extract from invokeError context (often empty on 4xx)
-        else if ((invokeError as any).message) {
-          errorMessage = (invokeError as any).message;
+        let errorMessage = "Failed to upload and process direct debits spreadsheet.";
+        try {
+          const errorData = await invokeError.context.json();
+          if (errorData.error) errorMessage = errorData.error;
+          else if (errorData.message) errorMessage = errorData.message;
+        } catch (e) {
+          console.error("[Client] Could not parse error response from edge function:", e);
         }
-
-        console.error("[Client] Final error message to be thrown:", errorMessage);
         throw new Error(errorMessage);
       }
 
-      if ((data as any)?.error) {
-        console.error("[Client] Function returned error:", (data as any).error);
-        throw new Error((data as any).error);
-      }
+      if (data) {
+        const resultData = data as any;
+        setUploadResult({
+          message: resultData.message || "Processing complete.",
+          errors: resultData.errors || [],
+        });
 
-      console.log(`[Client] Upload successful! Message: ${(data as any)?.message}`);
-      if ((data as any)?.errors && (data as any).errors.length > 0) {
-        console.warn(`[Client] Upload completed with ${(data as any).errors.length} warnings/errors:`, (data as any).errors);
+        if (resultData.serverDebugInfo) {
+          setServerDebugInfo(resultData.serverDebugInfo);
+        }
+
+        if (resultData.errors && resultData.errors.length > 0) {
+          showError(`Upload completed with ${resultData.errors.length} errors. See details on the page.`);
+        } else {
+          showSuccess(resultData.message || "Direct debits spreadsheet uploaded and processed successfully!");
+        }
       }
       
-      // Store server debug info when provided
-      if ((data as any)?.serverDebugInfo) {
-        setServerDebugInfo((data as any).serverDebugInfo);
-        console.log(`[Client] Server debug info received:`, (data as any).serverDebugInfo);
-      } else {
-        console.log(`[Client] No server debug info received`);
-      }
-      
-      showSuccess((data as any)?.message || "Direct debits spreadsheet uploaded and processed successfully!");
       setSelectedFile(null);
     } catch (error: any) {
       console.error("[Client] Direct debits upload error:", error);
-      console.error("[Client] Error stack:", error.stack);
       showError(error.message || "Failed to upload and process direct debits spreadsheet.");
     } finally {
       dismissToast(toastId);
@@ -201,6 +180,26 @@ const AdminUploadDirectDebits = () => {
               <UploadCloud className="mr-2 h-4 w-4" />
               {isUploading ? "Uploading..." : "Upload and Process"}
             </Button>
+
+            {uploadResult && (
+              <Alert variant={uploadResult.errors.length > 0 ? "destructive" : "default"} className="mt-4">
+                <AlertTitle>{uploadResult.errors.length > 0 ? "Upload Completed with Errors" : "Upload Successful"}</AlertTitle>
+                <AlertDescription>
+                  <p className="font-semibold">{uploadResult.message}</p>
+                  {uploadResult.errors.length > 0 && (
+                    <div className="mt-2 max-h-40 overflow-y-auto">
+                      <p className="font-bold">Specific Errors:</p>
+                      <ul className="list-disc pl-5 text-xs space-y-1">
+                        {uploadResult.errors.map((error, index) => (
+                          <li key={index}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
             <p className="text-sm text-muted-foreground text-center">
               Accepted format: CSV. Max file size: 5MB.
               <br />
