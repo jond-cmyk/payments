@@ -70,9 +70,7 @@ serve(async (req) => {
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
-      return new Response(JSON.stringify({ success: false, message: 'Server configuration error.', errors: ['Missing Supabase credentials.'] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('Server configuration error: Missing Supabase credentials.');
     }
 
     const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });
@@ -80,9 +78,7 @@ serve(async (req) => {
     const { fileName, fileContent, uploaderId, country } = payload;
 
     if (!fileName || !fileContent || !uploaderId || !country) {
-      return new Response(JSON.stringify({ success: false, message: 'Invalid request.', errors: ['Missing file data, uploader ID, or country.'] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error('Invalid request: Missing file data, uploader ID, or country.');
     }
 
     const separator = fileContent.includes(';') ? ';' : ',';
@@ -100,9 +96,7 @@ serve(async (req) => {
     const missingHeaders = REQUIRED_HEADERS.filter(key => !findHeader(headers, key));
     if (missingHeaders.length > 0) {
       const friendlyNames = missingHeaders.map(key => HEADER_MAP[key][0].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '));
-      return new Response(JSON.stringify({ success: false, message: 'CSV file is missing required columns.', errors: [`Please ensure your file has the following columns: ${friendlyNames.join(', ')}.`] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error(`CSV file is missing required columns: ${friendlyNames.join(', ')}.`);
     }
 
     const { data: existingEntriesData, error: fetchEntriesError } = await supabaseClient
@@ -111,9 +105,7 @@ serve(async (req) => {
       .eq('country', country);
 
     if (fetchEntriesError) {
-      return new Response(JSON.stringify({ success: false, message: 'Database error.', errors: [`Failed to check for duplicate entries: ${fetchEntriesError.message}`] }), {
-        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      throw new Error(`Database error: Failed to check for duplicate entries: ${fetchEntriesError.message}`);
     }
     const existingEntries = new Set(existingEntriesData?.map(row => row.entry).filter(Boolean) || []);
     const userEmailToIdCache: Record<string, string> = {};
@@ -225,9 +217,7 @@ serve(async (req) => {
         .select();
 
       if (insertError) {
-        return new Response(JSON.stringify({ success: false, message: 'Database insert failed.', errors: [`Error: ${insertError.message}`] }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        throw new Error(`Database insert failed: ${insertError.message}`);
       }
       insertedCount = insertData?.length || 0;
     }
@@ -243,9 +233,11 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('[upload-transactions] Edge Function unhandled error:', error);
-    return new Response(JSON.stringify({ success: false, message: 'An unexpected server error occurred.', errors: [error.message] }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error('[upload-transactions] Edge Function Error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ success: false, message: 'An unexpected server error occurred.', errors: [errorMessage] }), {
+      status: 200, // IMPORTANT: Return 200 so client can parse the error message
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });

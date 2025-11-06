@@ -166,7 +166,7 @@ serve(async (req) => {
         const not_sku_related = not_sku_related_str?.toLowerCase() === 'yes' || not_sku_related_str?.toLowerCase() === 'true';
 
         const amountStr = getValue(record, 'total_amount');
-        const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, '').replace(/\s/g, ''));
+        const parsedAmount = parseFloat((amountStr || '0').replace(/,/g, ''));
         const total_amount = isNaN(parsedAmount) ? 0 : parsedAmount;
 
         const category = getValue(record, 'category') || '974_other';
@@ -205,9 +205,7 @@ serve(async (req) => {
         .select();
 
       if (insertError) {
-        return new Response(JSON.stringify({ success: false, message: 'Database insert failed.', errors: [`Error: ${insertError.message}`] }), {
-          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        throw new Error(`Database insert failed: ${insertError.message}`);
       }
       insertedCount = insertData?.length || 0;
     }
@@ -223,9 +221,11 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('[upload-direct-debits] Edge Function unhandled error:', error);
-    return new Response(JSON.stringify({ success: false, message: 'An unexpected server error occurred.', errors: [error.message] }), {
-      status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    console.error('[upload-direct-debits] Edge Function Error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ success: false, message: 'An unexpected server error occurred.', errors: [errorMessage] }), {
+      status: 200, // IMPORTANT: Return 200 so client can parse the error message
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
