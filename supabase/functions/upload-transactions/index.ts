@@ -1,5 +1,8 @@
+// @ts-ignore
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+// @ts-ignore
 import { parse } from 'https://deno.land/std@0.224.0/csv/mod.ts';
 
 const corsHeaders = {
@@ -45,6 +48,13 @@ const categoryOptions = [
   { value: '5201_provider_deposit', label: '5201 – Provider Deposit' },
 ];
 
+function detectSeparator(text: string): string {
+  const firstLine = (text.split(/\r?\n/)[0] || '');
+  const commaCount = (firstLine.match(/,/g) || []).length;
+  const semicolonCount = (firstLine.match(/;/g) || []).length;
+  return semicolonCount > commaCount ? ';' : ',';
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -53,7 +63,9 @@ serve(async (req) => {
   console.log('[upload-transactions] Edge Function invoked.');
 
   try {
+    // @ts-ignore
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    // @ts-ignore
     const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceRoleKey) {
@@ -105,12 +117,13 @@ serve(async (req) => {
 
     let parsedRows: string[][];
     try {
+      const separator = detectSeparator(fileContent);
       parsedRows = await parse(fileContent, {
         header: false,
-        separator: ',',
+        separator: separator,
         trimLeadingWhitespace: true,
       }) as string[][];
-      console.log(`[upload-transactions] CSV parsed successfully. Total raw rows: ${parsedRows.length}`);
+      console.log(`[upload-transactions] CSV parsed successfully. Total raw rows: ${parsedRows.length}. Using separator: "${separator}"`);
       
       // Log the first few raw parsed rows for debugging
       for (let i = 0; i < Math.min(parsedRows.length, 5); i++) {
@@ -125,20 +138,31 @@ serve(async (req) => {
       });
     }
 
-    // Ensure there are enough rows for metadata + headers + at least one data row
-    if (parsedRows.length < 4) { 
-      const msg = 'CSV file is too short to contain expected metadata and headers.';
-      const errors = [msg];
+    let headerRowIndex = -1;
+    const headerHints = ['date', 'text', 'amount', 'currency'];
+    const scanLimit = Math.min(parsedRows.length, 10);
+    for (let i = 0; i < scanLimit; i++) {
+      const rowLower = parsedRows[i].map(h => (h || '').trim().toLowerCase());
+      const hintCount = headerHints.filter(h => rowLower.includes(h)).length;
+      if (hintCount >= 3) {
+        headerRowIndex = i;
+        break;
+      }
+    }
+
+    if (headerRowIndex === -1) {
+      const msg = 'Could not find a valid header row in the CSV. Expected headers like "Date", "Text", "Amount", "Currency".';
       console.error(`[upload-transactions] Error: ${msg}`);
-      return new Response(JSON.stringify({ message: msg, errors: errors }), {
+      return new Response(JSON.stringify({ error: msg }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const headers = parsedRows[3].map(h => h.trim());
-    const dataRows = parsedRows.slice(4);
+    const headers = parsedRows[headerRowIndex].map(h => h.trim());
+    const dataRows = parsedRows.slice(headerRowIndex + 1);
 
+    console.log(`[upload-transactions] Detected header row at index ${headerRowIndex}.`);
     console.log(`[upload-transactions] Extracted headers: ${JSON.stringify(headers)}`);
     console.log(`[upload-transactions] Number of data rows: ${dataRows.length}`);
 

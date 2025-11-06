@@ -78,17 +78,20 @@ const AdminUploadTransactions = () => {
 
       if (invokeError) {
         console.error("Supabase Function Invoke Error:", invokeError);
-        // Attempt to extract a more specific error message from the invokeError context
-        let errorMessage = invokeError.message;
-        if (invokeError.context && typeof invokeError.context.data === 'object' && invokeError.context.data !== null) {
-          const errorData = invokeError.context.data as { error?: string; message?: string; errors?: string[] };
+        let errorMessage = invokeError.message; // Default message
+        try {
+          // The error response body is in the context property
+          const errorData = await invokeError.context.json();
           if (errorData.error) {
             errorMessage = errorData.error;
           } else if (errorData.message) {
             errorMessage = errorData.message;
-          } else if (errorData.errors && errorData.errors.length > 0) {
+          } else if (errorData.errors && Array.isArray(errorData.errors)) {
             errorMessage = errorData.errors.join('; ');
           }
+        } catch (e) {
+          // If parsing the error response fails, stick with the default message
+          console.error("Could not parse error response from edge function:", e);
         }
         throw new Error(errorMessage);
       }
