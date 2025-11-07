@@ -58,7 +58,7 @@ const LandlordDeposits = () => {
   const navigate = useNavigate();
 
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
-  const [debouncedFilterTerm, setDebouncedFilterTerm] = useState(''); // NEW: Debounced string filter
+  const [debouncedFilterTerm, setDebouncedFilterTerm] = useState(''); // State used to trigger the query
   const [isFetching, setIsFetching] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [dialogData, setDialogData] = useState<EconomicLedgerEntry[] | null>(null);
@@ -78,20 +78,13 @@ const LandlordDeposits = () => {
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
 
-  // Debounce logic for search input
-  React.useEffect(() => {
-    const handler = setTimeout(() => {
-      // Use the raw string input for debouncing
-      setDebouncedFilterTerm(departmentSearchTerm.trim());
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [departmentSearchTerm]); // Depend on raw input
-
-  // Query to fetch ALL entries for the Landlord Deposit Account (5201) across all years
+  // Query to fetch entries for the Landlord Deposit Account (5201) filtered by search term
   const { data: allAccountEntries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
-    queryKey: ['landlordDepositEntries_All', currentCountry],
+    queryKey: ['landlordDepositEntries_All', currentCountry, debouncedFilterTerm],
     queryFn: async () => {
-      const toastId = showLoading(`Fetching all entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
+      // This query is only enabled if debouncedFilterTerm is set, so we don't need the check here.
+      
+      const toastId = showLoading(`Fetching entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
       setIsFetching(true);
 
       try {
@@ -115,7 +108,17 @@ const LandlordDeposits = () => {
         
         const yearPromises = accountingYears.map(yearInfo => {
           const year = yearInfo.year;
-          const path = `/accounting-years/${year}/entries?pagesize=1000`;
+          
+          // 2. Apply filter to the path: Account 5201 AND text match
+          let filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
+          
+          if (debouncedFilterTerm) {
+              // Apply text filter on the 'text' field using the debounced term
+              filter += `$and:text$like:*${debouncedFilterTerm}*`;
+          }
+          
+          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
+          
           return supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
           });
@@ -139,20 +142,17 @@ const LandlordDeposits = () => {
           }
         }
         
-        // Client-side filter by account number (5201)
-        const filteredByAccount = allEntries.filter(entry => 
-          entry.account?.accountNumber === LANDLORD_DEPOSIT_ACCOUNT_NUMBER
-        );
+        const results = allEntries; 
 
         // Check if any entry has a department number (to show warning if not)
-        const hasDepartmentData = filteredByAccount.some(entry => 
+        const hasDepartmentData = results.some(entry => 
           entry.department?.departmentNumber !== undefined && entry.department?.departmentNumber !== null
         );
         setShowDepartmentWarning(!hasDepartmentData);
         
         dismissToast(toastId);
-        showSuccess(`Successfully fetched ${allEntries.length} raw entries. Filtered to ${filteredByAccount.length} for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
-        return filteredByAccount as EconomicLedgerEntry[];
+        showSuccess(`Successfully fetched ${results.length} entries matching criteria.`);
+        return results as EconomicLedgerEntry[];
       } catch (e: any) {
         dismissToast(toastId);
         showError(e.message || "Failed to fetch ledger entries.");
@@ -161,33 +161,23 @@ const LandlordDeposits = () => {
         setIsFetching(false);
       }
     },
-    enabled: false, // Only run manually via button click
+    enabled: !!debouncedFilterTerm, // Only run if debouncedFilterTerm is set
     staleTime: 0,
   });
 
-  // Client-side filtering based on debouncedFilterTerm (string)
-  const filteredEntries = useMemo(() => {
-    if (!allAccountEntries) return [];
-    const filterTerm = debouncedFilterTerm.toLowerCase();
-    if (filterTerm.length === 0) return [];
-
-    const results = allAccountEntries.filter(entry => {
-      const entryText = entry.text?.toLowerCase() || '';
-      
-      // Perform case-insensitive substring match on the entry text
-      return entryText.includes(filterTerm);
-    });
-    
-    console.log(`[LandlordDeposits] Filtered ${results.length} entries by text match for search term ${filterTerm}.`);
-    return results;
-  }, [allAccountEntries, debouncedFilterTerm]);
+  // The results are now directly in allAccountEntries
+  const resultsToDisplay = allAccountEntries;
 
   const handleSearch = () => {
-    if (departmentSearchTerm.trim().length > 0) {
-        // Refetch all entries for the account, then filtering happens in useMemo
-        refetch();
+    const term = departmentSearchTerm.trim();
+    if (term.length > 0) {
+        // Set debouncedFilterTerm to trigger the query
+        setDebouncedFilterTerm(term);
     } else {
-        showError("Please enter a valid property identifier (SKU) or search term.");
+        // If the user clears the search, clear the debounced term and the results
+        setDebouncedFilterTerm('');
+        setDialogData(null);
+        setShowDetailDialog(false);
     }
   };
 
@@ -270,12 +260,21 @@ const LandlordDeposits = () => {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={isFetching || departmentSearchTerm.length === 0}
+                disabled={isFetching || (departmentSearchTerm.length === 0 && debouncedFilterTerm.length === 0)}
                 className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               >
                 <Search className="mr-2 h-4 w-4" />
                 {isFetching ? "Searching..." : "Search Entries"}
               </Button>
+              {debouncedFilterTerm.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setDialogData(null); setShowDetailDialog(false); }}
+                  className="flex items-center gap-1"
+                >
+                  <RotateCw className="h-4 w-4" /> Clear Search
+                </Button>
+              )}
             </div>
 
             {/* Display Search Results Summary */}
@@ -289,12 +288,12 @@ const LandlordDeposits = () => {
                     <CardContent>
                         {isLoadingEntries || isFetching ? (
                             <Skeleton className="h-8 w-full" />
-                        ) : filteredEntries && filteredEntries.length > 0 ? (
+                        ) : resultsToDisplay && resultsToDisplay.length > 0 ? (
                             <div className="flex justify-between items-center">
                                 <p className="text-2xl font-bold text-green-600">
-                                    {filteredEntries.length} Entries Found
+                                    {resultsToDisplay.length} Entries Found
                                 </p>
-                                <Button onClick={() => handleViewDetails(filteredEntries)} variant="outline">
+                                <Button onClick={() => handleViewDetails(resultsToDisplay)} variant="outline">
                                     <FileText className="mr-2 h-4 w-4" /> View Details
                                 </Button>
                             </div>
