@@ -64,7 +64,7 @@ const LandlordDeposits = () => {
   const [dialogData, setDialogData] = useState<EconomicLedgerEntry[] | null>(null);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogDescription, setDialogDescription] = useState('');
-  // Removed showDepartmentWarning state
+  const [entryNumberSearch, setEntryNumberSearch] = useState(''); // NEW: State for direct entry search
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -78,7 +78,7 @@ const LandlordDeposits = () => {
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
 
-  // Query to fetch ALL entries for the current accounting year (or all years)
+  // Query to fetch ALL entries for the Landlord Deposit Account (5201)
   const { data: allAccountEntries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
     queryKey: ['landlordDepositEntries_All', currentCountry], // Query key is now independent of search term
     queryFn: async () => {
@@ -108,8 +108,13 @@ const LandlordDeposits = () => {
         const yearPromises = accountingYears.map(yearInfo => {
           const year = yearInfo.year;
           
-          // 2. Fetch ALL entries for the year (no filter applied here)
-          const path = `/accounting-years/${year}/entries?pagesize=1000`;
+          // 2. Construct filter: Account 5201 ONLY
+          let filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
+          
+          const encodedFilter = encodeURIComponent(filter);
+          
+          // Fetch entries for the year, filtered by account 5201
+          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${encodedFilter}`;
           
           return supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
@@ -134,10 +139,7 @@ const LandlordDeposits = () => {
           }
         }
         
-        // 3. Client-side filter by Account 5201
-        let results = allEntries.filter(entry => 
-            entry.account?.accountNumber === LANDLORD_DEPOSIT_ACCOUNT_NUMBER
-        );
+        let results = allEntries; 
         
         // --- LOG RAW RESULTS FOR DEBUGGING ---
         console.log(`[LandlordDeposits DEBUG] Fetched ${allEntries.length} raw entries. Filtered to ${results.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
@@ -148,9 +150,18 @@ const LandlordDeposits = () => {
             console.log("[LandlordDeposits DEBUG] Target entry 503408 NOT found in filtered results.");
         }
         // --- END LOGGING ---
+
+        // Apply client-side filter based on debouncedFilterTerm (SKU)
+        if (debouncedFilterTerm) {
+            const numericTerm = parseInt(debouncedFilterTerm, 10);
+            results = results.filter(entry => 
+                entry.department?.departmentNumber === numericTerm
+            );
+            console.log(`[LandlordDeposits] Client-side filtered results for SKU ${numericTerm}: ${results.length}`);
+        }
         
         dismissToast(toastId);
-        showSuccess(`Successfully fetched ${results.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
+        showSuccess(`Successfully fetched ${results.length} entries matching criteria.`);
         return results as EconomicLedgerEntry[];
       } catch (e: any) {
         dismissToast(toastId);
@@ -164,17 +175,8 @@ const LandlordDeposits = () => {
     staleTime: 0,
   });
 
-  // Apply client-side filter based on debouncedFilterTerm (SKU)
-  const resultsToDisplay = useMemo(() => {
-    if (!allAccountEntries) return [];
-    if (!debouncedFilterTerm) return allAccountEntries;
-
-    const numericTerm = parseInt(debouncedFilterTerm, 10);
-    return allAccountEntries.filter(entry => 
-        entry.department?.departmentNumber === numericTerm
-    );
-  }, [allAccountEntries, debouncedFilterTerm]);
-
+  // The results are now directly in allAccountEntries
+  const resultsToDisplay = allAccountEntries;
 
   const handleSearch = () => {
     const term = departmentSearchTerm.trim();
@@ -199,6 +201,49 @@ const LandlordDeposits = () => {
         setShowDetailDialog(false);
     }
   };
+  
+  // NEW: Direct Entry Search Handler
+  const handleDirectEntrySearch = async () => {
+    const entryNum = entryNumberSearch.trim();
+    if (!entryNum || !/^\d+$/.test(entryNum)) {
+        showError("Please enter a valid numeric entry number.");
+        return;
+    }
+
+    const toastId = showLoading(`Searching for entry #${entryNum}...`);
+    try {
+        const path = `/entries/${entryNum}`;
+        const { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path, method: "GET", country: currentCountry },
+        });
+
+        if (invokeError) throw new Error(invokeError.message);
+        const resp = data as EconomicProxyResponse<EconomicLedgerEntry>;
+
+        if (resp.error || !resp.ok) {
+            throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
+        }
+        
+        const entry = resp.data as EconomicLedgerEntry;
+        
+        if (entry) {
+            console.log(`[LandlordDeposits DEBUG] Direct Entry Search Result for #${entryNum}:`, JSON.stringify(entry, null, 2));
+            setDialogData([entry]);
+            setDialogTitle(`Direct Entry #${entryNum}`);
+            setDialogDescription(`Raw ledger entry details.`);
+            setShowDetailDialog(true);
+            showSuccess(`Entry #${entryNum} found.`);
+        } else {
+            showInfo(`Entry #${entryNum} not found.`);
+        }
+
+    } catch (e: any) {
+        showError(e.message || "Failed to fetch entry directly.");
+        console.error("Direct entry search error:", e);
+    } finally {
+        dismissToast(toastId);
+    }
+  };
 
   const handleViewDetails = (entries: EconomicLedgerEntry[]) => {
     if (entries.length === 0) return;
@@ -218,6 +263,7 @@ const LandlordDeposits = () => {
       header: 'Property Address', 
       render: (item) => getDepartmentName(item.department?.departmentNumber) 
     },
+    { key: 'account', header: 'Account', path: ['account.accountNumber'] }, // Added Account column
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
     { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
     { key: 'remainder', header: 'Outstanding', format: 'currencyAmount', path: ['remainder'] },
@@ -247,7 +293,6 @@ const LandlordDeposits = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Removed showDepartmentWarning Alert */}
             <div className="flex flex-wrap items-end gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
               <div className="flex-1 min-w-[200px]">
                 <label htmlFor="country-filter" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
@@ -286,6 +331,30 @@ const LandlordDeposits = () => {
                   <RotateCw className="h-4 w-4" /> Clear Search
                 </Button>
               )}
+            </div>
+            
+            {/* NEW: Direct Entry Search Section */}
+            <div className="flex flex-wrap items-end gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
+                <div className="flex-1 min-w-[250px]">
+                    <label htmlFor="entry-number-search" className="block text-sm font-medium text-gray-700 mb-1">Direct Entry Number Lookup</label>
+                    <Input
+                        id="entry-number-search"
+                        placeholder="e.g., 503408"
+                        value={entryNumberSearch}
+                        onChange={(e) => setEntryNumberSearch(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleDirectEntrySearch(); }}
+                        className="w-full"
+                    />
+                </div>
+                <Button
+                    onClick={handleDirectEntrySearch}
+                    disabled={isFetching || entryNumberSearch.trim().length === 0}
+                    variant="secondary"
+                    className="shadow-sm"
+                >
+                    <Search className="mr-2 h-4 w-4" />
+                    Lookup Entry
+                </Button>
             </div>
 
             {/* Display Search Results Summary */}
