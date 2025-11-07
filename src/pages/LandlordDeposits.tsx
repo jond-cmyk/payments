@@ -148,6 +148,7 @@ const LandlordDeposits = () => {
         
         dismissToast(toastId);
         showSuccess(`Successfully fetched ${allEntries.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
+        console.log("[LandlordDeposits] Raw fetched entries (first 5):", allEntries.slice(0, 5));
         return allEntries as EconomicLedgerEntry[];
       } catch (e: any) {
         dismissToast(toastId);
@@ -166,11 +167,14 @@ const LandlordDeposits = () => {
     if (!allAccountEntries) return [];
     if (!debouncedDepartmentNumber) return [];
 
-    return allAccountEntries.filter(entry => {
+    const results = allAccountEntries.filter(entry => {
       const entryDeptNumber = entry.department?.departmentNumber;
       // Check if the department number exists and matches the search term
       return entryDeptNumber === debouncedDepartmentNumber;
     });
+    
+    console.log(`[LandlordDeposits] Filtered ${results.length} entries for department ${debouncedDepartmentNumber}.`);
+    return results;
   }, [allAccountEntries, debouncedDepartmentNumber]);
 
   const handleSearch = () => {
