@@ -14,7 +14,7 @@ import { showSuccess, showError, showLoading, dismissToast, showInfo } from "@/u
 import { Globe, Database, Compass, CalendarDays } from "lucide-react";
 import { useCountry } from "@/integrations/supabase/CountryContext";
 import DatePicker from "@/components/DatePicker";
-import { format } from "date-fns";
+import { format, isWithinInterval, parseISO } from "date-fns";
 import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
 
 type EconomicProxyResponse<T = any> = {
@@ -205,25 +205,70 @@ const EconomicIntegration = () => {
       const startDateStr = format(ledgerStartDate, 'yyyy-MM-dd');
       const endDateStr = format(ledgerEndDate, 'yyyy-MM-dd');
       
-      // Use the filter parameter to specify the date range
-      const filter = `date$gte:${startDateStr}$and:date$lte:${endDateStr}`;
-      const path = `/entries?pagesize=1000&filter=${filter}`; // Request up to 1000 entries
-
-      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path, method: "GET", country: currentCountry },
+      // 1. Fetch all accounting years
+      const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: "/accounting-years", method: "GET", country: currentCountry },
       });
 
-      if (error) throw new Error(error.message);
+      if (yearsError) throw new Error(yearsError.message);
+      const yearsResp = yearsData as EconomicProxyResponse<any>;
+      if (yearsResp.error || !yearsResp.ok) {
+        throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+      }
+      const accountingYears = extractList(yearsResp?.data);
+      
+      if (!accountingYears || accountingYears.length === 0) {
+        showError("No accounting years found in e-conomic. Cannot fetch entries.");
+        dismissToast(toastId);
+        return;
+      }
 
-      const resp = data as EconomicProxyResponse<any>;
-      if (resp.error) throw new Error(resp.error);
+      let allEntries: any[] = [];
+      const dateRange = { start: ledgerStartDate, end: ledgerEndDate };
 
-      const list = extractList(resp?.data);
-      setLedgerResult(list);
+      // 2. Iterate through years and query relevant ones
+      const fetchPromises = accountingYears.map(async (yearInfo: any) => {
+        const yearStart = parseISO(yearInfo.fromDate);
+        const yearEnd = parseISO(yearInfo.toDate);
+        
+        // Check if the accounting year overlaps with the requested date range
+        const overlaps = isWithinInterval(yearStart, dateRange) || 
+                         isWithinInterval(yearEnd, dateRange) ||
+                         (yearStart < dateRange.start && yearEnd > dateRange.end);
+
+        if (overlaps) {
+          // Construct the filter to constrain the results to the exact requested range
+          const filter = `date$gte:${startDateStr}$and:date$lte:${endDateStr}`;
+          const path = `/accounting-years/${yearInfo.year}/entries?pagesize=1000&filter=${filter}`;
+          
+          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path, method: "GET", country: currentCountry },
+          });
+
+          if (error) {
+            console.error(`Error fetching entries for year ${yearInfo.year}:`, error.message);
+            return [];
+          }
+
+          const resp = data as EconomicProxyResponse<any>;
+          if (resp.error || !resp.ok) {
+            console.error(`e-conomic error fetching entries for year ${yearInfo.year}:`, resp.error || `Status ${resp.status}`);
+            return [];
+          }
+          
+          return extractList(resp?.data);
+        }
+        return [];
+      });
+
+      const results = await Promise.all(fetchPromises);
+      allEntries = results.flat();
+
+      setLedgerResult(allEntries);
       setShowLedgerDialog(true);
 
-      if (list.length > 0) {
-        showSuccess(`Found ${list.length} ledger entries for the period.`);
+      if (allEntries.length > 0) {
+        showSuccess(`Found ${allEntries.length} ledger entries for the period.`);
       } else {
         showInfo("No ledger entries found for the specified period.");
       }
@@ -266,7 +311,7 @@ const EconomicIntegration = () => {
             <CalendarDays className="mr-2 h-6 w-6" /> Ledger Entries Lookup
           </CardTitle>
           <CardDescription>
-            Fetch general ledger entries for a specific date range (max 1000 entries).
+            Fetch general ledger entries for a specific date range (max 1000 entries per year).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
