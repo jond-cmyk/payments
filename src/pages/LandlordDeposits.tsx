@@ -58,13 +58,13 @@ const LandlordDeposits = () => {
   const navigate = useNavigate();
 
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
-  const [debouncedDepartmentNumber, setDebouncedDepartmentNumber] = useState<number | null>(null);
+  const [debouncedFilterTerm, setDebouncedFilterTerm] = useState(''); // NEW: Debounced string filter
   const [isFetching, setIsFetching] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [dialogData, setDialogData] = useState<EconomicLedgerEntry[] | null>(null);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogDescription, setDialogDescription] = useState('');
-  const [showDepartmentWarning, setShowDepartmentWarning] = useState(false); // NEW STATE
+  const [showDepartmentWarning, setShowDepartmentWarning] = useState(false);
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -81,16 +81,11 @@ const LandlordDeposits = () => {
   // Debounce logic for search input
   React.useEffect(() => {
     const handler = setTimeout(() => {
-      // We still parse it as a number, but we will use it as a string for text search
-      const numericValue = parseInt(departmentSearchTerm.replace(/\D/g, ''), 10);
-      if (!isNaN(numericValue) && departmentSearchTerm.length > 0) {
-        setDebouncedDepartmentNumber(numericValue);
-      } else {
-        setDebouncedDepartmentNumber(null);
-      }
+      // Use the raw string input for debouncing
+      setDebouncedFilterTerm(departmentSearchTerm.trim());
     }, 500);
     return () => clearTimeout(handler);
-  }, [departmentSearchTerm]);
+  }, [departmentSearchTerm]); // Depend on raw input
 
   // Query to fetch ALL entries for the Landlord Deposit Account (5201) across all years
   const { data: allAccountEntries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
@@ -170,38 +165,36 @@ const LandlordDeposits = () => {
     staleTime: 0,
   });
 
-  // Client-side filtering based on debouncedDepartmentNumber (now used for text search fallback)
+  // Client-side filtering based on debouncedFilterTerm (string)
   const filteredEntries = useMemo(() => {
     if (!allAccountEntries) return [];
-    if (!debouncedDepartmentNumber) return [];
-
-    // Convert the numeric search term back to a string for text matching
-    const searchStr = String(debouncedDepartmentNumber).toLowerCase();
+    const filterTerm = debouncedFilterTerm.toLowerCase();
+    if (filterTerm.length === 0) return [];
 
     const results = allAccountEntries.filter(entry => {
       const entryText = entry.text?.toLowerCase() || '';
       
       // Perform case-insensitive substring match on the entry text
-      return entryText.includes(searchStr);
+      return entryText.includes(filterTerm);
     });
     
-    console.log(`[LandlordDeposits] Filtered ${results.length} entries by text match for search term ${searchStr}.`);
+    console.log(`[LandlordDeposits] Filtered ${results.length} entries by text match for search term ${filterTerm}.`);
     return results;
-  }, [allAccountEntries, debouncedDepartmentNumber]);
+  }, [allAccountEntries, debouncedFilterTerm]);
 
   const handleSearch = () => {
-    if (debouncedDepartmentNumber) {
+    if (departmentSearchTerm.trim().length > 0) {
         // Refetch all entries for the account, then filtering happens in useMemo
         refetch();
     } else {
-        showError("Please enter a valid department number (SKU) or search term.");
+        showError("Please enter a valid property identifier (SKU) or search term.");
     }
   };
 
   const handleViewDetails = (entries: EconomicLedgerEntry[]) => {
     if (entries.length === 0) return;
     setDialogData(entries);
-    setDialogTitle(`Ledger Entries for Search Term: ${debouncedDepartmentNumber}`);
+    setDialogTitle(`Ledger Entries for Search Term: ${debouncedFilterTerm}`);
     setDialogDescription(`Showing ${entries.length} transactions booked to Account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} matching the search term.`);
     setShowDetailDialog(true);
   };
@@ -281,11 +274,11 @@ const LandlordDeposits = () => {
             </div>
 
             {/* Display Search Results Summary */}
-            {debouncedDepartmentNumber && (
+            {debouncedFilterTerm.length > 0 && (
                 <Card className="border-l-4 border-dyad-blue shadow-sm">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-lg font-semibold">
-                            Results for Search Term: {departmentSearchTerm}
+                            Results for Search Term: {debouncedFilterTerm}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -302,7 +295,7 @@ const LandlordDeposits = () => {
                             </div>
                         ) : (
                             <p className="text-muted-foreground">
-                                No entries found matching "{departmentSearchTerm}" in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
+                                No entries found matching "{debouncedFilterTerm}" in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
                             </p>
                         )}
                     </CardContent>
