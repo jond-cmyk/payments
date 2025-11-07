@@ -82,7 +82,6 @@ const LandlordDeposits = () => {
   const { data: allAccountEntries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
     queryKey: ['landlordDepositEntries_All', currentCountry, debouncedFilterTerm],
     queryFn: async () => {
-      // This query is only enabled if debouncedFilterTerm is set, so we don't need the check here.
       
       const toastId = showLoading(`Fetching entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
       setIsFetching(true);
@@ -109,12 +108,20 @@ const LandlordDeposits = () => {
         const yearPromises = accountingYears.map(yearInfo => {
           const year = yearInfo.year;
           
-          // 2. Apply filter to the path: Account 5201 AND text match
+          // 2. Construct filter: Account 5201 AND Department Number matches search term
           let filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
           
           if (debouncedFilterTerm) {
-              // Apply text filter on the 'text' field using the debounced term
-              filter += `$and:text$like:*${debouncedFilterTerm}*`;
+              // Check if the search term is purely numeric (for departmentNumber search)
+              const isNumeric = /^\d+$/.test(debouncedFilterTerm);
+              
+              if (isNumeric) {
+                  // Search by Department Number (SKU)
+                  filter += `$and:department.departmentNumber$eq:${debouncedFilterTerm}`;
+              } else {
+                  // Fallback to text search if non-numeric (for description/text match)
+                  filter += `$and:text$like:*${debouncedFilterTerm}*`;
+              }
           }
           
           const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
@@ -148,7 +155,10 @@ const LandlordDeposits = () => {
         const hasDepartmentData = results.some(entry => 
           entry.department?.departmentNumber !== undefined && entry.department?.departmentNumber !== null
         );
-        setShowDepartmentWarning(!hasDepartmentData);
+        
+        // Only show warning if we were trying to search by department number (i.e., search term was numeric)
+        const isNumericSearch = /^\d+$/.test(debouncedFilterTerm);
+        setShowDepartmentWarning(isNumericSearch && !hasDepartmentData);
         
         dismissToast(toastId);
         showSuccess(`Successfully fetched ${results.length} entries matching criteria.`);
@@ -171,8 +181,10 @@ const LandlordDeposits = () => {
   const handleSearch = () => {
     const term = departmentSearchTerm.trim();
     if (term.length > 0) {
+        // Remove SKU prefix (CH/UK) if present, as departmentNumber is purely numeric
+        const numericTerm = term.replace(/^(CH|UK)/i, '');
         // Set debouncedFilterTerm to trigger the query
-        setDebouncedFilterTerm(term);
+        setDebouncedFilterTerm(numericTerm);
     } else {
         // If the user clears the search, clear the debounced term and the results
         setDebouncedFilterTerm('');
@@ -248,7 +260,7 @@ const LandlordDeposits = () => {
                 />
               </div>
               <div className="flex-1 min-w-[250px]">
-                <label htmlFor="department-search" className="block text-sm font-medium text-gray-700 mb-1">Property Identifier / SKU (Text Search)</label>
+                <label htmlFor="department-search" className="block text-sm font-medium text-gray-700 mb-1">Property Identifier / SKU (Numeric or Text Search)</label>
                 <Input
                   id="department-search"
                   placeholder="e.g., 12345 or 'Property Address'"
