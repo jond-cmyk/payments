@@ -31,7 +31,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v2: Multi-year fetch).");
+  console.log("[fetch-deposit-cache] Function invoked (v3: Diagnostic fetch).");
 
   try {
     // Use Service Role Key for database operations
@@ -63,43 +63,41 @@ serve(async (req) => {
     if (!accountingYears || accountingYears.length === 0) {
         throw new Error("No accounting years found in e-conomic. Cannot fetch entries.");
     }
+    
+    // Sort years to get the latest one (assuming year is a string like "2024")
+    const latestYear = accountingYears.sort((a: any, b: any) => b.year.localeCompare(a.year))[0].year;
 
-    // --- 2. Fetch entries for the specific account across all years ---
-    let allEntries: any[] = [];
-    const yearPromises = accountingYears.map((yearInfo: any) => {
-        const year = yearInfo.year;
-        // Filter entries by the deposit account number
-        const path = `/accounting-years/${year}/entries?pagesize=10000&filter=account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
-        console.log(`[fetch-deposit-cache] Fetching entries for year ${year} from: ${path}`);
-        
-        return supabaseAdminClient.functions.invoke("economic-api-proxy", {
-            body: { path, method: "GET", country },
-        }).then(({ data, error: invokeError }) => {
-            if (invokeError) {
-                console.warn(`[fetch-deposit-cache] Error invoking proxy for year ${year}: ${invokeError.message}`);
-                return [];
-            }
-            const resp = data as any;
-            if (resp.error || !resp.ok) {
-                console.warn(`[fetch-deposit-cache] Non-OK response for year ${year}: ${resp.error || resp.status}`);
-                return [];
-            }
-            // Extract the list of entries (assuming 'collection' or similar structure)
-            return resp.data?.collection || resp.data?.items || resp.data?.results || resp.data || [];
-        });
+    // --- 2. Fetch entries for the latest year WITHOUT account filter (Diagnostic) ---
+    const path = `/accounting-years/${latestYear}/entries?pagesize=10`; // Limit to 10 for quick test
+    console.log(`[fetch-deposit-cache] DIAGNOSTIC: Fetching 10 entries from latest year (${latestYear}) without account filter: ${path}`);
+    
+    const { data: proxyData, error: invokeError } = await supabaseAdminClient.functions.invoke("economic-api-proxy", {
+        body: { path, method: "GET", country },
     });
 
-    const results = await Promise.all(yearPromises);
-    allEntries = results.flat();
-    
-    console.log(`[fetch-deposit-cache] Fetched ${allEntries.length} total entries for ${country}.`);
+    if (invokeError) throw new Error(invokeError.message);
+    const resp = proxyData as any;
 
-    // 3. Upsert into cache table
+    if (resp.error || !resp.ok) {
+        throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
+    }
+    
+    const economicData = resp.data;
+    const entries = economicData?.collection || economicData?.items || economicData?.results || economicData;
+    
+    if (!Array.isArray(entries)) {
+        console.error("[fetch-deposit-cache] DIAGNOSTIC: Failed to extract array from economic response:", economicData);
+        throw new Error("Failed to parse ledger entries from e-conomic response.");
+    }
+
+    console.log(`[fetch-deposit-cache] DIAGNOSTIC: Fetched ${entries.length} entries. First entry: ${JSON.stringify(entries[0])}`);
+
+    // 3. Upsert the diagnostic data (or empty array) into cache table
     const { error: upsertError } = await supabaseAdminClient
       .from('landlord_deposit_cache')
       .upsert({
         country: country,
-        entries: allEntries,
+        entries: entries, // Cache the diagnostic entries
         cached_at: new Date().toISOString(),
       }, { onConflict: 'country' });
 
@@ -108,9 +106,9 @@ serve(async (req) => {
       throw new Error(`Failed to update cache table: ${upsertError.message}`);
     }
 
-    console.log(`[fetch-deposit-cache] Cache updated successfully for ${country}.`);
+    console.log(`[fetch-deposit-cache] DIAGNOSTIC CACHE UPDATED. Check the Landlord Deposits page for the first 10 entries.`);
 
-    return new Response(JSON.stringify({ message: `Cache updated successfully for ${country}. Fetched ${allEntries.length} entries.` }), {
+    return new Response(JSON.stringify({ message: `Diagnostic cache updated successfully for ${country}. Fetched ${entries.length} entries from latest year (no filter).` }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
