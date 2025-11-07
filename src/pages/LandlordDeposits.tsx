@@ -204,6 +204,11 @@ const LandlordDeposits = () => {
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
     { key: 'entryType', header: 'Entry Type', path: ['entryType', 'type'] },
     { key: 'text', header: 'Text', path: ['text', 'description'] },
+    { 
+      key: 'department', 
+      header: 'Property Address', 
+      render: (item) => getDepartmentName(item.department?.departmentNumber) 
+    },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
     { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
     { key: 'remainder', header: 'Outstanding', format: 'currencyAmount', path: ['remainder'] },
