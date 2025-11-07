@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isWithinInterval } from 'date-fns';
 import { Home, Search, AlertTriangle, FileText, RotateCw } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
@@ -78,12 +78,12 @@ const LandlordDeposits = () => {
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
 
-  // Query to fetch ALL entries for the Landlord Deposit Account (5201)
+  // Query to fetch ALL entries for the current accounting year (or all years)
   const { data: allAccountEntries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
-    queryKey: ['landlordDepositEntries_All', currentCountry], // Removed debouncedFilterTerm dependency
+    queryKey: ['landlordDepositEntries_All', currentCountry], // Query key is now independent of search term
     queryFn: async () => {
       
-      const toastId = showLoading(`Fetching ALL entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
+      const toastId = showLoading(`Fetching ALL entries for all years...`);
       setIsFetching(true);
 
       try {
@@ -108,12 +108,8 @@ const LandlordDeposits = () => {
         const yearPromises = accountingYears.map(yearInfo => {
           const year = yearInfo.year;
           
-          // 2. Construct filter: Account 5201 ONLY
-          let filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
-          
-          const encodedFilter = encodeURIComponent(filter);
-          
-          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${encodedFilter}`;
+          // 2. Fetch ALL entries for the year (no filter applied here)
+          const path = `/accounting-years/${year}/entries?pagesize=1000`;
           
           return supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
@@ -138,29 +134,23 @@ const LandlordDeposits = () => {
           }
         }
         
-        let results = allEntries; 
+        // 3. Client-side filter by Account 5201
+        let results = allEntries.filter(entry => 
+            entry.account?.accountNumber === LANDLORD_DEPOSIT_ACCOUNT_NUMBER
+        );
         
         // --- LOG RAW RESULTS FOR DEBUGGING ---
-        console.log(`[LandlordDeposits DEBUG] Fetched ${results.length} raw entries for account 5201. Checking for entry 503408...`);
+        console.log(`[LandlordDeposits DEBUG] Fetched ${allEntries.length} raw entries. Filtered to ${results.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
         const targetEntry = results.find(e => e.entryNumber === 503408);
         if (targetEntry) {
             console.log("[LandlordDeposits DEBUG] FOUND TARGET ENTRY 503408. RAW DATA:", JSON.stringify(targetEntry, null, 2));
         } else {
-            console.log("[LandlordDeposits DEBUG] Target entry 503408 NOT found in raw results.");
+            console.log("[LandlordDeposits DEBUG] Target entry 503408 NOT found in filtered results.");
         }
         // --- END LOGGING ---
-
-        // Apply client-side filter based on debouncedFilterTerm (SKU)
-        if (debouncedFilterTerm) {
-            const numericTerm = parseInt(debouncedFilterTerm, 10);
-            results = results.filter(entry => 
-                entry.department?.departmentNumber === numericTerm
-            );
-            console.log(`[LandlordDeposits] Client-side filtered results for SKU ${numericTerm}: ${results.length}`);
-        }
         
         dismissToast(toastId);
-        showSuccess(`Successfully fetched ${results.length} entries matching criteria.`);
+        showSuccess(`Successfully fetched ${results.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
         return results as EconomicLedgerEntry[];
       } catch (e: any) {
         dismissToast(toastId);
@@ -174,8 +164,17 @@ const LandlordDeposits = () => {
     staleTime: 0,
   });
 
-  // The results are now directly in allAccountEntries
-  const resultsToDisplay = allAccountEntries;
+  // Apply client-side filter based on debouncedFilterTerm (SKU)
+  const resultsToDisplay = useMemo(() => {
+    if (!allAccountEntries) return [];
+    if (!debouncedFilterTerm) return allAccountEntries;
+
+    const numericTerm = parseInt(debouncedFilterTerm, 10);
+    return allAccountEntries.filter(entry => 
+        entry.department?.departmentNumber === numericTerm
+    );
+  }, [allAccountEntries, debouncedFilterTerm]);
+
 
   const handleSearch = () => {
     const term = departmentSearchTerm.trim();
@@ -186,8 +185,7 @@ const LandlordDeposits = () => {
         // 2. Validate if the remaining part is purely numeric
         if (/^\d+$/.test(numericTerm)) {
             setDebouncedFilterTerm(numericTerm);
-            // Since the query key no longer depends on debouncedFilterTerm, we must manually refetch
-            refetch();
+            // No need to refetch the main query, as it's independent of the search term now.
         } else {
             // If the input is not numeric after stripping prefix, show error and do not search
             showError("Please enter a valid numeric property identifier (SKU). Prefixes like CH/UK are automatically removed.");
@@ -199,14 +197,13 @@ const LandlordDeposits = () => {
         setDebouncedFilterTerm('');
         setDialogData(null);
         setShowDetailDialog(false);
-        refetch(); // Refetch to show all 5201 entries if search is cleared
     }
   };
 
   const handleViewDetails = (entries: EconomicLedgerEntry[]) => {
     if (entries.length === 0) return;
     setDialogData(entries);
-    setDialogTitle(`Ledger Entries for Search Term: ${debouncedFilterTerm || 'All'}`);
+    setDialogTitle(`Ledger Entries for SKU: ${debouncedFilterTerm}`);
     setDialogDescription(`Showing ${entries.length} transactions booked to Account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} matching the search term.`);
     setShowDetailDialog(true);
   };
