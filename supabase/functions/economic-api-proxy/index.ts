@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // @ts-ignore
 serve(async (req) => {
-  console.log("[economic-proxy] --- FUNCTION START (v1.0.20) ---");
+  console.log("[economic-proxy] --- FUNCTION START (v1.0.21) ---");
   console.log("[economic-proxy] Request URL:", req.url);
   console.log("[economic-proxy] Request Method:", req.method);
 
@@ -112,8 +112,7 @@ serve(async (req) => {
     const baseUrl =
       typeof base === "string" && base.length > 0 ? base : "https://restapi.e-conomic.com";
 
-    // --- Custom Query String Construction for Complex Filters (FIXED) ---
-    let qs = '';
+    // --- Custom Query String Construction (FIXED v1.0.21) ---
     const queryParams = new URLSearchParams();
     let filterValue = '';
 
@@ -125,16 +124,14 @@ serve(async (req) => {
       }
     }
 
-    const otherParams = queryParams.toString();
+    let qs = queryParams.toString();
     
     if (filterValue) {
-      // If a filter is present, append it separately, but DO NOT encode the filter value here.
-      // The filter value is already URL-encoded by the client (or should be handled by the API).
-      // The client-side code in LandlordDeposits.tsx is sending the filter value unencoded, 
-      // so we must encode it here to ensure the URL is valid.
-      qs = (otherParams ? otherParams + '&' : '') + `filter=${encodeURIComponent(filterValue)}`;
-    } else if (otherParams) {
-      qs = otherParams;
+      // Append filter separately. We assume the filter value is NOT already encoded
+      // if it was constructed manually on the client (like in LandlordDeposits.tsx).
+      // We must encode it here.
+      const encodedFilter = encodeURIComponent(filterValue);
+      qs = (qs ? qs + '&' : '') + `filter=${encodedFilter}`;
     }
 
     const url = `${baseUrl}${normalizedPath}${qs ? '?' + qs : ''}`;
