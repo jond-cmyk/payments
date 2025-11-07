@@ -90,13 +90,11 @@ const LandlordDeposits = () => {
     return () => clearTimeout(handler);
   }, [departmentSearchTerm]);
 
-  // Query to fetch all entries for the specific department and account
-  const { data: entries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
-    queryKey: ['landlordDepositEntries', debouncedDepartmentNumber, currentCountry],
+  // Query to fetch ALL entries for the Landlord Deposit Account (5201) across all years
+  const { data: allAccountEntries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
+    queryKey: ['landlordDepositEntries_All', currentCountry],
     queryFn: async () => {
-      if (!debouncedDepartmentNumber) return [];
-
-      const toastId = showLoading(`Searching e-conomic for entries...`);
+      const toastId = showLoading(`Fetching all entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
       setIsFetching(true);
 
       try {
@@ -118,12 +116,12 @@ const LandlordDeposits = () => {
 
         let allEntries: EconomicLedgerEntry[] = [];
         
-        // Filter: account=5201 AND department=debouncedDepartmentNumber
-        const filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}$and:department.departmentNumber$eq:${debouncedDepartmentNumber}`;
+        // Filter: account=5201
+        const filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
 
         const yearPromises = accountingYears.map(yearInfo => {
           const year = yearInfo.year;
-          // Use the entries endpoint filtered by account and department
+          // Use the entries endpoint filtered by account
           const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
           return supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
@@ -149,11 +147,7 @@ const LandlordDeposits = () => {
         }
         
         dismissToast(toastId);
-        if (allEntries.length > 0) {
-            showSuccess(`Found ${allEntries.length} entries for Department #${debouncedDepartmentNumber}.`);
-        } else {
-            showInfo(`No entries found for Department #${debouncedDepartmentNumber} booked to account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
-        }
+        showSuccess(`Successfully fetched ${allEntries.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
         return allEntries as EconomicLedgerEntry[];
       } catch (e: any) {
         dismissToast(toastId);
@@ -167,8 +161,21 @@ const LandlordDeposits = () => {
     staleTime: 0,
   });
 
+  // Client-side filtering based on debouncedDepartmentNumber
+  const filteredEntries = useMemo(() => {
+    if (!allAccountEntries) return [];
+    if (!debouncedDepartmentNumber) return [];
+
+    return allAccountEntries.filter(entry => {
+      const entryDeptNumber = entry.department?.departmentNumber;
+      // Check if the department number exists and matches the search term
+      return entryDeptNumber === debouncedDepartmentNumber;
+    });
+  }, [allAccountEntries, debouncedDepartmentNumber]);
+
   const handleSearch = () => {
     if (debouncedDepartmentNumber) {
+        // Refetch all entries for the account, then filtering happens in useMemo
         refetch();
     } else {
         showError("Please enter a valid department number (SKU).");
@@ -259,18 +266,18 @@ const LandlordDeposits = () => {
                     <CardContent>
                         {isLoadingEntries || isFetching ? (
                             <Skeleton className="h-8 w-full" />
-                        ) : entries && entries.length > 0 ? (
+                        ) : filteredEntries && filteredEntries.length > 0 ? (
                             <div className="flex justify-between items-center">
                                 <p className="text-2xl font-bold text-green-600">
-                                    {entries.length} Entries Found
+                                    {filteredEntries.length} Entries Found
                                 </p>
-                                <Button onClick={() => handleViewDetails(entries)} variant="outline">
+                                <Button onClick={() => handleViewDetails(filteredEntries)} variant="outline">
                                     <FileText className="mr-2 h-4 w-4" /> View Details
                                 </Button>
                             </div>
                         ) : (
                             <p className="text-muted-foreground">
-                                No entries found for this department number in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
+                                No entries found for Department #{debouncedDepartmentNumber} booked to account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
                             </p>
                         )}
                     </CardContent>
