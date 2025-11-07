@@ -39,7 +39,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v4: Robust Diagnostic fetch).");
+  console.log("[fetch-deposit-cache] Function invoked (v5: Full Deposit Ledger Fetch).");
 
   try {
     // Use Service Role Key for database operations
@@ -75,27 +75,52 @@ serve(async (req) => {
     // Sort years to get the latest one
     const latestYear = accountingYears.sort((a: any, b: any) => b.year.localeCompare(a.year))[0].year;
 
-    // --- 2. Fetch entries for the latest year WITHOUT account filter (Diagnostic) ---
-    const path = `/accounting-years/${latestYear}/entries?pagesize=10`; // Limit to 10 for quick test
-    console.log(`[fetch-deposit-cache] DIAGNOSTIC: Fetching 10 entries from latest year (${latestYear}) without account filter: ${path}`);
-    
-    const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
-    
-    const entries = economicData?.collection || economicData?.items || economicData?.results || economicData;
-    
-    if (!Array.isArray(entries)) {
-        console.error("[fetch-deposit-cache] DIAGNOSTIC: Failed to extract array from economic response:", economicData);
-        throw new Error("Failed to parse ledger entries from e-conomic response.");
+    // --- 2. Fetch entries for the latest year WITH account filter ---
+    // Fetch all pages for the specific account and latest year
+    let allEntries: any[] = [];
+    let currentPage = 0;
+    const pageSize = 1000; // Max page size
+
+    while (true) {
+        // Use the specific account ledger entries path
+        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${latestYear}/entries?pagesize=${pageSize}&skipPages=${currentPage}`;
+        console.log(`[fetch-deposit-cache] Fetching page ${currentPage} for year ${latestYear}: ${path}`);
+        
+        const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
+        
+        // Extract list from response (handles various formats like .collection, .items, etc.)
+        const entries = economicData?.collection || economicData?.items || economicData?.results || economicData;
+        
+        if (!Array.isArray(entries)) {
+            console.error("[fetch-deposit-cache] Failed to extract array from economic response:", economicData);
+            // If the first page fails to return an array, it might be a permission issue or 404.
+            if (currentPage === 0) {
+                throw new Error("Failed to parse ledger entries from e-conomic response. Check if the account number is valid or if the API key has access to ledger entries.");
+            }
+            // If subsequent pages fail, break the loop.
+            break;
+        }
+
+        allEntries = allEntries.concat(entries);
+
+        const pagination = economicData?.pagination;
+        const totalResults = pagination?.results || 0;
+        const totalPages = Math.ceil(totalResults / pageSize);
+
+        if (currentPage + 1 >= totalPages || entries.length === 0) {
+            break;
+        }
+        currentPage++;
     }
 
-    console.log(`[fetch-deposit-cache] DIAGNOSTIC: Fetched ${entries.length} entries. First entry: ${JSON.stringify(entries[0])}`);
+    console.log(`[fetch-deposit-cache] Successfully fetched ${allEntries.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} in year ${latestYear}.`);
 
-    // 3. Upsert the diagnostic data (or empty array) into cache table
+    // 3. Upsert the full data into cache table
     const { error: upsertError } = await supabaseAdminClient
       .from('landlord_deposit_cache')
       .upsert({
         country: country,
-        entries: entries, // Cache the diagnostic entries
+        entries: allEntries, // Cache the full list
         cached_at: new Date().toISOString(),
       }, { onConflict: 'country' });
 
@@ -104,14 +129,14 @@ serve(async (req) => {
       throw new Error(`Failed to update cache table: ${upsertError.message}`);
     }
 
-    console.log(`[fetch-deposit-cache] DIAGNOSTIC CACHE UPDATED. Check the Landlord Deposits page for the first 10 entries.`);
+    console.log(`[fetch-deposit-cache] FULL CACHE UPDATED successfully for ${country}. Total entries: ${allEntries.length}`);
 
-    return new Response(JSON.stringify({ message: `Diagnostic cache updated successfully for ${country}. Fetched ${entries.length} entries from latest year (no filter).` }), {
+    return new Response(JSON.stringify({ message: `Cache updated successfully for ${country}. Total entries: ${allEntries.length}.` }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('[fetch-deposit-cache] Edge Function Error:', error);
     // Return 200 with error payload so the client can read the message
     return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred.' }), {
