@@ -399,7 +399,11 @@ const LandlordDeposits = () => {
       });
 
       if (invokeError) throw new Error(invokeError.message);
-      if (data?.error) throw new Error(data.error);
+      
+      // CRITICAL: Check for error payload returned by the Edge Function
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       showSuccess(data?.message || `Cache refreshed successfully for ${currentCountry}.`);
       
