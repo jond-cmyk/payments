@@ -107,9 +107,9 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
   const [showNoRefundDialog, setShowNoRefundDialog] = useState(false);
 
   const { data: balanceData, isLoading: isLoadingBalance } = useQuery<{ balance: number | null }>({
-    queryKey: ['customerBalance', group.customer.customerNumber, country],
+    queryKey: ['customerBalance', group.customer?.customerNumber, country],
     queryFn: async () => {
-      const customerNumber = group.customer.customerNumber;
+      const customerNumber = group.customer?.customerNumber;
       if (!customerNumber) return { balance: null };
 
       const getNumeric = (obj: any, keys: string[]): number | null => {
@@ -135,7 +135,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
 
       return { balance: balanceVal };
     },
-    enabled: !!group.customer.customerNumber,
+    enabled: !!group.customer?.customerNumber,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -153,7 +153,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
   };
 
   const handleCreateDepositReturnRequest = async (formValues: any) => {
-    if (!selectedEntry || !user) return;
+    if (!selectedEntry || !user || !group.customer?.customerNumber) return;
     setIsSubmitting(true);
     const toastId = showLoading("Creating deposit return request...");
 
@@ -471,7 +471,11 @@ const CustomerDepositReturns = () => {
   const groupedEntries = useMemo(() => {
     if (!entries) return {};
     return entries.reduce((acc, entry) => {
-      const customerNumber = entry.customer?.customerNumber;
+      if (!entry.customer || !entry.customer.customerNumber) {
+        return acc;
+      }
+
+      const customerNumber = entry.customer.customerNumber;
       const customerName = customerNumber ? (customerNameMap[customerNumber] || `Customer #${customerNumber}`) : 'Unknown Customer';
       
       if (!acc[customerName]) {
