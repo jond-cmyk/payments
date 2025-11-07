@@ -64,6 +64,7 @@ const LandlordDeposits = () => {
   const [dialogData, setDialogData] = useState<EconomicLedgerEntry[] | null>(null);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogDescription, setDialogDescription] = useState('');
+  const [showDepartmentWarning, setShowDepartmentWarning] = useState(false); // NEW STATE
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -80,6 +81,7 @@ const LandlordDeposits = () => {
   // Debounce logic for search input
   React.useEffect(() => {
     const handler = setTimeout(() => {
+      // We still parse it as a number, but we will use it as a string for text search
       const numericValue = parseInt(departmentSearchTerm.replace(/\D/g, ''), 10);
       if (!isNaN(numericValue) && departmentSearchTerm.length > 0) {
         setDebouncedDepartmentNumber(numericValue);
@@ -147,13 +149,14 @@ const LandlordDeposits = () => {
           entry.account?.accountNumber === LANDLORD_DEPOSIT_ACCOUNT_NUMBER
         );
 
-        // NEW LOGGING: Log the department numbers of the found entries
-        const departmentNumbers = filteredByAccount.map(entry => entry.department?.departmentNumber).filter(Boolean);
-        console.log(`[LandlordDeposits] Found entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} with department numbers:`, departmentNumbers);
-
+        // Check if any entry has a department number (to show warning if not)
+        const hasDepartmentData = filteredByAccount.some(entry => 
+          entry.department?.departmentNumber !== undefined && entry.department?.departmentNumber !== null
+        );
+        setShowDepartmentWarning(!hasDepartmentData);
+        
         dismissToast(toastId);
         showSuccess(`Successfully fetched ${allEntries.length} raw entries. Filtered to ${filteredByAccount.length} for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
-        console.log("[LandlordDeposits] Raw fetched entries (first 5):", allEntries.slice(0, 5));
         return filteredByAccount as EconomicLedgerEntry[];
       } catch (e: any) {
         dismissToast(toastId);
@@ -167,18 +170,22 @@ const LandlordDeposits = () => {
     staleTime: 0,
   });
 
-  // Client-side filtering based on debouncedDepartmentNumber
+  // Client-side filtering based on debouncedDepartmentNumber (now used for text search fallback)
   const filteredEntries = useMemo(() => {
     if (!allAccountEntries) return [];
     if (!debouncedDepartmentNumber) return [];
 
+    // Convert the numeric search term back to a string for text matching
+    const searchStr = String(debouncedDepartmentNumber).toLowerCase();
+
     const results = allAccountEntries.filter(entry => {
-      const entryDeptNumber = entry.department?.departmentNumber;
-      // Check if the department number exists and matches the search term
-      return entryDeptNumber === debouncedDepartmentNumber;
+      const entryText = entry.text?.toLowerCase() || '';
+      
+      // Perform case-insensitive substring match on the entry text
+      return entryText.includes(searchStr);
     });
     
-    console.log(`[LandlordDeposits] Filtered ${results.length} entries for department ${debouncedDepartmentNumber}.`);
+    console.log(`[LandlordDeposits] Filtered ${results.length} entries by text match for search term ${searchStr}.`);
     return results;
   }, [allAccountEntries, debouncedDepartmentNumber]);
 
@@ -187,15 +194,15 @@ const LandlordDeposits = () => {
         // Refetch all entries for the account, then filtering happens in useMemo
         refetch();
     } else {
-        showError("Please enter a valid department number (SKU).");
+        showError("Please enter a valid department number (SKU) or search term.");
     }
   };
 
   const handleViewDetails = (entries: EconomicLedgerEntry[]) => {
     if (entries.length === 0) return;
     setDialogData(entries);
-    setDialogTitle(`Ledger Entries for Department #${debouncedDepartmentNumber}`);
-    setDialogDescription(`Showing ${entries.length} transactions booked to Account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} for ${getDepartmentName(debouncedDepartmentNumber)}.`);
+    setDialogTitle(`Ledger Entries for Search Term: ${debouncedDepartmentNumber}`);
+    setDialogDescription(`Showing ${entries.length} transactions booked to Account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} matching the search term.`);
     setShowDetailDialog(true);
   };
 
@@ -228,11 +235,20 @@ const LandlordDeposits = () => {
             <Home className="mr-2 h-6 w-6" /> Landlord Deposits (Account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER})
           </CardTitle>
           <CardDescription>
-            Search for all transactions booked to the Landlord Deposit account ({LANDLORD_DEPOSIT_ACCOUNT_NUMBER}) filtered by a specific property department number (SKU).
+            Search for all transactions booked to the Landlord Deposit account ({LANDLORD_DEPOSIT_ACCOUNT_NUMBER}) filtered by a specific property identifier (SKU).
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
+            {showDepartmentWarning && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Data Limitation Detected</AlertTitle>
+                <AlertDescription>
+                  The ledger entries for account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER} do not contain explicit Department Numbers (SKUs). The search function is performing a **text match** against the entry description. Please enter the property identifier (SKU) or a unique part of the description.
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="flex flex-wrap items-end gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
               <div className="flex-1 min-w-[200px]">
                 <label htmlFor="country-filter" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
@@ -244,10 +260,10 @@ const LandlordDeposits = () => {
                 />
               </div>
               <div className="flex-1 min-w-[250px]">
-                <label htmlFor="department-search" className="block text-sm font-medium text-gray-700 mb-1">Department Number (SKU)</label>
+                <label htmlFor="department-search" className="block text-sm font-medium text-gray-700 mb-1">Property Identifier / SKU (Text Search)</label>
                 <Input
                   id="department-search"
-                  placeholder="e.g., 12345"
+                  placeholder="e.g., 12345 or 'Property Address'"
                   value={departmentSearchTerm}
                   onChange={(e) => setDepartmentSearchTerm(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
@@ -256,7 +272,7 @@ const LandlordDeposits = () => {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={isFetching || !debouncedDepartmentNumber}
+                disabled={isFetching || departmentSearchTerm.length === 0}
                 className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               >
                 <Search className="mr-2 h-4 w-4" />
@@ -269,7 +285,7 @@ const LandlordDeposits = () => {
                 <Card className="border-l-4 border-dyad-blue shadow-sm">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-lg font-semibold">
-                            Results for {getDepartmentName(debouncedDepartmentNumber)}
+                            Results for Search Term: {departmentSearchTerm}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -286,7 +302,7 @@ const LandlordDeposits = () => {
                             </div>
                         ) : (
                             <p className="text-muted-foreground">
-                                No entries found for Department #{debouncedDepartmentNumber} booked to account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
+                                No entries found matching "{departmentSearchTerm}" in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
                             </p>
                         )}
                     </CardContent>
