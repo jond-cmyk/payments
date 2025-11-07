@@ -71,6 +71,8 @@ const Header = () => {
         return 'Upload Standing Orders - KH Payments';
       case '/customer-deposit-returns':
         return 'Customer Deposit Returns - KH Payments';
+      case '/landlord-deposits':
+        return 'Landlord Deposits - KH Payments'; // NEW TITLE
       case '/missing-receipts':
         return 'Missing Receipts - KH Payments';
       case '/completed-receipts':

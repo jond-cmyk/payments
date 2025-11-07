@@ -39,6 +39,7 @@ const EconomicIntegration = lazy(() => import("./pages/EconomicIntegration"));
 const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const AdminDepartments = lazy(() => import("./pages/AdminDepartments"));
 const Customers = lazy(() => import("./pages/Customers"));
+const LandlordDeposits = lazy(() => import("./pages/LandlordDeposits")); // NEW IMPORT
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,7 @@ const App = () => {
                         <Route path="/profile" element={<ProfilePage />} />
                         <Route path="/admin/statistics" element={<Statistics />} />
                         <Route path="/admin/customers" element={<Customers />} />
+                        <Route path="/landlord-deposits" element={<LandlordDeposits />} /> {/* NEW ROUTE */}
                       </Route>
 
                       {/* Protected routes requiring approval */}

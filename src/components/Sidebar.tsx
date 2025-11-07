@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNotifications } from '@/integrations/supabase/NotificationContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign, MessageSquareText, BarChart } from 'lucide-react';
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign, MessageSquareText, BarChart, Home as HomeIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
@@ -136,6 +136,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
           <div className="h-px bg-dyad-blue-foreground my-4" />
           <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
           <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
+          <NavLink to="/landlord-deposits" icon={<HomeIcon className="h-5 w-5" />} label="Landlord Deposits" /> {/* NEW LINK */}
           
           <div className="h-px bg-dyad-blue-foreground my-4" /> 
 
