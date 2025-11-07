@@ -10,17 +10,25 @@ const corsHeaders = {
 
 const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
 
-// Helper to invoke the economic-api-proxy
+// Helper to invoke the economic-api-proxy and handle its wrapped response
 async function fetchEconomicData(supabaseClient: any, path: string, country: string) {
     const { data, error: invokeError } = await supabaseClient.functions.invoke("economic-api-proxy", {
         body: { path, method: "GET", country },
     });
 
-    if (invokeError) throw new Error(invokeError.message);
+    if (invokeError) {
+        console.error(`[fetchEconomicData] Proxy invocation failed for ${path}:`, invokeError);
+        throw new Error(`Proxy invocation failed: ${invokeError.message}`);
+    }
+    
     const resp = data as any;
 
     if (resp.error || !resp.ok) {
-        throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
+        // Throw the specific error returned by the proxy, including the status code if available
+        const status = resp.status ? ` (Status ${resp.status})` : '';
+        const message = resp.error || `e-conomic API returned status ${resp.status}`;
+        console.error(`[fetchEconomicData] e-conomic API Error for ${path}: ${message}${status}`);
+        throw new Error(message + status);
     }
     return resp.data;
 }
@@ -31,7 +39,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v3: Diagnostic fetch).");
+  console.log("[fetch-deposit-cache] Function invoked (v4: Robust Diagnostic fetch).");
 
   try {
     // Use Service Role Key for database operations
@@ -64,25 +72,15 @@ serve(async (req) => {
         throw new Error("No accounting years found in e-conomic. Cannot fetch entries.");
     }
     
-    // Sort years to get the latest one (assuming year is a string like "2024")
+    // Sort years to get the latest one
     const latestYear = accountingYears.sort((a: any, b: any) => b.year.localeCompare(a.year))[0].year;
 
     // --- 2. Fetch entries for the latest year WITHOUT account filter (Diagnostic) ---
     const path = `/accounting-years/${latestYear}/entries?pagesize=10`; // Limit to 10 for quick test
     console.log(`[fetch-deposit-cache] DIAGNOSTIC: Fetching 10 entries from latest year (${latestYear}) without account filter: ${path}`);
     
-    const { data: proxyData, error: invokeError } = await supabaseAdminClient.functions.invoke("economic-api-proxy", {
-        body: { path, method: "GET", country },
-    });
-
-    if (invokeError) throw new Error(invokeError.message);
-    const resp = proxyData as any;
-
-    if (resp.error || !resp.ok) {
-        throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
-    }
+    const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
     
-    const economicData = resp.data;
     const entries = economicData?.collection || economicData?.items || economicData?.results || economicData;
     
     if (!Array.isArray(entries)) {
