@@ -78,12 +78,12 @@ const LandlordDeposits = () => {
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
 
-  // Query to fetch entries for the Landlord Deposit Account (5201) filtered by search term
+  // Query to fetch ALL entries for the Landlord Deposit Account (5201)
   const { data: allAccountEntries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
-    queryKey: ['landlordDepositEntries_All', currentCountry, debouncedFilterTerm],
+    queryKey: ['landlordDepositEntries_All', currentCountry], // Removed debouncedFilterTerm dependency
     queryFn: async () => {
       
-      const toastId = showLoading(`Fetching entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
+      const toastId = showLoading(`Fetching ALL entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
       setIsFetching(true);
 
       try {
@@ -108,15 +108,9 @@ const LandlordDeposits = () => {
         const yearPromises = accountingYears.map(yearInfo => {
           const year = yearInfo.year;
           
-          // 2. Construct filter: Account 5201 AND Department Number matches search term
+          // 2. Construct filter: Account 5201 ONLY
           let filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
           
-          if (debouncedFilterTerm) {
-              // STRICTLY search by Department Number (SKU)
-              filter += `$and:department.departmentNumber$eq:${debouncedFilterTerm}`;
-          }
-          
-          // --- FIX: URL encode the filter string as required by e-conomic API ---
           const encodedFilter = encodeURIComponent(filter);
           
           const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${encodedFilter}`;
@@ -144,9 +138,26 @@ const LandlordDeposits = () => {
           }
         }
         
-        const results = allEntries; 
+        let results = allEntries; 
+        
+        // --- LOG RAW RESULTS FOR DEBUGGING ---
+        console.log(`[LandlordDeposits DEBUG] Fetched ${results.length} raw entries for account 5201. Checking for entry 503408...`);
+        const targetEntry = results.find(e => e.entryNumber === 503408);
+        if (targetEntry) {
+            console.log("[LandlordDeposits DEBUG] FOUND TARGET ENTRY 503408. RAW DATA:", JSON.stringify(targetEntry, null, 2));
+        } else {
+            console.log("[LandlordDeposits DEBUG] Target entry 503408 NOT found in raw results.");
+        }
+        // --- END LOGGING ---
 
-        // Removed department warning logic as we are strictly searching by department number now.
+        // Apply client-side filter based on debouncedFilterTerm (SKU)
+        if (debouncedFilterTerm) {
+            const numericTerm = parseInt(debouncedFilterTerm, 10);
+            results = results.filter(entry => 
+                entry.department?.departmentNumber === numericTerm
+            );
+            console.log(`[LandlordDeposits] Client-side filtered results for SKU ${numericTerm}: ${results.length}`);
+        }
         
         dismissToast(toastId);
         showSuccess(`Successfully fetched ${results.length} entries matching criteria.`);
@@ -159,7 +170,7 @@ const LandlordDeposits = () => {
         setIsFetching(false);
       }
     },
-    enabled: !!debouncedFilterTerm, // Only run if debouncedFilterTerm is set
+    enabled: !!session, // Always enabled when session is active
     staleTime: 0,
   });
 
@@ -175,6 +186,8 @@ const LandlordDeposits = () => {
         // 2. Validate if the remaining part is purely numeric
         if (/^\d+$/.test(numericTerm)) {
             setDebouncedFilterTerm(numericTerm);
+            // Since the query key no longer depends on debouncedFilterTerm, we must manually refetch
+            refetch();
         } else {
             // If the input is not numeric after stripping prefix, show error and do not search
             showError("Please enter a valid numeric property identifier (SKU). Prefixes like CH/UK are automatically removed.");
@@ -186,13 +199,14 @@ const LandlordDeposits = () => {
         setDebouncedFilterTerm('');
         setDialogData(null);
         setShowDetailDialog(false);
+        refetch(); // Refetch to show all 5201 entries if search is cleared
     }
   };
 
   const handleViewDetails = (entries: EconomicLedgerEntry[]) => {
     if (entries.length === 0) return;
     setDialogData(entries);
-    setDialogTitle(`Ledger Entries for Search Term: ${debouncedFilterTerm}`);
+    setDialogTitle(`Ledger Entries for Search Term: ${debouncedFilterTerm || 'All'}`);
     setDialogDescription(`Showing ${entries.length} transactions booked to Account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} matching the search term.`);
     setShowDetailDialog(true);
   };
