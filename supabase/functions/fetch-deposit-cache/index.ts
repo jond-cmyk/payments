@@ -12,8 +12,10 @@ const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
 
 // Helper to invoke the economic-api-proxy and handle its wrapped response
 async function fetchEconomicData(supabaseClient: any, path: string, country: string) {
+    const payload = { path, method: "GET", country };
+    console.log(`[fetchEconomicData] Invoking proxy with payload: ${JSON.stringify(payload)}`); // NEW LOG
     const { data, error: invokeError } = await supabaseClient.functions.invoke("economic-api-proxy", {
-        body: { path, method: "GET", country },
+        body: payload,
     });
 
     if (invokeError) {
