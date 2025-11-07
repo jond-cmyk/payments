@@ -73,7 +73,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v10: Full historical fetch + 90-day dynamic refresh).");
+  console.log("[fetch-deposit-cache] Function invoked (v11: Unfiltered historical fetch on static cache init).");
 
   try {
     // Use Service Role Key for database operations
@@ -122,18 +122,27 @@ serve(async (req) => {
     let staticCacheNeedsUpdate = false;
 
     if (staticCacheError && staticCacheError.code === 'PGRST116') {
-        // Static cache is empty, perform initial historical fetch (ALL history older than 90 days)
-        console.log("[fetch-deposit-cache] Static cache empty. Performing initial historical fetch (ALL history).");
+        // Static cache is empty, perform initial historical fetch (ALL history)
+        console.log("[fetch-deposit-cache] Static cache empty. Performing initial historical fetch (ALL history, unfiltered).");
         staticCacheNeedsUpdate = true;
         
         const historicalFetchPromises = accountingYears.map(async (yearInfo: any) => {
-            // Filter for entries older than 90 days
-            const filter = `date$lt:${ninetyDaysAgoStr}`;
-            return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country, filter);
+            // Fetch ALL entries for the year (no date filter applied here)
+            return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country);
         });
 
         const historicalResults = await Promise.all(historicalFetchPromises);
-        staticEntries = historicalResults.flat();
+        const allHistoricalEntries = historicalResults.flat();
+        
+        // Filter entries locally to be older than 90 days before saving to static cache
+        staticEntries = allHistoricalEntries.filter((entry: any) => {
+            try {
+                const entryDate = new Date(entry.date);
+                return entryDate.toISOString().split('T')[0] < ninetyDaysAgoStr;
+            } catch {
+                return false; // Skip entries with invalid dates
+            }
+        });
         
         // Update static cache
         const { error: upsertStaticError } = await supabaseAdminClient
