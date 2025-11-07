@@ -118,9 +118,6 @@ const LandlordDeposits = () => {
         
         const yearPromises = accountingYears.map(yearInfo => {
           const year = yearInfo.year;
-          // Use the entries endpoint filtered by account, but only include the account filter in the URL if necessary
-          // For now, we rely on the client-side filter below, but we must ensure the base request is valid.
-          // We will use the entries endpoint for the year, and rely on the client to filter by account number.
           const path = `/accounting-years/${year}/entries?pagesize=1000`;
           return supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
@@ -149,6 +146,10 @@ const LandlordDeposits = () => {
         const filteredByAccount = allEntries.filter(entry => 
           entry.account?.accountNumber === LANDLORD_DEPOSIT_ACCOUNT_NUMBER
         );
+
+        // NEW LOGGING: Log the department numbers of the found entries
+        const departmentNumbers = filteredByAccount.map(entry => entry.department?.departmentNumber).filter(Boolean);
+        console.log(`[LandlordDeposits] Found entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} with department numbers:`, departmentNumbers);
 
         dismissToast(toastId);
         showSuccess(`Successfully fetched ${allEntries.length} raw entries. Filtered to ${filteredByAccount.length} for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
