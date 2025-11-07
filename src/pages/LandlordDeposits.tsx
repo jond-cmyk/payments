@@ -358,90 +358,32 @@ const LandlordDeposits = () => {
     queryKey: ['landlordDepositEntries_All', currentCountry], // Query key is now independent of search term
     queryFn: async () => {
       
-      const toastId = showLoading(`Fetching ALL entries for all years...`);
+      const toastId = showLoading(`Fetching ALL entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
       setIsFetching(true);
 
       try {
-        // 1. Fetch all accounting years
-        const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: "/accounting-years", method: "GET", country: currentCountry },
-        });
-
-        if (yearsError) throw new Error(yearsError.message);
-        const yearsResp = yearsData as EconomicProxyResponse<any>;
-        if (yearsResp.error || !yearsResp.ok) {
-          // Log the error data if available
-          console.error("[LandlordDeposits] Error fetching accounting years:", yearsResp.data);
-          throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
-        }
-        const accountingYears = extractList(yearsResp?.data);
-        if (!accountingYears || accountingYears.length === 0) {
-          showError("No accounting years found in e-conomic. Cannot fetch entries.");
-          return [];
-        }
-
-        let allEntries: EconomicLedgerEntry[] = [];
+        // Use the robust /account-ledger-entries endpoint directly
+        const path = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}?pagesize=10000`; // Increased pagesize for safety
         
-        const yearPromises = accountingYears.map(yearInfo => {
-          const year = yearInfo.year;
-          
-          // 2. Construct filter: Account 5201 ONLY
-          let filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
-          
-          // Fetch entries for the year, filtered by account 5201
-          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
-          
-          return supabase.functions.invoke("economic-api-proxy", {
+        const { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
-          });
         });
 
-        const yearResults = await Promise.all(yearPromises);
+        if (invokeError) throw new Error(invokeError.message);
+        const resp = data as EconomicProxyResponse<any>;
 
-        for (const result of yearResults) {
-          if (result.error) {
-            console.warn("Error fetching entries for a year:", result.error.message);
-            continue;
-          }
-          const resp = result.data as EconomicProxyResponse<any>;
-          if (resp.ok) {
-            const entriesForYear = extractList(resp?.data);
-            if (entriesForYear && entriesForYear.length > 0) {
-              allEntries = allEntries.concat(entriesForYear);
-            }
-          } else {
-            // Log the non-OK response data
-            console.warn(`[LandlordDeposits] Non-OK response fetching entries for a year: Status ${resp.status}. Data:`, resp.data);
-            // If we get a 400 here, it's likely the filter syntax is wrong for this endpoint.
-            // We will try a fallback path without the year filter if the first attempt fails.
-            if (resp.status === 400) {
-                console.warn("[LandlordDeposits] Received 400 Bad Request. Trying fallback path /account-ledger-entries.");
-                const fallbackPath = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}?pagesize=1000`;
-                const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke("economic-api-proxy", {
-                    body: { path: fallbackPath, method: "GET", country: currentCountry },
-                });
-                
-                if (!fallbackError && fallbackData) {
-                    const fallbackResp = fallbackData as EconomicProxyResponse<any>;
-                    if (fallbackResp.ok) {
-                        const fallbackEntries = extractList(fallbackResp?.data);
-                        if (fallbackEntries && fallbackEntries.length > 0) {
-                            allEntries = allEntries.concat(fallbackEntries);
-                            console.log(`[LandlordDeposits] Fallback successful. Added ${fallbackEntries.length} entries.`);
-                        }
-                    } else {
-                        console.error("[LandlordDeposits] Fallback failed:", fallbackResp.error || `Status ${fallbackResp.status}`);
-                    }
-                }
-            }
-          }
+        if (resp.error || !resp.ok) {
+            console.error("[LandlordDeposits] Error fetching ledger entries:", resp.data);
+            throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
         }
         
-        let results = allEntries; 
+        let allEntries = extractList(resp?.data);
         
         // --- LOG RAW RESULTS FOR DEBUGGING ---
         console.log(`[LandlordDeposits DEBUG] Fetched ${allEntries.length} raw entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
         // --- END LOGGING ---
+
+        let results = allEntries; 
 
         // Apply client-side filter based on debouncedFilterTerm (SKU)
         if (debouncedFilterTerm) {
@@ -507,19 +449,12 @@ const LandlordDeposits = () => {
 
     const toastId = showLoading(`Searching for entry #${entryNum}...`);
     try {
-        // Try the simple path first
-        let path = `/entries/${entryNum}`;
-        let { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
+        // Use the most reliable path for a single entry associated with the account
+        const path = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/${entryNum}`;
+        
+        const { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
         });
-
-        if (invokeError || data?.status === 404) {
-            // Fallback 1: Try /account-ledger-entries/:accountNumber/:entryNumber
-            path = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/${entryNum}`;
-            ({ data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
-                body: { path, method: "GET", country: currentCountry },
-            }));
-        }
         
         if (invokeError) throw new Error(invokeError.message);
         const resp = data as EconomicProxyResponse<EconomicLedgerEntry>;
