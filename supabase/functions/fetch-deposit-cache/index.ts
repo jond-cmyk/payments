@@ -31,7 +31,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked.");
+  console.log("[fetch-deposit-cache] Function invoked (v2: Multi-year fetch).");
 
   try {
     // Use Service Role Key for database operations
@@ -56,28 +56,50 @@ serve(async (req) => {
       });
     }
 
-    // 1. Fetch data from e-conomic
-    const path = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}?pagesize=10000`;
-    console.log(`[fetch-deposit-cache] Fetching data for ${country} from: ${path}`);
+    // --- 1. Fetch all accounting years ---
+    const yearsData = await fetchEconomicData(supabaseAdminClient, "/accounting-years", country);
+    const accountingYears = yearsData?.collection || [];
     
-    const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
-    
-    // Extract the list of entries (assuming 'collection' or similar structure)
-    const entries = economicData?.collection || economicData?.items || economicData?.results || economicData;
-    
-    if (!Array.isArray(entries)) {
-        console.error("[fetch-deposit-cache] Failed to extract array from economic response:", economicData);
-        throw new Error("Failed to parse ledger entries from e-conomic response.");
+    if (!accountingYears || accountingYears.length === 0) {
+        throw new Error("No accounting years found in e-conomic. Cannot fetch entries.");
     }
 
-    console.log(`[fetch-deposit-cache] Fetched ${entries.length} entries for ${country}.`);
+    // --- 2. Fetch entries for the specific account across all years ---
+    let allEntries: any[] = [];
+    const yearPromises = accountingYears.map((yearInfo: any) => {
+        const year = yearInfo.year;
+        // Filter entries by the deposit account number
+        const path = `/accounting-years/${year}/entries?pagesize=10000&filter=account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
+        console.log(`[fetch-deposit-cache] Fetching entries for year ${year} from: ${path}`);
+        
+        return supabaseAdminClient.functions.invoke("economic-api-proxy", {
+            body: { path, method: "GET", country },
+        }).then(({ data, error: invokeError }) => {
+            if (invokeError) {
+                console.warn(`[fetch-deposit-cache] Error invoking proxy for year ${year}: ${invokeError.message}`);
+                return [];
+            }
+            const resp = data as any;
+            if (resp.error || !resp.ok) {
+                console.warn(`[fetch-deposit-cache] Non-OK response for year ${year}: ${resp.error || resp.status}`);
+                return [];
+            }
+            // Extract the list of entries (assuming 'collection' or similar structure)
+            return resp.data?.collection || resp.data?.items || resp.data?.results || resp.data || [];
+        });
+    });
 
-    // 2. Upsert into cache table
+    const results = await Promise.all(yearPromises);
+    allEntries = results.flat();
+    
+    console.log(`[fetch-deposit-cache] Fetched ${allEntries.length} total entries for ${country}.`);
+
+    // 3. Upsert into cache table
     const { error: upsertError } = await supabaseAdminClient
       .from('landlord_deposit_cache')
       .upsert({
         country: country,
-        entries: entries,
+        entries: allEntries,
         cached_at: new Date().toISOString(),
       }, { onConflict: 'country' });
 
@@ -88,7 +110,7 @@ serve(async (req) => {
 
     console.log(`[fetch-deposit-cache] Cache updated successfully for ${country}.`);
 
-    return new Response(JSON.stringify({ message: `Cache updated successfully for ${country}. Fetched ${entries.length} entries.` }), {
+    return new Response(JSON.stringify({ message: `Cache updated successfully for ${country}. Fetched ${allEntries.length} entries.` }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
