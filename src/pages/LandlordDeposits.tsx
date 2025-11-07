@@ -116,7 +116,10 @@ const LandlordDeposits = () => {
               filter += `$and:department.departmentNumber$eq:${debouncedFilterTerm}`;
           }
           
-          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
+          // --- FIX: URL encode the filter string as required by e-conomic API ---
+          const encodedFilter = encodeURIComponent(filter);
+          
+          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${encodedFilter}`;
           
           return supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
