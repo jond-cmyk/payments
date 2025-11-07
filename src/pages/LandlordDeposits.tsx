@@ -54,7 +54,7 @@ type EconomicLedgerEntry = {
 
 const LandlordDeposits = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
-  const { currentCountry, isCountryLocked, availableCountries } = useCountry();
+  const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
   const navigate = useNavigate();
 
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
@@ -222,7 +222,7 @@ const LandlordDeposits = () => {
                 <label htmlFor="country-filter" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
                 <CountrySelector
                   value={currentCountry}
-                  onValueChange={() => { /* Country change handled by context */ }}
+                  onValueChange={setCurrentCountry}
                   disabled={isCountryLocked && userProfile?.role !== 'admin'}
                   availableCountries={availableCountries.filter(c => c.value !== 'all')}
                 />
