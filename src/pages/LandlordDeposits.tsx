@@ -58,13 +58,13 @@ const LandlordDeposits = () => {
   const navigate = useNavigate();
 
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
-  const [debouncedFilterTerm, setDebouncedFilterTerm] = useState(''); // State used to trigger the query
+  const [debouncedFilterTerm, setDebouncedFilterTerm] = useState(''); // State used to trigger the query (numeric SKU)
   const [isFetching, setIsFetching] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [dialogData, setDialogData] = useState<EconomicLedgerEntry[] | null>(null);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogDescription, setDialogDescription] = useState('');
-  const [showDepartmentWarning, setShowDepartmentWarning] = useState(false);
+  // Removed showDepartmentWarning state
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -112,16 +112,8 @@ const LandlordDeposits = () => {
           let filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
           
           if (debouncedFilterTerm) {
-              // Check if the search term is purely numeric (for departmentNumber search)
-              const isNumeric = /^\d+$/.test(debouncedFilterTerm);
-              
-              if (isNumeric) {
-                  // Search by Department Number (SKU)
-                  filter += `$and:department.departmentNumber$eq:${debouncedFilterTerm}`;
-              } else {
-                  // Fallback to text search if non-numeric (for description/text match)
-                  filter += `$and:text$like:*${debouncedFilterTerm}*`;
-              }
+              // STRICTLY search by Department Number (SKU)
+              filter += `$and:department.departmentNumber$eq:${debouncedFilterTerm}`;
           }
           
           const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
@@ -151,14 +143,7 @@ const LandlordDeposits = () => {
         
         const results = allEntries; 
 
-        // Check if any entry has a department number (to show warning if not)
-        const hasDepartmentData = results.some(entry => 
-          entry.department?.departmentNumber !== undefined && entry.department?.departmentNumber !== null
-        );
-        
-        // Only show warning if we were trying to search by department number (i.e., search term was numeric)
-        const isNumericSearch = /^\d+$/.test(debouncedFilterTerm);
-        setShowDepartmentWarning(isNumericSearch && !hasDepartmentData);
+        // Removed department warning logic as we are strictly searching by department number now.
         
         dismissToast(toastId);
         showSuccess(`Successfully fetched ${results.length} entries matching criteria.`);
@@ -181,12 +166,20 @@ const LandlordDeposits = () => {
   const handleSearch = () => {
     const term = departmentSearchTerm.trim();
     if (term.length > 0) {
-        // Remove SKU prefix (CH/UK) if present, as departmentNumber is purely numeric
+        // 1. Remove SKU prefix (CH/UK) if present
         const numericTerm = term.replace(/^(CH|UK)/i, '');
-        // Set debouncedFilterTerm to trigger the query
-        setDebouncedFilterTerm(numericTerm);
+        
+        // 2. Validate if the remaining part is purely numeric
+        if (/^\d+$/.test(numericTerm)) {
+            setDebouncedFilterTerm(numericTerm);
+        } else {
+            // If the input is not numeric after stripping prefix, show error and do not search
+            showError("Please enter a valid numeric property identifier (SKU). Prefixes like CH/UK are automatically removed.");
+            setDebouncedFilterTerm('');
+            setDialogData(null);
+            setShowDetailDialog(false);
+        }
     } else {
-        // If the user clears the search, clear the debounced term and the results
         setDebouncedFilterTerm('');
         setDialogData(null);
         setShowDetailDialog(false);
@@ -240,15 +233,7 @@ const LandlordDeposits = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {showDepartmentWarning && (
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Data Limitation Detected</AlertTitle>
-                <AlertDescription>
-                  The ledger entries for account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER} do not contain explicit Department Numbers (SKUs). The search function is performing a **text match** against the entry description. Please enter the property identifier (SKU) or a unique part of the description.
-                </AlertDescription>
-              </Alert>
-            )}
+            {/* Removed showDepartmentWarning Alert */}
             <div className="flex flex-wrap items-end gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
               <div className="flex-1 min-w-[200px]">
                 <label htmlFor="country-filter" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
@@ -260,10 +245,10 @@ const LandlordDeposits = () => {
                 />
               </div>
               <div className="flex-1 min-w-[250px]">
-                <label htmlFor="department-search" className="block text-sm font-medium text-gray-700 mb-1">Property Identifier / SKU (Numeric or Text Search)</label>
+                <label htmlFor="department-search" className="block text-sm font-medium text-gray-700 mb-1">Property Identifier / SKU (Numeric Only)</label>
                 <Input
                   id="department-search"
-                  placeholder="e.g., 12345 or 'Property Address'"
+                  placeholder="e.g., 12345 (CH12345)"
                   value={departmentSearchTerm}
                   onChange={(e) => setDepartmentSearchTerm(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
@@ -272,7 +257,7 @@ const LandlordDeposits = () => {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={isFetching || (departmentSearchTerm.length === 0 && debouncedFilterTerm.length === 0)}
+                disabled={isFetching || departmentSearchTerm.trim().length === 0}
                 className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               >
                 <Search className="mr-2 h-4 w-4" />
@@ -294,7 +279,7 @@ const LandlordDeposits = () => {
                 <Card className="border-l-4 border-dyad-blue shadow-sm">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-lg font-semibold">
-                            Results for Search Term: {debouncedFilterTerm}
+                            Results for SKU: {debouncedFilterTerm}
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -311,7 +296,7 @@ const LandlordDeposits = () => {
                             </div>
                         ) : (
                             <p className="text-muted-foreground">
-                                No entries found matching "{debouncedFilterTerm}" in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
+                                No entries found matching SKU "{debouncedFilterTerm}" in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
                             </p>
                         )}
                     </CardContent>
