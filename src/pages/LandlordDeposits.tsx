@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format, parseISO, isWithinInterval } from 'date-fns';
+import { format, parseISO, isWithinInterval, differenceInHours } from 'date-fns';
 import { PaymentRequest } from '@/types/supabase';
 
 import PageTitle from '@/components/PageTitle';
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, FileText, Search, Filter, RotateCw, AlertTriangle } from 'lucide-react';
+import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import EconomicDetailDialog, { DialogColumn, extractList, formatAmount } from '@/components/economic/EconomicDetailDialog';
@@ -32,6 +32,7 @@ import DepositReturnForm from '@/components/deposits/DepositReturnForm';
 
 // Define the Landlord Deposit Account Number
 const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
+const CACHE_STALE_HOURS = 24;
 
 // Types
 type EconomicProxyResponse<T = any> = {
@@ -68,6 +69,12 @@ type EconomicCustomer = {
   name: string;
   self: string;
   email?: string;
+};
+
+type DepositCache = {
+  country: string;
+  cached_at: string;
+  entries: EconomicLedgerEntry[];
 };
 
 // Helper to get nested values from an object
@@ -331,6 +338,7 @@ const LandlordDeposits = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
   const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
   const navigate = useNavigate();
+  const queryClient = useQueryClient(); // Use queryClient
 
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
   const [debouncedFilterTerm, setDebouncedFilterTerm] = useState(''); // State used to trigger the query (numeric SKU)
@@ -353,64 +361,89 @@ const LandlordDeposits = () => {
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
 
-  // Query to fetch ALL entries for the Landlord Deposit Account (5201)
-  const { data: allAccountEntries, isLoading: isLoadingEntries, error: entriesError, refetch } = useQuery<EconomicLedgerEntry[]>({
-    queryKey: ['landlordDepositEntries_All', currentCountry], // Query key is now independent of search term
+  // --- CACHE CHECK QUERY ---
+  const { data: cacheData, isLoading: isLoadingCache, refetch: refetchCache } = useQuery<DepositCache | null>({
+    queryKey: ['landlordDepositCache', currentCountry],
     queryFn: async () => {
+      const { data, error } = await supabase
+        .from('landlord_deposit_cache')
+        .select('*')
+        .eq('country', currentCountry)
+        .single();
       
-      const toastId = showLoading(`Fetching ALL entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}...`);
-      setIsFetching(true);
-
-      try {
-        // Use the robust /account-ledger-entries endpoint directly
-        const path = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}?pagesize=10000`; // Increased pagesize for safety
-        
-        const { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
-            body: { path, method: "GET", country: currentCountry },
-        });
-
-        if (invokeError) throw new Error(invokeError.message);
-        const resp = data as EconomicProxyResponse<any>;
-
-        if (resp.error || !resp.ok) {
-            console.error("[LandlordDeposits] Error fetching ledger entries:", resp.data);
-            throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
-        }
-        
-        let allEntries = extractList(resp?.data);
-        
-        // --- LOG RAW RESULTS FOR DEBUGGING ---
-        console.log(`[LandlordDeposits DEBUG] Fetched ${allEntries.length} raw entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
-        // --- END LOGGING ---
-
-        let results = allEntries; 
-
-        // Apply client-side filter based on debouncedFilterTerm (SKU)
-        if (debouncedFilterTerm) {
-            const numericTerm = parseInt(debouncedFilterTerm, 10);
-            results = results.filter(entry => 
-                entry.department?.departmentNumber === numericTerm
-            );
-            console.log(`[LandlordDeposits] Client-side filtered results for SKU ${numericTerm}: ${results.length}`);
-        }
-        
-        dismissToast(toastId);
-        showSuccess(`Successfully fetched ${results.length} entries matching criteria.`);
-        return results as EconomicLedgerEntry[];
-      } catch (e: any) {
-        dismissToast(toastId);
-        showError(e.message || "Failed to fetch ledger entries.");
-        return [];
-      } finally {
-        setIsFetching(false);
+      if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+        console.error("Error fetching deposit cache:", error);
       }
+      return data || null;
     },
-    enabled: !!session, // Always enabled when session is active
-    staleTime: 0,
+    enabled: !!session,
+    staleTime: 0, // Always check freshness manually
   });
+
+  // --- CACHE REFRESH LOGIC ---
+  const isCacheStale = useMemo(() => {
+    if (!cacheData) return true;
+    const cachedAt = parseISO(cacheData.cached_at);
+    return differenceInHours(new Date(), cachedAt) >= CACHE_STALE_HOURS;
+  }, [cacheData]);
+
+  const refreshCacheMutation = useCallback(async () => {
+    if (!session) return;
+    
+    const toastId = showLoading(`Refreshing deposit cache for ${currentCountry}...`);
+    setIsFetching(true);
+    
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke('fetch-deposit-cache', {
+        body: { country: currentCountry },
+      });
+
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
+
+      showSuccess(data?.message || `Cache refreshed successfully for ${currentCountry}.`);
+      
+      // Invalidate the cache query to force a refetch of the fresh data
+      await queryClient.invalidateQueries({ queryKey: ['landlordDepositCache', currentCountry] });
+      
+    } catch (e: any) {
+      showError(e.message || "Failed to refresh cache.");
+      console.error("Cache refresh error:", e);
+    } finally {
+      dismissToast(toastId);
+      setIsFetching(false);
+    }
+  }, [session, currentCountry, queryClient]);
+
+  // --- MAIN DATA SOURCE (Cache or Refresh) ---
+  const allAccountEntries = useMemo(() => {
+    if (cacheData?.entries) {
+      let results = cacheData.entries;
+      
+      // Apply client-side filter based on debouncedFilterTerm (SKU)
+      if (debouncedFilterTerm) {
+          const numericTerm = parseInt(debouncedFilterTerm, 10);
+          results = results.filter(entry => 
+              entry.department?.departmentNumber === numericTerm
+          );
+      }
+      return results;
+    }
+    return [];
+  }, [cacheData, debouncedFilterTerm]);
+
+  // Effect to trigger cache refresh if stale or empty
+  React.useEffect(() => {
+    if (session && !isLoadingCache && (isCacheStale || !cacheData)) {
+      console.log(`[LandlordDeposits] Cache is stale or empty. Triggering refresh for ${currentCountry}.`);
+      refreshCacheMutation();
+    }
+  }, [session, isLoadingCache, isCacheStale, cacheData, currentCountry, refreshCacheMutation]);
+
 
   // The results are now directly in allAccountEntries
   const resultsToDisplay = allAccountEntries;
+  const isLoadingEntries = isLoadingCache || isFetching; // Combined loading state
 
   const handleSearch = () => {
     const term = departmentSearchTerm.trim();
@@ -421,8 +454,6 @@ const LandlordDeposits = () => {
         // 2. Validate if the remaining part is purely numeric
         if (/^\d+$/.test(numericTerm)) {
             setDebouncedFilterTerm(numericTerm);
-            // Trigger refetch of the main query to apply the client-side filter
-            refetch();
         } else {
             // If the input is not numeric after stripping prefix, show error and do not search
             showError("Please enter a valid numeric property identifier (SKU). Prefixes like CH/UK are automatically removed.");
@@ -434,8 +465,6 @@ const LandlordDeposits = () => {
         setDebouncedFilterTerm('');
         setDialogData(null);
         setShowDetailDialog(false);
-        // If clearing search, refetch to show all entries for the account
-        refetch();
     }
   };
   
@@ -554,16 +583,16 @@ const LandlordDeposits = () => {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={isFetching || departmentSearchTerm.trim().length === 0}
+                disabled={isLoadingEntries || departmentSearchTerm.trim().length === 0}
                 className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               >
                 <Search className="mr-2 h-4 w-4" />
-                {isFetching ? "Searching..." : "Search Entries"}
+                {isLoadingEntries ? "Searching..." : "Search Entries"}
               </Button>
               {debouncedFilterTerm.length > 0 && (
                 <Button
                   variant="outline"
-                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setDialogData(null); setShowDetailDialog(false); refetch(); }}
+                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setDialogData(null); setShowDetailDialog(false); }}
                   className="flex items-center gap-1"
                 >
                   <RotateCw className="h-4 w-4" /> Clear Search
@@ -586,7 +615,7 @@ const LandlordDeposits = () => {
                 </div>
                 <Button
                     onClick={handleDirectEntrySearch}
-                    disabled={isFetching || entryNumberSearch.trim().length === 0}
+                    disabled={isLoadingEntries || entryNumberSearch.trim().length === 0}
                     variant="secondary"
                     className="shadow-sm"
                 >
@@ -594,6 +623,36 @@ const LandlordDeposits = () => {
                     Lookup Entry
                 </Button>
             </div>
+
+            {/* Display Cache Status */}
+            <Alert variant={isCacheStale ? "destructive" : "default"} className="mt-4">
+                <AlertTitle className="flex items-center">
+                    {isCacheStale ? <AlertTriangle className="mr-2 h-4 w-4" /> : <Clock className="mr-2 h-4 w-4" />}
+                    Deposit Ledger Cache Status
+                </AlertTitle>
+                <AlertDescription>
+                    {cacheData ? (
+                        <>
+                            Data last fetched: {format(parseISO(cacheData.cached_at), 'PPP p')}. 
+                            {isCacheStale ? (
+                                <span className="font-bold text-red-700"> Cache is stale (older than {CACHE_STALE_HOURS} hours).</span>
+                            ) : (
+                                <span className="text-green-700"> Cache is fresh.</span>
+                            )}
+                            <Button 
+                                variant="link" 
+                                onClick={refreshCacheMutation} 
+                                disabled={isFetching}
+                                className="p-0 h-auto ml-2 text-sm"
+                            >
+                                {isFetching ? "Refreshing..." : "Force Refresh Now"}
+                            </Button>
+                        </>
+                    ) : (
+                        <span className="font-bold">Cache is empty. Fetching data now...</span>
+                    )}
+                </AlertDescription>
+            </Alert>
 
             {/* Display Search Results Summary */}
             {debouncedFilterTerm.length > 0 && (
@@ -604,7 +663,7 @@ const LandlordDeposits = () => {
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {isLoadingEntries || isFetching ? (
+                        {isLoadingEntries ? (
                             <Skeleton className="h-8 w-full" />
                         ) : resultsToDisplay && resultsToDisplay.length > 0 ? (
                             <div className="flex justify-between items-center">
@@ -634,7 +693,7 @@ const LandlordDeposits = () => {
         description={dialogDescription} 
         data={dialogData} 
         columns={ledgerColumns} 
-        isLoading={isLoadingEntries || isFetching} 
+        isLoading={isLoadingEntries} 
         defaultSort={{ key: 'date', direction: 'descending' }} 
       />
     </div>
