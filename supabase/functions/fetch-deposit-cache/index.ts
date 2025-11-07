@@ -95,8 +95,9 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error('[fetch-deposit-cache] Edge Function Error:', error);
+    // Return 200 with error payload so the client can read the message
     return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred.' }), {
-      status: 500,
+      status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
