@@ -13,7 +13,7 @@ const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
 // Helper to invoke the economic-api-proxy and handle its wrapped response
 async function fetchEconomicData(supabaseClient: any, path: string, country: string) {
     const payload = { path, method: "GET", country };
-    console.log(`[fetchEconomicData] Invoking proxy with payload: ${JSON.stringify(payload)}`); // NEW LOG
+    console.log(`[fetchEconomicData] Invoking proxy with payload: ${JSON.stringify(payload)}`);
     const { data, error: invokeError } = await supabaseClient.functions.invoke("economic-api-proxy", {
         body: payload,
     });
@@ -41,7 +41,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v5: Full Deposit Ledger Fetch).");
+  console.log("[fetch-deposit-cache] Function invoked (v6: Using /entries with filters).");
 
   try {
     // Use Service Role Key for database operations
@@ -66,7 +66,7 @@ serve(async (req) => {
       });
     }
 
-    // --- 1. Fetch all accounting years ---
+    // --- 1. Fetch all accounting years to determine the date range ---
     const yearsData = await fetchEconomicData(supabaseAdminClient, "/accounting-years", country);
     const accountingYears = yearsData?.collection || [];
     
@@ -74,32 +74,37 @@ serve(async (req) => {
         throw new Error("No accounting years found in e-conomic. Cannot fetch entries.");
     }
     
-    // Sort years to get the latest one
-    const latestYear = accountingYears.sort((a: any, b: any) => b.year.localeCompare(a.year))[0].year;
+    // Sort years to get the latest one and its date range
+    const latestYearInfo = accountingYears.sort((a: any, b: any) => b.year.localeCompare(a.year))[0];
+    const latestYear = latestYearInfo.year;
+    const fromDate = latestYearInfo.fromDate;
+    const toDate = latestYearInfo.toDate;
 
-    // --- 2. Fetch entries for the latest year WITH account filter ---
-    // Fetch all pages for the specific account and latest year
+    if (!fromDate || !toDate) {
+        throw new Error(`Latest accounting year (${latestYear}) is missing date range information.`);
+    }
+
+    // --- 2. Fetch entries using the general /entries endpoint with filters ---
     let allEntries: any[] = [];
     let currentPage = 0;
     const pageSize = 1000; // Max page size
 
+    // Filter string: account.accountNumber$eq:5201 AND date$gte:fromDate AND date$lte:toDate
+    const filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}$and:date$gte:${fromDate}$and:date$lte:${toDate}`;
+
     while (true) {
-        // Use the specific account ledger entries path
-        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${latestYear}/entries?pagesize=${pageSize}&skipPages=${currentPage}`;
-        console.log(`[fetch-deposit-cache] Fetching page ${currentPage} for year ${latestYear}: ${path}`);
+        const path = `/entries?pagesize=${pageSize}&skipPages=${currentPage}&filter=${filter}`;
+        console.log(`[fetch-deposit-cache] Fetching page ${currentPage} for year ${latestYear} using /entries: ${path}`);
         
         const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
         
-        // Extract list from response (handles various formats like .collection, .items, etc.)
         const entries = economicData?.collection || economicData?.items || economicData?.results || economicData;
         
         if (!Array.isArray(entries)) {
             console.error("[fetch-deposit-cache] Failed to extract array from economic response:", economicData);
-            // If the first page fails to return an array, it might be a permission issue or 404.
             if (currentPage === 0) {
-                throw new Error("Failed to parse ledger entries from e-conomic response. Check if the account number is valid or if the API key has access to ledger entries.");
+                throw new Error("Failed to parse ledger entries from e-conomic response. Check if the API key has access to ledger entries.");
             }
-            // If subsequent pages fail, break the loop.
             break;
         }
 
