@@ -41,7 +41,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v7: Using /accounting-years/{year}/entries with account filter).");
+  console.log("[fetch-deposit-cache] Function invoked (v8: Using /accounts/{accountNumber}/accounting-years/{year}/entries).");
 
   try {
     // Use Service Role Key for database operations
@@ -66,7 +66,7 @@ serve(async (req) => {
       });
     }
 
-    // --- 1. Fetch all accounting years to determine the date range ---
+    // --- 1. Fetch all accounting years to determine the latest year ---
     const yearsData = await fetchEconomicData(supabaseAdminClient, "/accounting-years", country);
     const accountingYears = yearsData?.collection || [];
     
@@ -74,30 +74,19 @@ serve(async (req) => {
         throw new Error("No accounting years found in e-conomic. Cannot fetch entries.");
     }
     
-    // Sort years to get the latest one and its date range
+    // Sort years to get the latest one
     const latestYearInfo = accountingYears.sort((a: any, b: any) => b.year.localeCompare(a.year))[0];
     const latestYear = latestYearInfo.year;
-    const fromDate = latestYearInfo.fromDate;
-    const toDate = latestYearInfo.toDate;
 
-    if (!fromDate || !toDate) {
-        throw new Error(`Latest accounting year (${latestYear}) is missing date range information.`);
-    }
-
-    // --- 2. Fetch entries using the /accounting-years/{year}/entries endpoint with account filter ---
+    // --- 2. Fetch entries using the highly specific /accounts/{accountNumber}/accounting-years/{year}/entries endpoint ---
     let allEntries: any[] = [];
     let currentPage = 0;
     const pageSize = 1000; // Max page size
 
-    // Filter string: account.accountNumber$eq:5201 AND date$gte:fromDate AND date$lte:toDate
-    // NOTE: We only need the account filter here, as the path already scopes to the year.
-    // The date filter is redundant if we trust the accounting year dates, but let's keep it for safety.
-    const filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}$and:date$gte:${fromDate}$and:date$lte:${toDate}`;
-
     while (true) {
-        // Use the specific accounting year entries path
-        const path = `/accounting-years/${latestYear}/entries?pagesize=${pageSize}&skipPages=${currentPage}&filter=${filter}`;
-        console.log(`[fetch-deposit-cache] Fetching page ${currentPage} for year ${latestYear} using /accounting-years: ${path}`);
+        // Use the specific account/year entries path. No need for account filter in query string here.
+        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${latestYear}/entries?pagesize=${pageSize}&skipPages=${currentPage}`;
+        console.log(`[fetch-deposit-cache] Fetching page ${currentPage} for year ${latestYear} using /accounts: ${path}`);
         
         const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
         
