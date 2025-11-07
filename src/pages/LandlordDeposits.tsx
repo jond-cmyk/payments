@@ -4,25 +4,36 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format, parseISO, isWithinInterval } from 'date-fns';
-import { Home, Search, AlertTriangle, FileText, RotateCw } from 'lucide-react';
+import { PaymentRequest } from '@/types/supabase';
+
+import PageTitle from '@/components/PageTitle';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Home, FileText, Search, Filter, RotateCw, AlertTriangle } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import EconomicDetailDialog, { DialogColumn, extractList, formatAmount } from '@/components/economic/EconomicDetailDialog';
 import { useDepartments } from '@/hooks/useDepartments';
 
-import PageTitle from '@/components/PageTitle';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import CountrySelector from '@/components/CountrySelector';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import DepositReturnForm from '@/components/deposits/DepositReturnForm';
 
+// Define the Landlord Deposit Account Number
 const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
 
+// Types
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
   status?: number;
@@ -50,6 +61,270 @@ type EconomicLedgerEntry = {
   };
   self: string;
   [key: string]: any;
+};
+
+type EconomicCustomer = {
+  customerNumber: number;
+  name: string;
+  self: string;
+  email?: string;
+};
+
+// Helper to get nested values from an object
+const pick = (obj: any, keys: string[]): any => {
+  if (!obj) return undefined;
+  for (const key of keys) {
+    const parts = key.split('.');
+    let current = obj;
+    let found = true;
+    for (const part of parts) {
+      if (current && typeof current === 'object' && part in current) {
+        current = current[part];
+      } else {
+        current = undefined;
+        found = false;
+        break;
+      }
+    }
+    if (found) {
+      if (typeof current === "object" && current !== null && "value" in current && typeof current.value === "number") {
+        return current.value;
+      }
+      if (typeof current === "string" && !isNaN(parseFloat(current))) {
+        return parseFloat(current);
+      }
+      return current;
+    }
+  }
+  return undefined;
+};
+
+// New component to handle each customer's accordion item and balance fetching
+const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice, activeReturnRequestEntryNumbers }: { customerName: string; group: { customer: EconomicCustomer & { address?: any }; entries: EconomicLedgerEntry[] }; country: string; handleViewInvoice: (entry: EconomicLedgerEntry) => void; activeReturnRequestEntryNumbers: Set<number>; }) => {
+  const { user } = useSession();
+  const queryClient = useQueryClient();
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [showFormDialog, setShowFormDialog] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<EconomicLedgerEntry | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showNoRefundDialog, setShowNoRefundDialog] = useState(false);
+
+  const { data: balanceData, isLoading: isLoadingBalance } = useQuery<{ balance: number | null }>({
+    queryKey: ['customerBalance', group.customer?.customerNumber, country],
+    queryFn: async () => {
+      const customerNumber = group.customer?.customerNumber;
+      if (!customerNumber) return { balance: null };
+
+      const getNumeric = (obj: any, keys: string[]): number | null => {
+        const value = pick(obj, keys);
+        if (value === null || value === undefined) return null;
+        const num = parseFloat(String(value));
+        return isNaN(num) ? null : num;
+      };
+
+      // Attempt 1: Fetch from the /totals endpoint
+      const { data: totalsData } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: `/customers/${customerNumber}/totals`, method: "GET", country },
+      });
+
+      const totalsResp = totalsData as EconomicProxyResponse<any>;
+      let balanceVal = getNumeric(totalsResp?.data, ["balance", "outstandingAmount"]);
+
+      // Attempt 2 (Fallback): If values are missing, fetch from the base /customers/:num endpoint
+      if (balanceVal === null) {
+        const { data: customerData } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path: `/customers/${customerNumber}`, method: "GET", country },
+        });
+
+        const customerResp = customerData as EconomicProxyResponse<any>;
+        balanceVal = balanceVal ?? getNumeric(customerResp?.data, ["balance", "outstandingAmount"]);
+      }
+
+      return { balance: balanceVal };
+    },
+    enabled: !!group.customer?.customerNumber,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const hasOutstandingBalance = balanceData?.balance != null && balanceData.balance > 0;
+
+  const handleRequestRepaymentClick = (entry: EconomicLedgerEntry) => {
+    if (entry.remainder >= 0) {
+      setShowNoRefundDialog(true);
+    } else if (hasOutstandingBalance) {
+      setShowErrorDialog(true);
+    } else {
+      setSelectedEntry(entry);
+      setShowFormDialog(true);
+    }
+  };
+
+  const handleCreateDepositReturnRequest = async (formValues: any) => {
+    if (!selectedEntry || !user || !group.customer?.customerNumber) return;
+    setIsSubmitting(true);
+    const toastId = showLoading("Creating deposit return request...");
+
+    try {
+      const customerAddress = [
+        group.customer.address?.street,
+        group.customer.address?.city,
+        group.customer.address?.postalCode,
+        group.customer.address?.country,
+      ].filter(Boolean).join(', ');
+
+      const { error } = await supabase.from('payment_requests').insert({
+        requester_id: user.id,
+        supplier_name: customerName,
+        supplier_address: customerAddress || 'Address not available in e-conomic',
+        currency: selectedEntry.currency,
+        total_amount: Math.abs(selectedEntry.remainder),
+        reason_for_payment: `Deposit Return for Final Statement - Entry #${selectedEntry.entryNumber}`,
+        date_payment_required: new Date().toISOString().split('T')[0],
+        status: 'pending',
+        country: country,
+        is_deposit_return: true,
+        not_sku_related: true,
+        categories: [{ category: '8201_customer_deposit', amount: Math.abs(selectedEntry.remainder) }],
+        invoice_pdf_urls: [],
+        bank_details_verified: formValues.bank_details_verified,
+        bank_account_name: formValues.bank_account_name,
+        iban_number: formValues.iban_number,
+        // UK fields are not applicable here as this is for Switzerland
+        sort_code: null,
+        account_number: null,
+      });
+
+      if (error) throw error;
+
+      dismissToast(toastId);
+      showSuccess("Deposit return request created successfully!");
+      setShowFormDialog(false);
+      setSelectedEntry(null);
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
+      queryClient.invalidateQueries({ queryKey: ['existingDepositReturns'] }); // Invalidate to update the button state
+    } catch (error: any) {
+      dismissToast(toastId);
+      showError(error.message || "Failed to create request.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <AccordionItem value={customerName}>
+        <AccordionTrigger className="text-lg font-semibold">
+          <span className="flex items-center gap-4">
+            {customerName} ({group.entries.length} entries)
+            {isLoadingBalance ? (
+              <Badge variant="outline">Checking balance...</Badge>
+            ) : hasOutstandingBalance && (
+              <Badge variant="destructive">Outstanding Balance</Badge>
+            )}
+          </span>
+        </AccordionTrigger>
+        <AccordionContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Entry Text</TableHead>
+                <TableHead className="text-right">Total Value</TableHead>
+                <TableHead className="text-right">Amount Outstanding</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {group.entries.map(entry => {
+                const requestAlreadyExists = activeReturnRequestEntryNumbers.has(entry.entryNumber);
+                return (
+                  <TableRow key={entry.entryNumber}>
+                    <TableCell>{entry.text}</TableCell>
+                    <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                    <TableCell className="text-right font-semibold text-red-600">{formatAmount(entry.remainder)} {entry.currency}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex gap-2 justify-end">
+                        {entry.entryType !== 'customerPayment' && (
+                          <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
+                            <FileText className="mr-2 h-4 w-4" /> View Invoice
+                          </Button>
+                        )}
+                        {requestAlreadyExists ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="secondary">Request Pending</Badge>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>A payment request for this deposit return already exists and is not declined.</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Button variant="destructive" size="sm" onClick={() => handleRequestRepaymentClick(entry)}>
+                            Request Repayment
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* Error Dialog for outstanding balance */}
+      <Dialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-destructive">
+              <AlertTriangle className="mr-2 h-6 w-6" />
+              Outstanding Balance
+            </DialogTitle>
+            <DialogDescription className="pt-4 text-base">
+              This customer has an outstanding balance. A deposit return cannot be made until the balance is cleared.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Error Dialog for no balance to refund */}
+      <Dialog open={showNoRefundDialog} onOpenChange={setShowNoRefundDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-destructive">
+              <AlertTriangle className="mr-2 h-6 w-6" />
+              No Balance to Refund
+            </DialogTitle>
+            <DialogDescription className="pt-4 text-base">
+              There is no credit balance on this entry. A deposit return cannot be made.
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+
+      {/* Form Dialog */}
+      {selectedEntry && (
+        <Dialog open={showFormDialog} onOpenChange={setShowFormDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Request Deposit Return</DialogTitle>
+              <DialogDescription>
+                Please provide the customer's bank details for the repayment.
+              </DialogDescription>
+            </DialogHeader>
+            <DepositReturnForm
+              customerName={customerName}
+              returnAmount={Math.abs(selectedEntry.remainder)}
+              currency={selectedEntry.currency}
+              onSubmit={handleCreateDepositReturnRequest}
+              isSubmitting={isSubmitting}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  );
 };
 
 const LandlordDeposits = () => {
@@ -95,6 +370,8 @@ const LandlordDeposits = () => {
         if (yearsError) throw new Error(yearsError.message);
         const yearsResp = yearsData as EconomicProxyResponse<any>;
         if (yearsResp.error || !yearsResp.ok) {
+          // Log the error data if available
+          console.error("[LandlordDeposits] Error fetching accounting years:", yearsResp.data);
           throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
         }
         const accountingYears = extractList(yearsResp?.data);
@@ -111,10 +388,8 @@ const LandlordDeposits = () => {
           // 2. Construct filter: Account 5201 ONLY
           let filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
           
-          const encodedFilter = encodeURIComponent(filter);
-          
           // Fetch entries for the year, filtered by account 5201
-          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${encodedFilter}`;
+          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
           
           return supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
@@ -135,20 +410,37 @@ const LandlordDeposits = () => {
               allEntries = allEntries.concat(entriesForYear);
             }
           } else {
-            console.warn(`Non-OK response fetching entries for a year: Status ${resp.status}`);
+            // Log the non-OK response data
+            console.warn(`[LandlordDeposits] Non-OK response fetching entries for a year: Status ${resp.status}. Data:`, resp.data);
+            // If we get a 400 here, it's likely the filter syntax is wrong for this endpoint.
+            // We will try a fallback path without the year filter if the first attempt fails.
+            if (resp.status === 400) {
+                console.warn("[LandlordDeposits] Received 400 Bad Request. Trying fallback path /account-ledger-entries.");
+                const fallbackPath = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}?pagesize=1000`;
+                const { data: fallbackData, error: fallbackError } = await supabase.functions.invoke("economic-api-proxy", {
+                    body: { path: fallbackPath, method: "GET", country: currentCountry },
+                });
+                
+                if (!fallbackError && fallbackData) {
+                    const fallbackResp = fallbackData as EconomicProxyResponse<any>;
+                    if (fallbackResp.ok) {
+                        const fallbackEntries = extractList(fallbackResp?.data);
+                        if (fallbackEntries && fallbackEntries.length > 0) {
+                            allEntries = allEntries.concat(fallbackEntries);
+                            console.log(`[LandlordDeposits] Fallback successful. Added ${fallbackEntries.length} entries.`);
+                        }
+                    } else {
+                        console.error("[LandlordDeposits] Fallback failed:", fallbackResp.error || `Status ${fallbackResp.status}`);
+                    }
+                }
+            }
           }
         }
         
         let results = allEntries; 
         
         // --- LOG RAW RESULTS FOR DEBUGGING ---
-        console.log(`[LandlordDeposits DEBUG] Fetched ${allEntries.length} raw entries. Filtered to ${results.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
-        const targetEntry = results.find(e => e.entryNumber === 503408);
-        if (targetEntry) {
-            console.log("[LandlordDeposits DEBUG] FOUND TARGET ENTRY 503408. RAW DATA:", JSON.stringify(targetEntry, null, 2));
-        } else {
-            console.log("[LandlordDeposits DEBUG] Target entry 503408 NOT found in filtered results.");
-        }
+        console.log(`[LandlordDeposits DEBUG] Fetched ${allEntries.length} raw entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
         // --- END LOGGING ---
 
         // Apply client-side filter based on debouncedFilterTerm (SKU)
@@ -187,7 +479,8 @@ const LandlordDeposits = () => {
         // 2. Validate if the remaining part is purely numeric
         if (/^\d+$/.test(numericTerm)) {
             setDebouncedFilterTerm(numericTerm);
-            // No need to refetch the main query, as it's independent of the search term now.
+            // Trigger refetch of the main query to apply the client-side filter
+            refetch();
         } else {
             // If the input is not numeric after stripping prefix, show error and do not search
             showError("Please enter a valid numeric property identifier (SKU). Prefixes like CH/UK are automatically removed.");
@@ -199,6 +492,8 @@ const LandlordDeposits = () => {
         setDebouncedFilterTerm('');
         setDialogData(null);
         setShowDetailDialog(false);
+        // If clearing search, refetch to show all entries for the account
+        refetch();
     }
   };
   
@@ -212,22 +507,30 @@ const LandlordDeposits = () => {
 
     const toastId = showLoading(`Searching for entry #${entryNum}...`);
     try {
-        const path = `/entries/${entryNum}`;
-        const { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
+        // Try the simple path first
+        let path = `/entries/${entryNum}`;
+        let { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
         });
 
+        if (invokeError || data?.status === 404) {
+            // Fallback 1: Try /account-ledger-entries/:accountNumber/:entryNumber
+            path = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/${entryNum}`;
+            ({ data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
+                body: { path, method: "GET", country: currentCountry },
+            }));
+        }
+        
         if (invokeError) throw new Error(invokeError.message);
         const resp = data as EconomicProxyResponse<EconomicLedgerEntry>;
 
-        if (resp.error || !resp.ok) {
+        if (resp.error || !resp.ok || !resp.data) {
             throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
         }
         
         const entry = resp.data as EconomicLedgerEntry;
         
         if (entry) {
-            console.log(`[LandlordDeposits DEBUG] Direct Entry Search Result for #${entryNum}:`, JSON.stringify(entry, null, 2));
             setDialogData([entry]);
             setDialogTitle(`Direct Entry #${entryNum}`);
             setDialogDescription(`Raw ledger entry details.`);
@@ -325,7 +628,7 @@ const LandlordDeposits = () => {
               {debouncedFilterTerm.length > 0 && (
                 <Button
                   variant="outline"
-                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setDialogData(null); setShowDetailDialog(false); }}
+                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setDialogData(null); setShowDetailDialog(false); refetch(); }}
                   className="flex items-center gap-1"
                 >
                   <RotateCw className="h-4 w-4" /> Clear Search
