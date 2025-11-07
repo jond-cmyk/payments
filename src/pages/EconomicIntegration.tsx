@@ -10,9 +10,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { showSuccess, showError, showLoading, dismissToast } from "@/utils/toast";
-import { Globe, Database, Compass } from "lucide-react"; // Import Compass icon
+import { showSuccess, showError, showLoading, dismissToast, showInfo } from "@/utils/toast";
+import { Globe, Database, Compass, CalendarDays } from "lucide-react";
 import { useCountry } from "@/integrations/supabase/CountryContext";
+import DatePicker from "@/components/DatePicker";
+import { format } from "date-fns";
+import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
+
+type EconomicProxyResponse<T = any> = {
+  ok?: boolean;
+  status?: number;
+  data?: T;
+  request?: { url?: string };
+  error?: string;
+};
 
 const EconomicIntegration = () => {
   const { session, isLoading, userProfile } = useSession();
@@ -25,6 +36,13 @@ const EconomicIntegration = () => {
   const [result, setResult] = useState<string>("");
   const [base, setBase] = useState<string>("https://restapi.e-conomic.com");
   const [diagnoseAdvice, setDiagnoseAdvice] = useState<string>("");
+
+  // NEW STATES for Ledger Lookup
+  const [ledgerStartDate, setLedgerStartDate] = useState<Date | undefined>(new Date('2025-10-01'));
+  const [ledgerEndDate, setLedgerEndDate] = useState<Date | undefined>(new Date('2025-10-31'));
+  const [isLedgerLoading, setIsLedgerLoading] = useState(false);
+  const [ledgerResult, setLedgerResult] = useState<any[] | null>(null);
+  const [showLedgerDialog, setShowLedgerDialog] = useState(false);
 
   const isAdmin = userProfile?.role === "admin";
 
@@ -117,7 +135,7 @@ const EconomicIntegration = () => {
       { label: "Customers (5)", path: "/customers?pagesize=5" },
       { label: "Invoices (5)", path: "/invoices?pagesize=5" },
       { label: "Customer Ledger Entries (5)", path: "/customer-ledger-entries?pagesize=5" },
-      { label: "Customer Ledger Items (5)", path: "/customer-ledger-items?pagesize=5" }, // Added back
+      { label: "Customer Ledger Items (5)", path: "/customer-ledger-items?pagesize=5" },
       { label: "Dept. Profit/Loss (Demo)", path: "/accounting-reports/department-profit-loss?from=2023-01-01&to=2023-01-31" },
     ];
 
@@ -166,15 +184,70 @@ const EconomicIntegration = () => {
 
       dismissToast(toastId);
       showSuccess(data || "Standing order comments migration initiated.");
-      // You might want to invalidate relevant queries here if the UI needs to reflect changes immediately
-      // queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
-      // queryClient.invalidateQueries({ queryKey: ['standingOrderAudits'] });
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "Failed to migrate standing order comments.");
       console.error("Migration error:", error);
     }
   };
+
+  const handleFetchLedger = async () => {
+    if (!ledgerStartDate || !ledgerEndDate) {
+      showError("Please select both start and end dates.");
+      return;
+    }
+
+    setIsLedgerLoading(true);
+    setLedgerResult(null);
+    const toastId = showLoading(`Fetching ledger entries for ${format(ledgerStartDate, 'MMM yyyy')}...`);
+
+    try {
+      const startDateStr = format(ledgerStartDate, 'yyyy-MM-dd');
+      const endDateStr = format(ledgerEndDate, 'yyyy-MM-dd');
+      
+      // Use the filter parameter to specify the date range
+      const filter = `date$gte:${startDateStr}$and:date$lte:${endDateStr}`;
+      const path = `/entries?pagesize=1000&filter=${filter}`; // Request up to 1000 entries
+
+      const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path, method: "GET", country: currentCountry },
+      });
+
+      if (error) throw new Error(error.message);
+
+      const resp = data as EconomicProxyResponse<any>;
+      if (resp.error) throw new Error(resp.error);
+
+      const list = extractList(resp?.data);
+      setLedgerResult(list);
+      setShowLedgerDialog(true);
+
+      if (list.length > 0) {
+        showSuccess(`Found ${list.length} ledger entries for the period.`);
+      } else {
+        showInfo("No ledger entries found for the specified period.");
+      }
+
+    } catch (e: any) {
+      showError(e.message || "Failed to fetch ledger entries.");
+      setLedgerResult(null);
+    } finally {
+      dismissToast(toastId);
+      setIsLedgerLoading(false);
+    }
+  };
+
+  // Define columns for the Ledger Dialog
+  const ledgerColumns: DialogColumn[] = [
+    { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate'] },
+    { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
+    { key: 'entryType', header: 'Entry Type', path: ['entryType', 'type'] },
+    { key: 'text', header: 'Text', path: ['text', 'description', 'notes.text'] },
+    { key: 'account', header: 'Account', path: ['account.accountNumber'] },
+    { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
+    { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
+    { key: 'remainder', header: 'Outstanding', format: 'currencyAmount', path: ['remainder'] },
+  ];
 
   return (
     <div className="container mx-auto py-8">
@@ -185,6 +258,43 @@ const EconomicIntegration = () => {
           <AlertDescription>{diagnoseAdvice}</AlertDescription>
         </Alert>
       )}
+      
+      {/* NEW: Ledger Lookup Card */}
+      <Card className="max-w-3xl mx-auto shadow-sm mb-8 border-l-4 border-green-500">
+        <CardHeader>
+          <CardTitle className="flex items-center text-2xl font-bold text-green-700">
+            <CalendarDays className="mr-2 h-6 w-6" /> Ledger Entries Lookup
+          </CardTitle>
+          <CardDescription>
+            Fetch general ledger entries for a specific date range (max 1000 entries).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block mb-1 text-sm font-medium">Start Date</label>
+              <DatePicker 
+                date={ledgerStartDate} 
+                setDate={setLedgerStartDate} 
+                placeholder="Start Date" 
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-sm font-medium">End Date</label>
+              <DatePicker 
+                date={ledgerEndDate} 
+                setDate={setLedgerEndDate} 
+                placeholder="End Date" 
+              />
+            </div>
+          </div>
+          <Button onClick={handleFetchLedger} disabled={isLedgerLoading || !ledgerStartDate || !ledgerEndDate} className="w-full bg-green-600 hover:bg-green-700 text-white shadow-sm">
+            {isLedgerLoading ? "Fetching Ledger..." : "Fetch Ledger Entries"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Existing: API Proxy Card */}
       <Card className="max-w-3xl mx-auto shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
@@ -255,7 +365,7 @@ const EconomicIntegration = () => {
         </CardContent>
       </Card>
 
-      {/* NEW: Standing Order Comments Migration Card */}
+      {/* Existing: Standing Order Comments Migration Card */}
       <Card className="max-w-3xl mx-auto shadow-sm mt-8 border-l-4 border-blue-500">
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold text-blue-700">
@@ -269,7 +379,7 @@ const EconomicIntegration = () => {
         <CardContent>
           <Button
             onClick={handleMigrateStandingOrderComments}
-            disabled={false} // Enable this button for the one-off migration
+            disabled={false}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
           >
             Run Comments Migration
@@ -279,6 +389,18 @@ const EconomicIntegration = () => {
           </p>
         </CardContent>
       </Card>
+
+      {/* Ledger Detail Dialog */}
+      <EconomicDetailDialog 
+        isOpen={showLedgerDialog} 
+        onOpenChange={setShowLedgerDialog} 
+        title={`Ledger Entries: ${format(ledgerStartDate || new Date(), 'PPP')} - ${format(ledgerEndDate || new Date(), 'PPP')}`} 
+        description={`Showing ledger entries for the selected period in ${currentCountry}.`} 
+        data={ledgerResult} 
+        columns={ledgerColumns} 
+        isLoading={isLedgerLoading} 
+        defaultSort={{ key: 'date', direction: 'descending' }} 
+      />
     </div>
   );
 };
