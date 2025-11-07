@@ -98,53 +98,21 @@ const LandlordDeposits = () => {
       setIsFetching(true);
 
       try {
-        // 1. Fetch all accounting years
-        const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: "/accounting-years", method: "GET", country: currentCountry },
-        });
-
-        if (yearsError) throw new Error(yearsError.message);
-        const yearsResp = yearsData as EconomicProxyResponse<any>;
-        if (yearsResp.error || !yearsResp.ok) {
-          throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
-        }
-        const accountingYears = extractList(yearsResp?.data);
-        if (!accountingYears || accountingYears.length === 0) {
-          showError("No accounting years found in e-conomic. Cannot fetch entries.");
-          return [];
-        }
-
-        let allEntries: EconomicLedgerEntry[] = [];
+        // Use the dedicated endpoint for account entries, which aggregates across years
+        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/entries?pagesize=1000`;
         
-        // Filter: account=5201
-        const filter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
-
-        const yearPromises = accountingYears.map(yearInfo => {
-          const year = yearInfo.year;
-          // Use the entries endpoint filtered by account
-          const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
-          return supabase.functions.invoke("economic-api-proxy", {
-            body: { path, method: "GET", country: currentCountry },
-          });
+        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path, method: "GET", country: currentCountry },
         });
 
-        const yearResults = await Promise.all(yearPromises);
-
-        for (const result of yearResults) {
-          if (result.error) {
-            console.warn("Error fetching entries for a year:", result.error.message);
-            continue;
-          }
-          const resp = result.data as EconomicProxyResponse<any>;
-          if (resp.ok) {
-            const entriesForYear = extractList(resp?.data);
-            if (entriesForYear && entriesForYear.length > 0) {
-              allEntries = allEntries.concat(entriesForYear);
-            }
-          } else {
-            console.warn(`Non-OK response fetching entries for a year: Status ${resp.status}`);
-          }
+        if (error) throw new Error(error.message);
+        const resp = data as EconomicProxyResponse<any>;
+        
+        if (resp.error || !resp.ok) {
+          throw new Error(resp.error || `Failed to fetch account entries: Status ${resp.status}`);
         }
+        
+        const allEntries = extractList(resp?.data);
         
         dismissToast(toastId);
         showSuccess(`Successfully fetched ${allEntries.length} entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.`);
