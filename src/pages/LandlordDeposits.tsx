@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock, ArrowUp, ArrowDown, DollarSign } from 'lucide-react';
+import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock, ArrowUp, ArrowDown } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import EconomicDetailDialog, { DialogColumn, extractList, formatAmount } from '@/components/economic/EconomicDetailDialog';
@@ -93,12 +93,14 @@ const LandlordDeposits = () => {
 
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
   const [debouncedFilterTerm, setDebouncedFilterTerm] = useState('');
+  const [isFetching, setIsFetching] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [dialogData, setDialogData] = useState<EconomicLedgerEntry[] | null>(null);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogDescription, setDialogDescription] = useState('');
   const [entryNumberSearch, setEntryNumberSearch] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
+  const [searchPerformed, setSearchPerformed] = useState(false);
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -111,6 +113,13 @@ const LandlordDeposits = () => {
     if (deptNumber == null) return 'N/A';
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
+
+  const propertyNameForFilter = useMemo(() => {
+    if (!debouncedFilterTerm || !departmentMap) return '';
+    const numericSku = parseInt(debouncedFilterTerm, 10);
+    if (isNaN(numericSku)) return '';
+    return departmentMap.get(numericSku);
+  }, [debouncedFilterTerm, departmentMap]);
 
   const { data: allAccountEntries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
     queryKey: ['landlordDepositEntries', currentCountry],
@@ -229,6 +238,7 @@ const LandlordDeposits = () => {
   }, [displayedEntries]);
 
   const handleSearch = () => {
+    setSearchPerformed(true);
     const term = departmentSearchTerm.trim();
     if (term.length > 0) {
         const numericTerm = term.replace(/^(CH|UK)/i, '');
@@ -371,7 +381,7 @@ const LandlordDeposits = () => {
               {debouncedFilterTerm.length > 0 && (
                 <Button
                   variant="outline"
-                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); }}
+                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setSearchPerformed(false); }}
                   className="flex items-center gap-1"
                 >
                   <RotateCw className="h-4 w-4" /> Clear Search
@@ -409,12 +419,12 @@ const LandlordDeposits = () => {
               </Alert>
             ) : (
               <>
-                {debouncedFilterTerm && (
+                {searchPerformed && debouncedFilterTerm && (
                   <Card className="bg-blue-50 border-blue-200">
                     <CardHeader>
                       <CardTitle className="flex items-center text-blue-800">
-                        <DollarSign className="mr-2 h-5 w-5" />
                         Total Deposit Balance for SKU: {debouncedFilterTerm}
+                        {propertyNameForFilter && <span className="font-bold ml-2">- {propertyNameForFilter}</span>}
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -424,58 +434,68 @@ const LandlordDeposits = () => {
                   </Card>
                 )}
 
-                <div className="flex items-center gap-4">
-                  <label htmlFor="sort-by" className="text-sm font-medium">Sort by:</label>
-                  <Select
-                    value={sortConfig.key}
-                    onValueChange={(value) => handleSort(value)}
-                  >
-                    <SelectTrigger id="sort-by" className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="date">Date</SelectItem>
-                      <SelectItem value="entryNumber">Entry Number</SelectItem>
-                      <SelectItem value="amount">Amount</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" size="icon" onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}>
-                    {sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                  </Button>
-                </div>
+                {!debouncedFilterTerm && (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <label htmlFor="sort-by" className="text-sm font-medium">Sort by:</label>
+                      <Select
+                        value={sortConfig.key}
+                        onValueChange={(value) => handleSort(value)}
+                      >
+                        <SelectTrigger id="sort-by" className="w-[180px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="date">Date</SelectItem>
+                          <SelectItem value="entryNumber">Entry Number</SelectItem>
+                          <SelectItem value="amount">Amount</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button variant="outline" size="icon" onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}>
+                        {sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                      </Button>
+                    </div>
 
-                {isLoadingEntries ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-                  </div>
-                ) : displayedEntries.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</TableHead>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('entryNumber')}>Entry No. {renderSortIcon('entryNumber')}</TableHead>
-                          <TableHead>Text</TableHead>
-                          <TableHead className="cursor-pointer" onClick={() => handleSort('departmentalDistribution.departmentalDistributionNumber')}>Property (SKU) {renderSortIcon('departmentalDistribution.departmentalDistributionNumber')}</TableHead>
-                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount')}>Amount {renderSortIcon('amount')}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {displayedEntries.map((entry, index) => (
-                          <TableRow key={entry.self || index}>
-                            <TableCell>{entry.date && typeof entry.date === 'string' ? format(parseISO(entry.date), 'PPP') : 'Invalid Date'}</TableCell>
-                            <TableCell>{entry.entryNumber}</TableCell>
-                            <TableCell>{entry.text}</TableCell>
-                            <TableCell>{getDepartmentName(pick(entry, ['departmentalDistribution.departmentalDistributionNumber', 'departmentalDistributionNumber', 'department.departmentNumber', 'departmentNumber', 'department.number', 'department']))}</TableCell>
-                            <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
+                    {isLoadingEntries ? (
+                      <div className="space-y-2">
+                        {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                      </div>
+                    ) : displayedEntries.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</TableHead>
+                              <TableHead className="cursor-pointer" onClick={() => handleSort('entryNumber')}>Entry No. {renderSortIcon('entryNumber')}</TableHead>
+                              <TableHead>Text</TableHead>
+                              <TableHead className="cursor-pointer" onClick={() => handleSort('departmentalDistribution.departmentalDistributionNumber')}>Property (SKU) {renderSortIcon('departmentalDistribution.departmentalDistributionNumber')}</TableHead>
+                              <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount')}>Amount {renderSortIcon('amount')}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {displayedEntries.map((entry, index) => (
+                              <TableRow key={entry.self || index}>
+                                <TableCell>{entry.date && typeof entry.date === 'string' ? format(parseISO(entry.date), 'PPP') : 'Invalid Date'}</TableCell>
+                                <TableCell>{entry.entryNumber}</TableCell>
+                                <TableCell>{entry.text}</TableCell>
+                                <TableCell>{getDepartmentName(pick(entry, ['departmentalDistribution.departmentalDistributionNumber', 'departmentalDistributionNumber', 'department.departmentNumber', 'departmentNumber', 'department.number', 'department']))}</TableCell>
+                                <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    ) : (
+                      <p className="text-center text-muted-foreground mt-8">
+                        No landlord deposit entries found for {currentCountry}.
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {debouncedFilterTerm && !isLoadingEntries && displayedEntries.length === 0 && (
                   <p className="text-center text-muted-foreground mt-8">
-                    {debouncedFilterTerm ? `No entries found matching SKU "${debouncedFilterTerm}" in account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.` : `No landlord deposit entries found for ${currentCountry}.`}
+                    No entries found matching SKU "{debouncedFilterTerm}" in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
                   </p>
                 )}
               </>
