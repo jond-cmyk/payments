@@ -358,8 +358,8 @@ const LandlordDeposits = () => {
       const deptNum = entry.department?.departmentNumber;
       const currency = entry.currency || 'N/A';
       
-      // The edge function already filters by account number, so this check is redundant and might be failing due to data structure variations.
-      if (deptNum) {
+      // FIX: Check for deptNum being not null/undefined, allowing for 0
+      if (deptNum != null) {
         if (!groups[deptNum]) {
           groups[deptNum] = {
             departmentNumber: deptNum,
