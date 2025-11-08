@@ -8,8 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
-
 // Helper to invoke the economic-api-proxy and handle its wrapped response
 async function fetchEconomicData(supabaseClient: any, path: string, country: string) {
     const payload = { path, method: "GET", country };
@@ -34,14 +32,14 @@ async function fetchEconomicData(supabaseClient: any, path: string, country: str
     return resp.data;
 }
 
-// Robust helper to fetch all entries for a specific account and year, with pagination
-async function fetchEntriesForYear(supabaseAdminClient: any, year: string, country: string) {
+// Helper to fetch all entries for a specific account and year, with pagination
+async function fetchEntriesForYear(supabaseAdminClient: any, year: string, country: string, accountNumber: number) {
     let allEntries: any[] = [];
     let currentPage = 0;
     const pageSize = 1000; 
 
     while (true) {
-        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${year}/entries?pagesize=${pageSize}&skipPages=${currentPage}`;
+        const path = `/accounts/${accountNumber}/accounting-years/${year}/entries?pagesize=${pageSize}&skipPages=${currentPage}`;
         
         const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
         
@@ -62,13 +60,40 @@ async function fetchEntriesForYear(supabaseAdminClient: any, year: string, count
     return allEntries;
 }
 
+// NEW Helper to find the landlord deposit account number dynamically
+async function findLandlordDepositAccountNumber(supabaseClient: any, country: string): Promise<number> {
+    console.log(`[findLandlordDepositAccountNumber] Searching for landlord deposit account in ${country}`);
+    try {
+        const accountsData = await fetchEconomicData(supabaseClient, "/accounts?pagesize=1000", country);
+        const allAccounts = accountsData?.collection || [];
+
+        const depositAccount = allAccounts.find((acc: any) => {
+            const name = acc.name?.toLowerCase() || '';
+            // More flexible search terms
+            return name.includes('deposit') && (name.includes('landlord') || name.includes('provider'));
+        });
+
+        if (depositAccount && depositAccount.accountNumber) {
+            console.log(`[findLandlordDepositAccountNumber] Found account by name: #${depositAccount.accountNumber} - ${depositAccount.name}`);
+            return depositAccount.accountNumber;
+        }
+    } catch (error) {
+        console.warn(`[findLandlordDepositAccountNumber] Could not search for accounts by name due to an error: ${error.message}. Falling back to default.`);
+    }
+
+    // Fallback to hardcoded number if search fails or no account is found
+    const fallbackAccountNumber = 5201; // Use 5201 as the default for both countries
+    console.warn(`[findLandlordDepositAccountNumber] Could not find account by name. Falling back to default account number ${fallbackAccountNumber} for ${country}.`);
+    return fallbackAccountNumber;
+}
+
 // @ts-ignore
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v16: Simplified full historical fetch).");
+  console.log("[fetch-deposit-cache] Function invoked (v17: Dynamic account lookup).");
 
   try {
     // @ts-ignore
@@ -92,7 +117,10 @@ serve(async (req) => {
       });
     }
 
-    // 1. Fetch all accounting years
+    // 1. Dynamically find the account number
+    const landlordDepositAccountNumber = await findLandlordDepositAccountNumber(supabaseAdminClient, country);
+
+    // 2. Fetch all accounting years
     const yearsData = await fetchEconomicData(supabaseAdminClient, "/accounting-years", country);
     const accountingYears = yearsData?.collection || [];
     
@@ -100,17 +128,17 @@ serve(async (req) => {
         throw new Error("No accounting years found in e-conomic.");
     }
 
-    // 2. Fetch all entries for all years
-    console.log(`[fetch-deposit-cache] Fetching all entries for ${accountingYears.length} accounting year(s).`);
+    // 3. Fetch all entries for all years using the found account number
+    console.log(`[fetch-deposit-cache] Fetching all entries for account #${landlordDepositAccountNumber} across ${accountingYears.length} accounting year(s).`);
     const fetchPromises = accountingYears.map(async (yearInfo: any) => {
-        return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country);
+        return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country, landlordDepositAccountNumber);
     });
 
     const results = await Promise.all(fetchPromises);
     const allEntries = results.flat();
     console.log(`[fetch-deposit-cache] Total entries fetched across all years: ${allEntries.length}`);
 
-    // 3. Upsert the complete dataset into the main cache table
+    // 4. Upsert the complete dataset into the main cache table
     const { error: upsertMainError } = await supabaseAdminClient
       .from('landlord_deposit_cache')
       .upsert({
