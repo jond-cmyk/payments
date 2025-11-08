@@ -275,7 +275,7 @@ const LandlordDeposits = () => {
   }, [departments]);
 
   const getDepartmentName = (deptNumber: number | null | undefined): string => {
-    if (!deptNumber) return 'N/A';
+    if (deptNumber == null) return 'N/A';
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
 
@@ -355,10 +355,9 @@ const LandlordDeposits = () => {
     const groups: Record<number, GroupedDepositEntry> = {};
 
     allAccountEntries.forEach(entry => {
-      const deptNum = entry.department?.departmentNumber;
-      const currency = entry.currency || 'N/A';
+      const deptNum = pick(entry, ['department.departmentNumber']);
+      const currency = pick(entry, ['currency', 'currency.code']) || 'N/A';
       
-      // FIX: Check for deptNum being not null/undefined, allowing for 0
       if (deptNum != null) {
         if (!groups[deptNum]) {
           groups[deptNum] = {
@@ -370,8 +369,10 @@ const LandlordDeposits = () => {
           };
         }
         
-        // Sum the remainder to get the current balance
-        groups[deptNum].totalBalance += entry.remainder;
+        const remainder = pick(entry, ['remainder']);
+        if (typeof remainder === 'number') {
+            groups[deptNum].totalBalance += remainder;
+        }
         groups[deptNum].entries.push(entry);
       }
     });
@@ -383,7 +384,7 @@ const LandlordDeposits = () => {
 
     // Convert to array and sort by department name
     return Object.values(groups).sort((a, b) => a.departmentName.localeCompare(b.departmentName));
-  }, [allAccountEntries, departmentMap]);
+  }, [allAccountEntries, getDepartmentName]);
 
   // --- FILTERING LOGIC ---
   const resultsToDisplay = useMemo(() => {
@@ -634,6 +635,25 @@ const LandlordDeposits = () => {
         isLoading={false} 
         defaultSort={{ key: 'date', direction: 'descending' }} 
       />
+
+      {/* DEBUG PANEL */}
+      <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50 max-w-md max-h-96 overflow-auto">
+        <h3 className="font-bold text-lg mb-2">Debug Info (v3)</h3>
+        <pre className="text-xs whitespace-pre-wrap">
+          {JSON.stringify({
+            allAccountEntries_length: allAccountEntries.length,
+            groupedEntries_length: groupedEntries.length,
+            debouncedFilterTerm: debouncedFilterTerm,
+            resultsToDisplay_length: resultsToDisplay.length,
+            first_5_groups: groupedEntries.slice(0, 5).map(g => ({
+              deptNum: g.departmentNumber,
+              name: g.departmentName,
+              balance: g.totalBalance,
+              entries: g.entries.length
+            })),
+          }, null, 2)}
+        </pre>
+      </div>
     </div>
   );
 };
