@@ -101,6 +101,7 @@ const LandlordDeposits = () => {
   const [entryNumberSearch, setEntryNumberSearch] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
   const [searchPerformed, setSearchPerformed] = useState(false);
+  const [showTransactionsTable, setShowTransactionsTable] = useState(false);
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -239,6 +240,7 @@ const LandlordDeposits = () => {
 
   const handleSearch = () => {
     setSearchPerformed(true);
+    setShowTransactionsTable(false); // Hide table on new search
     const term = departmentSearchTerm.trim();
     if (term.length > 0) {
         const numericTerm = term.replace(/^(CH|UK)/i, '');
@@ -381,7 +383,7 @@ const LandlordDeposits = () => {
               {debouncedFilterTerm.length > 0 && (
                 <Button
                   variant="outline"
-                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setSearchPerformed(false); }}
+                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setSearchPerformed(false); setShowTransactionsTable(false); }}
                   className="flex items-center gap-1"
                 >
                   <RotateCw className="h-4 w-4" /> Clear Search
@@ -434,33 +436,44 @@ const LandlordDeposits = () => {
                   </Card>
                 )}
 
-                {!debouncedFilterTerm && (
-                  <>
-                    <div className="flex items-center gap-4">
-                      <label htmlFor="sort-by" className="text-sm font-medium">Sort by:</label>
-                      <Select
-                        value={sortConfig.key}
-                        onValueChange={(value) => handleSort(value)}
-                      >
-                        <SelectTrigger id="sort-by" className="w-[180px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="date">Date</SelectItem>
-                          <SelectItem value="entryNumber">Entry Number</SelectItem>
-                          <SelectItem value="amount">Amount</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button variant="outline" size="icon" onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}>
-                        {sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-                      </Button>
-                    </div>
+                {searchPerformed && debouncedFilterTerm && !showTransactionsTable && (
+                  <div className="text-center mt-4">
+                    <Button onClick={() => setShowTransactionsTable(true)}>
+                      View Deposit Transactions
+                    </Button>
+                  </div>
+                )}
 
-                    {isLoadingEntries ? (
-                      <div className="space-y-2">
-                        {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                {isLoadingEntries ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                  </div>
+                ) : !searchPerformed ? (
+                  <p className="text-center text-muted-foreground mt-8">
+                    Please enter a property identifier (SKU) to begin.
+                  </p>
+                ) : showTransactionsTable ? (
+                  displayedEntries.length > 0 ? (
+                    <>
+                      <div className="flex items-center gap-4">
+                        <label htmlFor="sort-by" className="text-sm font-medium">Sort by:</label>
+                        <Select
+                          value={sortConfig.key}
+                          onValueChange={(value) => handleSort(value)}
+                        >
+                          <SelectTrigger id="sort-by" className="w-[180px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="date">Date</SelectItem>
+                            <SelectItem value="entryNumber">Entry Number</SelectItem>
+                            <SelectItem value="amount">Amount</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button variant="outline" size="icon" onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}>
+                          {sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                        </Button>
                       </div>
-                    ) : displayedEntries.length > 0 ? (
                       <div className="overflow-x-auto">
                         <Table>
                           <TableHeader>
@@ -485,19 +498,13 @@ const LandlordDeposits = () => {
                           </TableBody>
                         </Table>
                       </div>
-                    ) : (
-                      <p className="text-center text-muted-foreground mt-8">
-                        No landlord deposit entries found for {currentCountry}.
-                      </p>
-                    )}
-                  </>
-                )}
-
-                {debouncedFilterTerm && !isLoadingEntries && displayedEntries.length === 0 && (
-                  <p className="text-center text-muted-foreground mt-8">
-                    No entries found matching SKU "{debouncedFilterTerm}" in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
-                  </p>
-                )}
+                    </>
+                  ) : (
+                    <p className="text-center text-muted-foreground mt-8">
+                      No entries found matching SKU "{debouncedFilterTerm}" in account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.
+                    </p>
+                  )
+                ) : null}
               </>
             )}
           </div>
