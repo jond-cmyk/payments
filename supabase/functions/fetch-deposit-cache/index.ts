@@ -60,40 +60,13 @@ async function fetchEntriesForYear(supabaseAdminClient: any, year: string, count
     return allEntries;
 }
 
-// NEW Helper to find the landlord deposit account number dynamically
-async function findLandlordDepositAccountNumber(supabaseClient: any, country: string): Promise<number> {
-    console.log(`[findLandlordDepositAccountNumber] Searching for landlord deposit account in ${country}`);
-    try {
-        const accountsData = await fetchEconomicData(supabaseClient, "/accounts?pagesize=1000", country);
-        const allAccounts = accountsData?.collection || [];
-
-        const depositAccount = allAccounts.find((acc: any) => {
-            const name = acc.name?.toLowerCase() || '';
-            // More flexible search terms
-            return name.includes('deposit') && (name.includes('landlord') || name.includes('provider'));
-        });
-
-        if (depositAccount && depositAccount.accountNumber) {
-            console.log(`[findLandlordDepositAccountNumber] Found account by name: #${depositAccount.accountNumber} - ${depositAccount.name}`);
-            return depositAccount.accountNumber;
-        }
-    } catch (error) {
-        console.warn(`[findLandlordDepositAccountNumber] Could not search for accounts by name due to an error: ${error.message}. Falling back to default.`);
-    }
-
-    // Fallback to hardcoded number if search fails or no account is found
-    const fallbackAccountNumber = 5201; // Use 5201 as the default for both countries
-    console.warn(`[findLandlordDepositAccountNumber] Could not find account by name. Falling back to default account number ${fallbackAccountNumber} for ${country}.`);
-    return fallbackAccountNumber;
-}
-
 // @ts-ignore
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v17: Dynamic account lookup).");
+  console.log("[fetch-deposit-cache] Function invoked (v18: Reverted to static account number).");
 
   try {
     // @ts-ignore
@@ -117,8 +90,8 @@ serve(async (req) => {
       });
     }
 
-    // 1. Dynamically find the account number
-    const landlordDepositAccountNumber = await findLandlordDepositAccountNumber(supabaseAdminClient, country);
+    // 1. Use the static landlord deposit account number for both countries
+    const landlordDepositAccountNumber = 5201;
 
     // 2. Fetch all accounting years
     const yearsData = await fetchEconomicData(supabaseAdminClient, "/accounting-years", country);
