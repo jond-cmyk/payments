@@ -12,7 +12,7 @@ import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock, ArrowUp, ArrowDown } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
@@ -24,10 +24,6 @@ import CountrySelector from '@/components/CountrySelector';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import DepositReturnForm from '@/components/deposits/DepositReturnForm';
 
 // Define the Landlord Deposit Account Number
 const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
@@ -287,13 +283,6 @@ const LandlordDeposits = () => {
     }));
   };
 
-  const renderSortIcon = (key: string) => {
-    if (sortConfig.key === key) {
-      return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />;
-    }
-    return null;
-  };
-
   const ledgerColumns: DialogColumn[] = [
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate'] },
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
@@ -426,41 +415,54 @@ const LandlordDeposits = () => {
                 </AlertDescription>
             </Alert>
 
+            <div className="flex items-center gap-4">
+              <label htmlFor="sort-by" className="text-sm font-medium">Sort by:</label>
+              <Select
+                value={sortConfig.key}
+                onValueChange={(value) => handleSort(value)}
+              >
+                <SelectTrigger id="sort-by" className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="entryNumber">Entry Number</SelectItem>
+                  <SelectItem value="amount">Amount</SelectItem>
+                  <SelectItem value="remainder">Outstanding</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button variant="outline" size="icon" onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}>
+                {sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+              </Button>
+            </div>
+
             {isLoadingEntries ? (
               <div className="space-y-2">
                 {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
               </div>
             ) : displayedEntries.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</TableHead>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('entryNumber')}>Entry No. {renderSortIcon('entryNumber')}</TableHead>
-                      <TableHead>Entry Type</TableHead>
-                      <TableHead>Text</TableHead>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('department.departmentNumber')}>Property (SKU) {renderSortIcon('department.departmentNumber')}</TableHead>
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount')}>Amount {renderSortIcon('amount')}</TableHead>
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('remainder')}>Outstanding {renderSortIcon('remainder')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayedEntries.map((entry, index) => (
-                      <TableRow key={entry.self || index}>
-                        <TableCell>{entry.date && typeof entry.date === 'string' ? format(parseISO(entry.date), 'PPP') : 'Invalid Date'}</TableCell>
-                        <TableCell>{entry.entryNumber}</TableCell>
-                        <TableCell>{entry.entryType}</TableCell>
-                        <TableCell>{entry.text}</TableCell>
-                        <TableCell>{getDepartmentName(pick(entry, ['department.departmentNumber', 'departmentNumber', 'department.number', 'department']))}</TableCell>
-                        <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                        <TableCell className={cn("text-right font-semibold", entry.remainder < 0 ? 'text-green-600' : entry.remainder > 0 ? 'text-red-600' : 'text-gray-600')}>
+              <Accordion type="multiple" className="w-full space-y-2">
+                {displayedEntries.map((entry, index) => (
+                  <AccordionItem key={entry.self || index} value={entry.self || String(index)}>
+                    <AccordionTrigger className="p-4 bg-gray-50 hover:bg-gray-100 rounded-md text-left justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 w-full text-sm">
+                        <span className="font-mono text-gray-600">#{entry.entryNumber}</span>
+                        <span className="font-semibold flex-1 text-gray-800 truncate">{entry.text}</span>
+                        <span className="text-muted-foreground">{entry.date && typeof entry.date === 'string' ? format(parseISO(entry.date), 'PPP') : 'Invalid Date'}</span>
+                        <span className={cn("font-semibold", entry.remainder < 0 ? 'text-green-600' : entry.remainder > 0 ? 'text-red-600' : 'text-gray-600')}>
                           {formatAmount(entry.remainder)} {entry.currency}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                        </span>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-4 border rounded-b-md -mt-1 bg-white">
+                      <h4 className="font-semibold mb-2">Full Entry Data:</h4>
+                      <pre className="text-xs whitespace-pre-wrap bg-gray-900 text-white p-4 rounded-md overflow-x-auto">
+                        {JSON.stringify(entry, null, 2)}
+                      </pre>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             ) : (
               <p className="text-center text-muted-foreground mt-8">
                 {debouncedFilterTerm ? `No entries found matching SKU "${debouncedFilterTerm}" in account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.` : `No landlord deposit entries found for ${currentCountry}.`}
