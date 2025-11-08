@@ -337,22 +337,10 @@ const LandlordDeposits = () => {
     }
   }, [session, currentCountry, queryClient]);
 
-  // --- MAIN DATA SOURCE (Cache or Refresh) ---
+  // --- MAIN DATA SOURCE (Cache) ---
   const allAccountEntries = useMemo(() => {
-    if (cacheData?.entries) {
-      let results = cacheData.entries;
-      
-      // Apply client-side filter based on debouncedFilterTerm (SKU)
-      if (debouncedFilterTerm) {
-          const numericTerm = parseInt(debouncedFilterTerm, 10);
-          results = results.filter(entry => 
-              entry.department?.departmentNumber === numericTerm
-          );
-      }
-      return results;
-    }
-    return [];
-  }, [cacheData, debouncedFilterTerm]);
+    return cacheData?.entries || [];
+  }, [cacheData]);
 
   // Effect to trigger cache refresh if stale or empty
   React.useEffect(() => {
@@ -396,30 +384,32 @@ const LandlordDeposits = () => {
     return Object.values(groups).sort((a, b) => a.departmentName.localeCompare(b.departmentName));
   }, [allAccountEntries, departmentMap]);
 
+  // --- FILTERING LOGIC ---
+  const resultsToDisplay = useMemo(() => {
+    if (!debouncedFilterTerm) {
+      return groupedEntries; // If no filter, show all grouped entries
+    }
+    const numericTerm = parseInt(debouncedFilterTerm, 10);
+    if (isNaN(numericTerm)) {
+      return []; // Should not happen due to validation in handleSearch
+    }
+    return groupedEntries.filter(group => group.departmentNumber === numericTerm);
+  }, [groupedEntries, debouncedFilterTerm]);
 
-  const resultsToDisplay = groupedEntries;
   const isLoadingEntries = isLoadingCache || isFetching; // Combined loading state
 
   const handleSearch = () => {
     const term = departmentSearchTerm.trim();
     if (term.length > 0) {
-        // 1. Remove SKU prefix (CH/UK) if present
         const numericTerm = term.replace(/^(CH|UK)/i, '');
-        
-        // 2. Validate if the remaining part is purely numeric
         if (/^\d+$/.test(numericTerm)) {
             setDebouncedFilterTerm(numericTerm);
         } else {
-            // If the input is not numeric after stripping prefix, show error and do not search
             showError("Please enter a valid numeric property identifier (SKU). Prefixes like CH/UK are automatically removed.");
             setDebouncedFilterTerm('');
-            setDialogData(null);
-            setShowDetailDialog(false);
         }
     } else {
         setDebouncedFilterTerm('');
-        setDialogData(null);
-        setShowDetailDialog(false);
     }
   };
   
@@ -547,7 +537,7 @@ const LandlordDeposits = () => {
               {debouncedFilterTerm.length > 0 && (
                 <Button
                   variant="outline"
-                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setDialogData(null); setShowDetailDialog(false); }}
+                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); }}
                   className="flex items-center gap-1"
                 >
                   <RotateCw className="h-4 w-4" /> Clear Search
@@ -643,21 +633,6 @@ const LandlordDeposits = () => {
         isLoading={false} 
         defaultSort={{ key: 'date', direction: 'descending' }} 
       />
-
-      {/* NEW DEBUGGING CARD */}
-      <Card className="mt-8 shadow-sm">
-        <CardHeader>
-          <CardTitle>Debug: Raw Cache Data</CardTitle>
-          <CardDescription>
-            This section shows the raw data being pulled from the cache. Found {allAccountEntries.length} entries.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <pre className="bg-gray-100 p-4 rounded-md text-xs overflow-auto max-h-96">
-            {JSON.stringify(allAccountEntries, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
     </div>
   );
 };
