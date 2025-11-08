@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format, parseISO, isWithinInterval, differenceInHours } from 'date-fns';
+import { format, parseISO, isWithinInterval, differenceInHours, formatDistanceToNow } from 'date-fns';
 import { PaymentRequest } from '@/types/supabase';
 
 import PageTitle from '@/components/PageTitle';
@@ -263,7 +263,7 @@ const LandlordDeposits = () => {
 
     const toastId = showLoading(`Searching for entry #${entryNum}...`);
     try {
-        const path = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/${entryNum}`;
+        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/entries/${entryNum}`;
         
         const { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
             body: { path, method: "GET", country: currentCountry },
@@ -342,10 +342,15 @@ const LandlordDeposits = () => {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
-            <Home className="mr-2 h-6 w-6" /> Landlord Deposits (Account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER})
+            <Home className="mr-2 h-6 w-6" /> Landlord Deposits
           </CardTitle>
           <CardDescription>
             View all landlord deposit entries from e-conomic, filterable by property SKU.
+            {cacheData && (
+              <span className={cn("text-xs ml-2 font-medium", isCacheStale ? "text-yellow-600" : "text-green-600")}>
+                (Cache last updated: {formatDistanceToNow(parseISO(cacheData.cached_at), { addSuffix: true })})
+              </span>
+            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -388,6 +393,15 @@ const LandlordDeposits = () => {
                   <RotateCw className="h-4 w-4" /> Clear Search
                 </Button>
               )}
+              <Button
+                onClick={refreshCacheMutation}
+                disabled={isFetching}
+                variant="outline"
+                className="self-end"
+              >
+                <RotateCw className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")} />
+                Refresh Cache
+              </Button>
             </div>
             
             <div className="flex flex-wrap items-end gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
