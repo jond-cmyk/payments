@@ -196,7 +196,7 @@ const DepositReturnAdvisements = () => {
                         <Button variant="outline" size="sm" onClick={() => setSelectedAdvise(advise)}>
                           View Details
                         </Button>
-                        {(isAdmin || (user?.id === advise.advised_by?.id && advise.status === 'advised')) && (
+                        {advise.status === 'advised' && (
                           <Button variant="outline" size="sm" onClick={() => { setSelectedAdvise(advise); setIsEditDialogOpen(true); }}>
                             <Edit className="h-4 w-4" />
                           </Button>
