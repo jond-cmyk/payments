@@ -93,14 +93,12 @@ const LandlordDeposits = () => {
 
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
   const [debouncedFilterTerm, setDebouncedFilterTerm] = useState('');
-  const [isFetching, setIsFetching] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [dialogData, setDialogData] = useState<EconomicLedgerEntry[] | null>(null);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogDescription, setDialogDescription] = useState('');
   const [entryNumberSearch, setEntryNumberSearch] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
-  const [searchPerformed, setSearchPerformed] = useState(false);
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -119,49 +117,58 @@ const LandlordDeposits = () => {
     queryFn: async () => {
       if (!session || currentCountry === 'all') return [];
 
-      const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: "/accounting-years", method: "GET", country: currentCountry },
-      });
-
-      if (yearsError) throw new Error(yearsError.message);
-      const yearsResp = yearsData as EconomicProxyResponse<any>;
-      if (yearsResp.error || !yearsResp.ok) {
-        throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
-      }
-      const accountingYears = extractList(yearsResp?.data);
-      
-      if (!accountingYears || accountingYears.length === 0) {
-        showError("No accounting years found in e-conomic. Cannot fetch entries.");
-        return [];
-      }
-
-      let allEntries: EconomicLedgerEntry[] = [];
-      const fetchPromises = accountingYears.map(async (yearInfo: any) => {
-        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${yearInfo.year}/entries?pagesize=1000`;
-        
-        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path, method: "GET", country: currentCountry },
+      const toastId = showLoading("Fetching all landlord deposit entries...");
+      try {
+        const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path: "/accounting-years", method: "GET", country: currentCountry },
         });
 
-        if (error) {
-          console.error(`Error fetching entries for year ${yearInfo.year}:`, error.message);
-          return [];
+        if (yearsError) throw new Error(yearsError.message);
+        const yearsResp = yearsData as EconomicProxyResponse<any>;
+        if (yearsResp.error || !yearsResp.ok) {
+          throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
         }
-
-        const resp = data as EconomicProxyResponse<any>;
-        if (resp.error || !resp.ok) {
-          console.error(`e-conomic error fetching entries for year ${yearInfo.year}:`, resp.error || `Status ${resp.status}`);
-          return [];
-        }
+        const accountingYears = extractList(yearsResp?.data);
         
-        return extractList(resp?.data);
-      });
+        if (!accountingYears || accountingYears.length === 0) {
+          showError("No accounting years found in e-conomic. Cannot fetch entries.");
+          return [];
+        }
 
-      const results = await Promise.all(fetchPromises);
-      allEntries = results.flat();
-      return allEntries as EconomicLedgerEntry[];
+        let allEntries: EconomicLedgerEntry[] = [];
+        const fetchPromises = accountingYears.map(async (yearInfo: any) => {
+          const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${yearInfo.year}/entries?pagesize=1000`;
+          
+          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path, method: "GET", country: currentCountry },
+          });
+
+          if (error) {
+            console.error(`Error fetching entries for year ${yearInfo.year}:`, error.message);
+            return [];
+          }
+
+          const resp = data as EconomicProxyResponse<any>;
+          if (resp.error || !resp.ok) {
+            console.error(`e-conomic error fetching entries for year ${yearInfo.year}:`, resp.error || `Status ${resp.status}`);
+            return [];
+          }
+          
+          return extractList(resp?.data);
+        });
+
+        const results = await Promise.all(fetchPromises);
+        allEntries = results.flat();
+        dismissToast(toastId);
+        showSuccess("All entries fetched successfully.");
+        return allEntries as EconomicLedgerEntry[];
+      } catch (e: any) {
+        dismissToast(toastId);
+        showError(e.message || "Failed to fetch entries.");
+        return [];
+      }
     },
-    enabled: false, // Only fetch on manual trigger
+    enabled: !!session && currentCountry !== 'all',
   });
 
   const displayedEntries = useMemo(() => {
@@ -222,7 +229,6 @@ const LandlordDeposits = () => {
   }, [displayedEntries]);
 
   const handleSearch = () => {
-    setSearchPerformed(true);
     const term = departmentSearchTerm.trim();
     if (term.length > 0) {
         const numericTerm = term.replace(/^(CH|UK)/i, '');
@@ -277,20 +283,6 @@ const LandlordDeposits = () => {
     } finally {
         dismissToast(toastId);
     }
-  };
-
-  const handleFetchAll = () => {
-    setIsFetching(true);
-    const toastId = showLoading("Fetching all landlord deposit entries...");
-    refetch().then(() => {
-      dismissToast(toastId);
-      showSuccess("All entries fetched successfully.");
-    }).catch((e) => {
-      dismissToast(toastId);
-      showError(e.message || "Failed to fetch entries.");
-    }).finally(() => {
-      setIsFetching(false);
-    });
   };
 
   const handleSort = (key: string) => {
@@ -370,30 +362,21 @@ const LandlordDeposits = () => {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={isFetching || isLoadingEntries || currentCountry === 'all'}
+                disabled={isLoadingEntries || currentCountry === 'all'}
                 className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               >
                 <Search className="mr-2 h-4 w-4" />
-                {isFetching ? "Searching..." : "Search Entries"}
+                {isLoadingEntries ? "Searching..." : "Search Entries"}
               </Button>
               {debouncedFilterTerm.length > 0 && (
                 <Button
                   variant="outline"
-                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setSearchPerformed(false); }}
+                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); }}
                   className="flex items-center gap-1"
                 >
                   <RotateCw className="h-4 w-4" /> Clear Search
                 </Button>
               )}
-              <Button
-                onClick={handleFetchAll}
-                disabled={isFetching || isLoadingEntries || currentCountry === 'all'}
-                variant="outline"
-                className="self-end"
-              >
-                <RotateCw className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")} />
-                Fetch All Entries
-              </Button>
             </div>
             
             <div className="flex flex-wrap items-end gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
@@ -410,7 +393,7 @@ const LandlordDeposits = () => {
                 </div>
                 <Button
                     onClick={handleDirectEntrySearch}
-                    disabled={isFetching || isLoadingEntries || entryNumberSearch.trim().length === 0 || currentCountry === 'all'}
+                    disabled={isLoadingEntries || entryNumberSearch.trim().length === 0 || currentCountry === 'all'}
                     variant="secondary"
                     className="shadow-sm"
                 >
@@ -426,7 +409,7 @@ const LandlordDeposits = () => {
               </Alert>
             ) : (
               <>
-                {searchPerformed && debouncedFilterTerm && (
+                {debouncedFilterTerm && (
                   <Card className="bg-blue-50 border-blue-200">
                     <CardHeader>
                       <CardTitle className="flex items-center text-blue-800">
@@ -465,8 +448,6 @@ const LandlordDeposits = () => {
                   <div className="space-y-2">
                     {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
                   </div>
-                ) : !searchPerformed ? (
-                  <p className="text-center text-muted-foreground mt-8">Please enter a property identifier (SKU) to begin.</p>
                 ) : displayedEntries.length > 0 ? (
                   <div className="overflow-x-auto">
                     <Table>
