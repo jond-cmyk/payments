@@ -224,7 +224,10 @@ const LandlordDeposits = () => {
 
   const totalDepositBalance = useMemo(() => {
     if (!displayedEntries || displayedEntries.length === 0) return 0;
-    return displayedEntries.reduce((sum, entry) => sum + entry.remainder, 0);
+    return displayedEntries.reduce((sum, entry) => {
+      const remainderValue = parseFloat(String(entry.remainder)) || 0;
+      return sum + remainderValue;
+    }, 0);
   }, [displayedEntries]);
 
   const isLoadingEntries = isLoadingCache || isFetching || isLoadingDepartments;
@@ -411,35 +414,6 @@ const LandlordDeposits = () => {
               </Alert>
             ) : (
               <>
-                <Alert variant={isCacheStale ? "destructive" : "default"} className="mt-4">
-                    <AlertTitle className="flex items-center">
-                        {isCacheStale ? <AlertTriangle className="mr-2 h-4 w-4" /> : <Clock className="mr-2 h-4 w-4" />}
-                        Deposit Ledger Cache Status
-                    </AlertTitle>
-                    <AlertDescription>
-                        {cacheData ? (
-                            <>
-                                Data last fetched: {format(parseISO(cacheData.cached_at), 'PPP p')}. 
-                                {isCacheStale ? (
-                                    <span className="font-bold text-red-700"> Cache is stale (older than {CACHE_STALE_HOURS} hours).</span>
-                                ) : (
-                                    <span className="text-green-700"> Cache is fresh.</span>
-                                )}
-                                <Button 
-                                    variant="link" 
-                                    onClick={refreshCacheMutation} 
-                                    disabled={isFetching}
-                                    className="p-0 h-auto ml-2 text-sm"
-                                >
-                                    {isFetching ? "Refreshing..." : "Force Refresh Now"}
-                                </Button>
-                            </>
-                        ) : (
-                            <span className="font-bold">Cache is empty. Fetching data now...</span>
-                        )}
-                    </AlertDescription>
-                </Alert>
-
                 {searchPerformed && debouncedFilterTerm && (
                   <Card className="bg-blue-50 border-blue-200">
                     <CardHeader>
@@ -450,7 +424,7 @@ const LandlordDeposits = () => {
                     </CardHeader>
                     <CardContent>
                       <p className="text-3xl font-bold text-blue-900">{formatAmount(totalDepositBalance)}</p>
-                      <p className="text-sm text-blue-700">A negative balance indicates a credit (deposit held).</p>
+                      <p className="text-sm text-blue-700">A Positive Balance Indicates a Deposit Held.</p>
                     </CardContent>
                   </Card>
                 )}
