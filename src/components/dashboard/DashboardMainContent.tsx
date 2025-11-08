@@ -281,10 +281,10 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
           query = query.in('requester_id', filterRequesters);
         }
       } else { // This is the main dashboard view (for both requester and admin)
-        // Filter by (active statuses OR is_reminded OR (is_urgent AND not approved))
+        // Filter by (active statuses OR (is_reminded AND not declined) OR (is_urgent AND not approved/declined))
         const statusFilter = `status.in.("${statusesToFilter.join('","')}")`;
-        const urgentFilter = `and(is_urgent.eq.true,status.neq.approved)`;
-        const remindedFilter = `is_reminded.eq.true`;
+        const urgentFilter = `and(is_urgent.eq.true,status.neq.approved,status.neq.declined)`; // Exclude approved and declined
+        const remindedFilter = `and(is_reminded.eq.true,status.neq.declined)`; // Exclude declined
         
         query = query.or(`${statusFilter},${remindedFilter},${urgentFilter}`);
       }
