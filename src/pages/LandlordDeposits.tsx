@@ -355,7 +355,7 @@ const LandlordDeposits = () => {
     const groups: Record<number, GroupedDepositEntry> = {};
 
     allAccountEntries.forEach(entry => {
-      const deptNum = pick(entry, ['department.departmentNumber']);
+      const deptNum = pick(entry, ['department.departmentNumber', 'departmentNumber']);
       const currency = pick(entry, ['currency', 'currency.code']) || 'N/A';
       
       if (deptNum != null) {
@@ -635,25 +635,6 @@ const LandlordDeposits = () => {
         isLoading={false} 
         defaultSort={{ key: 'date', direction: 'descending' }} 
       />
-
-      {/* DEBUG PANEL */}
-      <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50 max-w-md max-h-96 overflow-auto">
-        <h3 className="font-bold text-lg mb-2">Debug Info (v3)</h3>
-        <pre className="text-xs whitespace-pre-wrap">
-          {JSON.stringify({
-            allAccountEntries_length: allAccountEntries.length,
-            groupedEntries_length: groupedEntries.length,
-            debouncedFilterTerm: debouncedFilterTerm,
-            resultsToDisplay_length: resultsToDisplay.length,
-            first_5_groups: groupedEntries.slice(0, 5).map(g => ({
-              deptNum: g.departmentNumber,
-              name: g.departmentName,
-              balance: g.totalBalance,
-              entries: g.entries.length
-            })),
-          }, null, 2)}
-        </pre>
-      </div>
     </div>
   );
 };
