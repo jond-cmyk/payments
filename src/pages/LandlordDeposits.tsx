@@ -186,7 +186,7 @@ const LandlordDeposits = () => {
         const numericTerm = parseInt(debouncedFilterTerm, 10);
         if (!isNaN(numericTerm)) {
             entries = entries.filter(entry => {
-                const deptNum = pick(entry, ['department.departmentNumber', 'departmentNumber']);
+                const deptNum = pick(entry, ['department.departmentNumber', 'departmentNumber', 'department.number', 'department']);
                 return deptNum === numericTerm;
             });
         }
@@ -302,7 +302,7 @@ const LandlordDeposits = () => {
     { 
       key: 'department', 
       header: 'Property Address', 
-      render: (item) => getDepartmentName(pick(item, ['department.departmentNumber', 'departmentNumber'])) 
+      render: (item) => getDepartmentName(pick(item, ['department.departmentNumber', 'departmentNumber', 'department.number', 'department'])) 
     },
     { key: 'account', header: 'Account', path: ['account.accountNumber'] },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
@@ -451,7 +451,7 @@ const LandlordDeposits = () => {
                         <TableCell>{entry.entryNumber}</TableCell>
                         <TableCell>{entry.entryType}</TableCell>
                         <TableCell>{entry.text}</TableCell>
-                        <TableCell>{getDepartmentName(pick(entry, ['department.departmentNumber', 'departmentNumber']))}</TableCell>
+                        <TableCell>{getDepartmentName(pick(entry, ['department.departmentNumber', 'departmentNumber', 'department.number', 'department']))}</TableCell>
                         <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
                         <TableCell className={cn("text-right font-semibold", entry.remainder < 0 ? 'text-green-600' : entry.remainder > 0 ? 'text-red-600' : 'text-gray-600')}>
                           {formatAmount(entry.remainder)} {entry.currency}
