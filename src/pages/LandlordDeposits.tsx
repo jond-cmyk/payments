@@ -230,6 +230,12 @@ const LandlordDeposits = () => {
     }, 0);
   }, [displayedEntries]);
 
+  const depositCurrency = useMemo(() => {
+    if (!displayedEntries || displayedEntries.length === 0) return '';
+    // Assuming all entries for a SKU have the same currency
+    return displayedEntries[0].currency || '';
+  }, [displayedEntries]);
+
   const isLoadingEntries = isLoadingCache || isFetching || isLoadingDepartments;
 
   const handleSearch = () => {
@@ -423,7 +429,7 @@ const LandlordDeposits = () => {
                       </CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <p className="text-3xl font-bold text-blue-900">{formatAmount(totalDepositBalance)}</p>
+                      <p className="text-3xl font-bold text-blue-900">{formatAmount(totalDepositBalance)} {depositCurrency}</p>
                       <p className="text-sm text-blue-700">A Positive Balance Indicates a Deposit Held.</p>
                     </CardContent>
                   </Card>
