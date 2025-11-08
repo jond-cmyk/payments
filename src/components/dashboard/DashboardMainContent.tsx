@@ -281,9 +281,12 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
           query = query.in('requester_id', filterRequesters);
         }
       } else { // This is the main dashboard view (for both requester and admin)
-        // Filter by (active statuses OR is_urgent OR is_reminded)
+        // Filter by (active statuses OR is_reminded OR (is_urgent AND not approved))
         const statusFilter = `status.in.("${statusesToFilter.join('","')}")`;
-        query = query.or(`${statusFilter},is_urgent.eq.true,is_reminded.eq.true`);
+        const urgentFilter = `and(is_urgent.eq.true,status.neq.approved)`;
+        const remindedFilter = `is_reminded.eq.true`;
+        
+        query = query.or(`${statusFilter},${remindedFilter},${urgentFilter}`);
       }
 
       // Always sort urgent requests to the top, then reminded, then by the selected column
