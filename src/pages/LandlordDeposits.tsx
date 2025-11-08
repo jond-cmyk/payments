@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format, parseISO, isWithinInterval, differenceInHours, formatDistanceToNow } from 'date-fns';
+import { format, parseISO, isWithinInterval } from 'date-fns';
 import { PaymentRequest } from '@/types/supabase';
 
 import PageTitle from '@/components/PageTitle';
@@ -31,7 +31,6 @@ import DepositReturnForm from '@/components/deposits/DepositReturnForm';
 
 // Define the Landlord Deposit Account Number
 const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
-const CACHE_STALE_HOURS = 24;
 
 // Types
 type EconomicProxyResponse<T = any> = {
@@ -61,12 +60,6 @@ type EconomicLedgerEntry = {
   };
   self: string;
   [key: string]: any;
-};
-
-type DepositCache = {
-  country: string;
-  cached_at: string;
-  entries: EconomicLedgerEntry[];
 };
 
 // Helper to get nested values from an object without incorrect type conversion
@@ -121,66 +114,58 @@ const LandlordDeposits = () => {
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
 
-  const { data: cacheData, isLoading: isLoadingCache, refetch: refetchCache } = useQuery<DepositCache | null>({
-    queryKey: ['landlordDepositCache', currentCountry],
+  const { data: allAccountEntries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
+    queryKey: ['landlordDepositEntries', currentCountry],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('landlord_deposit_cache')
-        .select('*')
-        .eq('country', currentCountry)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') {
-        console.error("Error fetching deposit cache:", error);
-      }
-      return data || null;
-    },
-    enabled: !!session && currentCountry !== 'all',
-    staleTime: 0,
-  });
+      if (!session || currentCountry === 'all') return [];
 
-  const isCacheStale = useMemo(() => {
-    if (!cacheData) return true;
-    const cachedAt = parseISO(cacheData.cached_at);
-    return differenceInHours(new Date(), cachedAt) >= CACHE_STALE_HOURS;
-  }, [cacheData]);
-
-  const refreshCacheMutation = useCallback(async () => {
-    if (!session || currentCountry === 'all') return;
-    
-    const toastId = showLoading(`Refreshing deposit cache for ${currentCountry}...`);
-    setIsFetching(true);
-    
-    try {
-      const { data, error: invokeError } = await supabase.functions.invoke('fetch-deposit-cache', {
-        body: { country: currentCountry },
+      const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: "/accounting-years", method: "GET", country: currentCountry },
       });
 
-      if (invokeError) throw new Error(invokeError.message);
-      if (data?.error) throw new Error(data.error);
-
-      showSuccess(data?.message || `Cache refreshed successfully for ${currentCountry}.`);
-      await queryClient.invalidateQueries({ queryKey: ['landlordDepositCache', currentCountry] });
+      if (yearsError) throw new Error(yearsError.message);
+      const yearsResp = yearsData as EconomicProxyResponse<any>;
+      if (yearsResp.error || !yearsResp.ok) {
+        throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+      }
+      const accountingYears = extractList(yearsResp?.data);
       
-    } catch (e: any) {
-      showError(e.message || "Failed to refresh cache.");
-      console.error("Cache refresh error:", e);
-    } finally {
-      dismissToast(toastId);
-      setIsFetching(false);
-    }
-  }, [session, currentCountry, queryClient]);
+      if (!accountingYears || accountingYears.length === 0) {
+        showError("No accounting years found in e-conomic. Cannot fetch entries.");
+        return [];
+      }
 
-  const allAccountEntries = useMemo(() => cacheData?.entries || [], [cacheData]);
+      let allEntries: EconomicLedgerEntry[] = [];
+      const fetchPromises = accountingYears.map(async (yearInfo: any) => {
+        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${yearInfo.year}/entries?pagesize=1000`;
+        
+        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+          body: { path, method: "GET", country: currentCountry },
+        });
 
-  React.useEffect(() => {
-    if (session && !isLoadingCache && (isCacheStale || !cacheData) && currentCountry !== 'all') {
-      console.log(`[LandlordDeposits] Cache is stale or empty. Triggering refresh for ${currentCountry}.`);
-      refreshCacheMutation();
-    }
-  }, [session, isLoadingCache, isCacheStale, cacheData, currentCountry, refreshCacheMutation]);
+        if (error) {
+          console.error(`Error fetching entries for year ${yearInfo.year}:`, error.message);
+          return [];
+        }
+
+        const resp = data as EconomicProxyResponse<any>;
+        if (resp.error || !resp.ok) {
+          console.error(`e-conomic error fetching entries for year ${yearInfo.year}:`, resp.error || `Status ${resp.status}`);
+          return [];
+        }
+        
+        return extractList(resp?.data);
+      });
+
+      const results = await Promise.all(fetchPromises);
+      allEntries = results.flat();
+      return allEntries as EconomicLedgerEntry[];
+    },
+    enabled: false, // Only fetch on manual trigger
+  });
 
   const displayedEntries = useMemo(() => {
+    if (!allAccountEntries) return [];
     let entries = [...allAccountEntries];
 
     if (debouncedFilterTerm) {
@@ -235,8 +220,6 @@ const LandlordDeposits = () => {
     // Assuming all entries for a SKU have the same currency
     return displayedEntries[0].currency || '';
   }, [displayedEntries]);
-
-  const isLoadingEntries = isLoadingCache || isFetching || isLoadingDepartments;
 
   const handleSearch = () => {
     setSearchPerformed(true);
@@ -296,6 +279,20 @@ const LandlordDeposits = () => {
     }
   };
 
+  const handleFetchAll = () => {
+    setIsFetching(true);
+    const toastId = showLoading("Fetching all landlord deposit entries...");
+    refetch().then(() => {
+      dismissToast(toastId);
+      showSuccess("All entries fetched successfully.");
+    }).catch((e) => {
+      dismissToast(toastId);
+      showError(e.message || "Failed to fetch entries.");
+    }).finally(() => {
+      setIsFetching(false);
+    });
+  };
+
   const handleSort = (key: string) => {
     setSortConfig(prev => ({
         key,
@@ -346,11 +343,6 @@ const LandlordDeposits = () => {
           </CardTitle>
           <CardDescription>
             View all landlord deposit entries from e-conomic, filterable by property SKU.
-            {cacheData && (
-              <span className={cn("text-xs ml-2 font-medium", isCacheStale ? "text-yellow-600" : "text-green-600")}>
-                (Cache last updated: {formatDistanceToNow(parseISO(cacheData.cached_at), { addSuffix: true })})
-              </span>
-            )}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -378,11 +370,11 @@ const LandlordDeposits = () => {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={isLoadingEntries || currentCountry === 'all'}
+                disabled={isFetching || isLoadingEntries || currentCountry === 'all'}
                 className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               >
                 <Search className="mr-2 h-4 w-4" />
-                {isLoadingEntries ? "Searching..." : "Search Entries"}
+                {isFetching ? "Searching..." : "Search Entries"}
               </Button>
               {debouncedFilterTerm.length > 0 && (
                 <Button
@@ -394,13 +386,13 @@ const LandlordDeposits = () => {
                 </Button>
               )}
               <Button
-                onClick={refreshCacheMutation}
-                disabled={isFetching}
+                onClick={handleFetchAll}
+                disabled={isFetching || isLoadingEntries || currentCountry === 'all'}
                 variant="outline"
                 className="self-end"
               >
                 <RotateCw className={cn("mr-2 h-4 w-4", isFetching && "animate-spin")} />
-                Refresh Cache
+                Fetch All Entries
               </Button>
             </div>
             
@@ -418,7 +410,7 @@ const LandlordDeposits = () => {
                 </div>
                 <Button
                     onClick={handleDirectEntrySearch}
-                    disabled={isLoadingEntries || entryNumberSearch.trim().length === 0 || currentCountry === 'all'}
+                    disabled={isFetching || isLoadingEntries || entryNumberSearch.trim().length === 0 || currentCountry === 'all'}
                     variant="secondary"
                     className="shadow-sm"
                 >
