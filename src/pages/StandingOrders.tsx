@@ -200,7 +200,7 @@ const StandingOrders = () => {
       const nonAllCategories = filterCategories.filter(c => c !== 'all');
       if (nonAllCategories.length > 0) {
         const categoryFilters = nonAllCategories.map(category => 
-          `categories@>'[{"category":"${category}"}]'`
+          `categories.cs.{"category":"${category}"}`
         ).join(',');
         query = query.or(categoryFilters);
       }
