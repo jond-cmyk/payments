@@ -51,7 +51,7 @@ export const useDepartments = (country: string) => {
       // Flatten the array of arrays into a single array of departments.
       return results.flat();
     },
-    enabled: !!country && country !== 'all', // Only run if a specific country is provided
+    enabled: !!country, // Enable for 'all' as well
     staleTime: 1000 * 60 * 60 * 24, // Cache for 24 hours
   });
 };
