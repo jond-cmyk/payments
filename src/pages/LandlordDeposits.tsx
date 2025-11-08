@@ -633,6 +633,24 @@ const LandlordDeposits = () => {
         isLoading={false} 
         defaultSort={{ key: 'date', direction: 'descending' }} 
       />
+
+      {/* NEW DEBUGGING CARD */}
+      <Card className="mt-8 shadow-sm">
+        <CardHeader>
+          <CardTitle>Debug Panel</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <pre className="bg-gray-100 p-4 rounded-md text-xs overflow-auto max-h-96">
+            {JSON.stringify({
+              allAccountEntries_length: allAccountEntries.length,
+              groupedEntries_length: groupedEntries.length,
+              debouncedFilterTerm: debouncedFilterTerm,
+              resultsToDisplay_length: resultsToDisplay.length,
+              first_5_groups: groupedEntries.slice(0, 5).map(g => ({ departmentNumber: g.departmentNumber, departmentName: g.departmentName, totalBalance: g.totalBalance, entry_count: g.entries.length })),
+            }, null, 2)}
+          </pre>
+        </CardContent>
+      </Card>
     </div>
   );
 };
