@@ -121,6 +121,7 @@ const DirectDebits = () => {
     { value: 'active', label: 'Active' },
     { value: 'paused', label: 'Paused' },
     { value: 'cancelled', label: 'Cancelled' },
+    { value: 'awaiting_info', label: 'Awaiting Info' },
   ];
 
   const categoryFilterOptions = [
@@ -206,7 +207,7 @@ const DirectDebits = () => {
       const nonAllCategories = filterCategories.filter(c => c !== 'all');
       if (nonAllCategories.length > 0) {
         const categoryFilters = nonAllCategories.map(category => 
-          `categories.cs.["${category}"]`
+          `categories@>'[{"category":"${category}"}]'`
         ).join(',');
         query = query.or(categoryFilters);
       }
@@ -346,11 +347,14 @@ const DirectDebits = () => {
       case 'cancelled':
         className = 'bg-red-500 text-red-50';
         break;
+      case 'awaiting_info':
+        className = 'bg-orange-500 text-orange-50';
+        break;
       default:
         className = 'bg-gray-500 text-gray-50';
     }
     return (
-      <Badge className={cn(className)}>
+      <Badge className={cn(className, "border border-white")}>
         {status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' ')}
       </Badge>
     );

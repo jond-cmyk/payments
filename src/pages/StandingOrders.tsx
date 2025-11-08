@@ -196,16 +196,12 @@ const StandingOrders = () => {
         query = query.in('status', nonAllStatuses);
       }
 
-      // Multi-select Category filter (FIXED JSONB QUERY LOGIC)
+      // Multi-select Category filter
       const nonAllCategories = filterCategories.filter(c => c !== 'all');
       if (nonAllCategories.length > 0) {
-        // Build an OR condition for each selected category using the JSONB containment operator (@>)
-        // We check if the 'categories' array contains an object where the 'category' key matches the filter value.
         const categoryFilters = nonAllCategories.map(category => 
-          `categories.cs.[{"category": "${category}"}]` // Use .cs (contains) with the specific object structure
+          `categories@>'[{"category":"${category}"}]'`
         ).join(',');
-        
-        // Use .or() to combine the filters
         query = query.or(categoryFilters);
       }
 

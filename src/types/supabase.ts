@@ -118,7 +118,7 @@ export type TransactionAudit = {
 };
 
 /** Direct Debits */
-export type DirectDebitStatus = 'active' | 'cancelled' | 'paused';
+export type DirectDebitStatus = 'active' | 'cancelled' | 'paused' | 'awaiting_info';
 
 export type DirectDebit = {
   id: string;
