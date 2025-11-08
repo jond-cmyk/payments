@@ -643,6 +643,21 @@ const LandlordDeposits = () => {
         isLoading={false} 
         defaultSort={{ key: 'date', direction: 'descending' }} 
       />
+
+      {/* NEW DEBUGGING CARD */}
+      <Card className="mt-8 shadow-sm">
+        <CardHeader>
+          <CardTitle>Debug: Raw Cache Data</CardTitle>
+          <CardDescription>
+            This section shows the raw data being pulled from the cache. Found {allAccountEntries.length} entries.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <pre className="bg-gray-100 p-4 rounded-md text-xs overflow-auto max-h-96">
+            {JSON.stringify(allAccountEntries, null, 2)}
+          </pre>
+        </CardContent>
+      </Card>
     </div>
   );
 };
