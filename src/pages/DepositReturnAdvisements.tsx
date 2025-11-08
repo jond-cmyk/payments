@@ -7,10 +7,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DepositReturnAdvise } from '@/types/supabase';
 import { format } from 'date-fns';
-import { DollarSign, CheckCircle, ListChecks } from 'lucide-react';
-import { showSuccess, showError } from '@/utils/toast';
+import { DollarSign, CheckCircle, ListChecks, Edit, Trash2 } from 'lucide-react';
+import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 import { categoryOptions } from '@/lib/constants';
+import { useCountry } from '@/integrations/supabase/CountryContext';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,33 +19,49 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import CountryFlag from '@/components/CountryFlag';
+import CountrySelector from '@/components/CountrySelector';
+import EditDepositReturnForm from '@/components/deposits/EditDepositReturnAdviseForm';
 
 // Define an enriched type for the query result
 type EnrichedDepositReturnAdvise = Omit<DepositReturnAdvise, 'advised_by'> & {
-  advised_by: { first_name: string | null; last_name: string | null; } | null;
+  advised_by: { id: string; first_name: string | null; last_name: string | null; } | null;
 };
 
-const AdminDepositReturns = () => {
-  const { session, isLoading: isSessionLoading, userProfile } = useSession();
+const DepositReturnAdvisements = () => {
+  const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
+  const { currentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [selectedAdvise, setSelectedAdvise] = React.useState<EnrichedDepositReturnAdvise | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
 
   const isAdmin = userProfile?.role === 'admin';
 
   const { data: advisements, isLoading: isAdvisementsLoading, error: advisementsError } = useQuery<EnrichedDepositReturnAdvise[]>({
-    queryKey: ['allDepositReturnAdvises'],
+    queryKey: ['allDepositReturnAdvises', currentCountry, userProfile?.role, userProfile?.country],
     queryFn: async () => {
-      if (!isAdmin) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from('deposit_return_advise')
-        .select('*, advised_by:profiles(first_name, last_name)')
-        .order('created_at', { ascending: false });
+        .select('*, advised_by:profiles(id, first_name, last_name)');
+
+      if (isAdmin) {
+        if (currentCountry !== 'all') {
+          query = query.eq('country', currentCountry);
+        }
+      } else if (userProfile?.country) {
+        query = query.eq('country', userProfile.country);
+      } else {
+        // Non-admin with no country, should not see anything
+        return [];
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
       return data as EnrichedDepositReturnAdvise[];
     },
-    enabled: isAdmin,
+    enabled: !!session,
   });
 
   const markAsProcessedMutation = useMutation({
@@ -65,18 +82,59 @@ const AdminDepositReturns = () => {
     },
   });
 
+  const updateAdviseMutation = useMutation({
+    mutationFn: async (values: { id: string; deductions: any; notes: any; expected_refund: number }) => {
+      const { error } = await supabase
+        .from('deposit_return_advise')
+        .update({
+          deductions: values.deductions,
+          notes: values.notes,
+          expected_refund: values.expected_refund,
+        })
+        .eq('id', values.id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allDepositReturnAdvises'] });
+      showSuccess("Advisement updated successfully!");
+      setIsEditDialogOpen(false);
+      setSelectedAdvise(null);
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to update advisement.");
+    },
+  });
+
+  const deleteAdviseMutation = useMutation({
+    mutationFn: async (adviseId: string) => {
+      const { error } = await supabase
+        .from('deposit_return_advise')
+        .delete()
+        .eq('id', adviseId);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allDepositReturnAdvises'] });
+      showSuccess("Advisement deleted successfully!");
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to delete advisement.");
+    },
+  });
+
+  const handleEditSubmit = async (values: any) => {
+    if (!selectedAdvise) return;
+    await updateAdviseMutation.mutateAsync({ id: selectedAdvise.id, ...values });
+  };
+
   if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
   }
 
   if (!session) {
     navigate('/login');
-    return null;
-  }
-
-  if (!isAdmin) {
-    showError("You do not have permission to view this page.");
-    navigate('/dashboard');
     return null;
   }
 
@@ -89,9 +147,12 @@ const AdminDepositReturns = () => {
       <PageTitle title="Deposit Return Advisements - KH Payments" />
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center text-2xl font-bold">
-            <ListChecks className="mr-2 h-6 w-6" /> Deposit Return Advisements
-          </CardTitle>
+          <div className="flex justify-between items-center mb-4">
+            <CardTitle className="flex items-center text-2xl font-bold">
+              <ListChecks className="mr-2 h-6 w-6" /> Deposit Return Advisements
+            </CardTitle>
+            {isAdmin && <CountrySelector />}
+          </div>
           <CardDescription>
             Review and process deposit return advisements submitted by users.
           </CardDescription>
@@ -131,10 +192,38 @@ const AdminDepositReturns = () => {
                           {advise.status.charAt(0).toUpperCase() + advise.status.slice(1)}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-2">
                         <Button variant="outline" size="sm" onClick={() => setSelectedAdvise(advise)}>
                           View Details
                         </Button>
+                        {(isAdmin || (user?.id === advise.advised_by?.id && advise.status === 'advised')) && (
+                          <Button variant="outline" size="sm" onClick={() => { setSelectedAdvise(advise); setIsEditDialogOpen(true); }}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="destructive" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete the advisement for SKU {advise.sku}.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => deleteAdviseMutation.mutate(advise.id)}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -147,8 +236,8 @@ const AdminDepositReturns = () => {
         </CardContent>
       </Card>
 
-      {selectedAdvise && (
-        <Dialog open={!!selectedAdvise} onOpenChange={() => setSelectedAdvise(null)}>
+      {selectedAdvise && !isEditDialogOpen && (
+        <Dialog open={!!selectedAdvise && !isEditDialogOpen} onOpenChange={() => setSelectedAdvise(null)}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>Advisement Details for SKU: {selectedAdvise.sku}</DialogTitle>
@@ -184,7 +273,7 @@ const AdminDepositReturns = () => {
                   <p className="text-sm text-muted-foreground p-2 bg-gray-50 rounded">{selectedAdvise.notes}</p>
                 </div>
               )}
-              {selectedAdvise.status !== 'processed' && (
+              {isAdmin && selectedAdvise.status !== 'processed' && (
                 <Button
                   onClick={() => markAsProcessedMutation.mutate(selectedAdvise.id)}
                   disabled={markAsProcessedMutation.isPending}
@@ -198,8 +287,23 @@ const AdminDepositReturns = () => {
           </DialogContent>
         </Dialog>
       )}
+
+      {selectedAdvise && isEditDialogOpen && (
+        <Dialog open={isEditDialogOpen} onOpenChange={(open) => { if (!open) { setIsEditDialogOpen(false); setSelectedAdvise(null); } }}>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Advisement for SKU: {selectedAdvise.sku}</DialogTitle>
+            </DialogHeader>
+            <EditDepositReturnForm
+              advise={selectedAdvise}
+              onSubmit={handleEditSubmit}
+              isSubmitting={updateAdviseMutation.isPending}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
 
-export default AdminDepositReturns;
+export default DepositReturnAdvisements;

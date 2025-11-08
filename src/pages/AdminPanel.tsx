@@ -52,7 +52,7 @@ const adminLinks = [
     description: 'View and manage e-conomic departments.',
   },
   {
-    to: '/admin/deposit-returns',
+    to: '/deposit-return-advisements',
     icon: <DollarSign className="h-8 w-8 text-dyad-blue" />,
     title: 'Deposit Return Advisements',
     description: 'Review and process advised deposit returns.',
