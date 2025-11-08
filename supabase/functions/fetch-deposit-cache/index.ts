@@ -34,30 +34,30 @@ async function fetchEconomicData(supabaseClient: any, path: string, country: str
     return resp.data;
 }
 
-// Robust helper to fetch all entries for a specific account and year, with pagination
-async function fetchEntriesForYear(supabaseAdminClient: any, year: string, country: string, filter?: string) {
+// New, simpler helper to fetch all entries for the specified account, with pagination
+async function fetchAllEntriesForAccount(supabaseAdminClient: any, country: string, filter?: string) {
     let allEntries: any[] = [];
     let currentPage = 0;
-    const pageSize = 1000; 
+    const pageSize = 1000;
+
+    const baseFilter = `account.accountNumber$eq:${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}`;
+    const finalFilter = filter ? `${baseFilter}$and:${filter}` : baseFilter;
 
     while (true) {
-        let path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${year}/entries?pagesize=${pageSize}&skipPages=${currentPage}`;
-        if (filter) {
-            path += `&filter=${filter}`;
-        }
+        const path = `/entries?pagesize=${pageSize}&skipPages=${currentPage}&filter=${finalFilter}`;
         
         const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
         
         const entries = economicData?.collection || economicData?.items || economicData?.results || economicData;
         
         if (!Array.isArray(entries) || entries.length === 0) {
-            break; // No more entries to fetch for this year
+            break;
         }
 
         allEntries = allEntries.concat(entries);
 
         if (entries.length < pageSize) {
-            break; // This was the last page for this year
+            break;
         }
 
         currentPage++;
@@ -71,7 +71,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v13: Robust year-by-year fetch).");
+  console.log("[fetch-deposit-cache] Function invoked (v14: Direct /entries fetch with fixed proxy).");
 
   try {
     // @ts-ignore
@@ -107,23 +107,10 @@ serve(async (req) => {
 
     let staticEntries: any[] = [];
 
-    // --- 1. Fetch all accounting years ---
-    const yearsData = await fetchEconomicData(supabaseAdminClient, "/accounting-years", country);
-    const accountingYears = yearsData?.collection || [];
-    
-    if (!accountingYears || accountingYears.length === 0) {
-        throw new Error("No accounting years found in e-conomic.");
-    }
-
     if (staticCacheError && staticCacheError.code === 'PGRST116') {
-        console.log("[fetch-deposit-cache] Static cache empty. Performing initial historical fetch (unfiltered, year-by-year).");
+        console.log("[fetch-deposit-cache] Static cache empty. Performing initial historical fetch.");
         
-        const historicalFetchPromises = accountingYears.map(async (yearInfo: any) => {
-            return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country);
-        });
-
-        const historicalResults = await Promise.all(historicalFetchPromises);
-        const allHistoricalEntries = historicalResults.flat();
+        const allHistoricalEntries = await fetchAllEntriesForAccount(supabaseAdminClient, country);
         
         staticEntries = allHistoricalEntries.filter((entry: any) => {
             try {
@@ -152,13 +139,7 @@ serve(async (req) => {
 
     console.log("[fetch-deposit-cache] Fetching dynamic entries (last 90 days).");
     const dynamicFilter = `date$gte:${ninetyDaysAgoStr}`;
-    
-    const dynamicFetchPromises = accountingYears.map(async (yearInfo: any) => {
-        return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country, dynamicFilter);
-    });
-
-    const dynamicResults = await Promise.all(dynamicFetchPromises);
-    const dynamicEntries = dynamicResults.flat();
+    const dynamicEntries = await fetchAllEntriesForAccount(supabaseAdminClient, country, dynamicFilter);
     console.log(`[fetch-deposit-cache] Fetched ${dynamicEntries.length} dynamic entries.`);
 
     const combinedEntriesMap = new Map();

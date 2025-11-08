@@ -9,7 +9,7 @@ const corsHeaders = {
 
 // @ts-ignore
 serve(async (req) => {
-  console.log("[economic-proxy] --- FUNCTION START (v1.0.22) ---");
+  console.log("[economic-proxy] --- FUNCTION START (v1.0.23) ---");
   console.log("[economic-proxy] Request URL:", req.url);
   console.log("[economic-proxy] Request Method:", req.method);
 
@@ -44,7 +44,6 @@ serve(async (req) => {
     let parsedPayload: any;
     try {
       parsedPayload = JSON.parse(rawBody);
-      console.log("[economic-proxy] Parsed request body:", JSON.stringify(parsedPayload, null, 2));
     } catch (jsonParseError) {
       console.error("[economic-proxy] Failed to parse request body as JSON:", jsonParseError);
       return new Response(
@@ -53,9 +52,9 @@ serve(async (req) => {
       );
     }
 
-    const { path, method = "GET", query = {}, body, base, country } = parsedPayload;
+    const { path: rawPath, method = "GET", query: queryObj = {}, body, base, country } = parsedPayload;
 
-    if (!path || typeof path !== "string") {
+    if (!rawPath || typeof rawPath !== "string") {
       console.error("[economic-proxy] Missing or invalid 'path' in request body.");
       return new Response(
         JSON.stringify({ error: "Missing 'path'. Example: '/self' or '/customers?pagesize=10'." }),
@@ -108,34 +107,22 @@ serve(async (req) => {
       );
     }
 
+    // --- NEW: Robust URL and Query Param Handling ---
+    const [path, pathQueryString] = rawPath.split('?');
+    const pathQueryParams = new URLSearchParams(pathQueryString || '');
+
+    const finalQueryParams = new URLSearchParams(queryObj);
+    pathQueryParams.forEach((value, key) => {
+        finalQueryParams.append(key, value);
+    });
+    // --- End New Handling ---
+
     const normalizedPath = path.startsWith("/") ? path : `/${path}`;
     const baseUrl =
       typeof base === "string" && base.length > 0 ? base : "https://restapi.e-conomic.com";
 
-    // --- Custom Query String Construction (FIXED v1.0.21) ---
-    const queryParams = new URLSearchParams();
-    let filterValue = '';
-
-    for (const [key, value] of Object.entries(query)) {
-      if (key === 'filter' && typeof value === 'string') {
-        filterValue = value;
-      } else {
-        queryParams.append(key, String(value));
-      }
-    }
-
-    let qs = queryParams.toString();
-    
-    if (filterValue) {
-      // Append filter separately. We assume the filter value is NOT already encoded
-      // if it was constructed manually on the client (like in LandlordDeposits.tsx).
-      // We must encode it here.
-      const encodedFilter = encodeURIComponent(filterValue);
-      qs = (qs ? qs + '&' : '') + `filter=${encodedFilter}`;
-    }
-
+    const qs = finalQueryParams.toString();
     const url = `${baseUrl}${normalizedPath}${qs ? '?' + qs : ''}`;
-    // --- End Custom Query String Construction ---
 
     const headers: HeadersInit = {
       "X-AppSecretToken": activeAppSecretToken,
