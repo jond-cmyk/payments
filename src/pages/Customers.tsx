@@ -120,7 +120,7 @@ const Customers: React.FC = () => {
       const resp = data as EconomicProxyResponse<any>;
       return extractList(resp?.data) as EconomicCustomer[];
     },
-    enabled: !!session && isAdmin,
+    enabled: !!session && isAdmin && currentCountry !== 'all',
     staleTime: 15 * 60 * 1000, // Cache for 15 minutes
   });
 
@@ -159,6 +159,7 @@ const Customers: React.FC = () => {
         return list as EconomicCustomer[];
       }
     },
+    enabled: !!session && currentCountry !== 'all',
     staleTime: 60_000,
   });
 
@@ -224,7 +225,7 @@ const Customers: React.FC = () => {
             </div>
             <div className="flex-1 min-w-[250px]">
               <label htmlFor="customer-filter" className="block text-sm font-medium text-gray-700 mb-1">Filter by Customer</label>
-              <Select value={selectedCustomer} onValueChange={(value) => { setSelectedCustomer(value); setCurrentPage(1); }} disabled={isLoadingAllCustomers}>
+              <Select value={selectedCustomer} onValueChange={(value) => { setSelectedCustomer(value); setCurrentPage(1); }} disabled={isLoadingAllCustomers || currentCountry === 'all'}>
                 <SelectTrigger id="customer-filter">
                   <SelectValue placeholder="Select a customer" />
                 </SelectTrigger>
@@ -240,7 +241,7 @@ const Customers: React.FC = () => {
             </div>
             <div className="w-[160px]">
               <label htmlFor="page-size-filter" className="block text-sm font-medium text-gray-700 mb-1">Page Size</label>
-              <Select value={pageSize} onValueChange={setPageSize} disabled={selectedCustomer !== 'all'}>
+              <Select value={pageSize} onValueChange={setPageSize} disabled={selectedCustomer !== 'all' || currentCountry === 'all'}>
                 <SelectTrigger id="page-size-filter">
                   <SelectValue placeholder="Page size" />
                 </SelectTrigger>
@@ -254,48 +255,57 @@ const Customers: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => customersQuery.refetch()}
-              disabled={customersQuery.isFetching}
+              disabled={customersQuery.isFetching || currentCountry === 'all'}
               className="self-end"
             >
               Refresh
             </Button>
           </div>
 
-          <div className="relative overflow-x-auto border rounded-md">
-            <Table>
-              <TableHeader>
-                <TableRow><TableHead className="w-24">Number</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Balance</TableHead><TableHead>Overdue</TableHead><TableHead className="w-64">Actions</TableHead></TableRow>
-              </TableHeader>
-              <TableBody>
-                {customersQuery.isLoading ? (
-                  Array.from({ length: parseInt(pageSize, 10) }).map((_, i) => (
-                    <TableRow key={i}><TableCell colSpan={6}><div className="h-8 bg-gray-200 rounded animate-pulse" /></TableCell></TableRow>
-                  ))
-                ) : (customersQuery.data || []).map((c, index) => (
-                  <CustomerRow 
-                    key={c.self ?? c.customerNumber ?? index} 
-                    customer={c}
-                    country={currentCountry}
-                  />
-                ))}
-                {(customersQuery.data || []).length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
-                      {customersQuery.isFetching ? "Loading customers..." : "No customers found."}
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          {totalPages > 1 && (
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem><PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} /></PaginationItem>
-                {renderPaginationItems()}
-                <PaginationItem><PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} /></PaginationItem>
-              </PaginationContent>
-            </Pagination>
+          {currentCountry === 'all' && isAdmin ? (
+            <Alert>
+              <AlertTitle>Please Select a Country</AlertTitle>
+              <AlertDescription>To view customer data from e-conomic, please select a specific country from the dropdown above.</AlertDescription>
+            </Alert>
+          ) : (
+            <>
+              <div className="relative overflow-x-auto border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow><TableHead className="w-24">Number</TableHead><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Balance</TableHead><TableHead>Overdue</TableHead><TableHead className="w-64">Actions</TableHead></TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {customersQuery.isLoading ? (
+                      Array.from({ length: parseInt(pageSize, 10) }).map((_, i) => (
+                        <TableRow key={i}><TableCell colSpan={6}><div className="h-8 bg-gray-200 rounded animate-pulse" /></TableCell></TableRow>
+                      ))
+                    ) : (customersQuery.data || []).map((c, index) => (
+                      <CustomerRow 
+                        key={c.self ?? c.customerNumber ?? index} 
+                        customer={c}
+                        country={currentCountry}
+                      />
+                    ))}
+                    {(customersQuery.data || []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-muted-foreground">
+                          {customersQuery.isFetching ? "Loading customers..." : "No customers found."}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              {totalPages > 1 && (
+                <Pagination className="mt-4">
+                  <PaginationContent>
+                    <PaginationItem><PaginationPrevious onClick={() => setCurrentPage(p => Math.max(1, p - 1))} /></PaginationItem>
+                    {renderPaginationItems()}
+                    <PaginationItem><PaginationNext onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} /></PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              )}
+            </>
           )}
         </CardContent>
       </Card>

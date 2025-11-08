@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock, ArrowUp, ArrowDown } from 'lucide-react';
+import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock, ArrowUp, ArrowDown, DollarSign } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import EconomicDetailDialog, { DialogColumn, extractList, formatAmount } from '@/components/economic/EconomicDetailDialog';
@@ -107,6 +107,7 @@ const LandlordDeposits = () => {
   const [dialogDescription, setDialogDescription] = useState('');
   const [entryNumberSearch, setEntryNumberSearch] = useState('');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
+  const [searchPerformed, setSearchPerformed] = useState(false);
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -134,7 +135,7 @@ const LandlordDeposits = () => {
       }
       return data || null;
     },
-    enabled: !!session,
+    enabled: !!session && currentCountry !== 'all',
     staleTime: 0,
   });
 
@@ -145,7 +146,7 @@ const LandlordDeposits = () => {
   }, [cacheData]);
 
   const refreshCacheMutation = useCallback(async () => {
-    if (!session) return;
+    if (!session || currentCountry === 'all') return;
     
     const toastId = showLoading(`Refreshing deposit cache for ${currentCountry}...`);
     setIsFetching(true);
@@ -173,7 +174,7 @@ const LandlordDeposits = () => {
   const allAccountEntries = useMemo(() => cacheData?.entries || [], [cacheData]);
 
   React.useEffect(() => {
-    if (session && !isLoadingCache && (isCacheStale || !cacheData)) {
+    if (session && !isLoadingCache && (isCacheStale || !cacheData) && currentCountry !== 'all') {
       console.log(`[LandlordDeposits] Cache is stale or empty. Triggering refresh for ${currentCountry}.`);
       refreshCacheMutation();
     }
@@ -221,9 +222,15 @@ const LandlordDeposits = () => {
     return entries;
   }, [allAccountEntries, debouncedFilterTerm, sortConfig]);
 
+  const totalDepositBalance = useMemo(() => {
+    if (!displayedEntries || displayedEntries.length === 0) return 0;
+    return displayedEntries.reduce((sum, entry) => sum + entry.remainder, 0);
+  }, [displayedEntries]);
+
   const isLoadingEntries = isLoadingCache || isFetching || isLoadingDepartments;
 
   const handleSearch = () => {
+    setSearchPerformed(true);
     const term = departmentSearchTerm.trim();
     if (term.length > 0) {
         const numericTerm = term.replace(/^(CH|UK)/i, '');
@@ -357,7 +364,7 @@ const LandlordDeposits = () => {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={isLoadingEntries}
+                disabled={isLoadingEntries || currentCountry === 'all'}
                 className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               >
                 <Search className="mr-2 h-4 w-4" />
@@ -366,7 +373,7 @@ const LandlordDeposits = () => {
               {debouncedFilterTerm.length > 0 && (
                 <Button
                   variant="outline"
-                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); }}
+                  onClick={() => { setDepartmentSearchTerm(''); setDebouncedFilterTerm(''); setSearchPerformed(false); }}
                   className="flex items-center gap-1"
                 >
                   <RotateCw className="h-4 w-4" /> Clear Search
@@ -388,7 +395,7 @@ const LandlordDeposits = () => {
                 </div>
                 <Button
                     onClick={handleDirectEntrySearch}
-                    disabled={isLoadingEntries || entryNumberSearch.trim().length === 0}
+                    disabled={isLoadingEntries || entryNumberSearch.trim().length === 0 || currentCountry === 'all'}
                     variant="secondary"
                     className="shadow-sm"
                 >
@@ -397,95 +404,114 @@ const LandlordDeposits = () => {
                 </Button>
             </div>
 
-            <Alert variant={isCacheStale ? "destructive" : "default"} className="mt-4">
-                <AlertTitle className="flex items-center">
-                    {isCacheStale ? <AlertTriangle className="mr-2 h-4 w-4" /> : <Clock className="mr-2 h-4 w-4" />}
-                    Deposit Ledger Cache Status
-                </AlertTitle>
-                <AlertDescription>
-                    {cacheData ? (
-                        <>
-                            Data last fetched: {format(parseISO(cacheData.cached_at), 'PPP p')}. 
-                            {isCacheStale ? (
-                                <span className="font-bold text-red-700"> Cache is stale (older than {CACHE_STALE_HOURS} hours).</span>
-                            ) : (
-                                <span className="text-green-700"> Cache is fresh.</span>
-                            )}
-                            <Button 
-                                variant="link" 
-                                onClick={refreshCacheMutation} 
-                                disabled={isFetching}
-                                className="p-0 h-auto ml-2 text-sm"
-                            >
-                                {isFetching ? "Refreshing..." : "Force Refresh Now"}
-                            </Button>
-                        </>
-                    ) : (
-                        <span className="font-bold">Cache is empty. Fetching data now...</span>
-                    )}
-                </AlertDescription>
-            </Alert>
-
-            <div className="flex items-center gap-4">
-              <label htmlFor="sort-by" className="text-sm font-medium">Sort by:</label>
-              <Select
-                value={sortConfig.key}
-                onValueChange={(value) => handleSort(value)}
-              >
-                <SelectTrigger id="sort-by" className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Date</SelectItem>
-                  <SelectItem value="entryNumber">Entry Number</SelectItem>
-                  <SelectItem value="amount">Amount</SelectItem>
-                  <SelectItem value="remainder">Outstanding</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="icon" onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}>
-                {sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
-              </Button>
-            </div>
-
-            {isLoadingEntries ? (
-              <div className="space-y-2">
-                {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : displayedEntries.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</TableHead>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('entryNumber')}>Entry No. {renderSortIcon('entryNumber')}</TableHead>
-                      <TableHead>Entry Type</TableHead>
-                      <TableHead>Text</TableHead>
-                      <TableHead className="cursor-pointer" onClick={() => handleSort('departmentalDistribution.departmentalDistributionNumber')}>Property (SKU) {renderSortIcon('departmentalDistribution.departmentalDistributionNumber')}</TableHead>
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount')}>Amount {renderSortIcon('amount')}</TableHead>
-                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('remainder')}>Outstanding {renderSortIcon('remainder')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {displayedEntries.map((entry, index) => (
-                      <TableRow key={entry.self || index}>
-                        <TableCell>{entry.date && typeof entry.date === 'string' ? format(parseISO(entry.date), 'PPP') : 'Invalid Date'}</TableCell>
-                        <TableCell>{entry.entryNumber}</TableCell>
-                        <TableCell>{entry.entryType}</TableCell>
-                        <TableCell>{entry.text}</TableCell>
-                        <TableCell>{getDepartmentName(pick(entry, ['departmentalDistribution.departmentalDistributionNumber', 'departmentalDistributionNumber', 'department.departmentNumber', 'departmentNumber', 'department.number', 'department']))}</TableCell>
-                        <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                        <TableCell className={cn("text-right font-semibold", entry.remainder < 0 ? 'text-green-600' : entry.remainder > 0 ? 'text-red-600' : 'text-gray-600')}>
-                          {formatAmount(entry.remainder)} {entry.currency}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            {currentCountry === 'all' && userProfile?.role === 'admin' ? (
+              <Alert>
+                <AlertTitle>Please Select a Country</AlertTitle>
+                <AlertDescription>To view landlord deposits, please select a specific country from the dropdown above.</AlertDescription>
+              </Alert>
             ) : (
-              <p className="text-center text-muted-foreground mt-8">
-                {debouncedFilterTerm ? `No entries found matching SKU "${debouncedFilterTerm}" in account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.` : `No landlord deposit entries found for ${currentCountry}.`}
-              </p>
+              <>
+                <Alert variant={isCacheStale ? "destructive" : "default"} className="mt-4">
+                    <AlertTitle className="flex items-center">
+                        {isCacheStale ? <AlertTriangle className="mr-2 h-4 w-4" /> : <Clock className="mr-2 h-4 w-4" />}
+                        Deposit Ledger Cache Status
+                    </AlertTitle>
+                    <AlertDescription>
+                        {cacheData ? (
+                            <>
+                                Data last fetched: {format(parseISO(cacheData.cached_at), 'PPP p')}. 
+                                {isCacheStale ? (
+                                    <span className="font-bold text-red-700"> Cache is stale (older than {CACHE_STALE_HOURS} hours).</span>
+                                ) : (
+                                    <span className="text-green-700"> Cache is fresh.</span>
+                                )}
+                                <Button 
+                                    variant="link" 
+                                    onClick={refreshCacheMutation} 
+                                    disabled={isFetching}
+                                    className="p-0 h-auto ml-2 text-sm"
+                                >
+                                    {isFetching ? "Refreshing..." : "Force Refresh Now"}
+                                </Button>
+                            </>
+                        ) : (
+                            <span className="font-bold">Cache is empty. Fetching data now...</span>
+                        )}
+                    </AlertDescription>
+                </Alert>
+
+                {searchPerformed && debouncedFilterTerm && (
+                  <Card className="bg-blue-50 border-blue-200">
+                    <CardHeader>
+                      <CardTitle className="flex items-center text-blue-800">
+                        <DollarSign className="mr-2 h-5 w-5" />
+                        Total Deposit Balance for SKU: {debouncedFilterTerm}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-3xl font-bold text-blue-900">{formatAmount(totalDepositBalance)}</p>
+                      <p className="text-sm text-blue-700">A negative balance indicates a credit (deposit held).</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <div className="flex items-center gap-4">
+                  <label htmlFor="sort-by" className="text-sm font-medium">Sort by:</label>
+                  <Select
+                    value={sortConfig.key}
+                    onValueChange={(value) => handleSort(value)}
+                  >
+                    <SelectTrigger id="sort-by" className="w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="date">Date</SelectItem>
+                      <SelectItem value="entryNumber">Entry Number</SelectItem>
+                      <SelectItem value="amount">Amount</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="icon" onClick={() => setSortConfig(prev => ({ ...prev, direction: prev.direction === 'ascending' ? 'descending' : 'ascending' }))}>
+                    {sortConfig.direction === 'ascending' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                  </Button>
+                </div>
+
+                {isLoadingEntries ? (
+                  <div className="space-y-2">
+                    {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                  </div>
+                ) : !searchPerformed ? (
+                  <p className="text-center text-muted-foreground mt-8">Please enter a property identifier (SKU) to begin.</p>
+                ) : displayedEntries.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</TableHead>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('entryNumber')}>Entry No. {renderSortIcon('entryNumber')}</TableHead>
+                          <TableHead>Text</TableHead>
+                          <TableHead className="cursor-pointer" onClick={() => handleSort('departmentalDistribution.departmentalDistributionNumber')}>Property (SKU) {renderSortIcon('departmentalDistribution.departmentalDistributionNumber')}</TableHead>
+                          <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount')}>Amount {renderSortIcon('amount')}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {displayedEntries.map((entry, index) => (
+                          <TableRow key={entry.self || index}>
+                            <TableCell>{entry.date && typeof entry.date === 'string' ? format(parseISO(entry.date), 'PPP') : 'Invalid Date'}</TableCell>
+                            <TableCell>{entry.entryNumber}</TableCell>
+                            <TableCell>{entry.text}</TableCell>
+                            <TableCell>{getDepartmentName(pick(entry, ['departmentalDistribution.departmentalDistributionNumber', 'departmentalDistributionNumber', 'department.departmentNumber', 'departmentNumber', 'department.number', 'department']))}</TableCell>
+                            <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <p className="text-center text-muted-foreground mt-8">
+                    {debouncedFilterTerm ? `No entries found matching SKU "${debouncedFilterTerm}" in account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.` : `No landlord deposit entries found for ${currentCountry}.`}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </CardContent>
