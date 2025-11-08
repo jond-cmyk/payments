@@ -136,7 +136,10 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
           <div className="h-px bg-dyad-blue-foreground my-4" />
           <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
           <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
-          <NavLink to="/landlord-deposits" icon={<HomeIcon className="h-5 w-5" />} label="Landlord Deposits" /> {/* NEW LINK */}
+          {currentRole === 'admin' && (
+            <NavLink to="/admin/deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Deposit Return Advisements" />
+          )}
+          <NavLink to="/landlord-deposits" icon={<HomeIcon className="h-5 w-5" />} label="Landlord Deposits" />
           
           <div className="h-px bg-dyad-blue-foreground my-4" /> 
 

@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import PageTitle from '@/components/PageTitle';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, Upload, Banknote, Repeat, MessageSquareText, Globe, Settings, Building2 } from 'lucide-react';
+import { Users, Upload, Banknote, Repeat, MessageSquareText, Globe, Settings, Building2, DollarSign } from 'lucide-react';
 import { showError } from '@/utils/toast';
 
 const adminLinks = [
@@ -50,6 +50,12 @@ const adminLinks = [
     icon: <Building2 className="h-8 w-8 text-dyad-blue" />,
     title: 'Departments',
     description: 'View and manage e-conomic departments.',
+  },
+  {
+    to: '/admin/deposit-returns',
+    icon: <DollarSign className="h-8 w-8 text-dyad-blue" />,
+    title: 'Deposit Return Advisements',
+    description: 'Review and process advised deposit returns.',
   },
 ];
 
