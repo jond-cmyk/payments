@@ -225,8 +225,8 @@ const LandlordDeposits = () => {
   const totalDepositBalance = useMemo(() => {
     if (!displayedEntries || displayedEntries.length === 0) return 0;
     return displayedEntries.reduce((sum, entry) => {
-      const remainderValue = parseFloat(String(entry.remainder)) || 0;
-      return sum + remainderValue;
+      const amountValue = parseFloat(String(entry.amount)) || 0;
+      return sum + amountValue;
     }, 0);
   }, [displayedEntries]);
 
