@@ -358,7 +358,8 @@ const LandlordDeposits = () => {
       const deptNum = entry.department?.departmentNumber;
       const currency = entry.currency || 'N/A';
       
-      if (deptNum && entry.account?.accountNumber === LANDLORD_DEPOSIT_ACCOUNT_NUMBER) {
+      // The edge function already filters by account number, so this check is redundant and might be failing due to data structure variations.
+      if (deptNum) {
         if (!groups[deptNum]) {
           groups[deptNum] = {
             departmentNumber: deptNum,
@@ -633,24 +634,6 @@ const LandlordDeposits = () => {
         isLoading={false} 
         defaultSort={{ key: 'date', direction: 'descending' }} 
       />
-
-      {/* NEW DEBUGGING CARD */}
-      <Card className="mt-8 shadow-sm">
-        <CardHeader>
-          <CardTitle>Debug Panel</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <pre className="bg-gray-100 p-4 rounded-md text-xs overflow-auto max-h-96">
-            {JSON.stringify({
-              allAccountEntries_length: allAccountEntries.length,
-              groupedEntries_length: groupedEntries.length,
-              debouncedFilterTerm: debouncedFilterTerm,
-              resultsToDisplay_length: resultsToDisplay.length,
-              first_5_groups: groupedEntries.slice(0, 5).map(g => ({ departmentNumber: g.departmentNumber, departmentName: g.departmentName, totalBalance: g.totalBalance, entry_count: g.entries.length })),
-            }, null, 2)}
-          </pre>
-        </CardContent>
-      </Card>
     </div>
   );
 };
