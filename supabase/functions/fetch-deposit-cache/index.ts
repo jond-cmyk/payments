@@ -35,16 +35,13 @@ async function fetchEconomicData(supabaseClient: any, path: string, country: str
 }
 
 // Robust helper to fetch all entries for a specific account and year, with pagination
-async function fetchEntriesForYear(supabaseAdminClient: any, year: string, country: string, filter?: string) {
+async function fetchEntriesForYear(supabaseAdminClient: any, year: string, country: string) {
     let allEntries: any[] = [];
     let currentPage = 0;
     const pageSize = 1000; 
 
     while (true) {
-        let path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${year}/entries?pagesize=${pageSize}&skipPages=${currentPage}`;
-        if (filter) {
-            path += `&filter=${filter}`;
-        }
+        const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${year}/entries?pagesize=${pageSize}&skipPages=${currentPage}`;
         
         const economicData = await fetchEconomicData(supabaseAdminClient, path, country);
         
@@ -71,7 +68,7 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  console.log("[fetch-deposit-cache] Function invoked (v15: Reverted to robust year-by-year fetch with fixed proxy).");
+  console.log("[fetch-deposit-cache] Function invoked (v16: Simplified full historical fetch).");
 
   try {
     // @ts-ignore
@@ -95,19 +92,7 @@ serve(async (req) => {
       });
     }
 
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split('T')[0];
-    
-    const { data: staticCache, error: staticCacheError } = await supabaseAdminClient
-        .from('landlord_deposit_static_cache')
-        .select('entries')
-        .eq('country', country)
-        .single();
-
-    let staticEntries: any[] = [];
-
-    // --- 1. Fetch all accounting years ---
+    // 1. Fetch all accounting years
     const yearsData = await fetchEconomicData(supabaseAdminClient, "/accounting-years", country);
     const accountingYears = yearsData?.collection || [];
     
@@ -115,68 +100,22 @@ serve(async (req) => {
         throw new Error("No accounting years found in e-conomic.");
     }
 
-    if (staticCacheError && staticCacheError.code === 'PGRST116') {
-        console.log("[fetch-deposit-cache] Static cache empty. Performing initial historical fetch (unfiltered, year-by-year).");
-        
-        const historicalFetchPromises = accountingYears.map(async (yearInfo: any) => {
-            return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country);
-        });
-
-        const historicalResults = await Promise.all(historicalFetchPromises);
-        const allHistoricalEntries = historicalResults.flat();
-        
-        staticEntries = allHistoricalEntries.filter((entry: any) => {
-            try {
-                const entryDate = new Date(entry.date);
-                return entryDate.toISOString().split('T')[0] < ninetyDaysAgoStr;
-            } catch { return false; }
-        });
-        
-        const { error: upsertStaticError } = await supabaseAdminClient
-            .from('landlord_deposit_static_cache')
-            .upsert({
-                country: country,
-                entries: staticEntries,
-                cached_at: new Date().toISOString(),
-            }, { onConflict: 'country' });
-
-        if (upsertStaticError) {
-            console.error('[fetch-deposit-cache] Static Cache Upsert Error:', upsertStaticError);
-        }
-        console.log(`[fetch-deposit-cache] Static cache initialized with ${staticEntries.length} historical entries.`);
-
-    } else if (staticCache) {
-        staticEntries = staticCache.entries || [];
-        console.log(`[fetch-deposit-cache] Using existing static cache with ${staticEntries.length} entries.`);
-    }
-
-    console.log("[fetch-deposit-cache] Fetching dynamic entries (last 90 days).");
-    const dynamicFilter = `date$gte:${ninetyDaysAgoStr}`;
-    
-    const dynamicFetchPromises = accountingYears.map(async (yearInfo: any) => {
-        return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country, dynamicFilter);
+    // 2. Fetch all entries for all years
+    console.log(`[fetch-deposit-cache] Fetching all entries for ${accountingYears.length} accounting year(s).`);
+    const fetchPromises = accountingYears.map(async (yearInfo: any) => {
+        return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country);
     });
 
-    const dynamicResults = await Promise.all(dynamicFetchPromises);
-    const dynamicEntries = dynamicResults.flat();
-    console.log(`[fetch-deposit-cache] Fetched ${dynamicEntries.length} dynamic entries.`);
+    const results = await Promise.all(fetchPromises);
+    const allEntries = results.flat();
+    console.log(`[fetch-deposit-cache] Total entries fetched across all years: ${allEntries.length}`);
 
-    const combinedEntriesMap = new Map();
-    staticEntries.forEach(entry => {
-        if (entry.entryNumber) combinedEntriesMap.set(entry.entryNumber, entry);
-    });
-    dynamicEntries.forEach(entry => {
-        if (entry.entryNumber) combinedEntriesMap.set(entry.entryNumber, entry);
-    });
-
-    const finalEntries = Array.from(combinedEntriesMap.values());
-    console.log(`[fetch-deposit-cache] Final combined entries count: ${finalEntries.length}`);
-
+    // 3. Upsert the complete dataset into the main cache table
     const { error: upsertMainError } = await supabaseAdminClient
       .from('landlord_deposit_cache')
       .upsert({
         country: country,
-        entries: finalEntries,
+        entries: allEntries,
         cached_at: new Date().toISOString(),
       }, { onConflict: 'country' });
 
@@ -185,9 +124,9 @@ serve(async (req) => {
       throw new Error(`Failed to update main cache table: ${upsertMainError.message}`);
     }
 
-    console.log(`[fetch-deposit-cache] FULL CACHE UPDATED successfully for ${country}. Total entries: ${finalEntries.length}`);
+    console.log(`[fetch-deposit-cache] FULL CACHE UPDATED successfully for ${country}. Total entries: ${allEntries.length}`);
 
-    return new Response(JSON.stringify({ message: `Cache updated successfully for ${country}. Total entries: ${finalEntries.length}.` }), {
+    return new Response(JSON.stringify({ message: `Cache updated successfully for ${country}. Total entries: ${allEntries.length}.` }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
