@@ -69,7 +69,7 @@ type DepositCache = {
   entries: EconomicLedgerEntry[];
 };
 
-// Helper to get nested values from an object
+// Helper to get nested values from an object without incorrect type conversion
 const pick = (obj: any, keys: string[]): any => {
   if (!obj) return undefined;
   for (const key of keys) {
@@ -85,13 +85,7 @@ const pick = (obj: any, keys: string[]): any => {
         break;
       }
     }
-    if (found) {
-      if (typeof current === "object" && current !== null && "value" in current && typeof current.value === "number") {
-        return current.value;
-      }
-      if (typeof current === "string" && !isNaN(parseFloat(current))) {
-        return parseFloat(current);
-      }
+    if (found && current !== undefined) {
       return current;
     }
   }
@@ -206,8 +200,9 @@ const LandlordDeposits = () => {
         if (bValue == null) return -1;
 
         if (sortConfig.key === 'date') {
-            const dateA = parseISO(aValue).getTime();
-            const dateB = parseISO(bValue).getTime();
+            const dateA = aValue && typeof aValue === 'string' ? parseISO(aValue).getTime() : 0;
+            const dateB = bValue && typeof bValue === 'string' ? parseISO(bValue).getTime() : 0;
+            if (isNaN(dateA) || isNaN(dateB)) return 0;
             return sortConfig.direction === 'ascending' ? dateA - dateB : dateB - dateA;
         }
 
@@ -452,7 +447,7 @@ const LandlordDeposits = () => {
                   <TableBody>
                     {displayedEntries.map((entry, index) => (
                       <TableRow key={entry.self || index}>
-                        <TableCell>{format(parseISO(entry.date), 'PPP')}</TableCell>
+                        <TableCell>{entry.date && typeof entry.date === 'string' ? format(parseISO(entry.date), 'PPP') : 'Invalid Date'}</TableCell>
                         <TableCell>{entry.entryNumber}</TableCell>
                         <TableCell>{entry.entryType}</TableCell>
                         <TableCell>{entry.text}</TableCell>
