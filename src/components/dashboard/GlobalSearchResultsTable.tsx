@@ -13,17 +13,17 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { PaymentRequest, Transaction, StandingOrder, DirectDebit } from '@/types/supabase'; // Import DirectDebit
+import { PaymentRequest, Transaction, StandingOrder, DirectDebit, DepositReturnAdvise } from '@/types/supabase'; // Import DirectDebit
 import CountryFlag from '@/components/CountryFlag'; // Import CountryFlag
 import { cn } from '@/lib/utils'; // Import cn for utility classes
 
 // Define a union type for search results
-type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }) | (DirectDebit & { type: 'direct_debit' }); // Added DirectDebit
+type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }) | (DirectDebit & { type: 'direct_debit' }) | (DepositReturnAdvise & { type: 'deposit_return_advise' });
 
 interface GlobalSearchResultsTableProps {
   searchResults: SearchResult[] | undefined;
   debouncedSearchTerm: string;
-  getStatusBadge: (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => React.ReactNode;
+  getStatusBadge: (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'] | DepositReturnAdvise['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit' | 'deposit_return_advise') => React.ReactNode;
 }
 
 const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
@@ -59,11 +59,11 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
             >
               <TableCell>
                 <Badge variant="outline" className={cn("bg-gray-100 text-gray-800", "border border-white")}> {/* Added white border */}
-                  {item.type === 'payment_request' ? 'Payment Request' : item.type === 'transaction' ? 'Transaction' : item.type === 'standing_order' ? 'Standing Order' : 'Direct Debit'} {/* Updated display */}
+                  {item.type === 'payment_request' ? 'Payment Request' : item.type === 'transaction' ? 'Transaction' : item.type === 'standing_order' ? 'Standing Order' : item.type === 'direct_debit' ? 'Direct Debit' : 'Deposit Return Advise'} {/* Updated display */}
                 </Badge>
               </TableCell>
               <TableCell className="font-medium">
-                {item.type === 'payment_request' ? item.supplier_name : item.type === 'transaction' ? item.description : item.payee} {/* Conditional display */}
+                {item.type === 'payment_request' ? item.supplier_name : item.type === 'transaction' ? item.description : item.type === 'deposit_return_advise' ? `Deposit Return for SKU: ${(item.country === 'United Kingdom' ? 'UK' : 'CH') + item.sku}` : (item as any).payee} {/* Conditional display */}
               </TableCell>
               <TableCell>
                 {/* Amount is not directly available for DirectDebit, display N/A or specific info */}
@@ -71,6 +71,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
                  item.type === 'transaction' ? `${item.currency} ${item.amount.toFixed(2)}` :
                  item.type === 'standing_order' ? `${item.currency} ${item.total_amount?.toFixed(2)}` :
                  item.type === 'direct_debit' ? `${item.currency || ''} ${item.total_amount?.toFixed(2)}` :
+                 item.type === 'deposit_return_advise' ? `${item.currency} ${item.expected_refund.toFixed(2)}` :
                  'N/A'}
               </TableCell>
               <TableCell>
@@ -80,7 +81,8 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
                 {format(new Date(
                   item.type === 'payment_request' ? item.date_payment_required :
                   item.type === 'transaction' ? item.transaction_date :
-                  item.payment_date
+                  item.type === 'deposit_return_advise' ? item.created_at :
+                  (item as any).payment_date
                 ), 'PPP')} {/* Conditional date */}
               </TableCell>
               <TableCell>
@@ -91,7 +93,7 @@ const GlobalSearchResultsTable: React.FC<GlobalSearchResultsTableProps> = ({
               </TableCell>
               <TableCell className="text-right">
                 <Button asChild variant="outline" size="sm">
-                  <Link to={item.type === 'payment_request' ? `/request/${item.id}` : item.type === 'transaction' ? `/transaction/${item.id}` : item.type === 'standing_order' ? `/standing-order/${item.id}` : `/direct-debit/${item.id}`}> {/* Conditional link */}
+                  <Link to={item.type === 'payment_request' ? `/request/${item.id}` : item.type === 'transaction' ? `/transaction/${item.id}` : item.type === 'standing_order' ? `/standing-order/${item.id}` : item.type === 'direct_debit' ? `/direct-debit/${item.id}` : `/deposit-return-advisements`}> {/* Conditional link */}
                     View Details
                   </Link>
                 </Button>

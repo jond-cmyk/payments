@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import GlobalSearchResultsTable from '@/components/dashboard/GlobalSearchResultsTable';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { PaymentRequest, Transaction, StandingOrder, DirectDebit } from '@/types/supabase';
+import { PaymentRequest, Transaction, StandingOrder, DirectDebit, DepositReturnAdvise } from '@/types/supabase';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useCountry } from '@/integrations/supabase/CountryContext';
@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Filter } from 'lucide-react';
 
 // Define a union type for search results
-type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }) | (DirectDebit & { type: 'direct_debit' });
+type SearchResult = (PaymentRequest & { type: 'payment_request' }) | (Transaction & { type: 'transaction' }) | (StandingOrder & { type: 'standing_order' }) | (DirectDebit & { type: 'direct_debit' }) | (DepositReturnAdvise & { type: 'deposit_return_advise' });
 
 interface GlobalSearchResultsProps {
   debouncedSearchTerm: string;
@@ -37,6 +37,18 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSear
       if (!debouncedSearchTerm) return [];
 
       const term = `%${debouncedSearchTerm}%`;
+      const lowerSearchTerm = debouncedSearchTerm.toLowerCase();
+      let countryFromPrefix: string | null = null;
+      let numericSku: string | null = null;
+
+      if (lowerSearchTerm.startsWith('ch') && /ch\d+/.test(lowerSearchTerm)) {
+          countryFromPrefix = 'Switzerland';
+          numericSku = lowerSearchTerm.substring(2);
+      } else if (lowerSearchTerm.startsWith('uk') && /uk\d+/.test(lowerSearchTerm)) {
+          countryFromPrefix = 'United Kingdom';
+          numericSku = lowerSearchTerm.substring(2);
+      }
+      
       const searchPromises: Promise<SearchResult[]>[] = [];
 
       // Check if search term is a number
@@ -168,6 +180,38 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSear
           }) as Promise<SearchResult[]>
       );
 
+      // --- Deposit Return Advisements Search ---
+      let draQuery = supabase.from('deposit_return_advise').select('*');
+
+      // Apply base country filter
+      if (userProfile?.role === 'requester' && userProfile.country) {
+          draQuery = draQuery.eq('country', userProfile.country);
+      } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
+          draQuery = draQuery.eq('country', currentCountry);
+      }
+
+      if (numericSku && countryFromPrefix) {
+          // Specific SKU search
+          draQuery = draQuery.eq('sku', numericSku).eq('country', countryFromPrefix);
+      } else {
+          // General search
+          const orFilters = [
+              'notes.ilike.' + term,
+              'currency.ilike.' + term,
+          ];
+          if (/^\d+$/.test(debouncedSearchTerm)) {
+              orFilters.push(`sku.eq.${debouncedSearchTerm}`);
+          }
+          draQuery = draQuery.or(orFilters.join(','));
+      }
+
+      searchPromises.push(
+          draQuery.then(({ data, error }) => {
+              if (error) { console.error("Error searching deposit return advises:", error); return []; }
+              return data ? data.map(item => ({ ...item, type: 'deposit_return_advise' })) : [];
+          }) as Promise<SearchResult[]>
+      );
+
 
       const results = await Promise.all(searchPromises);
       return results.flat();
@@ -192,7 +236,8 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSear
         const description = (
           item.type === 'payment_request' ? item.supplier_name :
           item.type === 'transaction' ? item.description :
-          item.payee // for standing_order and direct_debit
+          item.type === 'deposit_return_advise' ? `Deposit Return for SKU: ${(item.country === 'United Kingdom' ? 'UK' : 'CH') + item.sku}` :
+          (item as any).payee // for standing_order and direct_debit
         ) || '';
         if (!description.toLowerCase().includes(lowerDescriptionFilter)) {
           return false;
@@ -202,7 +247,7 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSear
     });
   }, [searchResults, typeFilter, descriptionFilter, countryFilter]);
 
-  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit') => {
+  const getStatusBadge = (status: PaymentRequest['status'] | Transaction['status'] | StandingOrder['status'] | DirectDebit['status'] | DepositReturnAdvise['status'], itemType?: 'payment_request' | 'transaction' | 'standing_order' | 'direct_debit' | 'deposit_return_advise') => {
     let displayText = status.replace(/_/g, ' ').charAt(0).toUpperCase() + status.replace(/_/g, ' ').slice(1);
     let className = '';
 
@@ -249,6 +294,12 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSear
             displayText = 'Awaiting Info';
         }
         break;
+      case 'advised': // For Deposit Return Advise
+        className = 'bg-blue-500 text-blue-50';
+        break;
+      case 'processed': // For Deposit Return Advise
+        className = 'bg-green-500 text-green-50';
+        break;
       default:
         className = 'bg-gray-500 text-gray-50';
     }
@@ -280,6 +331,7 @@ const GlobalSearchResults: React.FC<GlobalSearchResultsProps> = ({ debouncedSear
                   <SelectItem value="transaction">Transaction</SelectItem>
                   <SelectItem value="standing_order">Standing Order</SelectItem>
                   <SelectItem value="direct_debit">Direct Debit</SelectItem>
+                  <SelectItem value="deposit_return_advise">Deposit Return Advise</SelectItem>
                 </SelectContent>
               </Select>
             </div>
