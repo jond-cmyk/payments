@@ -12,9 +12,8 @@ import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock } from 'lucide-react';
+import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock, ArrowUp, ArrowDown } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import EconomicDetailDialog, { DialogColumn, extractList, formatAmount } from '@/components/economic/EconomicDetailDialog';
@@ -70,14 +69,6 @@ type DepositCache = {
   entries: EconomicLedgerEntry[];
 };
 
-type GroupedDepositEntry = {
-  departmentNumber: number;
-  departmentName: string;
-  totalBalance: number; // Sum of remainder
-  currency: string; // Assuming one currency per department/country
-  entries: EconomicLedgerEntry[];
-};
-
 // Helper to get nested values from an object
 const pick = (obj: any, keys: string[]): any => {
   if (!obj) return undefined;
@@ -107,151 +98,6 @@ const pick = (obj: any, keys: string[]): any => {
   return undefined;
 };
 
-// New component to handle each customer's accordion item and balance fetching
-const DepartmentAccordionItem = ({ departmentName, group, country, handleViewDetails }: { departmentName: string; group: GroupedDepositEntry; country: string; handleViewDetails: (entries: EconomicLedgerEntry[], title: string, description: string) => void; }) => {
-  const { user } = useSession();
-  const queryClient = useQueryClient();
-  const [showFormDialog, setShowFormDialog] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const hasCreditBalance = group.totalBalance < 0;
-  const hasDebitBalance = group.totalBalance > 0;
-
-  const handleRequestRepaymentClick = () => {
-    if (group.totalBalance >= 0) {
-      showError("Cannot request repayment: The property does not have a credit balance.");
-    } else {
-      setShowFormDialog(true);
-    }
-  };
-
-  const handleCreateDepositReturnRequest = async (formValues: any) => {
-    if (!user || group.totalBalance >= 0) return;
-    setIsSubmitting(true);
-    const toastId = showLoading("Creating deposit return request...");
-
-    try {
-      // Note: We don't have customer details here, so we use department info for supplier name/address
-      const supplierName = `${departmentName} (SKU: ${group.departmentNumber})`;
-      const supplierAddress = 'Address derived from e-conomic department name.';
-
-      const { error } = await supabase.from('payment_requests').insert({
-        requester_id: user.id,
-        supplier_name: supplierName,
-        sku_number: `CH${group.departmentNumber}`, // Assuming CH prefix for SKU creation
-        not_sku_related: false,
-        supplier_address: supplierAddress,
-        currency: group.currency,
-        total_amount: Math.abs(group.totalBalance),
-        reason_for_payment: `Landlord Deposit Return for Property SKU: ${group.departmentNumber}`,
-        date_payment_required: new Date().toISOString().split('T')[0],
-        status: 'pending',
-        country: country,
-        is_deposit_return: false, // This is a Landlord Deposit, not Customer Deposit Return
-        receipt_required: false,
-        categories: [{ category: '5201_provider_deposit', amount: Math.abs(group.totalBalance) }],
-        invoice_pdf_urls: [],
-        bank_details_verified: formValues.bank_details_verified,
-        bank_account_name: formValues.bank_account_name,
-        iban_number: formValues.iban_number,
-        sort_code: country === 'United Kingdom' ? formValues.sort_code : null,
-        account_number: country === 'United Kingdom' ? formValues.account_number : null,
-      });
-
-      if (error) throw error;
-
-      dismissToast(toastId);
-      showSuccess("Landlord deposit return request created successfully!");
-      setShowFormDialog(false);
-      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
-      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
-    } catch (error: any) {
-      dismissToast(toastId);
-      showError(error.message || "Failed to create request.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <>
-      <AccordionItem value={departmentName}>
-        <AccordionTrigger className="text-lg font-semibold">
-          <span className="flex items-center gap-4">
-            <Home className="h-5 w-5 text-dyad-blue" />
-            {departmentName} (SKU: {group.departmentNumber})
-            <Badge className={cn(
-              "text-base px-3 py-1 whitespace-nowrap",
-              hasCreditBalance ? "bg-green-600 text-white" : hasDebitBalance ? "bg-red-600 text-white" : "bg-gray-500 text-white"
-            )}>
-              {formatAmount(group.totalBalance)} {group.currency}
-            </Badge>
-          </span>
-        </AccordionTrigger>
-        <AccordionContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead>Entry No.</TableHead>
-                <TableHead>Entry Type</TableHead>
-                <TableHead>Text</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Outstanding</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {group.entries.map(entry => (
-                <TableRow key={entry.entryNumber} className={cn(entry.remainder < 0 ? 'bg-green-50/50' : entry.remainder > 0 ? 'bg-red-50/50' : '')}>
-                  <TableCell>{format(parseISO(entry.date), 'PPP')}</TableCell>
-                  <TableCell>{entry.entryNumber}</TableCell>
-                  <TableCell>{entry.entryType}</TableCell>
-                  <TableCell>{entry.text}</TableCell>
-                  <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
-                  <TableCell className={cn("text-right font-semibold", entry.remainder < 0 ? 'text-green-600' : entry.remainder > 0 ? 'text-red-600' : 'text-gray-600')}>
-                    {formatAmount(entry.remainder)} {entry.currency}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="mt-4 flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleViewDetails(group.entries, `All Entries for SKU: ${group.departmentNumber}`, `Showing all ledger entries for account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER} and department ${group.departmentNumber}.`)}>
-              <FileText className="mr-2 h-4 w-4" /> View All Details
-            </Button>
-            {hasCreditBalance && (
-              <Button variant="destructive" size="sm" onClick={handleRequestRepaymentClick}>
-                Request Repayment ({formatAmount(Math.abs(group.totalBalance))} {group.currency})
-              </Button>
-            )}
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-
-      {/* Form Dialog for Landlord Deposit Return */}
-      {hasCreditBalance && (
-        <Dialog open={showFormDialog} onOpenChange={setShowFormDialog}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Request Landlord Deposit Repayment</DialogTitle>
-              <DialogDescription>
-                Create a payment request to return the credit balance to the landlord for property {departmentName} (SKU: {group.departmentNumber}).
-              </DialogDescription>
-            </DialogHeader>
-            <DepositReturnForm
-              customerName={departmentName}
-              returnAmount={Math.abs(group.totalBalance)}
-              currency={group.currency}
-              onSubmit={handleCreateDepositReturnRequest}
-              isSubmitting={isSubmitting}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
-    </>
-  );
-};
-
 const LandlordDeposits = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
   const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
@@ -259,13 +105,14 @@ const LandlordDeposits = () => {
   const queryClient = useQueryClient();
 
   const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
-  const [debouncedFilterTerm, setDebouncedFilterTerm] = useState(''); // State used to trigger the query (numeric SKU)
+  const [debouncedFilterTerm, setDebouncedFilterTerm] = useState('');
   const [isFetching, setIsFetching] = useState(false);
   const [showDetailDialog, setShowDetailDialog] = useState(false);
   const [dialogData, setDialogData] = useState<EconomicLedgerEntry[] | null>(null);
   const [dialogTitle, setDialogTitle] = useState('');
   const [dialogDescription, setDialogDescription] = useState('');
-  const [entryNumberSearch, setEntryNumberSearch] = useState(''); // NEW: State for direct entry search
+  const [entryNumberSearch, setEntryNumberSearch] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -279,7 +126,6 @@ const LandlordDeposits = () => {
     return departmentMap.get(deptNumber) || `Dept #${deptNumber} (Name Not Found)`;
   };
 
-  // --- CACHE CHECK QUERY ---
   const { data: cacheData, isLoading: isLoadingCache, refetch: refetchCache } = useQuery<DepositCache | null>({
     queryKey: ['landlordDepositCache', currentCountry],
     queryFn: async () => {
@@ -289,16 +135,15 @@ const LandlordDeposits = () => {
         .eq('country', currentCountry)
         .single();
       
-      if (error && error.code !== 'PGRST116') { // PGRST116 is "No rows found"
+      if (error && error.code !== 'PGRST116') {
         console.error("Error fetching deposit cache:", error);
       }
       return data || null;
     },
     enabled: !!session,
-    staleTime: 0, // Always check freshness manually
+    staleTime: 0,
   });
 
-  // --- CACHE REFRESH LOGIC ---
   const isCacheStale = useMemo(() => {
     if (!cacheData) return true;
     const cachedAt = parseISO(cacheData.cached_at);
@@ -317,15 +162,9 @@ const LandlordDeposits = () => {
       });
 
       if (invokeError) throw new Error(invokeError.message);
-      
-      // CRITICAL: Check for error payload returned by the Edge Function
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (data?.error) throw new Error(data.error);
 
       showSuccess(data?.message || `Cache refreshed successfully for ${currentCountry}.`);
-      
-      // Invalidate the cache query to force a refetch of the fresh data
       await queryClient.invalidateQueries({ queryKey: ['landlordDepositCache', currentCountry] });
       
     } catch (e: any) {
@@ -337,12 +176,8 @@ const LandlordDeposits = () => {
     }
   }, [session, currentCountry, queryClient]);
 
-  // --- MAIN DATA SOURCE (Cache) ---
-  const allAccountEntries = useMemo(() => {
-    return cacheData?.entries || [];
-  }, [cacheData]);
+  const allAccountEntries = useMemo(() => cacheData?.entries || [], [cacheData]);
 
-  // Effect to trigger cache refresh if stale or empty
   React.useEffect(() => {
     if (session && !isLoadingCache && (isCacheStale || !cacheData)) {
       console.log(`[LandlordDeposits] Cache is stale or empty. Triggering refresh for ${currentCountry}.`);
@@ -350,55 +185,48 @@ const LandlordDeposits = () => {
     }
   }, [session, isLoadingCache, isCacheStale, cacheData, currentCountry, refreshCacheMutation]);
 
-  // --- Grouping and Balance Calculation ---
-  const groupedEntries = useMemo(() => {
-    const groups: Record<number, GroupedDepositEntry> = {};
+  const displayedEntries = useMemo(() => {
+    let entries = [...allAccountEntries];
 
-    allAccountEntries.forEach(entry => {
-      const deptNum = pick(entry, ['department.departmentNumber', 'departmentNumber']);
-      const currency = pick(entry, ['currency', 'currency.code']) || 'N/A';
-      
-      if (deptNum != null) {
-        if (!groups[deptNum]) {
-          groups[deptNum] = {
-            departmentNumber: deptNum,
-            departmentName: getDepartmentName(deptNum),
-            totalBalance: 0,
-            currency: currency,
-            entries: [],
-          };
+    if (debouncedFilterTerm) {
+        const numericTerm = parseInt(debouncedFilterTerm, 10);
+        if (!isNaN(numericTerm)) {
+            entries = entries.filter(entry => {
+                const deptNum = pick(entry, ['department.departmentNumber', 'departmentNumber']);
+                return deptNum === numericTerm;
+            });
         }
+    }
+
+    entries.sort((a, b) => {
+        const aValue = pick(a, [sortConfig.key]);
+        const bValue = pick(b, [sortConfig.key]);
+
+        if (aValue == null) return 1;
+        if (bValue == null) return -1;
+
+        if (sortConfig.key === 'date') {
+            const dateA = parseISO(aValue).getTime();
+            const dateB = parseISO(bValue).getTime();
+            return sortConfig.direction === 'ascending' ? dateA - dateB : dateB - dateA;
+        }
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+            return sortConfig.direction === 'ascending' ? aValue - bValue : bValue - aValue;
+        }
+
+        const stringA = String(aValue).toLowerCase();
+        const stringB = String(bValue).toLowerCase();
         
-        const remainder = pick(entry, ['remainder']);
-        if (typeof remainder === 'number') {
-            groups[deptNum].totalBalance += remainder;
-        }
-        groups[deptNum].entries.push(entry);
-      }
+        if (stringA < stringB) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (stringA > stringB) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
     });
 
-    // Sort entries within each group by date
-    Object.values(groups).forEach(group => {
-      group.entries.sort((a, b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-    });
+    return entries;
+  }, [allAccountEntries, debouncedFilterTerm, sortConfig]);
 
-    // Convert to array and sort by department name
-    return Object.values(groups).sort((a, b) => a.departmentName.localeCompare(b.departmentName));
-  }, [allAccountEntries, getDepartmentName]);
-
-  // --- FILTERING LOGIC ---
-  const resultsToDisplay = useMemo(() => {
-    if (!debouncedFilterTerm) {
-      return groupedEntries; // If no filter, show all grouped entries
-    }
-    const numericTerm = parseInt(debouncedFilterTerm, 10);
-    if (isNaN(numericTerm)) {
-      return []; // Should not happen due to validation in handleSearch
-    }
-    return groupedEntries.filter(group => group.departmentNumber === numericTerm);
-  }, [groupedEntries, debouncedFilterTerm]);
-
-  const isLoadingEntries = isLoadingCache || isFetching; // Combined loading state
+  const isLoadingEntries = isLoadingCache || isFetching || isLoadingDepartments;
 
   const handleSearch = () => {
     const term = departmentSearchTerm.trim();
@@ -415,7 +243,6 @@ const LandlordDeposits = () => {
     }
   };
   
-  // NEW: Direct Entry Search Handler
   const handleDirectEntrySearch = async () => {
     const entryNum = entryNumberSearch.trim();
     if (!entryNum || !/^\d+$/.test(entryNum)) {
@@ -425,7 +252,6 @@ const LandlordDeposits = () => {
 
     const toastId = showLoading(`Searching for entry #${entryNum}...`);
     try {
-        // Use the most reliable path for a single entry associated with the account
         const path = `/account-ledger-entries/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/${entryNum}`;
         
         const { data, error: invokeError } = await supabase.functions.invoke("economic-api-proxy", {
@@ -459,12 +285,18 @@ const LandlordDeposits = () => {
     }
   };
 
-  const handleViewDetails = (entries: EconomicLedgerEntry[], title: string, description: string) => {
-    if (entries.length === 0) return;
-    setDialogData(entries);
-    setDialogTitle(title);
-    setDialogDescription(description);
-    setShowDetailDialog(true);
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+        key,
+        direction: prev.key === key && prev.direction === 'descending' ? 'ascending' : 'descending',
+    }));
+  };
+
+  const renderSortIcon = (key: string) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === 'ascending' ? <ArrowUp className="ml-1 h-4 w-4" /> : <ArrowDown className="ml-1 h-4 w-4" />;
+    }
+    return null;
   };
 
   const ledgerColumns: DialogColumn[] = [
@@ -475,9 +307,9 @@ const LandlordDeposits = () => {
     { 
       key: 'department', 
       header: 'Property Address', 
-      render: (item) => getDepartmentName(item.department?.departmentNumber) 
+      render: (item) => getDepartmentName(pick(item, ['department.departmentNumber', 'departmentNumber'])) 
     },
-    { key: 'account', header: 'Account', path: ['account.accountNumber'] }, // Added Account column
+    { key: 'account', header: 'Account', path: ['account.accountNumber'] },
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'amount.value', 'totalAmount', 'grossAmount'] },
     { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
     { key: 'remainder', header: 'Outstanding', format: 'currencyAmount', path: ['remainder'] },
@@ -502,7 +334,7 @@ const LandlordDeposits = () => {
             <Home className="mr-2 h-6 w-6" /> Landlord Deposits (Account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER})
           </CardTitle>
           <CardDescription>
-            View the current balance of all landlord deposits (Account {LANDLORD_DEPOSIT_ACCOUNT_NUMBER}), grouped by property SKU.
+            View all landlord deposit entries from e-conomic, filterable by property SKU.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -530,7 +362,7 @@ const LandlordDeposits = () => {
               </div>
               <Button
                 onClick={handleSearch}
-                disabled={isLoadingEntries || departmentSearchTerm.trim().length === 0}
+                disabled={isLoadingEntries}
                 className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
               >
                 <Search className="mr-2 h-4 w-4" />
@@ -547,7 +379,6 @@ const LandlordDeposits = () => {
               )}
             </div>
             
-            {/* NEW: Direct Entry Search Section */}
             <div className="flex flex-wrap items-end gap-4 p-4 border rounded-md bg-gray-50 shadow-sm">
                 <div className="flex-1 min-w-[250px]">
                     <label htmlFor="entry-number-search" className="block text-sm font-medium text-gray-700 mb-1">Direct Entry Number Lookup</label>
@@ -571,7 +402,6 @@ const LandlordDeposits = () => {
                 </Button>
             </div>
 
-            {/* Display Cache Status */}
             <Alert variant={isCacheStale ? "destructive" : "default"} className="mt-4">
                 <AlertTitle className="flex items-center">
                     {isCacheStale ? <AlertTriangle className="mr-2 h-4 w-4" /> : <Clock className="mr-2 h-4 w-4" />}
@@ -601,22 +431,42 @@ const LandlordDeposits = () => {
                 </AlertDescription>
             </Alert>
 
-            {/* Display Grouped Results */}
-            {isLoadingEntries && <p className="text-center text-muted-foreground">Loading deposit entries...</p>}
-            
-            {!isLoadingEntries && resultsToDisplay.length > 0 ? (
-              <Accordion type="multiple" className="w-full">
-                {resultsToDisplay.map((group) => (
-                  <DepartmentAccordionItem
-                    key={group.departmentNumber}
-                    departmentName={group.departmentName}
-                    group={group}
-                    country={currentCountry}
-                    handleViewDetails={handleViewDetails}
-                  />
-                ))}
-              </Accordion>
-            ) : !isLoadingEntries && (
+            {isLoadingEntries ? (
+              <div className="space-y-2">
+                {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : displayedEntries.length > 0 ? (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort('entryNumber')}>Entry No. {renderSortIcon('entryNumber')}</TableHead>
+                      <TableHead>Entry Type</TableHead>
+                      <TableHead>Text</TableHead>
+                      <TableHead className="cursor-pointer" onClick={() => handleSort('department.departmentNumber')}>Property (SKU) {renderSortIcon('department.departmentNumber')}</TableHead>
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount')}>Amount {renderSortIcon('amount')}</TableHead>
+                      <TableHead className="text-right cursor-pointer" onClick={() => handleSort('remainder')}>Outstanding {renderSortIcon('remainder')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedEntries.map((entry, index) => (
+                      <TableRow key={entry.self || index}>
+                        <TableCell>{format(parseISO(entry.date), 'PPP')}</TableCell>
+                        <TableCell>{entry.entryNumber}</TableCell>
+                        <TableCell>{entry.entryType}</TableCell>
+                        <TableCell>{entry.text}</TableCell>
+                        <TableCell>{getDepartmentName(pick(entry, ['department.departmentNumber', 'departmentNumber']))}</TableCell>
+                        <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                        <TableCell className={cn("text-right font-semibold", entry.remainder < 0 ? 'text-green-600' : entry.remainder > 0 ? 'text-red-600' : 'text-gray-600')}>
+                          {formatAmount(entry.remainder)} {entry.currency}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
               <p className="text-center text-muted-foreground mt-8">
                 {debouncedFilterTerm ? `No entries found matching SKU "${debouncedFilterTerm}" in account ${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}.` : `No landlord deposit entries found for ${currentCountry}.`}
               </p>
