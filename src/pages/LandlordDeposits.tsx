@@ -4,9 +4,9 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { format, parseISO, isWithinInterval } from 'date-fns';
-import { PaymentRequest } from '@/types/supabase';
+import { PaymentRequest, DepositReturnAdvise } from '@/types/supabase';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import DepositReturnForm from '@/components/deposits/DepositReturnForm';
+import AdviseDepositReturnForm from '@/components/deposits/AdviseDepositReturnForm';
 
 // Define the Landlord Deposit Account Number
 const LANDLORD_DEPOSIT_ACCOUNT_NUMBER = 5201;
@@ -102,6 +102,7 @@ const LandlordDeposits = () => {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [showTransactionsTable, setShowTransactionsTable] = useState(false);
+  const [isAdviseDialogOpen, setIsAdviseDialogOpen] = useState(false);
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -311,6 +312,38 @@ const LandlordDeposits = () => {
     return null;
   };
 
+  const adviseDepositReturnMutation = useMutation({
+    mutationFn: async (values: Omit<DepositReturnAdvise, 'id' | 'created_at' | 'advised_by' | 'status'> & { advised_by: string }) => {
+        const { error } = await supabase.from('deposit_return_advise').insert(values);
+        if (error) throw error;
+        return true;
+    },
+    onSuccess: () => {
+        showSuccess("Deposit return advice submitted successfully!");
+        setIsAdviseDialogOpen(false);
+    },
+    onError: (error: any) => {
+        showError(error.message || "Failed to submit advice.");
+    },
+  });
+
+  const handleAdviseSubmit = async (values: any) => {
+    if (!userProfile) {
+        showError("User profile not found.");
+        return;
+    }
+    await adviseDepositReturnMutation.mutateAsync({
+        advised_by: userProfile.id,
+        country: values.country,
+        sku: values.sku,
+        total_deposit: values.total_deposit,
+        currency: values.currency,
+        deductions: values.deductions,
+        expected_refund: values.expected_refund,
+        notes: values.notes,
+    });
+  };
+
   const ledgerColumns: DialogColumn[] = [
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate'] },
     { key: 'entryNumber', header: 'Entry No.', path: ['entryNumber', 'number', 'id'] },
@@ -429,9 +462,12 @@ const LandlordDeposits = () => {
                         {propertyNameForFilter && <span className="font-bold ml-2">- {propertyNameForFilter}</span>}
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="space-y-4">
                       <p className="text-3xl font-bold text-blue-900">{formatAmount(totalDepositBalance)} {depositCurrency}</p>
-                      <p className="text-sm text-blue-700">A Positive Balance Indicates a Deposit Held.</p>
+                      <p className="text-sm text-blue-700">A Positive Balance Indicates a Deposit Held. by The Landlord</p>
+                      <Button onClick={() => setIsAdviseDialogOpen(true)} className="w-full mt-4">
+                        Advise of Deposit Return
+                      </Button>
                     </CardContent>
                   </Card>
                 )}
@@ -521,6 +557,25 @@ const LandlordDeposits = () => {
         isLoading={false} 
         defaultSort={{ key: 'date', direction: 'descending' }} 
       />
+
+      <Dialog open={isAdviseDialogOpen} onOpenChange={setIsAdviseDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+                <DialogTitle>Advise of Deposit Return</DialogTitle>
+                <DialogDescription>
+                    Complete the form below to notify an administrator that a deposit is ready to be returned.
+                </DialogDescription>
+            </DialogHeader>
+            <AdviseDepositReturnForm
+                sku={debouncedFilterTerm}
+                country={currentCountry}
+                totalDeposit={totalDepositBalance}
+                currency={depositCurrency}
+                onSubmit={handleAdviseSubmit}
+                isSubmitting={adviseDepositReturnMutation.isPending}
+            />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

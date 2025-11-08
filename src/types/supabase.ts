@@ -230,3 +230,18 @@ export type PayeeSuggestion = {
   bank_account: string | null; // For CH standing orders/transactions
   payment_reference: string | null; // ADDED: Fix TS2339
 };
+
+/** Deposit Return Advise */
+export type DepositReturnAdvise = {
+  id: string;
+  created_at: string;
+  advised_by: string | null;
+  country: string;
+  sku: string;
+  total_deposit: number;
+  currency: string;
+  deductions: { category: string; amount: number }[] | null;
+  expected_refund: number;
+  status: 'advised' | 'processed';
+  notes: string | null;
+};
