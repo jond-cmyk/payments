@@ -541,10 +541,12 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
       {paymentRequestsForTable || isRequestsTableLoading ? (
         <Card className="shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">
-              {isAllRequestsPage ? 'All Payment Requests' : 'Priority Payment Requests'}
-            </CardTitle>
-            <div className="flex items-center space-x-2">
+            {!isAllRequestsPage && (
+              <CardTitle className="text-2xl font-bold">
+                Priority Payment Requests
+              </CardTitle>
+            )}
+            <div className="flex items-center space-x-2 ml-auto">
               {userRole === 'admin' && isAllRequestsPage && (
                 <Button onClick={handleDownloadPaymentRequests} className="shadow-sm" variant="outline">
                   <FileDown className="mr-2 h-4 w-4" /> Download to Excel

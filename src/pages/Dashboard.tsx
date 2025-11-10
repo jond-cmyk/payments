@@ -84,7 +84,6 @@ const Dashboard = () => {
           debouncedSearchTerm={debouncedSearchTerm}
           itemsPerPage={itemsPerPage}
           onItemsPerPageChange={handleItemsPerPageChange}
-          isAllRequestsPage={isAllRequestsPage}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
         />

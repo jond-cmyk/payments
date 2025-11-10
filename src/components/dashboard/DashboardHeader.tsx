@@ -21,7 +21,6 @@ interface DashboardHeaderProps {
   debouncedSearchTerm: string;
   itemsPerPage: number | 'all';
   onItemsPerPageChange: (value: number | 'all') => void;
-  isAllRequestsPage: boolean;
   viewMode: 'my' | 'all';
   onViewModeChange: (mode: 'my' | 'all') => void;
 }
@@ -30,7 +29,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   debouncedSearchTerm,
   itemsPerPage,
   onItemsPerPageChange,
-  isAllRequestsPage,
   viewMode,
   onViewModeChange,
 }) => {
@@ -43,7 +41,7 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const [isAddStandingOrderDialogOpen, setIsAddStandingOrderDialogOpen] = React.useState(false);
 
   const userRole = userProfile?.role || null;
-
+  const isAllRequestsPage = location.pathname === '/admin/requests';
   const mainTitle = isAllRequestsPage ? 'All Payment Requests' : '';
 
   const handleFeedbackSubmitted = () => {
