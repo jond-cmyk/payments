@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNotifications } from '@/integrations/supabase/NotificationContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign, MessageSquareText, BarChart, Home as HomeIcon } from 'lucide-react';
+import { Home, PlusCircle, List, LogOut, User, Users, Upload, FileX, Mail, Archive, Bell, BellOff, Globe, KeyRound, Settings, Banknote, Repeat, DollarSign, MessageSquareText, BarChart, Home as HomeIcon, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
@@ -18,7 +18,7 @@ import {
   AccordionContent,
   AccordionItem,
 } from "@/components/ui/accordion";
-import { CustomAccordionTrigger } from '@/components/CustomAccordionTrigger';
+import { CustomAccordionTrigger } from "@/components/CustomAccordionTrigger";
 import { ScrollArea } from '@/components/ui/scroll-area'; // NEW: Import ScrollArea
 
 interface SidebarProps {
@@ -150,6 +150,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
           </NavLink>
           <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" />
           <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" />
+          <NavLink to="/user-guide" icon={<BookOpen className="h-5 w-5" />} label="User Guide" />
           
           {currentRole === 'admin' && (
             <>

@@ -40,7 +40,8 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const AdminDepartments = lazy(() => import("./pages/AdminDepartments"));
 const Customers = lazy(() => import("./pages/Customers"));
 const LandlordDeposits = lazy(() => import("./pages/LandlordDeposits"));
-const DepositReturnAdvisements = lazy(() => import("./pages/DepositReturnAdvisements")); // NEW IMPORT
+const DepositReturnAdvisements = lazy(() => import("./pages/DepositReturnAdvisements"));
+const UserGuide = lazy(() => import("./pages/UserGuide")); // NEW IMPORT
 
 const queryClient = new QueryClient();
 
@@ -99,7 +100,8 @@ const App = () => {
                         <Route path="/admin/statistics" element={<Statistics />} />
                         <Route path="/admin/customers" element={<Customers />} />
                         <Route path="/landlord-deposits" element={<LandlordDeposits />} />
-                        <Route path="/deposit-return-advisements" element={<DepositReturnAdvisements />} /> {/* NEW ROUTE */}
+                        <Route path="/deposit-return-advisements" element={<DepositReturnAdvisements />} />
+                        <Route path="/user-guide" element={<UserGuide />} /> {/* NEW ROUTE */}
                       </Route>
 
                       {/* Protected routes requiring approval */}
