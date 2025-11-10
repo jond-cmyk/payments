@@ -3,14 +3,13 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { BookOpen, Home, PlusCircle, List, FileX, Repeat, Banknote, Users, Settings, DollarSign, MessageSquareText, BarChart, FileText, CheckCircle, Clock, AlertTriangle, Bell, Check } from 'lucide-react'; // Added Check icon
+import { BookOpen, Home, PlusCircle, List, FileX, Repeat, Banknote, Users, Settings, DollarSign, MessageSquareText, BarChart, Home as HomeIcon, Check, Lightbulb, Palette, Search, Filter, Clock, CheckCircle, AlertTriangle, FileText, Bell } from 'lucide-react';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Added Table components
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 const UserGuide = () => {
   const { session, isLoading, userProfile } = useSession();
@@ -41,6 +40,7 @@ const UserGuide = () => {
               <li className="flex items-center"><AlertTriangle className="h-4 w-4 mr-2 text-red-600" /> <strong>Urgent Requests:</strong> Requests marked for immediate attention.</li>
               <li className="flex items-center"><FileX className="h-4 w-4 mr-2 text-orange-600" /> <strong>Missing Receipts:</strong> Transactions requiring receipt uploads.</li>
             </ul>
+            <p className="mt-2">For Requesters, you can toggle between "My Requests" and "All Requests" in your country to change your view.</p>
           </div>
         </>
       ),
@@ -56,7 +56,8 @@ const UserGuide = () => {
             <li><strong>New Standing Order:</strong> For fixed, recurring payments (e.g., rent, subscriptions).</li>
             <li><strong>New Direct Debit:</strong> For recurring payments where the payee pulls the funds (e.g., utilities).</li>
           </ul>
-          <p className="mt-4">**Remember:** Always verify bank details and attach the necessary documents (like invoices) before submitting!</p>
+          <p className="mt-4">**Pro Tip:** When you enter a supplier or payee name, the system will search for existing payees to help you auto-fill bank details, saving you time!</p>
+          <p className="mt-2">**Remember:** Always verify bank details and attach the necessary documents (like invoices) before submitting!</p>
         </>
       ),
     },
@@ -65,10 +66,10 @@ const UserGuide = () => {
       icon: <FileText className="h-6 w-6 text-dyad-blue" />,
       content: (
         <>
-          <p>The app helps you track two main types of transactions:</p>
+          <p>This section is for reconciling expenses, typically from company card payments.</p>
           <div className="mt-4 space-y-2">
             <h4 className="font-semibold text-lg text-gray-800">Missing Receipts:</h4>
-            <p>This section lists transactions (usually card payments) that require you to upload a receipt and categorize the expense. Click "View/Add Receipt" to complete the details and mark the transaction as <CheckCircle className="h-4 w-4 inline text-green-600" /> **Completed**.</p>
+            <p>This page lists all transactions that are in a 'Pending Input' state. To complete them, you must click "View/Add Receipt" and provide the required information: a receipt, a category, a merchant name, and an SKU (unless marked as not SKU-related). Once all fields are filled, the transaction will automatically move to 'Completed'.</p>
             <h4 className="font-semibold text-lg text-gray-800">Completed Receipts:</h4>
             <p>A historical archive of all transactions that have been fully processed and have receipts attached, organized by month.</p>
           </div>
@@ -83,7 +84,7 @@ const UserGuide = () => {
           <p>Standing Orders and Direct Debits are managed in their respective sections. These are typically set up once and then monitored.</p>
           <ul className="list-disc list-inside space-y-1 mt-4 pl-4">
             <li>**Status:** Payments move from **Pending** (awaiting admin review) to **Active**, **Paused**, or **Cancelled**.</li>
-            <li>**Awaiting Info:** If a Direct Debit or Standing Order is uploaded via CSV and is missing critical information, it will be marked as 'Awaiting Info' until an admin edits the details.</li>
+            <li>**Awaiting Info:** If a Direct Debit or Standing Order is uploaded via CSV and is missing critical information, it will be marked as 'Awaiting Info' until an admin or requester edits the details.</li>
             <li>**Audit Trail:** Every change, including comments, is logged in the Audit Trail for full transparency.</li>
           </ul>
         </>
@@ -95,10 +96,10 @@ const UserGuide = () => {
       content: (
         <>
           <p>These sections help manage deposits related to properties:</p>
-          <ul className="list-disc list-inside space-y-1 mt-4 pl-4">
-            <li>**Landlord Deposits:** Allows you to search e-conomic entries by SKU to view the current deposit balance held for a property. If a refund is due, you can **Advise of Deposit Return**.</li>
-            <li>**Deposit Return Advisements:** (Admin/Requester) Lists all advised deposit returns, allowing admins to review and mark them as processed.</li>
-            <li>**Customer Deposit Returns:** (All Users) Allows searching for 'Final Statement' entries in e-conomic to initiate a deposit return request for a customer if no outstanding balance exists.</li>
+          <ul className="list-disc list-inside space-y-2 mt-4 pl-4">
+            <li><strong>Landlord Deposits:</strong> Search by property SKU to see the current deposit balance held by a landlord. If a refund is due, you can click **Advise of Deposit Return** to create a task for an admin.</li>
+            <li><strong>Customer Deposit Returns:</strong> Search for 'Final Statement' entries in e-conomic to initiate a deposit return request *to* a customer if they have a credit balance.</li>
+            <li><strong>Deposit Return Advisements:</strong> A queue for admins to review and process deposit return requests initiated from the Landlord Deposits page.</li>
           </ul>
         </>
       ),
@@ -138,6 +139,22 @@ const UserGuide = () => {
     },
   ];
 
+  const statusGlossary = [
+    { status: 'Pending', color: 'bg-yellow-500', description: 'Awaiting initial review by an administrator.' },
+    { status: 'Payment Setup', color: 'bg-blue-500', description: 'The payment has been set up in the bank and is awaiting final approval.' },
+    { status: 'Queried', color: 'bg-gray-500', description: 'An admin has a question. Check the comments for details.' },
+    { status: 'Paused', color: 'bg-gray-500', description: 'The request is on hold. No action will be taken until it is unpaused.' },
+    { status: 'Payment Complete / Approved', color: 'bg-green-500', description: 'The payment has been fully approved and processed.' },
+    { status: 'Declined / Cancelled', color: 'bg-red-500', description: 'The request has been rejected or cancelled.' },
+    { status: 'Awaiting Info', color: 'bg-orange-500', description: 'A recurring payment is missing key details and needs to be edited.' },
+  ];
+
+  const tips = [
+    { icon: <Lightbulb className="h-5 w-5 text-yellow-500" />, text: "Use the 'Payee Suggestion' feature when creating new requests to auto-fill bank details from past payments." },
+    { icon: <Search className="h-5 w-5 text-blue-500" />, text: "The global search bar in the header searches across all payment types, including requests, transactions, and recurring payments." },
+    { icon: <Filter className="h-5 w-5 text-green-500" />, text: "Use the filter options on the 'All Requests', 'Standing Orders', and 'Direct Debits' pages to quickly find what you're looking for." },
+  ];
+
   const permissionsMatrix = [
     { feature: "View Dashboard", requester: true, admin: true },
     { feature: "Create New Payment Request", requester: true, admin: true },
@@ -146,9 +163,9 @@ const UserGuide = () => {
     { feature: "View All Requests (Table)", requester: true, admin: true },
     { feature: "View/Add Missing Receipts", requester: true, admin: true },
     { feature: "View Completed Receipts", requester: true, admin: true },
-    { feature: "View/Edit Pending/Queried Requests", requester: true, admin: true }, // UPDATED
-    { feature: "View/Edit Direct Debits", requester: true, admin: true },
-    { feature: "View/Edit Standing Orders", requester: false, admin: true },
+    { feature: "Edit own Pending/Queried Requests", requester: true, admin: true },
+    { feature: "Edit any Direct Debit", requester: true, admin: true },
+    { feature: "Edit any Standing Order", requester: false, admin: true },
     { feature: "View Customer Deposit Returns", requester: true, admin: true },
     { feature: "View Landlord Deposits", requester: true, admin: true },
     { feature: "Advise Deposit Return (Landlord)", requester: true, admin: true },
@@ -156,12 +173,11 @@ const UserGuide = () => {
     { feature: "Submit Feedback", requester: true, admin: true },
     { feature: "View Statistics", requester: true, admin: true },
     { feature: "---", requester: false, admin: false },
-    { feature: "Approve/Decline/Query Requests", requester: false, admin: true },
+    { feature: "Approve/Decline/Query/Pause/Cancel Requests", requester: false, admin: true },
     { feature: "Mark Deposit Advisement as Processed", requester: false, admin: true },
     { feature: "Upload Spreadsheets (Transactions/SO/DD)", requester: false, admin: true },
     { feature: "User Management (Approve/Edit Roles)", requester: false, admin: true },
-    { feature: "Access Admin Panel", requester: false, admin: true },
-    { feature: "Access E-conomic Integration Tools", requester: false, admin: true },
+    { feature: "Access Admin Panel & E-conomic Tools", requester: false, admin: true },
   ];
 
   const Checkmark = () => <Check className="h-5 w-5 text-green-600 mx-auto" />;
@@ -212,7 +228,51 @@ const UserGuide = () => {
 
           <Separator />
 
-          {/* Permissions Matrix Table */}
+          <div className="space-y-4">
+            <h3 className="flex items-center text-2xl font-bold text-gray-800">
+              <Palette className="h-6 w-6 mr-3" /> Status Glossary
+            </h3>
+            <p className="text-gray-700">Understand what each status means at a glance.</p>
+            <div className="overflow-x-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-1/4 font-bold text-gray-900">Status</TableHead>
+                    <TableHead className="w-3/4 font-bold text-gray-900">Description</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {statusGlossary.map((item) => (
+                    <TableRow key={item.status}>
+                      <TableCell>
+                        <Badge className={item.color}>{item.status}</Badge>
+                      </TableCell>
+                      <TableCell>{item.description}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h3 className="flex items-center text-2xl font-bold text-gray-800">
+              <Lightbulb className="h-6 w-6 mr-3" /> Tips & Best Practices
+            </h3>
+            <ul className="space-y-3">
+              {tips.map((tip, index) => (
+                <li key={index} className="flex items-start gap-3 p-3 bg-gray-50 rounded-md">
+                  <div className="flex-shrink-0 mt-1">{tip.icon}</div>
+                  <p className="text-gray-700">{tip.text}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <Separator />
+
           <div className="space-y-4">
             <h3 className="flex items-center text-2xl font-bold text-gray-800">
               <Users className="h-6 w-6 mr-3" /> Feature Access Matrix
