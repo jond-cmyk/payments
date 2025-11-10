@@ -89,7 +89,7 @@ const UserGuide = () => {
       ),
     },
     {
-      title: "5. Deposit Management (Admin/Requester)",
+      title: "5. Deposit Management",
       icon: <DollarSign className="h-6 w-6 text-dyad-blue" />,
       content: (
         <>
@@ -97,7 +97,7 @@ const UserGuide = () => {
           <ul className="list-disc list-inside space-y-1 mt-4 pl-4">
             <li>**Landlord Deposits:** Allows you to search e-conomic entries by SKU to view the current deposit balance held for a property. If a refund is due, you can **Advise of Deposit Return**.</li>
             <li>**Deposit Return Advisements:** (Admin/Requester) Lists all advised deposit returns, allowing admins to review and mark them as processed.</li>
-            <li>**Customer Deposit Returns:** (Admin only) Allows searching for 'Final Statement' entries in e-conomic to initiate a deposit return request for a customer if no outstanding balance exists.</li>
+            <li>**Customer Deposit Returns:** (All Users) Allows searching for 'Final Statement' entries in e-conomic to initiate a deposit return request for a customer if no outstanding balance exists.</li>
           </ul>
         </>
       ),
