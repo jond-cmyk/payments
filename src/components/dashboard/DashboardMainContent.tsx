@@ -566,7 +566,6 @@ const DashboardMainContent: React.FC<DashboardMainContentProps> = ({
             totalItems={totalItems}
             onPageChange={setCurrentPage}
             isLoading={isRequestsTableLoading || isLoadingDepartments}
-            isAllRequestsPage={isAllRequestsPage}
           />
         </Card>
       ) : (

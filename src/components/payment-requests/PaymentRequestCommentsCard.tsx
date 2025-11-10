@@ -25,7 +25,6 @@ interface PaymentRequestCommentsCardProps {
   comments: PaymentRequestAudit[] | undefined;
   auditUsers: Record<string, string> | undefined;
   isAdmin: boolean;
-  isRequester: boolean; // New prop
   request: PaymentRequest; // New prop
   currentUser: User | null;
   onAddComment: (commentText: string) => Promise<void>;
@@ -37,7 +36,6 @@ const PaymentRequestCommentsCard: React.FC<PaymentRequestCommentsCardProps> = ({
   comments,
   auditUsers,
   isAdmin,
-  isRequester, // Destructure new prop
   request, // Destructure new prop
   currentUser,
   onAddComment,

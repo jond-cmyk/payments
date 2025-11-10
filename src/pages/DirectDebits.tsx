@@ -172,7 +172,7 @@ const DirectDebits = () => {
 
   const isAdmin = userProfile?.role === 'admin';
   const isRequesterRole = userProfile?.role === 'requester';
-  const canEditAnyDD = isAdmin || isRequesterRole; // NEW: Any requester can edit
+  const canEditAnyDD = isAdmin || isRequesterRole; // Any requester can edit
 
   // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({

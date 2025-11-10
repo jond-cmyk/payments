@@ -50,7 +50,6 @@ interface PaymentRequestTableProps {
   totalItems: number; // New prop
   onPageChange: (page: number) => void; // New prop
   isLoading: boolean; // NEW: Add isLoading prop
-  isAllRequestsPage: boolean;
 }
 
 const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
@@ -67,7 +66,6 @@ const PaymentRequestTable: React.FC<PaymentRequestTableProps> = ({
   totalItems,
   onPageChange,
   isLoading, // NEW: Destructure isLoading
-  isAllRequestsPage,
 }) => {
   const totalPages = itemsPerPage === 'all' ? 1 : Math.ceil(totalItems / (itemsPerPage as number));
 

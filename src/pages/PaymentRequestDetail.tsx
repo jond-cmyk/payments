@@ -575,7 +575,7 @@ const PaymentRequestDetail = () => {
   // The `canAmend` logic now allows any authenticated user to amend pending or queried requests
   const canAmend = !!user && (request.status === 'pending' || request.status === 'queried');
   const isAdmin = userRole === 'admin';
-  const isRequester = !!user; // Any authenticated user
+  // const isRequester = !!user; // Removed unused variable
 
   return (
     <div className="container mx-auto py-8">
@@ -677,7 +677,6 @@ const PaymentRequestDetail = () => {
         comments={comments}
         auditUsers={auditUsers}
         isAdmin={isAdmin}
-        isRequester={isRequester}
         request={request}
         currentUser={user}
         onAddComment={handleAddComment}
