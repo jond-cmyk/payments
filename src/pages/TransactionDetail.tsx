@@ -339,7 +339,6 @@ const TransactionDetail = () => {
           form={form}
           onSubmit={onSubmit}
           updateTransactionMutation={updateTransactionMutation}
-          // Removed categoryOptions prop
         />
       )}
 

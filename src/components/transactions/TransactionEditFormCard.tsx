@@ -28,7 +28,6 @@ interface TransactionEditFormCardProps {
   form: ReturnType<typeof useForm<TransactionDetailSchema>>; // Use centralized schema type
   onSubmit: (values: TransactionDetailSchema) => Promise<void>; // Use centralized schema type
   updateTransactionMutation: UseMutationResult<boolean, Error, Partial<Transaction> & { new_receipt_files?: FileList }, unknown>;
-  // Removed categoryOptions prop as it will be filtered internally
 }
 
 const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
@@ -37,7 +36,6 @@ const TransactionEditFormCard: React.FC<TransactionEditFormCardProps> = ({
   form,
   onSubmit,
   updateTransactionMutation,
-  // Removed categoryOptions from props
 }) => {
   const { currentCountry } = useCountry(); // Get currentCountry from context
 
