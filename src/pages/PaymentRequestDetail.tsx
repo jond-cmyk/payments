@@ -484,8 +484,8 @@ const PaymentRequestDetail = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentRequest', id] });
       queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
-      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Invalidate dashboard table
-      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] }); // Invalidate summary cards
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
       showSuccess("Reminder sent successfully!");
     },
     onError: (error: any) => {
@@ -573,9 +573,9 @@ const PaymentRequestDetail = () => {
   }
 
   // The `canAmend` logic now allows any authenticated user to amend pending or queried requests
-  const canAmend = (request.status === 'pending' || request.status === 'queried');
+  const canAmend = !!user && (request.status === 'pending' || request.status === 'queried');
   const isAdmin = userRole === 'admin';
-  const isRequester = user?.id === request.requester_id;
+  const isRequester = !!user; // Any authenticated user
 
   return (
     <div className="container mx-auto py-8">
