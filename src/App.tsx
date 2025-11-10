@@ -101,7 +101,8 @@ const App = () => {
                         <Route path="/admin/customers" element={<Customers />} />
                         <Route path="/landlord-deposits" element={<LandlordDeposits />} />
                         <Route path="/deposit-return-advisements" element={<DepositReturnAdvisements />} />
-                        <Route path="/user-guide" element={<UserGuide />} /> {/* NEW ROUTE */}
+                        <Route path="/user-guide" element={<UserGuide />} />
+                        <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
                       </Route>
 
                       {/* Protected routes requiring approval */}
@@ -115,7 +116,6 @@ const App = () => {
                         <Route path="/admin/upload-transactions" element={<AdminUploadTransactions />} />
                         <Route path="/admin/upload-direct-debits" element={<AdminUploadDirectDebits />} />
                         <Route path="/admin/upload-standing-orders" element={<AdminUploadStandingOrders />} />
-                        <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
                         <Route path="/notifications" element={<NotificationsPage />} />
                         <Route path="/admin/feedback" element={<AdminFeedback />} />
                         <Route path="/admin/economic-integration" element={<EconomicIntegration />} />
