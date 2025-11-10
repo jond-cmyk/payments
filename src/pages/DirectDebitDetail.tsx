@@ -72,6 +72,7 @@ const DirectDebitDetail = () => {
 
   const isAdmin = userProfile?.role === 'admin';
   const isRequester = user?.id === directDebit?.requester_id;
+  const canEdit = isAdmin || isRequester; // NEW: Allow editing if admin or requester
 
   // Effect to auto-reset country filter if item not found
   useEffect(() => {
@@ -250,13 +251,15 @@ const DirectDebitDetail = () => {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Direct Debit #{directDebit.id.substring(0, 8)}</h1>
         <div className="flex space-x-2">
-          <Button
-            variant="outline"
-            className="shadow-sm"
-            onClick={() => handleEditClick(directDebit)}
-          >
-            <Edit className="mr-2 h-4 w-4" /> Edit Direct Debit
-          </Button>
+          {canEdit && ( // Conditional rendering based on canEdit
+            <Button
+              variant="outline"
+              className="shadow-sm"
+              onClick={() => handleEditClick(directDebit)}
+            >
+              <Edit className="mr-2 h-4 w-4" /> Edit Direct Debit
+            </Button>
+          )}
           {isAdmin && (
             <AlertDialog>
               <AlertDialogTrigger asChild>

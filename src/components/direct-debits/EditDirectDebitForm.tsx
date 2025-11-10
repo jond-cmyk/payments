@@ -130,6 +130,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   const skuValue = form.watch("sku");
   const isAdmin = userProfile?.role === 'admin';
   const isRequester = user?.id === directDebit.requester_id;
+  const canEditFields = isAdmin || isRequester; // Allow editing if admin OR requester
 
   const onSubmit = async (values: z.infer<typeof editDirectDebitFormSchema>) => {
     const toastId = showLoading("Updating direct debit...");
@@ -139,23 +140,28 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
         throw new Error("User not authenticated.");
       }
 
-      const prevDate = directDebit.payment_date ? new Date(directDebit.payment_date + 'T00:00:00Z') : new Date();
-      const year = prevDate.getUTCFullYear();
-      const monthIndex = prevDate.getUTCMonth();
-      
-      const lastDayOfMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+      const now = new Date();
+      const year = now.getFullYear();
+      const monthIndex = now.getMonth();
+      const lastDayOfMonth = new Date(year, monthIndex + 1, 0).getDate();
       const safeDay = values.payment_day ? Math.min(values.payment_day, lastDayOfMonth) : null;
       
-      const paymentDate = new Date(Date.UTC(year, monthIndex, safeDay || 1)).toISOString().split('T')[0];
+      // Use the existing payment_date's month/year, but update the day
+      const prevDate = directDebit.payment_date ? new Date(directDebit.payment_date + 'T00:00:00Z') : new Date();
+      const prevYear = prevDate.getUTCFullYear();
+      const prevMonthIndex = prevDate.getUTCMonth();
+      
+      // Construct the new payment date using the existing month/year and the new day
+      const newPaymentDate = new Date(Date.UTC(prevYear, prevMonthIndex, safeDay || 1)).toISOString().split('T')[0];
 
-      // FIX: Use original country if form value is missing (due to disabled field for non-admins)
+      // Use original country if form value is missing (due to disabled field for non-admins)
       const countryForUpdate = (values.country && values.country.trim() !== '') ? values.country : directDebit.country;
 
       const { error: updateError } = await supabase
         .from('direct_debits')
         .update({
           payee: values.payee,
-          payment_date: paymentDate,
+          payment_date: newPaymentDate, // Use the newly calculated date
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           categories: values.categories,
@@ -230,7 +236,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   <Input 
                     placeholder="e.g., Electricity Company" 
                     {...field} 
-                    disabled={form.formState.isSubmitting}
+                    disabled={form.formState.isSubmitting || !canEditFields}
                   />
                 </FormControl>
                 <FormMessage />
@@ -251,6 +257,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   <Select
                     onValueChange={(val) => field.onChange(Number(val))}
                     value={field.value !== undefined ? String(field.value) : undefined}
+                    disabled={form.formState.isSubmitting || !canEditFields}
                   >
                     <SelectTrigger id={field.name}>
                       <SelectValue placeholder="Select day (1–31)" />
@@ -275,7 +282,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <FormItem>
                 <FormLabel className="font-semibold">SKU</FormLabel>
                 <FormControl>
-                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated} />
+                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !canEditFields} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -291,6 +298,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   <Checkbox
                     checked={field.value}
                     onCheckedChange={field.onChange}
+                    disabled={!canEditFields}
                   />
                 </FormControl>
                 <div className="space-y-1 leading-none">
@@ -317,6 +325,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                     value={field.value}
                     onChange={field.onChange}
                     placeholder="Select categories..."
+                    disabled={!canEditFields}
                   />
                 </FormControl>
                 <FormMessage />
@@ -336,6 +345,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                     step="0.01" 
                     placeholder="0.00" 
                     {...field}
+                    disabled={!canEditFields}
                   />
                 </FormControl>
                 <FormMessage />
@@ -350,7 +360,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                     <SelectTrigger id={field.name}>
                       <FormControl>
                         <SelectValue placeholder="Select a currency" />
@@ -382,7 +392,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                     <SelectTrigger id={field.name}>
                       <FormControl>
                         <SelectValue placeholder="Select a bank account" />
@@ -406,7 +416,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <FormItem>
                 <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., 1234567890" {...field} />
+                  <Input placeholder="e.g., 1234567890" {...field} disabled={!canEditFields} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -419,7 +429,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <FormItem>
                 <FormLabel className="font-semibold">Payment Reference</FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., DD-12345" {...field} />
+                  <Input placeholder="e.g., DD-12345" {...field} disabled={!canEditFields} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -445,14 +455,14 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   </SelectContent>
                 </Select>
                 <FormDescription>
-                  {isAdmin ? "Select the current status of this direct debit." : "Only administrators can change the status."}
+                  Only administrators can change the status.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
           
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !canEditFields}>
             <Edit className="mr-2 h-4 w-4" />
             {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
           </Button>
