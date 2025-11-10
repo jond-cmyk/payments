@@ -129,8 +129,8 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   const formCountry = form.watch("country");
   const skuValue = form.watch("sku");
   const isAdmin = userProfile?.role === 'admin';
-  const isRequester = user?.id === directDebit.requester_id;
-  const canEditFields = isAdmin || isRequester; // Allow editing if admin OR requester
+  const isRequesterRole = userProfile?.role === 'requester'; // Check if user is any requester
+  const canEditFields = isAdmin || isRequesterRole; // Admin OR any requester can edit fields
 
   const onSubmit = async (values: z.infer<typeof editDirectDebitFormSchema>) => {
     const toastId = showLoading("Updating direct debit...");

@@ -147,8 +147,8 @@ const UserGuide = () => {
     { feature: "View/Add Missing Receipts", requester: true, admin: true },
     { feature: "View Completed Receipts", requester: true, admin: true },
     { feature: "View/Edit Own Pending/Queried Requests", requester: true, admin: true },
-    { feature: "View/Edit Direct Debits (Own)", requester: true, admin: true }, // CHANGED
-    { feature: "View/Edit Standing Orders", requester: false, admin: true }, // CHANGED
+    { feature: "View/Edit Direct Debits", requester: true, admin: true }, // UPDATED: Any requester can edit
+    { feature: "View/Edit Standing Orders", requester: false, admin: true },
     { feature: "View Customer Deposit Returns", requester: true, admin: true },
     { feature: "View Landlord Deposits", requester: true, admin: true },
     { feature: "Advise Deposit Return (Landlord)", requester: true, admin: true },

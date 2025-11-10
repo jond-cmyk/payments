@@ -171,6 +171,8 @@ const DirectDebits = () => {
   }, [filterAccountNumber]);
 
   const isAdmin = userProfile?.role === 'admin';
+  const isRequesterRole = userProfile?.role === 'requester';
+  const canEditAnyDD = isAdmin || isRequesterRole; // NEW: Any requester can edit
 
   // Fetch Direct Debits
   const { data: directDebits, isLoading: isDirectDebitsLoading, error: directDebitsError } = useQuery<DirectDebit[]>({
@@ -691,7 +693,6 @@ const DirectDebits = () => {
                 </TableHeader>
                 <TableBody>
                   {directDebits.map((debit) => {
-                    const isRequester = user?.id === debit.requester_id;
                     return (
                       <TableRow key={debit.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
                         <TableCell>
@@ -735,7 +736,7 @@ const DirectDebits = () => {
                             >
                               <Eye className="h-4 w-4 mr-2" /> View
                             </Button>
-                            {(isAdmin || isRequester) && (
+                            {canEditAnyDD && (
                               <Button
                                 variant="outline"
                                 size="sm"

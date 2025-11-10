@@ -71,8 +71,8 @@ const DirectDebitDetail = () => {
   });
 
   const isAdmin = userProfile?.role === 'admin';
-  const isRequester = user?.id === directDebit?.requester_id;
-  const canEdit = isAdmin || isRequester; // NEW: Allow editing if admin or requester
+  const isRequesterRole = userProfile?.role === 'requester'; // Check if user is any requester
+  const canEdit = isAdmin || isRequesterRole; // Admin OR any requester can edit
 
   // Effect to auto-reset country filter if item not found
   useEffect(() => {
