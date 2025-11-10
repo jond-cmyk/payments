@@ -3,13 +3,14 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { BookOpen, Home, PlusCircle, List, FileX, Repeat, Banknote, Users, Settings, DollarSign, MessageSquareText, BarChart, FileText, CheckCircle, Clock, AlertTriangle, Bell } from 'lucide-react';
+import { BookOpen, Home, PlusCircle, List, FileX, Repeat, Banknote, Users, Settings, DollarSign, MessageSquareText, BarChart, FileText, CheckCircle, Clock, AlertTriangle, Bell, Check } from 'lucide-react'; // Added Check icon
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Added Table components
 
 const UserGuide = () => {
   const { session, isLoading, userProfile } = useSession();
@@ -137,6 +138,34 @@ const UserGuide = () => {
     },
   ];
 
+  const permissionsMatrix = [
+    { feature: "View Dashboard", requester: true, admin: true },
+    { feature: "Create New Payment Request", requester: true, admin: true },
+    { feature: "Create New Standing Order", requester: true, admin: true },
+    { feature: "Create New Direct Debit", requester: true, admin: true },
+    { feature: "View All Requests (Table)", requester: true, admin: true },
+    { feature: "View/Add Missing Receipts", requester: true, admin: true },
+    { feature: "View Completed Receipts", requester: true, admin: true },
+    { feature: "View/Edit Own Pending/Queried Requests", requester: true, admin: true },
+    { feature: "View/Edit Standing Orders/Direct Debits", requester: false, admin: true },
+    { feature: "View Customer Deposit Returns", requester: true, admin: true },
+    { feature: "View Landlord Deposits", requester: true, admin: true },
+    { feature: "Advise Deposit Return (Landlord)", requester: true, admin: true },
+    { feature: "View Deposit Return Advisements", requester: true, admin: true },
+    { feature: "Submit Feedback", requester: true, admin: true },
+    { feature: "View Statistics", requester: true, admin: true },
+    { feature: "---", requester: false, admin: false },
+    { feature: "Approve/Decline/Query Requests", requester: false, admin: true },
+    { feature: "Mark Deposit Advisement as Processed", requester: false, admin: true },
+    { feature: "Upload Spreadsheets (Transactions/SO/DD)", requester: false, admin: true },
+    { feature: "User Management (Approve/Edit Roles)", requester: false, admin: true },
+    { feature: "Access Admin Panel", requester: false, admin: true },
+    { feature: "Access E-conomic Integration Tools", requester: false, admin: true },
+  ];
+
+  const Checkmark = () => <Check className="h-5 w-5 text-green-600 mx-auto" />;
+  const Cross = () => <span className="text-red-500 mx-auto">-</span>;
+
   return (
     <div className="container mx-auto py-8">
       <PageTitle title="User Guide - KH Payments" />
@@ -179,6 +208,46 @@ const UserGuide = () => {
               </div>
             </>
           )}
+
+          <Separator />
+
+          {/* Permissions Matrix Table */}
+          <div className="space-y-4">
+            <h3 className="flex items-center text-2xl font-bold text-gray-800">
+              <Users className="h-6 w-6 mr-3" /> Feature Access Matrix
+            </h3>
+            <p className="text-gray-700">
+              This table outlines which features are available to users based on their role (Requester or Admin).
+            </p>
+            <div className="overflow-x-auto border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="w-1/2 font-bold text-gray-900">Feature / Action</TableHead>
+                    <TableHead className="text-center font-bold text-gray-900">Requester</TableHead>
+                    <TableHead className="text-center font-bold text-gray-900">Admin</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {permissionsMatrix.map((item, index) => (
+                    item.feature === '---' ? (
+                      <TableRow key={index} className="h-2 bg-gray-100/50"><TableCell colSpan={3} className="p-0"></TableCell></TableRow>
+                    ) : (
+                      <TableRow key={item.feature} className="hover:bg-gray-50">
+                        <TableCell className="font-medium">{item.feature}</TableCell>
+                        <TableCell className="text-center">
+                          {item.requester ? <Checkmark /> : <Cross />}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.admin ? <Checkmark /> : <Cross />}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
