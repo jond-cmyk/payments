@@ -692,6 +692,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
       columnsForExport.forEach(col => {
         flatItem[col.header] = pick(item, col.path || [col.key]);
       });
+      // Add currency column
+      const currency = pick(item, ['currency.code', 'currency', 'customer.currency.code', 'customer.currency']);
+      flatItem['Currency'] = currency || '';
       return flatItem;
     });
   
