@@ -109,14 +109,6 @@ const Customers: React.FC = () => {
 
   const isAdmin = userProfile?.role === "admin";
 
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
-  }
-  if (!session) {
-    navigate("/login");
-    return null;
-  }
-
   const { data: allCustomersForFilter, isLoading: isLoadingAllCustomers } = useQuery<EconomicCustomer[]>({
     queryKey: ['allEconomicCustomersForFilter', currentCountry],
     queryFn: async () => {
@@ -170,6 +162,19 @@ const Customers: React.FC = () => {
     staleTime: 60_000,
   });
 
+  useEffect(() => {
+    if (!isLoading && !session) {
+      navigate('/login');
+    }
+  }, [isLoading, session, navigate]);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
+  }
+  if (!session) {
+    return null; // Render nothing while redirecting
+  }
+
   const totalPages = selectedCustomer !== 'all' ? 1 : Math.ceil(totalCustomers / parseInt(pageSize, 10));
 
   const renderPaginationItems = () => {
@@ -197,14 +202,6 @@ const Customers: React.FC = () => {
     }
     return items;
   };
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
-  }
-  if (!session) {
-    navigate("/login");
-    return null;
-  }
 
   if (customersQuery.error) {
     return <div className="flex items-center justify-center h-full text-red-500">Error loading customers: {customersQuery.error.message}</div>;
