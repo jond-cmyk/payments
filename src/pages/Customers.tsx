@@ -35,6 +35,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import DepositReturnForm from "@/components/deposits/DepositReturnForm";
 import { PaymentRequest } from "@/types/supabase";
+import { exportToCsv } from "@/utils/exportToCsv";
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -678,6 +679,27 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     }
   }, [num, country, enrichInvoiceHeadings]);
 
+  const handleExport = (dataToExport: any[], columns: DialogColumn[], baseFilename: string) => {
+    if (!dataToExport || dataToExport.length === 0) {
+      showError(`No ${baseFilename.replace(/_/g, ' ')} data to export.`);
+      return;
+    }
+  
+    const columnsForExport = columns.filter(c => !c.render);
+  
+    const flattenedData = dataToExport.map(item => {
+      const flatItem: Record<string, any> = {};
+      columnsForExport.forEach(col => {
+        flatItem[col.header] = pick(item, col.path || [col.key]);
+      });
+      return flatItem;
+    });
+  
+    const filename = `${baseFilename}_${customer.customerNumber}_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`;
+    
+    exportToCsv(flattenedData, filename);
+  };
+
   const invoiceColumns: DialogColumn[] = useMemo(() => [
     { key: 'invoiceNumber', header: 'Invoice No.', path: ['invoiceNumber', 'bookedInvoiceNumber', 'draftInvoiceNumber', 'id', 'number', 'invoiceId'] },
     { key: 'text', header: 'Text', path: ['description', 'text', 'notes.text', 'notes.heading', 'heading', 'title', 'recipient.name', 'customer.name'], render: (item) => invoiceHeadings[getInvoiceKey(item)] || getInvoiceDescription(item) },
@@ -787,8 +809,8 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
           </div>
         </TableCell>
       </TableRow>
-      <EconomicDetailDialog isOpen={showInvoicesDialog} onOpenChange={setShowInvoicesDialog} title={`Invoices for ${customer.name || 'Customer'}`} description={`Showing all invoices for customer number ${customer.customerNumber}.`} data={invoiceData} columns={invoiceColumns} isLoading={loadingInvoices} defaultSort={{ key: 'date', direction: 'descending' }} />
-      <EconomicDetailDialog isOpen={showLedgerCardDialog} onOpenChange={setShowLedgerCardDialog} title={`Ledger Card for ${customer.name || 'Customer'}`} description={ledgerDialogDescription} data={ledgerCardData as any[]} columns={ledgerCardColumns} isLoading={isLedgerLoading} defaultSort={{ key: 'date', direction: 'descending' }} />
+      <EconomicDetailDialog isOpen={showInvoicesDialog} onOpenChange={setShowInvoicesDialog} title={`Invoices for ${customer.name || 'Customer'}`} description={`Showing all invoices for customer number ${customer.customerNumber}.`} data={invoiceData} columns={invoiceColumns} isLoading={loadingInvoices} defaultSort={{ key: 'date', direction: 'descending' }} onExport={(data) => handleExport(data, invoiceColumns, 'invoices')} />
+      <EconomicDetailDialog isOpen={showLedgerCardDialog} onOpenChange={setShowLedgerCardDialog} title={`Ledger Card for ${customer.name || 'Customer'}`} description={ledgerDialogDescription} data={ledgerCardData as any[]} columns={ledgerCardColumns} isLoading={isLedgerLoading} defaultSort={{ key: 'date', direction: 'descending' }} onExport={(data) => handleExport(data, ledgerCardColumns, `ledger-card_${selectedAccountingYear}`)} />
       <EconomicDetailDialog 
         isOpen={showOutstandingDialog} 
         onOpenChange={setShowOutstandingDialog} 
@@ -798,6 +820,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         columns={outstandingColumns} 
         isLoading={loadingOutstanding} 
         defaultSort={{ key: 'date', direction: 'descending' }}
+        onExport={(data) => handleExport(data, outstandingColumns, 'outstanding')}
       />
       {hasCreditBalance && (
         <Dialog open={showDepositReturnDialog} onOpenChange={setShowDepositReturnDialog}>

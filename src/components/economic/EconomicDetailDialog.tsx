@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { FileText, ArrowUp, ArrowDown } from 'lucide-react';
+import { FileText, ArrowUp, ArrowDown, FileDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -65,6 +65,7 @@ interface EconomicDetailDialogProps {
   columns: DialogColumn[];
   isLoading?: boolean;
   defaultSort?: { key: string; direction: 'ascending' | 'descending' };
+  onExport?: (dataToExport: any[]) => void;
 }
 
 // Utility function to extract a list from varied economic response shapes
@@ -135,6 +136,7 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
   columns,
   isLoading,
   defaultSort,
+  onExport,
 }) => {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'ascending' | 'descending' } | null>(defaultSort || null);
 
@@ -295,8 +297,18 @@ const EconomicDetailDialog: React.FC<EconomicDetailDialogProps> = ({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[95%] xl:max-w-[90%] max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="font-bold">{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
+          <div className="flex justify-between items-center">
+            <div>
+              <DialogTitle className="font-bold">{title}</DialogTitle>
+              {description && <DialogDescription>{description}</DialogDescription>}
+            </div>
+            {onExport && sortedData && sortedData.length > 0 && (
+              <Button onClick={() => onExport(sortedData)} variant="outline" size="sm">
+                <FileDown className="mr-2 h-4 w-4" />
+                Download to Excel
+              </Button>
+            )}
+          </div>
         </DialogHeader>
         <div className="relative flex-1 overflow-auto pr-4">
           {isLoading ? (
