@@ -501,30 +501,38 @@ const CustomerDepositReturns = () => {
   const handleViewInvoice = useCallback(async (item: EconomicLedgerEntry) => {
     try {
       let basePath: string | undefined;
+      const invoiceObject = item.invoice || item;
 
-      // Priority 1: Look for a booked invoice number
-      const bookedInvoiceNumber = pick(item, ['invoice.bookedInvoiceNumber', 'bookedInvoiceNumber']);
-      if (bookedInvoiceNumber) {
-        basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+      // Priority 1: Use the 'self' link if it exists and is valid.
+      const selfLink = pick(invoiceObject, ['self']);
+      if (selfLink && typeof selfLink === 'string') {
+        const path = pathFromSelf(selfLink);
+        if (path && (path.includes('/invoices/booked/') || path.includes('/invoices/drafts/'))) {
+          basePath = path;
+        }
       }
 
-      // Priority 2: Look for a draft invoice number if no booked one is found
+      // Priority 2: Look for a booked invoice number
       if (!basePath) {
-        const draftInvoiceNumber = pick(item, ['invoice.draftInvoiceNumber', 'draftInvoiceNumber', 'invoice.invoiceNumber', 'invoiceNumber', 'invoice.number', 'number']);
+        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber']);
+        if (bookedInvoiceNumber) {
+          basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+        }
+      }
+
+      // Priority 3: Look for a draft invoice number
+      if (!basePath) {
+        const draftInvoiceNumber = pick(invoiceObject, ['draftInvoiceNumber']);
         if (draftInvoiceNumber) {
           basePath = `/invoices/drafts/${draftInvoiceNumber}`;
         }
       }
 
-      // Priority 3: Look for a 'self' link as a fallback
+      // Priority 4 (Fallback): Look for a generic invoice number and assume it's booked
       if (!basePath) {
-        const selfLink = pick(item, ['invoice.self', 'self']);
-        if (selfLink && typeof selfLink === 'string') {
-            const path = pathFromSelf(selfLink);
-            // Ensure the self link is actually for an invoice
-            if (path && (path.includes('/invoices/booked/') || path.includes('/invoices/drafts/'))) {
-                basePath = path;
-            }
+        const genericInvoiceNumber = pick(item, ['invoiceNumber', 'invoice.invoiceNumber']);
+        if (genericInvoiceNumber) {
+          basePath = `/invoices/booked/${genericInvoiceNumber}`;
         }
       }
       
