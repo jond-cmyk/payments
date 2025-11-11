@@ -43,7 +43,7 @@ export function exportToCsv<T extends Record<string, any>>(data: T[], filename: 
         // Check if the value is a string that looks like an ISO date
         if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/.test(value)) {
           try {
-            value = format(parseISO(value), 'yyyy-MM-dd HH:mm:ss'); // Parse and format ISO date strings
+            value = format(parseISO(value), 'dd-MM-yyyy'); // Parse and format ISO date strings
           } catch (e) {
             // If parsing fails, keep original string value
             console.warn(`Failed to parse date string for CSV export: ${value}`);
