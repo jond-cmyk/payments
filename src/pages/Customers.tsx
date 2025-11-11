@@ -524,9 +524,12 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
 
   const viewInvoice = useCallback(async (item: any) => {
     try {
-      // Determine if 'item' is a ledger entry or an invoice object
       const isLedgerEntry = item.entryNumber && item.account;
-      const invoiceObject = isLedgerEntry ? item.invoice : item;
+      let invoiceObject = isLedgerEntry ? item.invoice : item;
+
+      if (isLedgerEntry && !invoiceObject) {
+        invoiceObject = item;
+      }
 
       if (!invoiceObject) {
         throw new Error("This entry does not have associated invoice details.");
@@ -534,12 +537,10 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
 
       let basePath: string | undefined;
 
-      // Prioritize the 'self' link as it's the most reliable.
       if (invoiceObject.self) {
         basePath = pathFromSelf(invoiceObject.self);
       }
 
-      // Fallback if 'self' is missing
       if (!basePath) {
         const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber']);
         if (bookedInvoiceNumber) {
@@ -548,7 +549,6 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
       }
       
       if (!basePath) {
-        // This is a guess. We assume if it's not a bookedInvoiceNumber, it might be a draft.
         const draftInvoiceNumber = pick(invoiceObject, ['invoiceNumber', 'number']);
         if (draftInvoiceNumber) {
           basePath = `/invoices/drafts/${draftInvoiceNumber}`;
