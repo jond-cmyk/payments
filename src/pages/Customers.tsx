@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import PageTitle from "@/components/PageTitle";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -82,7 +82,7 @@ const pick = (obj: any, keys: string[]): any => {
         break;
       }
     }
-    if (found) {
+    if (found && current !== undefined) {
       if (typeof current === "object" && current !== null && "value" in current && typeof current.value === "number") {
         return current.value;
       }
@@ -109,7 +109,14 @@ const Customers: React.FC = () => {
 
   const isAdmin = userProfile?.role === "admin";
 
-  // Query to fetch all customers for the dropdown filter
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
+  }
+  if (!session) {
+    navigate("/login");
+    return null;
+  }
+
   const { data: allCustomersForFilter, isLoading: isLoadingAllCustomers } = useQuery<EconomicCustomer[]>({
     queryKey: ['allEconomicCustomersForFilter', currentCountry],
     queryFn: async () => {
@@ -517,26 +524,38 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
 
   const viewInvoice = useCallback(async (item: any) => {
     try {
-      const invoiceObject = item.invoice || item;
+      // Determine if 'item' is a ledger entry or an invoice object
+      const isLedgerEntry = item.entryNumber && item.account;
+      const invoiceObject = isLedgerEntry ? item.invoice : item;
+
+      if (!invoiceObject) {
+        throw new Error("This entry does not have associated invoice details.");
+      }
+
       let basePath: string | undefined;
 
-      basePath = pathFromSelf(invoiceObject?.self);
+      // Prioritize the 'self' link as it's the most reliable.
+      if (invoiceObject.self) {
+        basePath = pathFromSelf(invoiceObject.self);
+      }
 
+      // Fallback if 'self' is missing
       if (!basePath) {
-        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber', 'invoice.bookedInvoiceNumber']);
+        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber']);
         if (bookedInvoiceNumber) {
           basePath = `/invoices/booked/${bookedInvoiceNumber}`;
         }
       }
       
       if (!basePath) {
-        const invoiceNumber = pick(invoiceObject, ['invoiceNumber', 'invoice.invoiceNumber', 'number']);
-        if (invoiceNumber) {
-          basePath = `/invoices/booked/${invoiceNumber}`;
+        // This is a guess. We assume if it's not a bookedInvoiceNumber, it might be a draft.
+        const draftInvoiceNumber = pick(invoiceObject, ['invoiceNumber', 'number']);
+        if (draftInvoiceNumber) {
+          basePath = `/invoices/drafts/${draftInvoiceNumber}`;
         }
       }
 
-      if (!basePath) {
+      if (!basePath || (!basePath.includes('/invoices/booked/') && !basePath.includes('/invoices/drafts/'))) {
         throw new Error("Could not determine a valid invoice path for this entry.");
       }
 
