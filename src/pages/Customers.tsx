@@ -523,29 +523,34 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     try {
       let basePath: string | undefined;
 
-      // 1. Try 'self' link on invoice object or item itself
-      const selfLink = pick(item, ['invoice.self', 'self']);
-      if (selfLink) {
-        basePath = pathFromSelf(selfLink);
+      // Priority 1: Look for a booked invoice number
+      const bookedInvoiceNumber = pick(item, ['invoice.bookedInvoiceNumber', 'bookedInvoiceNumber']);
+      if (bookedInvoiceNumber) {
+        basePath = `/invoices/booked/${bookedInvoiceNumber}`;
       }
 
-      // 2. If no self link, try booked invoice number
+      // Priority 2: Look for a draft invoice number if no booked one is found
       if (!basePath) {
-        const bookedInvoiceNumber = pick(item, ['invoice.bookedInvoiceNumber', 'bookedInvoiceNumber']);
-        if (bookedInvoiceNumber) {
-          basePath = `/invoices/booked/${bookedInvoiceNumber}`;
-        }
-      }
-      
-      // 3. If still no path, try draft invoice number
-      if (!basePath) {
-        const draftInvoiceNumber = pick(item, ['invoice.invoiceNumber', 'invoiceNumber', 'invoice.number', 'number']);
+        const draftInvoiceNumber = pick(item, ['invoice.draftInvoiceNumber', 'draftInvoiceNumber', 'invoice.invoiceNumber', 'invoiceNumber', 'invoice.number', 'number']);
         if (draftInvoiceNumber) {
           basePath = `/invoices/drafts/${draftInvoiceNumber}`;
         }
       }
 
-      if (!basePath || (!basePath.includes('/invoices/booked/') && !basePath.includes('/invoices/drafts/'))) {
+      // Priority 3: Look for a 'self' link as a fallback
+      if (!basePath) {
+        const selfLink = pick(item, ['invoice.self', 'self']);
+        if (selfLink && typeof selfLink === 'string') {
+            const path = pathFromSelf(selfLink);
+            // Ensure the self link is actually for an invoice
+            if (path && (path.includes('/invoices/booked/') || path.includes('/invoices/drafts/'))) {
+                basePath = path;
+            }
+        }
+      }
+      
+      if (!basePath) {
+        console.error("Failed to determine invoice path from item:", item);
         throw new Error("Could not determine a valid invoice path for this entry.");
       }
 
