@@ -521,32 +521,25 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
 
   const viewInvoice = useCallback(async (item: any) => {
     try {
-      const isLedgerEntry = item.entryNumber && item.account;
-      let invoiceObject = isLedgerEntry ? item.invoice : item;
-
-      if (isLedgerEntry && !invoiceObject) {
-        invoiceObject = item;
-      }
-
-      if (!invoiceObject) {
-        throw new Error("This entry does not have associated invoice details.");
-      }
-
       let basePath: string | undefined;
 
-      if (invoiceObject.self) {
-        basePath = pathFromSelf(invoiceObject.self);
+      // 1. Try 'self' link on invoice object or item itself
+      const selfLink = pick(item, ['invoice.self', 'self']);
+      if (selfLink) {
+        basePath = pathFromSelf(selfLink);
       }
 
+      // 2. If no self link, try booked invoice number
       if (!basePath) {
-        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber']);
+        const bookedInvoiceNumber = pick(item, ['invoice.bookedInvoiceNumber', 'bookedInvoiceNumber']);
         if (bookedInvoiceNumber) {
           basePath = `/invoices/booked/${bookedInvoiceNumber}`;
         }
       }
       
+      // 3. If still no path, try draft invoice number
       if (!basePath) {
-        const draftInvoiceNumber = pick(invoiceObject, ['invoiceNumber', 'number']);
+        const draftInvoiceNumber = pick(item, ['invoice.invoiceNumber', 'invoiceNumber', 'invoice.number', 'number']);
         if (draftInvoiceNumber) {
           basePath = `/invoices/drafts/${draftInvoiceNumber}`;
         }

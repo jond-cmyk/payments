@@ -498,21 +498,34 @@ const CustomerDepositReturns = () => {
     return self.startsWith("/") ? self : "/" + self;
   };
 
-  const handleViewInvoice = useCallback(async (entry: EconomicLedgerEntry) => {
+  const handleViewInvoice = useCallback(async (item: EconomicLedgerEntry) => {
     try {
-      const invoiceObject = entry.invoice || entry;
-      const bookedInvoiceNumber = (invoiceObject as any).bookedInvoiceNumber || (invoiceObject as any).invoice?.bookedInvoiceNumber || (invoiceObject as any).invoiceNumber;
       let basePath: string | undefined;
 
-      if (bookedInvoiceNumber) {
-        basePath = `/invoices/booked/${bookedInvoiceNumber}`;
-      } else {
-        const selfLink = (invoiceObject as any).self || (invoiceObject as any).invoice?.self;
+      // 1. Try 'self' link on invoice object or item itself
+      const selfLink = pick(item, ['invoice.self', 'self']);
+      if (selfLink) {
         basePath = pathFromSelf(selfLink);
       }
 
+      // 2. If no self link, try booked invoice number
       if (!basePath) {
-        throw new Error("Could not determine a valid invoice path for this entry. No booked invoice number or self link found.");
+        const bookedInvoiceNumber = pick(item, ['invoice.bookedInvoiceNumber', 'bookedInvoiceNumber']);
+        if (bookedInvoiceNumber) {
+          basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+        }
+      }
+      
+      // 3. If still no path, try draft invoice number
+      if (!basePath) {
+        const draftInvoiceNumber = pick(item, ['invoice.invoiceNumber', 'invoiceNumber', 'invoice.number', 'number']);
+        if (draftInvoiceNumber) {
+          basePath = `/invoices/drafts/${draftInvoiceNumber}`;
+        }
+      }
+
+      if (!basePath || (!basePath.includes('/invoices/booked/') && !basePath.includes('/invoices/drafts/'))) {
+        throw new Error("Could not determine a valid invoice path for this entry.");
       }
 
       const pdfPath = `${basePath}/pdf`;
