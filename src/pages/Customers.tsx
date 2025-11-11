@@ -87,9 +87,6 @@ const pick = (obj: any, keys: string[]): any => {
       if (typeof current === "object" && current !== null && "value" in current && typeof current.value === "number") {
         return current.value;
       }
-      if (typeof current === "string" && !isNaN(parseFloat(current))) {
-        return parseFloat(current);
-      }
       return current;
     }
   }
