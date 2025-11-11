@@ -119,7 +119,7 @@ const Customers: React.FC = () => {
       const resp = data as EconomicProxyResponse<any>;
       return extractList(resp?.data) as EconomicCustomer[];
     },
-    enabled: !!session && isAdmin && currentCountry !== 'all',
+    enabled: !!session && currentCountry !== 'all',
     staleTime: 15 * 60 * 1000, // Cache for 15 minutes
   });
 
