@@ -14,11 +14,16 @@ const CountryContext = createContext<CountryContextType | undefined>(undefined);
 
 // Define available countries, including 'All Countries'
 const defaultAvailableCountries = [
-  { value: 'all', label: 'All Countries' }, // New 'All Countries' option
+  { value: 'all', label: 'All Countries' },
+  { value: 'Ireland', label: 'Ireland' },
   { value: 'Switzerland', label: 'Switzerland' },
   { value: 'United Kingdom', label: 'United Kingdom' },
   // Add more countries as needed
-];
+].sort((a, b) => {
+  if (a.value === 'all') return -1;
+  if (b.value === 'all') return 1;
+  return a.label.localeCompare(b.label);
+});
 
 export const CountryProvider = ({ children }: { children: React.ReactNode }) => {
   const { userProfile, isLoading: isSessionLoading } = useSession();

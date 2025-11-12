@@ -99,6 +99,15 @@ serve(async (req) => {
       }
       activeAppSecretToken = ukAppSecretToken;
       activeAgreementGrantToken = ukAgreementGrantToken;
+    } else if (country === 'Ireland') {
+      console.error("[economic-proxy] E-conomic for Ireland is not configured.");
+      return new Response(
+        JSON.stringify({
+          error:
+            "E-conomic integration for Ireland is not yet configured. Please add API secrets.",
+        }),
+        { status: 501, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     } else {
       console.error(`[economic-proxy] Unsupported country: ${country}`);
       return new Response(

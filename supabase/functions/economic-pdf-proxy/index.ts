@@ -67,6 +67,11 @@ serve(async (req) => {
       }
       activeAppSecretToken = ukAppSecretToken;
       activeAgreementGrantToken = ukAgreementGrantToken;
+    } else if (country === 'Ireland') {
+      return new Response(
+        JSON.stringify({ error: "E-conomic secrets for Ireland are not yet configured." }),
+        { status: 501, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     } else {
       return new Response(
         JSON.stringify({ error: `Unsupported country specified: ${country}.` }),

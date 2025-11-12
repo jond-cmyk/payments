@@ -13,6 +13,7 @@ const corsHeaders = {
 const ECONOMIC_EMAILS = {
   'Switzerland': '868bilag1677646@e-conomic.dk',
   'United Kingdom': '505bilag1675383@e-conomic.dk',
+  'Ireland': '', // Placeholder: Add Irish economic email when available
 };
 
 // Helper to download file content using the service role client and return as base64

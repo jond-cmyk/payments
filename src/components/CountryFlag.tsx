@@ -10,6 +10,7 @@ interface CountryFlagProps {
 
 // Map country names to their ISO 2-letter codes for the flag CDN
 const countryCodeMap: Record<string, string> = {
+  'Ireland': 'ie',
   'Switzerland': 'ch',
   'United Kingdom': 'gb',
   // Add more country-to-code mappings as needed

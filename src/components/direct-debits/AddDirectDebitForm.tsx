@@ -54,7 +54,7 @@ const addDirectDebitFormSchema = z.object({
     if (!data.sku || data.sku.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `SKU is required unless 'Not Property Related' is checked.`,
+        message: `SKU is required unless 'Not SKU Related' is checked.`,
         path: ['sku'],
       });
     } else if (!data.sku.startsWith(skuPrefix)) {
@@ -95,6 +95,14 @@ const addDirectDebitFormSchema = z.object({
         path: ['currency'],
       });
     }
+  } else if (data.country === 'Ireland') {
+    if (!data.currency || data.currency.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required for Ireland.",
+        path: ['currency'],
+      });
+    }
   }
 });
 
@@ -122,7 +130,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
       status: "active",
       country: initialCountry,
       bank_account: undefined,
-      currency: initialCountry === 'United Kingdom' ? 'GBP' : (initialCountry === 'Switzerland' ? 'CHF' : undefined),
+      currency: initialCountry === 'United Kingdom' ? 'GBP' : (initialCountry === 'Switzerland' ? 'CHF' : (initialCountry === 'Ireland' ? 'EUR' : undefined)),
     },
   });
 
@@ -133,7 +141,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
 
   React.useEffect(() => {
     const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
-    const newCurrency = formCountry === 'United Kingdom' ? 'GBP' : (formCountry === 'Switzerland' ? 'CHF' : undefined);
+    const newCurrency = formCountry === 'United Kingdom' ? 'GBP' : (formCountry === 'Switzerland' ? 'CHF' : (formCountry === 'Ireland' ? 'EUR' : undefined));
     form.reset((prev) => ({
       ...prev,
       sku: newSkuPrefix,
@@ -176,7 +184,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           status: values.status,
           country: values.country,
           bank_account: values.country === 'Switzerland' ? values.bank_account : null,
-          currency: values.country === 'United Kingdom' ? 'GBP' : (values.country === 'Switzerland' ? values.currency : null),
+          currency: values.country === 'United Kingdom' ? 'GBP' : (values.country === 'Switzerland' || values.country === 'Ireland' ? values.currency : null),
           payment_day: values.payment_day,
         });
 
@@ -198,7 +206,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         status: "active",
         country: formCountry,
         bank_account: undefined,
-        currency: formCountry === 'United Kingdom' ? 'GBP' : (formCountry === 'Switzerland' ? 'CHF' : undefined),
+        currency: formCountry === 'United Kingdom' ? 'GBP' : (formCountry === 'Switzerland' ? 'CHF' : (formCountry === 'Ireland' ? 'EUR' : undefined)),
       });
       onDirectDebitAdded();
     } catch (error: any) {
@@ -364,7 +372,7 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
           )}
         />
 
-        {formCountry === 'Switzerland' ? (
+        {(formCountry === 'Switzerland' || formCountry === 'Ireland') ? (
           <FormField
             control={form.control}
             name="currency"
