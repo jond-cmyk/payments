@@ -312,10 +312,6 @@ const DirectDebitDetail = () => {
                 <p className="font-bold">Status:</p>
                 <p>{getStatusBadge(directDebit.status)}</p>
               </div>
-              <div className="md:col-span-2">
-                <p className="font-bold">Payee:</p>
-                <p>{directDebit.payee}</p>
-              </div>
               <div>
                 <p className="font-bold">SKU:</p>
                 <p>{directDebit.not_property_related ? 'N/A (Not Property Related)' : (directDebit.sku || 'N/A')}</p>
@@ -347,6 +343,10 @@ const DirectDebitDetail = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div className="md:col-span-2">
+                <p className="font-bold">Payee:</p>
+                <p>{directDebit.payee}</p>
+              </div>
               <div className="md:col-span-2">
                 <p className="font-bold">Categories:</p>
                 {directDebit.categories && directDebit.categories.length > 0 ? (
