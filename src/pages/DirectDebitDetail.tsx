@@ -316,10 +316,6 @@ const DirectDebitDetail = () => {
                 <p className="font-bold">SKU:</p>
                 <p>{directDebit.not_property_related ? 'N/A (Not Property Related)' : (directDebit.sku || 'N/A')}</p>
               </div>
-              <div>
-                <p className="font-bold">Supplier Account Number:</p>
-                <p>{directDebit.account_number || 'N/A'}</p>
-              </div>
               {isCH && (
                 <div>
                   <p className="font-bold">Bank Account:</p>
@@ -372,6 +368,10 @@ const DirectDebitDetail = () => {
               <div>
                 <p className="font-bold">Payment Reference:</p>
                 <p>{directDebit.payment_reference || 'N/A'}</p>
+              </div>
+              <div>
+                <p className="font-bold">Supplier Account Number:</p>
+                <p>{directDebit.account_number || 'N/A'}</p>
               </div>
             </div>
           </CardContent>
