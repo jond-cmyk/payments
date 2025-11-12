@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Import Table components
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 const StandingOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -364,6 +365,9 @@ const StandingOrderDetail = () => {
               <div>
                 <p className="font-bold">Accruals Period:</p>
                 <p>Day {standingOrder.from_day} to Day {standingOrder.to_day}</p>
+              </div>
+              <div className="md:col-span-2">
+                <PropertyAddressField skuValue={standingOrder.sku} country={standingOrder.country} />
               </div>
             </div>
           </CardContent>

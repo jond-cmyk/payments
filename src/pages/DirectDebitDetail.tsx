@@ -34,6 +34,7 @@ import DirectDebitCommentsCard from '@/components/direct-debits/DirectDebitComme
 import EditDirectDebitForm from '@/components/direct-debits/EditDirectDebitForm'; // Import the EditDirectDebitForm
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import PropertyAddressField from '@/components/PropertyAddressField';
 
 const DirectDebitDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -329,6 +330,9 @@ const DirectDebitDetail = () => {
                   <p>{directDebit.bank_account || 'N/A'}</p>
                 </div>
               )}
+              <div className="md:col-span-2">
+                <PropertyAddressField skuValue={directDebit.sku} country={directDebit.country} />
+              </div>
             </div>
           </CardContent>
         </Card>
