@@ -13,14 +13,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { showError, showLoading, showSuccess, dismissToast, showInfo } from "@/utils/toast";
-import { List, FileText, BookText, ReceiptText, CalendarDays, AlertTriangle } from "lucide-react";
+import { List, FileText, BookText, ReceiptText, CalendarDays, AlertTriangle, Banknote } from "lucide-react";
 import EconomicDetailDialog, { DialogColumn, extractList } from "@/components/economic/EconomicDetailDialog";
 import { cn } from "@/lib/utils";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { formatAmount } from "@/components/economic/EconomicDetailDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import DatePicker from "@/components/DatePicker";
-import { format, isWithinInterval, parseISO } from "date-fns";
+import { format, isWithinInterval, parseISO, isBefore } from "date-fns";
 import { useCountry } from "@/integrations/supabase/CountryContext";
 import CountrySelector from "@/components/CountrySelector";
 import {
@@ -342,48 +342,66 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
 
   const num = customer.customerNumber;
 
-  const { data: balanceData, isLoading: loadingBalance, error: balanceError } = useQuery<{ balance: number | null, dueAmount: number | null }>({
-    queryKey: ["customerBalanceAndOverdue", num, country],
+  const { data: balancesByCurrencyData, isLoading: loadingBalances, error: balancesError } = useQuery<{
+    balances: Record<string, { total: number; overdue: number }>;
+  }>({
+    queryKey: ["customerBalancesByCurrency", num, country],
     queryFn: async () => {
-      if (!num) return { balance: null, dueAmount: null };
+      if (!num) return { balances: {} };
 
-      const getNumeric = (obj: any, keys: string[]): number | null => {
-        const value = pick(obj, keys);
-        if (value === null || value === undefined) return null;
-        const num = parseFloat(String(value));
-        return isNaN(num) ? null : num;
-      };
+      const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
+        body: { path: "/accounting-years", method: "GET", country },
+      });
+      if (yearsError) throw new Error(yearsError.message);
+      const yearsResponse = yearsData as EconomicProxyResponse<any>;
+      if (!yearsResponse.ok) throw new Error("Failed to fetch accounting years.");
+      const yearsList = extractList(yearsResponse.data);
+      if (!yearsList || yearsList.length === 0) return { balances: {} };
 
-      // Attempt 1: Fetch from the /totals endpoint
-      const { data: totalsData, error: totalsError } = await supabase.functions.invoke("economic-api-proxy", {
-        body: { path: `/customers/${num}/totals`, method: "GET", country },
+      let allEntries: any[] = [];
+      const filter = `customer.customerNumber$eq:${num}$and:remainder$ne:0`;
+
+      const yearPromises = yearsList.map(yearInfo => {
+        const year = yearInfo.year;
+        const path = `/accounting-years/${year}/entries?pagesize=1000&filter=${filter}`;
+        return supabase.functions.invoke("economic-api-proxy", { body: { path, method: "GET", country } });
       });
 
-      if (totalsError) {
-        console.warn(`[CustomerRow] Failed to fetch from /totals for customer ${num}:`, totalsError.message);
-      }
+      const yearResults = await Promise.all(yearPromises);
 
-      const totalsResp = totalsData as EconomicProxyResponse<any>;
-      let balanceVal = getNumeric(totalsResp?.data, ["balance", "outstandingAmount"]);
-      let dueAmountVal = getNumeric(totalsResp?.data, ["dueAmount"]);
-
-      // Attempt 2 (Fallback): If values are missing, fetch from the base /customers/:num endpoint
-      if (balanceVal === null || dueAmountVal === null) {
-        console.log(`[CustomerRow] Balance/due not in /totals, falling back to /customers/${num}`);
-        const { data: customerData, error: customerError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: `/customers/${num}`, method: "GET", country },
-        });
-
-        if (customerError) {
-          throw new Error(customerError.message || `Failed to load balance for customer ${num}`);
+      for (const result of yearResults) {
+        if (result.error) {
+          console.warn("Error fetching entries for a year:", result.error.message);
+          continue;
         }
-
-        const customerResp = customerData as EconomicProxyResponse<any>;
-        balanceVal = balanceVal ?? getNumeric(customerResp?.data, ["balance", "outstandingAmount"]);
-        dueAmountVal = dueAmountVal ?? getNumeric(customerResp?.data, ["dueAmount"]);
+        const resp = result.data as EconomicProxyResponse<any>;
+        if (resp.ok) {
+          const entriesForYear = extractList(resp?.data);
+          if (entriesForYear && entriesForYear.length > 0) {
+            allEntries = allEntries.concat(entriesForYear);
+          }
+        }
       }
 
-      return { balance: balanceVal, dueAmount: dueAmountVal };
+      const balances: Record<string, { total: number; overdue: number }> = {};
+      const now = new Date();
+
+      allEntries.forEach(entry => {
+        const currency = pick(entry, ['currency', 'currency.code']) || 'N/A';
+        const remainder = parseFloat(String(pick(entry, ['remainder']))) || 0;
+        const dueDateStr = pick(entry, ['dueDate']);
+        const isOverdue = dueDateStr ? isBefore(parseISO(dueDateStr), now) : false;
+
+        if (!balances[currency]) {
+          balances[currency] = { total: 0, overdue: 0 };
+        }
+        balances[currency].total += remainder;
+        if (isOverdue) {
+          balances[currency].overdue += remainder;
+        }
+      });
+
+      return { balances };
     },
     enabled: !!num,
     staleTime: 5 * 60 * 1000,
@@ -406,11 +424,17 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   });
 
   const hasActiveReturnRequest = existingDepositReturns && existingDepositReturns.length > 0;
-  const { balance, dueAmount } = balanceData || { balance: null, dueAmount: null };
-  const hasCreditBalance = balance !== null && balance < 0;
+  
+  const firstCreditBalance = useMemo(() => {
+    if (!balancesByCurrencyData?.balances) return null;
+    const creditEntry = Object.entries(balancesByCurrencyData.balances).find(([, { total }]) => total < 0);
+    return creditEntry ? { currency: creditEntry[0], amount: creditEntry[1].total } : null;
+  }, [balancesByCurrencyData]);
+
+  const hasCreditBalance = !!firstCreditBalance;
 
   const handleCreateDepositReturnRequest = async (formValues: any) => {
-    if (!user || !customer.customerNumber || balance === null || balance >= 0) return;
+    if (!user || !customer.customerNumber || !firstCreditBalance) return;
     setIsSubmittingDepositReturn(true);
     const toastId = showLoading("Creating deposit return request...");
 
@@ -426,15 +450,15 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         requester_id: user.id,
         supplier_name: `${customer.name} #${customer.customerNumber}`,
         supplier_address: customerAddress || 'Address not available in e-conomic',
-        currency: customer.currency || 'CHF',
-        total_amount: Math.abs(balance),
+        currency: firstCreditBalance.currency,
+        total_amount: Math.abs(firstCreditBalance.amount),
         reason_for_payment: `Deposit Return for Customer #${customer.customerNumber}`,
         date_payment_required: new Date().toISOString().split('T')[0],
         status: 'pending',
         country: country,
         is_deposit_return: true,
         not_sku_related: true,
-        categories: [{ category: '8201_customer_deposit', amount: Math.abs(balance) }],
+        categories: [{ category: '8201_customer_deposit', amount: Math.abs(firstCreditBalance.amount) }],
         invoice_pdf_urls: [],
         bank_details_verified: formValues.bank_details_verified,
         bank_account_name: formValues.bank_account_name,
@@ -769,8 +793,32 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         <TableCell>{customer.customerNumber ?? "-"}</TableCell>
         <TableCell className="font-medium">{customer.name ?? "-"}</TableCell>
         <TableCell>{customer.email ?? "-"}</TableCell>
-        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : balance !== null ? <Badge className={cn("text-base px-3 py-2 whitespace-nowrap", balance < 0 ? "bg-green-600 text-white" : "bg-dyad-blue text-white", "transform translate-x-0 translate-y-0")}>{formatAmount(balance)} {customer.currency || ''}</Badge> : "N/A"}</TableCell>
-        <TableCell>{loadingBalance ? "..." : balanceError ? <span className="text-red-500">Error</span> : (dueAmount !== null && dueAmount > 0) ? <Badge className={cn("bg-red-600 text-white text-base px-3 py-2 whitespace-nowrap", "transform translate-x-0 translate-y-0")}>{formatAmount(dueAmount)} {customer.currency || ''}</Badge> : "-"}</TableCell>
+        <TableCell>
+          {loadingBalances ? "..." : balancesError ? <span className="text-red-500">Error</span> : 
+            balancesByCurrencyData?.balances && Object.keys(balancesByCurrencyData.balances).length > 0 ? (
+              <div className="flex flex-col gap-1 items-start">
+                {Object.entries(balancesByCurrencyData.balances).map(([currency, { total }]) => (
+                  <Badge key={currency} className={cn("text-base px-2 py-1 whitespace-nowrap", total < 0 ? "bg-green-600 text-white" : "bg-dyad-blue text-white")}>
+                    {formatAmount(total)} {currency}
+                  </Badge>
+                ))}
+              </div>
+            ) : "0.00"
+          }
+        </TableCell>
+        <TableCell>
+          {loadingBalances ? "..." : balancesError ? <span className="text-red-500">Error</span> : 
+            balancesByCurrencyData?.balances && Object.values(balancesByCurrencyData.balances).some(b => b.overdue > 0) ? (
+              <div className="flex flex-col gap-1 items-start">
+                {Object.entries(balancesByCurrencyData.balances).filter(([, { overdue }]) => overdue > 0).map(([currency, { overdue }]) => (
+                  <Badge key={currency} variant="destructive" className="text-base px-2 py-1 whitespace-nowrap">
+                    {formatAmount(overdue)} {currency}
+                  </Badge>
+                ))}
+              </div>
+            ) : "-"
+          }
+        </TableCell>
         <TableCell>
           <div className="flex flex-col gap-2">
             <Button size="sm" className="flex-1 bg-dyad-blue hover:bg-dyad-blue-light text-white" onClick={loadInvoices} disabled={loadingInvoices}>{loadingInvoices ? "Loading..." : "View Invoices"}</Button>
@@ -822,19 +870,19 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         defaultSort={{ key: 'date', direction: 'descending' }}
         onExport={(data) => handleExport(data, outstandingColumns, 'outstanding')}
       />
-      {hasCreditBalance && (
+      {hasCreditBalance && firstCreditBalance && (
         <Dialog open={showDepositReturnDialog} onOpenChange={setShowDepositReturnDialog}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Request Deposit Return</DialogTitle>
               <DialogDescription>
-                Please provide the customer's bank details for the repayment.
+                This customer has a credit balance of {formatAmount(firstCreditBalance.amount)} {firstCreditBalance.currency}. Please provide their bank details for the repayment.
               </DialogDescription>
             </DialogHeader>
             <DepositReturnForm
               customerName={`${customer.name} #${customer.customerNumber}`}
-              returnAmount={Math.abs(balance || 0)}
-              currency={customer.currency || 'CHF'}
+              returnAmount={Math.abs(firstCreditBalance.amount)}
+              currency={firstCreditBalance.currency}
               onSubmit={handleCreateDepositReturnRequest}
               isSubmitting={isSubmittingDepositReturn}
             />
