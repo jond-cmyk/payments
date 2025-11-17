@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Card, CardTitle } from '@/components/ui/card'; // Import Card and CardTitle for suggestions
 import { Separator } from '@/components/ui/separator'; // Import Separator
 import PropertyAddressField from '@/components/PropertyAddressField';
+import { CheckedState } from '@radix-ui/react-checkbox';
 
 // Helper function to format UK account number for display
 const formatUkAccountNumber = (raw: string | undefined | null): string => {
@@ -262,7 +263,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const formCountry = form.watch("country");
   const skuValue = form.watch("sku");
   const isAdmin = userProfile?.role === 'admin';
-
+  
   const watchedCategories = useWatch({
     control: form.control,
     name: "categories",
@@ -546,17 +547,14 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                         <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                         <FormControl>
                           <Input 
-                            type="text" // CHANGED to text to prevent browser truncation issues
+                            type="text"
                             step="0.01" 
                             placeholder="Amount" 
                             {...field}
-                            // FIX: Ensure value is always a string representation of the number, and handle empty string correctly
                             value={field.value === 0 ? "" : String(field.value)}
                             onChange={(e) => {
-                              // Only allow numbers and a single decimal point
                               const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                              // Force conversion to number here to ensure RHF stores the correct numeric value immediately
-                              field.onChange(rawValue === "" ? 0 : parseFloat(rawValue));
+                              field.onChange(rawValue);
                             }}
                             disabled={!isAdmin} 
                           />
