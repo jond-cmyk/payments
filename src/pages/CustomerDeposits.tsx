@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isWithinInterval, formatDistanceToNow } from 'date-fns';
 import { PaymentRequest } from '@/types/supabase';
 
 import PageTitle from '@/components/PageTitle';
@@ -109,25 +109,28 @@ const CustomerDeposits = () => {
     return new Map(departments.map(d => [d.departmentNumber, d.name]));
   }, [departments]);
 
-  const { data: allAccountEntries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
+  const { data: cacheData, isLoading: isLoadingEntries, refetch } = useQuery<{ entries: EconomicLedgerEntry[], cached_at: string | null }>({
     queryKey: ['customerDepositCache', currentCountry],
     queryFn: async () => {
-      if (!session || currentCountry === 'all') return [];
+      if (!session || currentCountry === 'all') return { entries: [], cached_at: null };
       const { data, error } = await supabase
         .from('customer_deposit_cache')
-        .select('entries')
+        .select('entries, cached_at') // Select both fields
         .eq('country', currentCountry)
         .single();
       
       if (error) {
         console.error("Error fetching customer deposit cache:", error);
-        return [];
+        return { entries: [], cached_at: null };
       }
-      return data?.entries || [];
+      return { entries: data?.entries || [], cached_at: data?.cached_at || null };
     },
     enabled: !!session && currentCountry !== 'all',
     staleTime: 1000 * 60 * 60, // Cache for 1 hour
   });
+
+  const allAccountEntries = cacheData?.entries;
+  const lastRefreshed = cacheData?.cached_at;
 
   const refreshCacheMutation = useMutation({
     mutationFn: async () => {
@@ -265,7 +268,14 @@ const CustomerDeposits = () => {
           <CardTitle className="flex items-center text-2xl font-bold">
             <Home className="mr-2 h-6 w-6" /> Customer Deposits
           </CardTitle>
-          <CardDescription>View customer deposit entries from e-conomic for account 8201, filtered by property SKU.</CardDescription>
+          <CardDescription>
+            View customer deposit entries from e-conomic for account 8201, filtered by property SKU.
+            {lastRefreshed && (
+              <span className="block text-xs text-gray-500 mt-1">
+                Cache last refreshed: {formatDistanceToNow(new Date(lastRefreshed), { addSuffix: true })}
+              </span>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
