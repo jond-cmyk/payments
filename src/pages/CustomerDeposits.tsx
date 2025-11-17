@@ -12,7 +12,7 @@ import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, Search, RotateCw, AlertTriangle } from 'lucide-react';
+import { Home, Search, RotateCw, AlertTriangle, Database } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import EconomicDetailDialog, { DialogColumn, extractList, formatAmount } from '@/components/economic/EconomicDetailDialog';
@@ -160,14 +160,14 @@ const CustomerDeposits = () => {
       const numericTerm = parseInt(debouncedFilterTerm, 10);
       if (!isNaN(numericTerm)) {
         entries = entries.filter(entry => {
-          let deptNum: number | null = null;
+          let deptNum: number | string | null = null;
 
           if (entry?.departmentalDistribution?.departmentalDistributionNumber) {
-            deptNum = parseInt(String(entry.departmentalDistribution.departmentalDistributionNumber), 10);
+            deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
           } else if (entry?.department?.departmentNumber) {
-            deptNum = parseInt(String(entry.department.departmentNumber), 10);
+            deptNum = entry.department.departmentNumber;
           } else if (entry?.departmentNumber) {
-            deptNum = parseInt(String(entry.departmentNumber), 10);
+            deptNum = entry.departmentNumber;
           } else if (entry?.departmentalDistribution?.self) {
             const selfUrl = entry.departmentalDistribution.self;
             const match = selfUrl.match(/\/(\d+)$/);
@@ -176,7 +176,7 @@ const CustomerDeposits = () => {
             }
           }
   
-          return deptNum === numericTerm;
+          return deptNum !== null && String(deptNum) === String(numericTerm);
         });
       }
     }
