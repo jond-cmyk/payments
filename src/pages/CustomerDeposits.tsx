@@ -62,17 +62,26 @@ type CustomerGroup = {
 
 // NEW: Robust helper function to find department number (SKU) from an entry
 const getDepartmentNumberFromEntry = (entry: EconomicLedgerEntry): number | null => {
-  const candidates = [
-    entry?.departmentalDistribution?.departmentalDistributionNumber,
-    entry?.department?.departmentNumber,
-    entry?.departmentNumber,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === 'number') return candidate;
-    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
+  // Path 1: Direct departmentalDistribution object (based on user-provided data)
+  if (entry?.departmentalDistribution && typeof entry.departmentalDistribution === 'object') {
+    const deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
+    if (typeof deptNum === 'number') return deptNum;
+    if (typeof deptNum === 'string' && /^\d+$/.test(deptNum)) return parseInt(deptNum, 10);
   }
 
+  // Path 2: Direct department object
+  if (entry?.department && typeof entry.department === 'object') {
+    const deptNum = entry.department.departmentNumber;
+    if (typeof deptNum === 'number') return deptNum;
+    if (typeof deptNum === 'string' && /^\d+$/.test(deptNum)) return parseInt(deptNum, 10);
+  }
+
+  // Path 3: Top-level departmentNumber property
+  const topLevelDeptNum = entry?.departmentNumber;
+  if (typeof topLevelDeptNum === 'number') return topLevelDeptNum;
+  if (typeof topLevelDeptNum === 'string' && /^\d+$/.test(topLevelDeptNum)) return parseInt(topLevelDeptNum, 10);
+
+  // Path 4: Fallback to parsing 'self' URL from departmentalDistribution
   const selfUrl = entry?.departmentalDistribution?.self;
   if (selfUrl && typeof selfUrl === 'string') {
     const match = selfUrl.match(/\/(\d+)$/);
