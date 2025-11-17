@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock, ArrowUp, ArrowDown } from 'lucide-react';
+import { Home, FileText, Search, Filter, RotateCw, AlertTriangle, Clock, ArrowUp, ArrowDown, Database } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess, showInfo } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import EconomicDetailDialog, { DialogColumn, extractList, formatAmount } from '@/components/economic/EconomicDetailDialog';
@@ -58,6 +58,11 @@ type EconomicLedgerEntry = {
     departmentNumber: number;
     self: string;
   };
+  departmentalDistribution?: {
+    departmentalDistributionNumber?: number;
+    self?: string;
+  };
+  departmentNumber?: number;
   self: string;
   [key: string]: any;
 };
@@ -79,6 +84,12 @@ const pick = (obj: any, keys: string[]): any => {
       }
     }
     if (found && current !== undefined) {
+      if (typeof current === "object" && current !== null && "value" in current && typeof current.value === "number") {
+        return current.value;
+      }
+      if (typeof current === "string" && !isNaN(parseFloat(current))) {
+        return parseFloat(current);
+      }
       return current;
     }
   }
@@ -103,6 +114,9 @@ const LandlordDeposits = () => {
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [showTransactionsTable, setShowTransactionsTable] = useState(false);
   const [isAdviseDialogOpen, setIsAdviseDialogOpen] = useState(false);
+  const [showRawDataDialog, setShowRawDataDialog] = useState(false);
+  const [refreshResult, setRefreshResult] = useState<any>(null);
+  const [isRefreshResultDialogOpen, setIsRefreshResultDialogOpen] = useState(false);
 
   const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
 
@@ -123,63 +137,55 @@ const LandlordDeposits = () => {
     return departmentMap.get(numericSku);
   }, [debouncedFilterTerm, departmentMap]);
 
-  const { data: allAccountEntries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
-    queryKey: ['landlordDepositEntries', currentCountry],
+  const { data: cacheData, isLoading: isLoadingEntries, refetch } = useQuery<{ entries: EconomicLedgerEntry[], cached_at: string } | null>({
+    queryKey: ['landlordDepositCache', currentCountry],
     queryFn: async () => {
-      if (!session || currentCountry === 'all') return [];
-
-      const toastId = showLoading("Fetching all landlord deposit entries...");
-      try {
-        const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: "/accounting-years", method: "GET", country: currentCountry },
-        });
-
-        if (yearsError) throw new Error(yearsError.message);
-        const yearsResp = yearsData as EconomicProxyResponse<any>;
-        if (yearsResp.error || !yearsResp.ok) {
-          throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+        if (!session || currentCountry === 'all') return null;
+        const { data, error } = await supabase
+            .from('landlord_deposit_cache')
+            .select('entries, cached_at')
+            .eq('country', currentCountry)
+            .limit(1)
+            .single();
+        if (error) {
+            if (error.code === 'PGRST116') {
+                return null;
+            }
+            throw error;
         }
-        const accountingYears = extractList(yearsResp?.data);
-        
-        if (!accountingYears || accountingYears.length === 0) {
-          showError("No accounting years found in e-conomic. Cannot fetch entries.");
-          return [];
-        }
-
-        let allEntries: EconomicLedgerEntry[] = [];
-        const fetchPromises = accountingYears.map(async (yearInfo: any) => {
-          const path = `/accounts/${LANDLORD_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${yearInfo.year}/entries?pagesize=1000`;
-          
-          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-            body: { path, method: "GET", country: currentCountry },
-          });
-
-          if (error) {
-            console.error(`Error fetching entries for year ${yearInfo.year}:`, error.message);
-            return [];
-          }
-
-          const resp = data as EconomicProxyResponse<any>;
-          if (resp.error || !resp.ok) {
-            console.error(`e-conomic error fetching entries for year ${yearInfo.year}:`, resp.error || `Status ${resp.status}`);
-            return [];
-          }
-          
-          return extractList(resp?.data);
-        });
-
-        const results = await Promise.all(fetchPromises);
-        allEntries = results.flat();
-        dismissToast(toastId);
-        showSuccess("All entries fetched successfully.");
-        return allEntries as EconomicLedgerEntry[];
-      } catch (e: any) {
-        dismissToast(toastId);
-        showError(e.message || "Failed to fetch entries.");
-        return [];
-      }
+        return data;
     },
     enabled: !!session && currentCountry !== 'all',
+  });
+
+  const allAccountEntries = cacheData?.entries;
+  const lastCachedAt = cacheData?.cached_at;
+
+  const refreshCacheMutation = useMutation({
+      mutationFn: async () => {
+          const { data, error } = await supabase.functions.invoke('fetch-deposit-cache', {
+              body: { country: currentCountry },
+          });
+          if (error) throw error;
+          return data;
+      },
+      onSuccess: (data) => {
+          setRefreshResult(data);
+          setIsRefreshResultDialogOpen(true);
+          if (data?.error) {
+              showError(data.error);
+          } else {
+              showSuccess("Cache refresh initiated. Data will update shortly.");
+          }
+          setTimeout(() => {
+            queryClient.invalidateQueries({ queryKey: ['landlordDepositCache', currentCountry] });
+          }, 5000);
+      },
+      onError: (error: any) => {
+          setRefreshResult({ error: error.message });
+          setIsRefreshResultDialogOpen(true);
+          showError(error.message || "Failed to start cache refresh.");
+      }
   });
 
   const displayedEntries = useMemo(() => {
@@ -187,13 +193,28 @@ const LandlordDeposits = () => {
     let entries = [...allAccountEntries];
 
     if (debouncedFilterTerm) {
-        const numericTerm = parseInt(debouncedFilterTerm, 10);
-        if (!isNaN(numericTerm)) {
-            entries = entries.filter(entry => {
-                const deptNum = pick(entry, ['departmentalDistribution.departmentalDistributionNumber', 'departmentalDistributionNumber', 'department.departmentNumber', 'departmentNumber', 'department.number', 'department']);
-                return deptNum === numericTerm;
-            });
-        }
+      const numericTerm = parseInt(debouncedFilterTerm, 10);
+      if (!isNaN(numericTerm)) {
+        entries = entries.filter(entry => {
+          let deptNum: number | string | null = null;
+
+          if (entry?.departmentalDistribution?.departmentalDistributionNumber) {
+            deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
+          } else if (entry?.department?.departmentNumber) {
+            deptNum = entry.department.departmentNumber;
+          } else if (entry?.departmentNumber) {
+            deptNum = entry.departmentNumber;
+          } else if (entry?.departmentalDistribution?.self) {
+            const selfUrl = entry.departmentalDistribution.self;
+            const match = selfUrl.match(/\/(\d+)$/);
+            if (match && match[1]) {
+              deptNum = parseInt(match[1], 10);
+            }
+          }
+          
+          return deptNum !== null && String(deptNum) === String(numericTerm);
+        });
+      }
     }
 
     entries.sort((a, b) => {
@@ -559,21 +580,52 @@ const LandlordDeposits = () => {
       />
 
       <Dialog open={isAdviseDialogOpen} onOpenChange={setIsAdviseDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-                <DialogTitle>Advise of Deposit Return</DialogTitle>
-                <DialogDescription>
-                    Complete the form below to notify an administrator that a deposit is ready to be returned.
-                </DialogDescription>
-            </DialogHeader>
-            <AdviseDepositReturnForm
-                sku={debouncedFilterTerm}
-                country={currentCountry}
-                totalDeposit={totalDepositBalance}
-                currency={depositCurrency}
-                onSubmit={handleAdviseSubmit}
-                isSubmitting={adviseDepositReturnMutation.isPending}
-            />
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Advise Deposit Return</DialogTitle>
+            <DialogDescription>
+              Advise an administrator that a deposit should be returned for property SKU {debouncedFilterTerm}.
+            </DialogDescription>
+          </DialogHeader>
+          <AdviseDepositReturnForm
+            sku={debouncedFilterTerm}
+            country={currentCountry}
+            totalDeposit={totalDepositBalance}
+            currency={depositCurrency}
+            onSubmit={handleAdviseSubmit}
+            isSubmitting={adviseDepositReturnMutation.isPending}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRawDataDialog} onOpenChange={setShowRawDataDialog}>
+        <DialogContent className="sm:max-w-[80%] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Raw Cache Data for {currentCountry}</DialogTitle>
+            <DialogDescription>
+              This is the raw JSON data fetched from the cache table. Last updated: {lastCachedAt ? format(new Date(lastCachedAt), 'PPP p') : 'N/A'}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[70vh] bg-gray-100 p-4 rounded">
+            <pre className="text-xs whitespace-pre-wrap">
+              {JSON.stringify(allAccountEntries, null, 2)}
+            </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isRefreshResultDialogOpen} onOpenChange={setIsRefreshResultDialogOpen}>
+        <DialogContent className="sm:max-w-[80%] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Cache Refresh Result</DialogTitle>
+            <DialogDescription>
+              This is the raw response from the cache refresh process.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[70vh] bg-gray-100 p-4 rounded">
+            <pre className="text-xs whitespace-pre-wrap">
+              {JSON.stringify(refreshResult, null, 2)}
+            </pre>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
