@@ -110,18 +110,12 @@ const PaymentRequestDetail = () => {
 
   // Fetch user names and emails for audit trail and comments
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
-    queryKey: ['auditUsers', currentCountry],
+    queryKey: ['auditUsers'],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('profile_with_email')
         .select('id, first_name, last_name, user_email');
       
-      // Filter profiles by selected country if not 'all'
-      if (currentCountry !== 'all') {
-        query = query.eq('country', currentCountry);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
