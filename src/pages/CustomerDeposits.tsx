@@ -147,17 +147,16 @@ const CustomerDeposits = () => {
       const numericTerm = parseInt(debouncedFilterTerm, 10);
       if (!isNaN(numericTerm)) {
         entries = entries.filter(entry => {
-          let deptNum: number | string | null = null;
+          let deptNum: number | null = null;
 
+          // Check various possible locations for the department number
           if (entry?.departmentalDistribution?.departmentalDistributionNumber) {
-            deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
-          } 
-          else if (entry?.department?.departmentNumber) {
-            deptNum = entry.department.departmentNumber;
+            deptNum = parseInt(String(entry.departmentalDistribution.departmentalDistributionNumber), 10);
+          } else if (entry?.department?.departmentNumber) {
+            deptNum = parseInt(String(entry.department.departmentNumber), 10);
           } else if (entry?.departmentNumber) {
-            deptNum = entry.departmentNumber;
-          } 
-          else if (entry?.departmentalDistribution?.self) {
+            deptNum = parseInt(String(entry.departmentNumber), 10);
+          } else if (entry?.departmentalDistribution?.self) {
             const selfUrl = entry.departmentalDistribution.self;
             const match = selfUrl.match(/\/(\d+)$/);
             if (match && match[1]) {
@@ -165,7 +164,7 @@ const CustomerDeposits = () => {
             }
           }
   
-          return deptNum !== null && String(deptNum) === String(numericTerm);
+          return deptNum === numericTerm;
         });
       }
     }
