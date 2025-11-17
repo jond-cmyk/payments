@@ -252,7 +252,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             bank_account: standingOrder.bank_account || undefined,
         });
     }
-  }, [standingOrder, form]);
+  }, [standingOrder, form.reset]);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -358,7 +358,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     } else {
         form.setValue('account_address', suggestion.address || '', options);
         form.setValue('iban_number', suggestion.iban_number || '', options);
-
+        
         form.setValue('sort_code', '', options);
         form.setValue('account_number', '', options);
     }

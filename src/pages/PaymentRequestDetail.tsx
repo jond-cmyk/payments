@@ -133,32 +133,6 @@ const PaymentRequestDetail = () => {
     enabled: !!session,
   });
 
-  // Form for editing (requester/admin)
-  const editForm = useForm<EditFormSchema>({
-    resolver: zodResolver(editFormSchema),
-    defaultValues: {
-      supplier_name: "",
-      sku_number: "CH", // Default for PrefixedInput
-      not_sku_related: false, // Default to false
-      lease_id: "", // Default for new field
-      supplier_address: "",
-      iban_number: "",
-      sort_code: "",
-      account_number: "",
-      bank_account_name: "",
-      currency: "CHF", // Default to CHF
-      total_amount: 0.00,
-      notes: "", // CHANGED: Renamed from reason_for_payment
-      date_payment_required: undefined,
-      invoice_pdf: undefined,
-      receipt_required: false,
-      is_urgent: false, // Default to not urgent
-      country: request?.country || "Switzerland",
-      categories: [{ category: "", amount: 0 }], // Default categories
-      bank_details_verified: false,
-    },
-  });
-
   const addCommentMutation = useMutation({
     mutationFn: async (commentText: string) => {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");
@@ -579,7 +553,7 @@ const PaymentRequestDetail = () => {
         )}
         {isEditing && (
           <div className="space-x-2">
-            <Button variant="outline" onClick={() => { setIsEditing(false); editForm.reset(); }} className="shadow-sm">
+            <Button variant="outline" onClick={() => { setIsEditing(false); }} className="shadow-sm">
               Cancel
             </Button>
             <Button 

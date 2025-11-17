@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Download, PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
@@ -23,12 +24,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Separator } from '@/components/ui/separator';
 import { PaymentRequest, PayeeSuggestion } from '@/types/supabase';
 import { categoryOptions } from '@/lib/constants';
-import { majorCurrencies, EditFormSchema } from '@/schemas/paymentRequestSchema';
+import { majorCurrencies, EditFormSchema, editFormSchema } from '@/schemas/paymentRequestSchema';
 import PropertyAddressField from '@/components/PropertyAddressField';
 
 interface PaymentRequestEditFormCardProps {
   request: PaymentRequest;
-  editForm: ReturnType<typeof useForm<EditFormSchema>>;
   handleRequesterEditSubmit: (values: EditFormSchema) => Promise<void>;
 }
 
@@ -43,7 +43,6 @@ const formatUkAccountNumber = (raw: string | undefined | null): string => {
 
 const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   request,
-  editForm,
   handleRequesterEditSubmit,
 }) => {
   const { availableCountries, isCountryLocked } = useCountry();
@@ -52,6 +51,10 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   const [supplierSuggestions, setSupplierSuggestions] = useState<PayeeSuggestion[]>([]);
   const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
   const [isSearchingSupplier, setIsSearchingSupplier] = useState(false);
+
+  const editForm = useForm<EditFormSchema>({
+    resolver: zodResolver(editFormSchema),
+  });
 
   const { fields, append, remove } = useFieldArray({
     control: editForm.control,
