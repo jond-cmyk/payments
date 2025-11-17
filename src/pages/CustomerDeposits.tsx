@@ -42,6 +42,13 @@ type EconomicLedgerEntry = {
     name: string;
   };
   self: string;
+  departmentalDistribution?: {
+    departmentalDistributionNumber?: number;
+  };
+  department?: {
+    departmentNumber?: number;
+  };
+  departmentNumber?: number;
   [key: string]: any;
 };
 
@@ -53,27 +60,6 @@ type CustomerGroup = {
   entries: EconomicLedgerEntry[];
   balance: number;
   currency: string;
-};
-
-// Helper to get nested values
-const pick = (obj: any, keys: string[]): any => {
-  if (!obj) return undefined;
-  for (const key of keys) {
-    const parts = key.split('.');
-    let current = obj;
-    let found = true;
-    for (const part of parts) {
-      if (current && typeof current === 'object' && part in current) {
-        current = current[part];
-      } else {
-        current = undefined;
-        found = false;
-        break;
-      }
-    }
-    if (found && current !== undefined) return current;
-  }
-  return undefined;
 };
 
 const CustomerDeposits = () => {
@@ -160,21 +146,28 @@ const CustomerDeposits = () => {
       const numericTerm = parseInt(debouncedFilterTerm, 10);
       if (!isNaN(numericTerm)) {
         entries = entries.filter(entry => {
-          const deptNum = pick(entry, ['departmentalDistribution.departmentalDistributionNumber', 'departmentalDistributionNumber', 'department.departmentNumber', 'departmentNumber', 'department.number', 'department']);
+          let deptNum: number | null = null;
+          if (entry?.departmentalDistribution?.departmentalDistributionNumber) {
+            deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
+          } else if (entry?.department?.departmentNumber) {
+            deptNum = entry.department.departmentNumber;
+          } else if (entry?.departmentNumber) {
+            deptNum = entry.departmentNumber;
+          }
           return deptNum === numericTerm;
         });
       }
     }
     const customerGroups: Record<number, CustomerGroup> = {};
     entries.forEach(entry => {
-      const customerNumber = pick(entry, ['customer.customerNumber']);
+      const customerNumber = entry?.customer?.customerNumber;
       if (customerNumber) {
         if (!customerGroups[customerNumber]) {
           customerGroups[customerNumber] = {
-            customer: { customerNumber, name: pick(entry, ['customer.name']) || `Customer #${customerNumber}` },
+            customer: { customerNumber, name: entry.customer.name || `Customer #${customerNumber}` },
             entries: [],
             balance: 0,
-            currency: pick(entry, ['currency']) || '',
+            currency: entry.currency || '',
           };
         }
         customerGroups[customerNumber].entries.push(entry);
