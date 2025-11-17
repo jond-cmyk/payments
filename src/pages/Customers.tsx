@@ -395,7 +395,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         }
       }
 
-      const balances: Record<string, { total: number; overdue: number }> = {};
+      const intermediateBalances: Record<string, { total: number; overdueDebits: number; totalCredits: number }> = {};
       const now = new Date();
 
       allEntries.forEach(entry => {
@@ -404,16 +404,27 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
         const dueDateStr = pick(entry, ['dueDate']);
         const isOverdue = dueDateStr ? isBefore(parseISO(dueDateStr), now) : false;
 
-        if (!balances[currency]) {
-          balances[currency] = { total: 0, overdue: 0 };
+        if (!intermediateBalances[currency]) {
+          intermediateBalances[currency] = { total: 0, overdueDebits: 0, totalCredits: 0 };
         }
-        balances[currency].total += remainder;
-        if (isOverdue) {
-          balances[currency].overdue += remainder;
+
+        intermediateBalances[currency].total += remainder;
+
+        if (remainder > 0 && isOverdue) {
+          intermediateBalances[currency].overdueDebits += remainder;
+        } else if (remainder < 0) {
+          intermediateBalances[currency].totalCredits += remainder;
         }
       });
 
-      return { balances };
+      const finalBalances: Record<string, { total: number; overdue: number }> = {};
+      for (const currency in intermediateBalances) {
+        const { total, overdueDebits, totalCredits } = intermediateBalances[currency];
+        const netOverdue = Math.max(0, overdueDebits + totalCredits);
+        finalBalances[currency] = { total, overdue: netOverdue };
+      }
+
+      return { balances: finalBalances };
     },
     enabled: !!num,
     staleTime: 5 * 60 * 1000,
