@@ -135,6 +135,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
           <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
           <div className="h-px bg-dyad-blue-foreground my-4" />
           <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
+          <NavLink to="/customer-deposits" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposits" />
           <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
           <NavLink to="/landlord-deposits" icon={<HomeIcon className="h-5 w-5" />} label="Landlord Deposits" />
           <NavLink to="/deposit-return-advisements" icon={<DollarSign className="h-5 w-5" />} label="Deposit Return Advisements" />

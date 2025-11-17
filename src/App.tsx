@@ -40,8 +40,9 @@ const AdminPanel = lazy(() => import("./pages/AdminPanel"));
 const AdminDepartments = lazy(() => import("./pages/AdminDepartments"));
 const Customers = lazy(() => import("./pages/Customers"));
 const LandlordDeposits = lazy(() => import("./pages/LandlordDeposits"));
+const CustomerDeposits = lazy(() => import("./pages/CustomerDeposits")); // NEW IMPORT
 const DepositReturnAdvisements = lazy(() => import("./pages/DepositReturnAdvisements"));
-const UserGuide = lazy(() => import("./pages/UserGuide")); // NEW IMPORT
+const UserGuide = lazy(() => import("./pages/UserGuide"));
 
 const queryClient = new QueryClient();
 
@@ -100,6 +101,7 @@ const App = () => {
                         <Route path="/admin/statistics" element={<Statistics />} />
                         <Route path="/admin/customers" element={<Customers />} />
                         <Route path="/landlord-deposits" element={<LandlordDeposits />} />
+                        <Route path="/customer-deposits" element={<CustomerDeposits />} /> {/* NEW ROUTE */}
                         <Route path="/deposit-return-advisements" element={<DepositReturnAdvisements />} />
                         <Route path="/user-guide" element={<UserGuide />} />
                         <Route path="/customer-deposit-returns" element={<CustomerDepositReturns />} />
