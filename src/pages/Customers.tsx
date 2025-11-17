@@ -33,6 +33,15 @@ import {
   PaginationEllipsis,
 } from "@/components/ui/pagination";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import DepositReturnForm from "@/components/deposits/DepositReturnForm";
 import { PaymentRequest } from "@/types/supabase";
 import { exportToCsv } from "@/utils/exportToCsv";
@@ -340,6 +349,9 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
   const [showDepositReturnDialog, setShowDepositReturnDialog] = useState(false);
   const [isSubmittingDepositReturn, setIsSubmittingDepositReturn] = useState(false);
 
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [statusDialogContent, setStatusDialogContent] = useState<{ title: string; message: string }>({ title: '', message: '' });
+
   const num = customer.customerNumber;
 
   const { data: balancesByCurrencyData, isLoading: loadingBalances, error: balancesError } = useQuery<{
@@ -617,14 +629,23 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
 
         if (remainder !== undefined && remainder !== null) {
             if (parseFloat(remainder) === 0) {
-                showSuccess("This invoice is fully paid.");
+                setStatusDialogContent({
+                    title: "Payment Status: Paid",
+                    message: "This invoice is fully paid."
+                });
             } else {
-                showInfo(`This invoice has a remaining balance of ${formatAmount(remainder)} ${currency}.`);
+                setStatusDialogContent({
+                    title: "Payment Status: Outstanding Balance",
+                    message: `This invoice has a remaining balance of ${formatAmount(remainder)} ${currency}.`
+                });
             }
         } else {
-            showInfo("Payment status information not available on this invoice record.");
+            setStatusDialogContent({
+                title: "Payment Status: Unknown",
+                message: "Payment status information not available on this invoice record."
+            });
         }
-
+        setStatusDialogOpen(true);
         dismissToast(toastId);
     } catch (e: any) {
         dismissToast(toastId);
@@ -937,6 +958,19 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
           </DialogContent>
         </Dialog>
       )}
+      <AlertDialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{statusDialogContent.title}</AlertDialogTitle>
+            <AlertDialogDescription className="pt-4 text-base">
+              {statusDialogContent.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setStatusDialogOpen(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
