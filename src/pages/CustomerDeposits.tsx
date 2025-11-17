@@ -62,26 +62,17 @@ type CustomerGroup = {
 
 // NEW: Robust helper function to find department number (SKU) from an entry
 const getDepartmentNumberFromEntry = (entry: EconomicLedgerEntry): number | null => {
-  // Path 1: Direct departmentalDistribution object (based on user-provided data)
-  if (entry?.departmentalDistribution && typeof entry.departmentalDistribution === 'object') {
-    const deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
-    if (typeof deptNum === 'number') return deptNum;
-    if (typeof deptNum === 'string' && /^\d+$/.test(deptNum)) return parseInt(deptNum, 10);
+  const candidates = [
+    entry?.departmentalDistribution?.departmentalDistributionNumber,
+    entry?.department?.departmentNumber,
+    entry?.departmentNumber,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number') return candidate;
+    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
   }
 
-  // Path 2: Direct department object
-  if (entry?.department && typeof entry.department === 'object') {
-    const deptNum = entry.department.departmentNumber;
-    if (typeof deptNum === 'number') return deptNum;
-    if (typeof deptNum === 'string' && /^\d+$/.test(deptNum)) return parseInt(deptNum, 10);
-  }
-
-  // Path 3: Top-level departmentNumber property
-  const topLevelDeptNum = entry?.departmentNumber;
-  if (typeof topLevelDeptNum === 'number') return topLevelDeptNum;
-  if (typeof topLevelDeptNum === 'string' && /^\d+$/.test(topLevelDeptNum)) return parseInt(topLevelDeptNum, 10);
-
-  // Path 4: Fallback to parsing 'self' URL from departmentalDistribution
   const selfUrl = entry?.departmentalDistribution?.self;
   if (selfUrl && typeof selfUrl === 'string') {
     const match = selfUrl.match(/\/(\d+)$/);
@@ -313,27 +304,80 @@ const CustomerDeposits = () => {
               <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
             ) : !searchPerformed ? (
               <p className="text-center text-muted-foreground mt-8">Please enter a property identifier (SKU) to begin.</p>
-            ) : groupedByCustomer.length > 0 ? (
-              <Table>
-                <TableHeader><TableRow><TableHead>Customer</TableHead><TableHead>Customer Number</TableHead><TableHead className="text-right">Deposit Balance</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                <TableBody>
-                  {groupedByCustomer.map((group) => (
-                    <TableRow key={group.customer.customerNumber}>
-                      <TableCell className="font-medium">{group.customer.name}</TableCell>
-                      <TableCell>{group.customer.customerNumber}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatAmount(group.balance)} {group.currency}</TableCell>
-                      <TableCell className="text-right space-x-2">
-                        <Button variant="outline" size="sm" onClick={() => { setDialogData(group.entries); setDialogTitle(`Transactions for ${group.customer.name}`); setShowDetailDialog(true); }}>View Transactions</Button>
-                        {group.balance < 0 && (
-                          <Button variant="destructive" size="sm" onClick={() => setAdvisingCustomer(group)}>Advise Deposit Return</Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             ) : (
-              <p className="text-center text-muted-foreground mt-8">No customer deposits found for SKU "{debouncedFilterTerm}".</p>
+              <>
+                {groupedByCustomer.length > 0 ? (
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Customer</TableHead><TableHead>Customer Number</TableHead><TableHead className="text-right">Deposit Balance</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {groupedByCustomer.map((group) => (
+                        <TableRow key={group.customer.customerNumber}>
+                          <TableCell className="font-medium">{group.customer.name}</TableCell>
+                          <TableCell>{group.customer.customerNumber}</TableCell>
+                          <TableCell className="text-right font-semibold">{formatAmount(group.balance)} {group.currency}</TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Button variant="outline" size="sm" onClick={() => { setDialogData(group.entries); setDialogTitle(`Transactions for ${group.customer.name}`); setShowDetailDialog(true); }}>View Transactions</Button>
+                            {group.balance < 0 && (
+                              <Button variant="destructive" size="sm" onClick={() => setAdvisingCustomer(group)}>Advise Deposit Return</Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-center text-muted-foreground mt-8">No customer deposits found for SKU "{debouncedFilterTerm}".</p>
+                )}
+
+                <Card className="mt-8">
+                  <CardHeader>
+                    <CardTitle>Diagnostic Raw Data Table</CardTitle>
+                    <CardDescription>
+                      This table shows ALL entries from the cache. Rows matching your search for SKU "{debouncedFilterTerm}" are highlighted in yellow. Check the "Detected SKU" column to see if the number is being correctly identified.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Entry #</TableHead>
+                            <TableHead>Text</TableHead>
+                            <TableHead>Detected SKU</TableHead>
+                            <TableHead>Raw Department Data</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {allAccountEntries && allAccountEntries.length > 0 ? (
+                            allAccountEntries.map((entry, index) => {
+                              const detectedSku = getDepartmentNumberFromEntry(entry);
+                              const matchesSearch = debouncedFilterTerm && detectedSku === parseInt(debouncedFilterTerm, 10);
+                              return (
+                                <TableRow key={entry.self || index} className={matchesSearch ? 'bg-yellow-200' : ''}>
+                                  <TableCell>{entry.entryNumber}</TableCell>
+                                  <TableCell>{entry.text}</TableCell>
+                                  <TableCell className="font-bold text-blue-600">
+                                    {detectedSku ?? 'Not Found'}
+                                  </TableCell>
+                                  <TableCell>
+                                    <pre className="text-xs bg-gray-100 p-1 rounded max-w-xs overflow-auto">
+                                      {JSON.stringify(entry.departmentalDistribution, null, 2)}
+                                    </pre>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center">No raw data to display.</TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
             )}
           </div>
         </CardContent>
