@@ -149,20 +149,17 @@ const CustomerDeposits = () => {
         entries = entries.filter(entry => {
           let deptNum: number | null = null;
 
-          // Primary check for the direct number
           if (entry?.departmentalDistribution?.departmentalDistributionNumber) {
             deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
           } 
-          // Fallback checks for other common structures
           else if (entry?.department?.departmentNumber) {
             deptNum = entry.department.departmentNumber;
           } else if (entry?.departmentNumber) {
             deptNum = entry.departmentNumber;
           } 
-          // Fallback to parse the 'self' URL, as identified by the user
           else if (entry?.departmentalDistribution?.self) {
             const selfUrl = entry.departmentalDistribution.self;
-            const match = selfUrl.match(/\/(\d+)$/); // Regex to get the number at the end of the URL
+            const match = selfUrl.match(/\/(\d+)$/);
             if (match && match[1]) {
               deptNum = parseInt(match[1], 10);
             }
