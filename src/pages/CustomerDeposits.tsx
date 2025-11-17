@@ -60,6 +60,31 @@ type CustomerGroup = {
   currency: string;
 };
 
+// NEW: Robust helper function to find department number (SKU) from an entry
+const getDepartmentNumberFromEntry = (entry: EconomicLedgerEntry): number | null => {
+  const candidates = [
+    entry?.departmentalDistribution?.departmentalDistributionNumber,
+    entry?.department?.departmentNumber,
+    entry?.departmentNumber,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number') return candidate;
+    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
+  }
+
+  const selfUrl = entry?.departmentalDistribution?.self;
+  if (selfUrl && typeof selfUrl === 'string') {
+    const match = selfUrl.match(/\/(\d+)$/);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+};
+
+
 const CustomerDeposits = () => {
   const { session, isLoading: isSessionLoading, userProfile, user } = useSession();
   const { currentCountry, setCurrentCountry, isCountryLocked, availableCountries } = useCountry();
@@ -129,23 +154,8 @@ const CustomerDeposits = () => {
       const numericTerm = parseInt(debouncedFilterTerm, 10);
       if (!isNaN(numericTerm)) {
         entries = entries.filter(entry => {
-          let deptNum: number | string | null = null;
-
-          if (entry?.departmentalDistribution?.departmentalDistributionNumber) {
-            deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
-          } else if (entry?.department?.departmentNumber) {
-            deptNum = entry.department.departmentNumber;
-          } else if (entry?.departmentNumber) {
-            deptNum = entry.departmentNumber;
-          } else if (entry?.departmentalDistribution?.self) {
-            const selfUrl = entry.departmentalDistribution.self;
-            const match = selfUrl.match(/\/(\d+)$/);
-            if (match && match[1]) {
-              deptNum = parseInt(match[1], 10);
-            }
-          }
-  
-          return deptNum !== null && String(deptNum) === String(numericTerm);
+          const deptNum = getDepartmentNumberFromEntry(entry);
+          return deptNum !== null && deptNum === numericTerm;
         });
       }
     }
