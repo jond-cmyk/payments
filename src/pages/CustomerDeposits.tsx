@@ -147,7 +147,7 @@ const CustomerDeposits = () => {
       const numericTerm = parseInt(debouncedFilterTerm, 10);
       if (!isNaN(numericTerm)) {
         entries = entries.filter(entry => {
-          let deptNum: number | null = null;
+          let deptNum: number | string | null = null;
 
           if (entry?.departmentalDistribution?.departmentalDistributionNumber) {
             deptNum = entry.departmentalDistribution.departmentalDistributionNumber;
@@ -165,7 +165,7 @@ const CustomerDeposits = () => {
             }
           }
   
-          return deptNum === numericTerm;
+          return deptNum !== null && String(deptNum) === String(numericTerm);
         });
       }
     }
