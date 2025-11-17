@@ -207,8 +207,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     resolver: zodResolver(updateStandingOrderFormSchema),
     defaultValues: {
       payee: standingOrder.payee || "", // Default to empty string
-      payment_date: new Date(standingOrder.payment_date),
-      payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date) : undefined,
+      payment_date: new Date(standingOrder.payment_date + 'T00:00:00'),
+      payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date + 'T00:00:00') : undefined,
       sku: standingOrder.sku || (standingOrder.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: standingOrder.not_property_related,
       categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }],
@@ -422,7 +422,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   // Filter category options based on the selected country in the form
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
-  );
+  ).map(opt => ({ value: opt.value, label: opt.label }));
 
   return (
     <>
