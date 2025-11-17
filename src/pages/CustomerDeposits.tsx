@@ -89,7 +89,9 @@ const CustomerDeposits = () => {
   const [dialogTitle, setDialogTitle] = useState('');
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [advisingCustomer, setAdvisingCustomer] = useState<CustomerGroup | null>(null);
-  const [showRawDataDialog, setShowRawDataDialog] = useState(false); // New state for raw data dialog
+  const [showRawDataDialog, setShowRawDataDialog] = useState(false);
+  const [refreshResult, setRefreshResult] = useState<any>(null);
+  const [isRefreshResultDialogOpen, setIsRefreshResultDialogOpen] = useState(false);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -108,10 +110,10 @@ const CustomerDeposits = () => {
             .from('customer_deposit_cache')
             .select('entries, cached_at')
             .eq('country', currentCountry)
-            .limit(1) // Add limit(1) to prevent multiple rows error
+            .limit(1)
             .single();
         if (error) {
-            if (error.code === 'PGRST116') { // No rows found
+            if (error.code === 'PGRST116') {
                 return null;
             }
             throw error;
@@ -126,18 +128,27 @@ const CustomerDeposits = () => {
 
   const refreshCacheMutation = useMutation({
       mutationFn: async () => {
-          const { error } = await supabase.functions.invoke('fetch-customer-deposit-cache', {
+          const { data, error } = await supabase.functions.invoke('fetch-customer-deposit-cache', {
               body: { country: currentCountry },
           });
           if (error) throw error;
+          return data;
       },
-      onSuccess: () => {
-          showSuccess("Cache refresh in progress. The data will update automatically in a moment.");
+      onSuccess: (data) => {
+          setRefreshResult(data);
+          setIsRefreshResultDialogOpen(true);
+          if (data?.error) {
+              showError(data.error);
+          } else {
+              showSuccess("Cache refresh initiated. Data will update shortly.");
+          }
           setTimeout(() => {
             queryClient.invalidateQueries({ queryKey: ['customerDepositCache', currentCountry] });
-          }, 5000); // Wait 5 seconds before refetching
+          }, 5000);
       },
       onError: (error: any) => {
+          setRefreshResult({ error: error.message });
+          setIsRefreshResultDialogOpen(true);
           showError(error.message || "Failed to start cache refresh.");
       }
   });
@@ -194,7 +205,7 @@ const CustomerDeposits = () => {
     await adviseDepositReturnMutation.mutateAsync({
       requester_id: user.id,
       supplier_name: advisingCustomer.customer.name,
-      supplier_address: 'N/A', // Address not available in this context
+      supplier_address: 'N/A',
       currency: advisingCustomer.currency,
       total_amount: Math.abs(advisingCustomer.balance),
       reason_for_payment: `Deposit Return for Customer #${advisingCustomer.customer.customerNumber} / SKU ${debouncedFilterTerm}`,
@@ -354,6 +365,21 @@ const CustomerDeposits = () => {
           <div className="overflow-auto max-h-[70vh] bg-gray-100 p-4 rounded">
             <pre className="text-xs whitespace-pre-wrap">
               {JSON.stringify(allAccountEntries, null, 2)}
+            </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isRefreshResultDialogOpen} onOpenChange={setIsRefreshResultDialogOpen}>
+        <DialogContent className="sm:max-w-[80%] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Cache Refresh Result</DialogTitle>
+            <DialogDescription>
+              This is the raw response from the cache refresh process.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[70vh] bg-gray-100 p-4 rounded">
+            <pre className="text-xs whitespace-pre-wrap">
+              {JSON.stringify(refreshResult, null, 2)}
             </pre>
           </div>
         </DialogContent>
