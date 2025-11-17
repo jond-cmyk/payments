@@ -247,7 +247,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             country: standingOrder.country,
             bank_details_verified: standingOrder.bank_details_verified,
             payment_day: standingOrder.payment_day ? String(standingOrder.payment_day) : undefined,
-            currency: isUK ? 'GBP' : standingOrder.currency || undefined, // <-- THE FIX
+            currency: isUK ? 'GBP' : standingOrder.currency || undefined,
             bank_account: standingOrder.bank_account || undefined,
         });
     }
@@ -266,7 +266,11 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const watchedCategories = useWatch({
     control: form.control,
     name: "categories",
-    defaultValue: form.getValues("categories"),
+  });
+
+  const totalAmount = useWatch({
+    control: form.control,
+    name: "total_amount",
   });
 
   // Calculate total amount whenever categories array changes
@@ -275,7 +279,9 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       const parsedAmount = parseFloat((item as any)?.amount) || 0;
       return sum + parsedAmount;
     }, 0);
-    form.setValue("total_amount", newTotal, { shouldValidate: true });
+    if (form.getValues('total_amount') !== newTotal) {
+      form.setValue("total_amount", newTotal, { shouldValidate: true });
+    }
   }, [watchedCategories, form]);
 
   // NEW: Payee Search Logic
@@ -578,7 +584,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               <Separator className="my-4" />
               <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total Amount:</span>
-                <span>{form.getValues('total_amount').toFixed(2)}</span>
+                <span>{(totalAmount ?? 0).toFixed(2)}</span>
               </div>
               <FormField
                 control={form.control}
