@@ -182,6 +182,14 @@ const addStandingOrderFormSchema = z.object({
         path: ['currency'],
       });
     }
+  } else if (data.country === 'Ireland') {
+    if (!data.currency || data.currency.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required for Ireland.",
+        path: ['currency'],
+      });
+    }
   }
 
   // End date must be after start date if provided
@@ -258,7 +266,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const watchedCategories = useWatch({ // NEW: Watch categories for total calculation
     control: form.control,
     name: "categories",
-    defaultValue: form.getValues("categories"), // Ensure initial value is set
   });
 
   // Calculate total amount whenever categories array changes
@@ -267,7 +274,9 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0; // Ensure it's a number
       return sum + parsedAmount;
     }, 0);
-    form.setValue("total_amount", newTotal, { shouldValidate: true });
+    if (form.getValues('total_amount') !== newTotal) {
+      form.setValue("total_amount", newTotal, { shouldValidate: true });
+    }
   }, [watchedCategories, form]); // Dependency on watchedCategories
 
   // Effect to reset form defaults if currentCountry changes
@@ -441,7 +450,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           country: values.country,
           bank_details_verified: values.bank_details_verified,
           payment_day: safeDay, // Add payment_day to insert
-          currency: values.country === 'United Kingdom' ? 'GBP' : (values.country === 'Switzerland' ? values.currency : null),
+          currency: values.country === 'United Kingdom' ? 'GBP' : (values.country === 'Switzerland' || values.country === 'Ireland' ? values.currency : null),
           bank_account: values.country === 'Switzerland' ? values.bank_account : null, // NEW: Conditionally save bank_account
         });
 

@@ -254,7 +254,6 @@ const NewPaymentRequest = () => {
   const watchedCategories = useWatch({ // NEW: Watch categories for total calculation
     control: form.control,
     name: "categories",
-    defaultValue: form.getValues("categories"),
   });
 
   // Calculate total amount whenever categories array changes
@@ -263,7 +262,9 @@ const NewPaymentRequest = () => {
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0; // Ensure it's a number
       return sum + parsedAmount;
     }, 0);
-    form.setValue("total_amount", newTotal, { shouldValidate: true });
+    if (form.getValues('total_amount') !== newTotal) {
+      form.setValue("total_amount", newTotal, { shouldValidate: true });
+    }
   }, [watchedCategories, form]);
 
   // Effect to reset form defaults if currentCountry changes

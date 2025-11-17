@@ -159,42 +159,6 @@ const PaymentRequestDetail = () => {
     },
   });
 
-  // Effect to reset editForm when request data loads or isEditing changes
-  useEffect(() => {
-    if (request && isEditing) {
-      const defaultSkuPrefix = request.country === 'United Kingdom' ? 'UK' : 'CH';
-      editForm.reset({
-        supplier_name: request.supplier_name,
-        sku_number: request.sku_number || defaultSkuPrefix, // Ensure default for PrefixedInput based on country
-        not_sku_related: request.not_sku_related, // Set the checkbox state
-        lease_id: request.lease_id || "", // Set lease_id
-        supplier_address: request.supplier_address,
-        iban_number: request.iban_number || "",
-        sort_code: request.sort_code || "",
-        account_number: request.account_number || "",
-        bank_account_name: request.bank_account_name || "",
-        currency: request.currency || "CHF",
-        total_amount: request.total_amount || 0.00,
-        notes: request.reason_for_payment || "", // CHANGED: Map reason_for_payment to notes
-        date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
-        invoice_pdf: undefined,
-        receipt_required: request.receipt_required,
-        is_urgent: request.is_urgent,
-        country: request.country, // Ensure form's country field is updated
-        categories: request.categories.length > 0 ? request.categories : [{ category: "", amount: 0 }], // Set categories from request
-        bank_details_verified: request.bank_details_verified,
-      });
-    }
-  }, [request, isEditing, editForm]);
-
-  // Form for receipt upload (admin)
-  const receiptUploadForm = useForm<z.infer<typeof receiptUploadSchema>>({
-    resolver: zodResolver(receiptUploadSchema),
-    defaultValues: {
-      receipt_pdf: undefined,
-    },
-  });
-
   const addCommentMutation = useMutation({
     mutationFn: async (commentText: string) => {
       if (!id || !user?.id) throw new Error("Request ID or user ID missing.");

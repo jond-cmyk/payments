@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import * as z from 'zod';
 import { Download, PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react';
@@ -58,6 +58,34 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
     name: "categories",
   });
 
+  // Effect to reset form when request data loads
+  useEffect(() => {
+    if (request) {
+      const defaultSkuPrefix = request.country === 'United Kingdom' ? 'UK' : 'CH';
+      editForm.reset({
+        supplier_name: request.supplier_name,
+        sku_number: request.sku_number || defaultSkuPrefix,
+        not_sku_related: request.not_sku_related,
+        lease_id: request.lease_id || "",
+        supplier_address: request.supplier_address,
+        iban_number: request.iban_number || "",
+        sort_code: request.sort_code || "",
+        account_number: request.account_number || "",
+        bank_account_name: request.bank_account_name || "",
+        currency: request.currency || "CHF",
+        total_amount: request.total_amount || 0.00,
+        notes: request.reason_for_payment || "",
+        date_payment_required: request.date_payment_required ? new Date(request.date_payment_required) : undefined,
+        invoice_pdf: undefined,
+        receipt_required: request.receipt_required,
+        is_urgent: request.is_urgent,
+        country: request.country,
+        categories: request.categories.length > 0 ? request.categories : [{ category: "", amount: 0 }],
+        bank_details_verified: request.bank_details_verified,
+      });
+    }
+  }, [request, editForm]);
+
   // Watch fields
   const notSkuRelated = editForm.watch("not_sku_related");
   const formCountry = editForm.watch("country");
@@ -67,18 +95,17 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   const watchedCategories = useWatch({
     control: editForm.control,
     name: "categories",
-    defaultValue: editForm.getValues("categories"),
   });
 
   // Calculate total amount whenever categories array changes
   React.useEffect(() => {
-    // console.log("[PaymentRequestEditFormCard] watchedCategories changed:", watchedCategories);
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
-      // Ensure amount is treated as a number, defaulting to 0 if invalid
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
       return sum + parsedAmount;
     }, 0);
-    editForm.setValue("total_amount", newTotal, { shouldValidate: true });
+    if (editForm.getValues('total_amount') !== newTotal) {
+      editForm.setValue("total_amount", newTotal, { shouldValidate: true });
+    }
   }, [watchedCategories, editForm]);
 
   // Effect to update currency when country changes in the form
