@@ -84,6 +84,7 @@ const CustomerDeposits = () => {
   const [dialogTitle, setDialogTitle] = useState('');
   const [searchPerformed, setSearchPerformed] = useState(false);
   const [advisingCustomer, setAdvisingCustomer] = useState<CustomerGroup | null>(null);
+  const [showRawDataDialog, setShowRawDataDialog] = useState(false);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -308,6 +309,17 @@ const CustomerDeposits = () => {
                 </Button>
               )}
             </div>
+            {isAdmin && (
+              <div className="flex items-center justify-end gap-4">
+                <Button variant="outline" onClick={() => setShowRawDataDialog(true)} disabled={!allAccountEntries}>
+                  <Database className="mr-2 h-4 w-4" /> View Raw Data
+                </Button>
+                <Button onClick={() => refetch()} disabled={isLoadingEntries || currentCountry === 'all'}>
+                  <RotateCw className={`mr-2 h-4 w-4 ${isLoadingEntries ? 'animate-spin' : ''}`} />
+                  Refresh Data
+                </Button>
+              </div>
+            )}
             {currentCountry === 'all' && isAdmin ? (
               <Alert><AlertTitle>Please Select a Country</AlertTitle><AlertDescription>To view customer deposits, please select a specific country.</AlertDescription></Alert>
             ) : isLoadingEntries || isLoadingDepartments ? (
@@ -357,6 +369,21 @@ const CustomerDeposits = () => {
           </DialogContent>
         </Dialog>
       )}
+      <Dialog open={showRawDataDialog} onOpenChange={setShowRawDataDialog}>
+        <DialogContent className="sm:max-w-[80%] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>Raw Cache Data for {currentCountry}</DialogTitle>
+            <DialogDescription>
+              This is the raw JSON data fetched from the e-conomic API.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-auto max-h-[70vh] bg-gray-100 p-4 rounded">
+            <pre className="text-xs whitespace-pre-wrap">
+              {JSON.stringify(allAccountEntries, null, 2)}
+            </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
