@@ -593,6 +593,45 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     }
   }, [country]);
 
+  const checkPaymentStatus = useCallback(async (invoice: any) => {
+    const toastId = showLoading("Checking payment status...");
+    try {
+        const path = pathFromSelf(invoice?.self) ?? (invoice?.bookedInvoiceNumber ? `/invoices/booked/${invoice.bookedInvoiceNumber}` : undefined);
+        if (!path) {
+            throw new Error("Could not determine invoice path.");
+        }
+
+        const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path, method: "GET", country },
+        });
+
+        if (error) throw error;
+        const resp = data as EconomicProxyResponse<any>;
+        if (resp.error || !resp.ok) {
+            throw new Error(resp.error || `e-conomic API returned status ${resp.status}`);
+        }
+
+        const invoiceDetails = resp.data;
+        const remainder = pick(invoiceDetails, ['remainder', 'remainingAmount']);
+        const currency = pick(invoiceDetails, ['currency']);
+
+        if (remainder !== undefined && remainder !== null) {
+            if (parseFloat(remainder) === 0) {
+                showSuccess("This invoice is fully paid.");
+            } else {
+                showInfo(`This invoice has a remaining balance of ${formatAmount(remainder)} ${currency}.`);
+            }
+        } else {
+            showInfo("Payment status information not available on this invoice record.");
+        }
+
+        dismissToast(toastId);
+    } catch (e: any) {
+        dismissToast(toastId);
+        showError(e.message || "Failed to check payment status.");
+    }
+  }, [country]);
+
   const loadInvoices = useCallback(async () => {
     setLoadingInvoices(true);
     const toastId = showLoading("Loading invoices...");
@@ -731,8 +770,17 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
     { key: 'amount', header: 'Amount', format: 'currencyAmount', path: ['amount', 'totalAmount', 'amount.value', 'grossAmount', 'amountIncludingVat', 'total', 'netAmount'] },
     { key: 'currency', header: 'Currency', path: ['currency', 'currency.code'] },
     { key: 'status', header: 'Status', path: ['status.state', 'status.value', 'status', 'state', 'booked', 'paymentStatus', 'invoiceStatus', 'draft', 'sent'] },
-    { key: 'pdf', header: 'PDF', render: (item) => <Button size="sm" variant="outline" onClick={() => viewInvoice(item)} className="flex items-center gap-1"><FileText className="h-4 w-4 mr-1" /> View Invoice</Button> },
-  ], [invoiceHeadings, viewInvoice, getInvoiceDescription]);
+    { 
+      key: 'actions', 
+      header: 'Actions', 
+      render: (item) => (
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => viewInvoice(item)} className="flex items-center gap-1"><FileText className="h-4 w-4 mr-1" /> View Invoice</Button>
+          <Button size="sm" variant="secondary" onClick={() => checkPaymentStatus(item)} className="flex items-center gap-1"><Banknote className="h-4 w-4 mr-1" /> Check Status</Button>
+        </div>
+      ) 
+    },
+  ], [invoiceHeadings, viewInvoice, getInvoiceDescription, checkPaymentStatus]);
 
   const ledgerCardColumns: DialogColumn[] = [
     { key: 'date', header: 'Date', format: 'date', path: ['date', 'entryDate', 'transactionDate', 'createdAt'] },
