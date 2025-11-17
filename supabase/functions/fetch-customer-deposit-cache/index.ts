@@ -44,6 +44,39 @@ const extractList = (payload: any): any[] => {
   return [];
 };
 
+// NEW helper to enrich entries with customer data if it's missing
+async function enrichEntriesWithCustomerData(supabaseClient: any, entries: any[], country: string) {
+  const enrichedEntries = [];
+  for (const entry of entries) {
+    // If customer data already exists, we're good.
+    if (entry.customer && entry.customer.customerNumber) {
+      enrichedEntries.push(entry);
+      continue;
+    }
+
+    // If customer is missing, try to get it from the associated invoice link
+    const invoiceSelf = entry.invoice?.self || entry.bookedInvoice?.self;
+    if (invoiceSelf) {
+      try {
+        const path = new URL(invoiceSelf).pathname;
+        const invoiceData = await fetchEconomicData(supabaseClient, path, country);
+        if (invoiceData && invoiceData.customer) {
+          // Add the customer object from the invoice to the entry
+          enrichedEntries.push({ ...entry, customer: invoiceData.customer });
+        } else {
+          enrichedEntries.push(entry); // Push as-is if no customer on invoice
+        }
+      } catch (e) {
+        console.warn(`Could not enrich entry ${entry.entryNumber} from invoice: ${e.message}`);
+        enrichedEntries.push(entry); // Push as-is on error
+      }
+    } else {
+      enrichedEntries.push(entry); // Push as-is if no invoice link to follow
+    }
+  }
+  return enrichedEntries;
+}
+
 // Helper to fetch all entries for a specific account and year, with pagination
 async function fetchEntriesForYear(supabaseAdminClient: any, year: string, country: string, accountNumber: number) {
     let allEntries: any[] = [];
@@ -60,7 +93,9 @@ async function fetchEntriesForYear(supabaseAdminClient: any, year: string, count
             break;
         }
 
-        allEntries = allEntries.concat(entries);
+        // NEW: Enrich entries with customer data before adding them to the main list
+        const enrichedPage = await enrichEntriesWithCustomerData(supabaseAdminClient, entries, country);
+        allEntries = allEntries.concat(enrichedPage);
 
         if (entries.length < pageSize) {
             break;
