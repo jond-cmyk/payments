@@ -25,18 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import DepositReturnForm from '@/components/deposits/DepositReturnForm';
 
-// Define the Customer Deposit Account Number
-const CUSTOMER_DEPOSIT_ACCOUNT_NUMBER = 8201;
-
 // Types
-type EconomicProxyResponse<T = any> = {
-  ok?: boolean;
-  status?: number;
-  data?: T;
-  request?: { url?: string };
-  error?: string;
-};
-
 type EconomicLedgerEntry = {
   entryNumber: number;
   entryType: string;
@@ -96,62 +85,41 @@ const CustomerDeposits = () => {
   }, [departments]);
 
   const { data: allAccountEntries, isLoading: isLoadingEntries, refetch } = useQuery<EconomicLedgerEntry[]>({
-    queryKey: ['customerDepositEntries', currentCountry],
+    queryKey: ['customerDepositCache', currentCountry],
     queryFn: async () => {
       if (!session || currentCountry === 'all') return [];
-
-      const toastId = showLoading("Fetching all customer deposit entries...");
-      try {
-        const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: "/accounting-years", method: "GET", country: currentCountry },
-        });
-
-        if (yearsError) throw new Error(yearsError.message);
-        const yearsResp = yearsData as EconomicProxyResponse<any>;
-        if (yearsResp.error || !yearsResp.ok) {
-          throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
-        }
-        const accountingYears = extractList(yearsResp?.data);
-        
-        if (!accountingYears || accountingYears.length === 0) {
-          showError("No accounting years found in e-conomic. Cannot fetch entries.");
-          return [];
-        }
-
-        let allEntries: EconomicLedgerEntry[] = [];
-        const fetchPromises = accountingYears.map(async (yearInfo: any) => {
-          const path = `/accounts/${CUSTOMER_DEPOSIT_ACCOUNT_NUMBER}/accounting-years/${yearInfo.year}/entries?pagesize=1000`;
-          
-          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-            body: { path, method: "GET", country: currentCountry },
-          });
-
-          if (error) {
-            console.error(`Error fetching entries for year ${yearInfo.year}:`, error.message);
-            return [];
-          }
-
-          const resp = data as EconomicProxyResponse<any>;
-          if (resp.error || !resp.ok) {
-            console.error(`e-conomic error fetching entries for year ${yearInfo.year}:`, resp.error || `Status ${resp.status}`);
-            return [];
-          }
-          
-          return extractList(resp?.data);
-        });
-
-        const results = await Promise.all(fetchPromises);
-        allEntries = results.flat();
-        dismissToast(toastId);
-        showSuccess("All entries fetched successfully.");
-        return allEntries as EconomicLedgerEntry[];
-      } catch (e: any) {
-        dismissToast(toastId);
-        showError(e.message || "Failed to fetch entries.");
+      const { data, error } = await supabase
+        .from('customer_deposit_cache')
+        .select('entries')
+        .eq('country', currentCountry)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching customer deposit cache:", error);
         return [];
       }
+      return data?.entries || [];
     },
     enabled: !!session && currentCountry !== 'all',
+    staleTime: 1000 * 60 * 60, // Cache for 1 hour
+  });
+
+  const refreshCacheMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('fetch-customer-deposit-cache', {
+        body: { country: currentCountry },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      showSuccess(data.message || "Cache refreshed successfully!");
+      queryClient.invalidateQueries({ queryKey: ['customerDepositCache', currentCountry] });
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to refresh cache.");
+    },
   });
 
   const groupedByCustomer = useMemo(() => {
@@ -314,9 +282,9 @@ const CustomerDeposits = () => {
                 <Button variant="outline" onClick={() => setShowRawDataDialog(true)} disabled={!allAccountEntries}>
                   <Database className="mr-2 h-4 w-4" /> View Raw Data
                 </Button>
-                <Button onClick={() => refetch()} disabled={isLoadingEntries || currentCountry === 'all'}>
-                  <RotateCw className={`mr-2 h-4 w-4 ${isLoadingEntries ? 'animate-spin' : ''}`} />
-                  Refresh Data
+                <Button onClick={() => refreshCacheMutation.mutate()} disabled={refreshCacheMutation.isPending || currentCountry === 'all'}>
+                  <RotateCw className={`mr-2 h-4 w-4 ${refreshCacheMutation.isPending ? 'animate-spin' : ''}`} />
+                  Refresh Cache
                 </Button>
               </div>
             )}
