@@ -46,37 +46,41 @@ const extractList = (payload: any): any[] => {
   return [];
 };
 
-// NEW helper to enrich entries with customer data if it's missing
+// NEW: Optimized helper to enrich entries with customer data in a single batch
 async function enrichEntriesWithCustomerData(supabaseClient: any, entries: any[], country: string) {
-  const enrichedEntries = [];
-  for (const entry of entries) {
-    // If customer name is present, we're good.
-    if (entry.customer && entry.customer.name) {
-      enrichedEntries.push(entry);
-      continue;
-    }
-
-    // If customer name is missing, try to get it from the associated invoice link
-    const invoiceSelf = entry.invoice?.self || entry.bookedInvoice?.self;
-    if (invoiceSelf) {
-      try {
-        const path = new URL(invoiceSelf).pathname;
-        const invoiceData = await fetchEconomicData(supabaseClient, path, country);
-        if (invoiceData && invoiceData.customer) {
-          // Add the customer object from the invoice to the entry
-          enrichedEntries.push({ ...entry, customer: invoiceData.customer });
-        } else {
-          enrichedEntries.push(entry); // Push as-is if no customer on invoice
-        }
-      } catch (e) {
-        console.warn(`Could not enrich entry ${entry.entryNumber} from invoice: ${e.message}`);
-        enrichedEntries.push(entry); // Push as-is on error
-      }
-    } else {
-      enrichedEntries.push(entry); // Push as-is if no invoice link to follow
-    }
+  const entriesMissingCustomerName = entries.filter(entry => !(entry.customer && entry.customer.name) && entry.customer && entry.customer.customerNumber);
+  
+  if (entriesMissingCustomerName.length === 0) {
+    return entries; // All entries have names, nothing to do.
   }
-  return enrichedEntries;
+
+  const customerNumbersToFetch = [...new Set(entriesMissingCustomerName.map(entry => entry.customer.customerNumber))];
+
+  if (customerNumbersToFetch.length === 0) {
+    return entries; // No customer numbers to fetch.
+  }
+
+  try {
+    const filter = `customerNumber$in:[${customerNumbersToFetch.join(',')}]`;
+    const path = `/customers?filter=${filter}&pagesize=1000`;
+    const customerData = await fetchEconomicData(supabaseClient, path, country);
+    const customers = extractList(customerData);
+
+    const customerMap = new Map(customers.map(c => [c.customerNumber, c]));
+
+    return entries.map(entry => {
+      if (!(entry.customer && entry.customer.name) && entry.customer && entry.customer.customerNumber) {
+        const fullCustomer = customerMap.get(entry.customer.customerNumber);
+        if (fullCustomer) {
+          return { ...entry, customer: fullCustomer };
+        }
+      }
+      return entry;
+    });
+  } catch (e) {
+    console.warn(`Could not enrich entries with customer data: ${e.message}`);
+    return entries; // Return original entries on error
+  }
 }
 
 // Helper to fetch all entries for a specific account and year, with pagination
@@ -95,7 +99,7 @@ async function fetchEntriesForYear(supabaseAdminClient: any, year: string, count
             break;
         }
 
-        // NEW: Enrich entries with customer data before adding them to the main list
+        // Enrich entries with customer data before adding them to the main list
         const enrichedPage = await enrichEntriesWithCustomerData(supabaseAdminClient, entries, country);
         allEntries = allEntries.concat(enrichedPage);
 
@@ -143,7 +147,7 @@ serve(async (req) => {
         throw new Error("No accounting years found in e-conomic.");
     }
 
-    // NEW: Find only the current accounting year to speed up the process
+    // Find only the current accounting year to speed up the process
     const today = new Date();
     const currentYearObject = accountingYears.find((y: any) => {
         const from = y.fromDate ? parseISO(y.fromDate) : null;
