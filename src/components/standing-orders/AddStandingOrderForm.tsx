@@ -12,6 +12,7 @@ import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { StandingOrder, PayeeSuggestion } from '@/types/supabase'; // Import PayeeSuggestion type
 import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // NEW IMPORT
+import { useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Card, CardTitle } from '@/components/ui/card'; // Import Card and CardTitle for suggestions
 import { Separator } from '@/components/ui/separator'; // Import Separator
 import PropertyAddressField from '@/components/PropertyAddressField';
+import { CheckedState } from '@radix-ui/react-checkbox';
 
 // Helper function to format UK account number for display
 const formatUkAccountNumber = (raw: string | undefined | null): string => {
@@ -182,13 +184,21 @@ const addStandingOrderFormSchema = z.object({
     }
   }
 
-  // NEW: End date must be after start date if provided
-  if (data.payment_end_date && data.payment_end_date < data.payment_date) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Payment End Date must be after the Payment Start Date.",
-      path: ['payment_end_date'],
-    });
+  // End date must be after start date if provided
+  if (data.payment_end_date && data.payment_date) {
+    const startDate = new Date(data.payment_date);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(data.payment_end_date);
+    endDate.setHours(0, 0, 0, 0);
+
+    if (endDate < startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payment End Date must be on or after the Payment Start Date.",
+        path: ['payment_end_date'],
+      });
+    }
   }
 });
 
@@ -197,8 +207,9 @@ interface AddStandingOrderFormProps {
 }
 
 const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingOrderAdded }) => {
-  const { user, userProfile } = useSession();
+  const { user, userProfile, isLoading } = useSession();
   const { currentCountry, availableCountries, isCountryLocked } = useCountry();
+  const navigate = useNavigate();
 
   const [payeeSuggestions, setPayeeSuggestions] = useState<PayeeSuggestion[]>([]);
   const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
@@ -244,7 +255,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const isAdmin = userProfile?.role === 'admin';
   
   // Watch the entire categories array for changes
-  const watchedCategories = useWatch({
+  const watchedCategories = useWatch({ // NEW: Watch categories for total calculation
     control: form.control,
     name: "categories",
     defaultValue: form.getValues("categories"), // Ensure initial value is set
@@ -256,7 +267,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0; // Ensure it's a number
       return sum + parsedAmount;
     }, 0);
-    form.setValue("total_amount", newTotal, { shouldValidate: true }); // Also validate on change
+    form.setValue("total_amount", newTotal, { shouldValidate: true });
   }, [watchedCategories, form]); // Dependency on watchedCategories
 
   // Effect to reset form defaults if currentCountry changes
@@ -271,7 +282,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       iban_number: formCountry === 'United Kingdom' ? "" : "",
       sort_code: formCountry === 'United Kingdom' ? "" : "",
       account_number: formCountry === 'United Kingdom' ? "" : "",
-      bank_account_name: formCountry === 'United Kingdom' ? "" : "",
+      account_name: "",
       country: formCountry,
       categories: [{ category: "", amount: 0 }], // Reset categories
       total_amount: 0, // Reset total amount
@@ -279,6 +290,15 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     }));
   }, [formCountry, form]);
 
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-full">Loading...</div>;
+  }
+
+  if (!user) {
+    navigate('/login');
+    return null;
+  }
 
   const handlePayeeBlur = async () => {
     const payeeName = form.getValues('payee');
@@ -335,7 +355,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     form.setValue('payee', suggestion.name, options);
     form.setValue('account_name', suggestion.bank_account_name || '', options);
     form.setValue('bank_details_verified', false, options);
-    form.setValue('currency', suggestion.currency || undefined, options);
+    form.setValue('currency', suggestion.currency || (currentFormCountry === 'United Kingdom' ? 'GBP' : 'CHF'), options);
     form.setValue('bank_account', suggestion.bank_account || undefined, options);
 
     if (currentFormCountry === 'United Kingdom') {
@@ -366,11 +386,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     form.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
-  };
-
-  const onInvalid = (errors: any) => {
-    console.error("Form validation failed:", errors);
-    showError("Form validation failed. Please check the console for details.");
   };
 
   const onSubmit = async (values: z.infer<typeof addStandingOrderFormSchema>) => {
@@ -473,430 +488,224 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   );
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="country"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Country</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
-                <SelectTrigger id={field.name}>
-                  <FormControl>
-                    <SelectValue placeholder="Select a country" />
-                  </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  {availableCountries.filter(c => c.value !== 'all').map((country) => (
-                    <SelectItem key={country.value} value={country.value}>
-                      {country.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                {userProfile?.role !== 'admin' && isCountryLocked ? "Your country is set by your profile and cannot be changed." : "Select the country for this standing order."}
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="payee"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <FormControl>
-                <Input 
-                  placeholder="e.g., Rent Co." 
-                  {...field} 
-                  onBlur={(e) => {
-                    field.onBlur();
-                    handlePayeeBlur();
-                  }}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        {/* Dynamic Categories Section */}
-        <Card className="p-4 shadow-sm">
-          <CardTitle className="text-lg font-semibold mb-4 flex items-center">
-            <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
-          </CardTitle>
-          <div className="space-y-4">
-            {fields.map((item, index) => (
-              <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
-                <FormField
-                  control={form.control}
-                  name={`categories.${index}.category`}
-                  render={({ field }) => (
-                    <FormItem className="flex-1 w-full">
-                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <FormControl>
-                            <SelectValue placeholder="Select a category" />
-                          </FormControl>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {filteredCategoryOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name={`categories.${index}.amount`}
-                  render={({ field }) => (
-                    <FormItem className="flex-1 w-full">
-                      <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="text"
-                          step="0.01" 
-                          placeholder="Amount" 
-                          {...field}
-                          value={field.value === 0 ? "" : String(field.value)}
-                          onChange={(e) => {
-                            const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                            field.onChange(rawValue);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                {fields.length > 1 && (
-                  <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
-                    <MinusCircle className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => append({ category: "", amount: 0 })}
-              className="w-full"
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
-            </Button>
-            <Separator className="my-4" />
-            <div className="flex justify-between items-center text-lg font-bold">
-              <span>Total Amount:</span>
-              <span>{form.getValues('total_amount').toFixed(2)}</span>
-            </div>
-            <FormField
-              control={form.control}
-              name="total_amount"
-              render={({ field }) => (
-                <FormItem className="hidden"> {/* Hidden field for Zod validation */}
-                  <FormControl>
-                    <Input type="hidden" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </Card>
-
-        {/* Currency field: Conditional rendering */}
-        {formCountry !== 'United Kingdom' ? (
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Form validation failed:", errors))} className="space-y-6">
           <FormField
             control={form.control}
-            name="currency"
+            name="country"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                  <SelectTrigger>
+                <FormLabel className="font-semibold">Country</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
+                  <SelectTrigger id={field.name}>
                     <FormControl>
-                      <SelectValue placeholder="Select a currency" />
+                      <SelectValue placeholder="Select a country" />
                     </FormControl>
                   </SelectTrigger>
                   <SelectContent>
-                    {majorCurrencies.map((currency) => (
-                      <SelectItem key={currency.value} value={currency.value}>
-                        {currency.label}
+                    {availableCountries.filter(c => c.value !== 'all').map((country) => (
+                      <SelectItem key={country.value} value={country.value}>
+                        {country.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <FormDescription>
+                  {userProfile?.role !== 'admin' && isCountryLocked ? "Your country is set by your profile and cannot be changed." : "Select the country for this standing order."}
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-        ) : (
-          <div className="space-y-2">
-            <FormLabel className="font-semibold">Currency</FormLabel>
-            <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
-            <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
-          </div>
-        )}
-
-        <FormField
-          control={form.control}
-          name="sku"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">SKU</FormLabel>
-              <div className="flex items-center gap-2">
-                <FormControl className="flex-1">
-                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated} />
-                </FormControl>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={() => {
-                    const skuValue = form.getValues('sku');
-                    if (skuValue) {
-                      const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeProducts__address%5D=&Filter%5BKassoeThemeProducts__city%5D=&Filter%5BKassoeThemeProducts__zip%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5BKassoeThemeProducts__active%5D=&Filter%5BKassoeThemeProducts__contract_number%5D=&Filter%5BKassoeThemeProducts__sku_dummy%5D=&Filter%5BKassoeThemeProducts__address_dummy%5D=&Filter%5BKassoeThemeProducts__sku_dummy2%5D=&Filter%5BKassoeThemeProducts__address_dummy2%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5Bcustom__is_booked%5D=0`;
-                      window.open(url, '_blank');
-                    } else {
-                      showError("Please enter an SKU number first.");
-                    }
-                  }}
-                  disabled={notPropertyRelated}
-                >
-                  <Search className="h-4 w-4" />
-                </Button>
-                <span className="text-sm text-muted-foreground whitespace-nowrap">Check Accommodation in Platform</span>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <PropertyAddressField skuValue={skuValue} country={formCountry} />
-        <FormField
-          control={form.control}
-          name="not_property_related"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox
-                  checked={field.value}
-                  onCheckedChange={field.onChange}
-                />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>
-                  Not Property Related
-                </FormLabel>
-                <FormDescription>
-                  Check this box if this standing order is not associated with a property SKU.
-                </FormDescription>
-              </div>
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="payment_date"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel className="font-semibold">Payment Start Date<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <FormControl>
-                <DatePicker
-                  date={field.value}
-                  setDate={field.onChange}
-                  placeholder="Select start date"
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="payment_end_date"
-          render={({ field }) => (
-            <FormItem className="flex flex-col">
-              <FormLabel className="font-semibold">Payment End Date</FormLabel>
-              <FormControl>
-                <DatePicker
-                  date={field.value}
-                  setDate={field.onChange}
-                  placeholder="Select end date (optional)"
-                />
-              </FormControl>
-              <FormDescription>
-                Optional: set an end date if the standing order should stop automatically.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="payment_day"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Payment Day</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger id={field.name}>
-                  <FormControl>
-                    <SelectValue placeholder="Select payment day" />
-                  </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  {daysOfMonth.map((day) => (
-                    <SelectItem key={day} value={day}>
-                        Day {day}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                The day of the month when the payment should be made.
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="account_name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., John Doe" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {formCountry === 'United Kingdom' ? (
-          <>
-            <FormField
-              control={form.control}
-              name="sort_code"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">Sort Code<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., 12-34-56"
-                      {...field}
-                      onChange={(e) => {
-                        let value = e.target.value.replace(/\D/g, '');
-                        if (value.length > 6) value = value.substring(0, 6);
-                        if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
-                        else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
-                        field.onChange(value);
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Enter the 6-digit Sort Code in XX-XX-XX format.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="account_number"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., 1234 5678"
-                      {...field}
-                      value={formatUkAccountNumber(field.value)}
-                      onChange={(e) => {
-                        let value = e.target.value.replace(/\D/g, '');
-                        if (value.length > 8) value = value.substring(0, 8);
-                        field.onChange(value);
-                      }}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Enter the 8-digit Bank Account Number.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        ) : (
-          <>
-            <FormField
-              control={form.control}
-              name="account_address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">Account Address<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="e.g., 123 Bank St, City, Country" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="iban_number"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <FormControl>
-                    <Input placeholder="e.g., CH9300762011623852957" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </>
-        )}
-
-        {formCountry === 'Switzerland' && (
           <FormField
             control={form.control}
-            name="bank_account"
+            name="payee"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger id={field.name}>
-                    <FormControl>
-                      <SelectValue placeholder="Select a bank account" />
-                    </FormControl>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
-                    <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
-                    <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
-                  </SelectContent>
-                </Select>
+                <FormLabel className="font-semibold">Payee<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="e.g., ABC Corp"
+                    {...field}
+                    onBlur={(e) => {
+                      field.onBlur(); // Call original onBlur
+                      handlePayeeBlur(); // Call our custom blur handler
+                    }}
+                    disabled={form.formState.isSubmitting || isSearchingPayee}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        )}
+          
+          {/* Dynamic Categories Section */}
+          <Card className="p-4 shadow-sm">
+            <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+              <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+            </CardTitle>
+            <div className="space-y-4">
+              {fields.map((item, index) => (
+                <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                  <FormField
+                    control={form.control}
+                    name={`categories.${index}.category`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1 w-full">
+                        <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger>
+                            <FormControl>
+                              <SelectValue placeholder="Select a category" />
+                            </FormControl>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredCategoryOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`categories.${index}.amount`}
+                    render={({ field }) => (
+                      <FormItem className="flex-1 w-full">
+                        <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="text"
+                            step="0.01" 
+                            placeholder="Amount" 
+                            {...field}
+                            value={field.value === 0 ? "" : String(field.value)}
+                            onChange={(e) => {
+                              const rawValue = e.target.value.replace(/[^\d.]/g, '');
+                              field.onChange(rawValue);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {fields.length > 1 && (
+                    <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
+                      <MinusCircle className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => append({ category: "", amount: 0 })}
+                className="w-full"
+              >
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
+              </Button>
+              <Separator className="my-4" />
+              <div className="flex justify-between items-center text-lg font-bold">
+                <span>Total Amount:</span>
+                <span>{form.getValues('total_amount').toFixed(2)}</span>
+              </div>
+              <FormField
+                control={form.control}
+                name="total_amount"
+                render={({ field }) => (
+                  <FormItem className="hidden"> {/* Hidden field for Zod validation */}
+                    <FormControl>
+                      <Input type="hidden" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </Card>
 
-        <FormField
-          control={form.control}
-          name="bank_details_verified"
-          render={({ field }) => (
-            <FormItem>
-              <div className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
+          {/* Currency field: Conditional rendering */}
+          {formCountry !== 'United Kingdom' ? (
+            <FormField
+              control={form.control}
+              name="currency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <SelectTrigger>
+                      <FormControl>
+                        <SelectValue placeholder="Select a currency" />
+                      </FormControl>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {majorCurrencies.map((currency) => (
+                        <SelectItem key={currency.value} value={currency.value}>
+                          {currency.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : (
+            <div className="space-y-2">
+              <FormLabel className="font-semibold">Currency</FormLabel>
+              <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
+              <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
+            </div>
+          )}
+
+          <FormField
+            control={form.control}
+            name="sku"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">SKU Number</FormLabel>
+                <div className="flex items-center gap-2">
+                  <FormControl className="flex-1">
+                    <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated} />
+                  </FormControl>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      const skuValue = form.getValues('sku');
+                      if (skuValue) {
+                        const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeProducts__address%5D=&Filter%5BKassoeThemeProducts__city%5D=&Filter%5BKassoeThemeProducts__zip%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5BKassoeThemeProducts__active%5D=&Filter%5BKassoeThemeProducts__contract_number%5D=&Filter%5BKassoeThemeProducts__sku_dummy%5D=&Filter%5BKassoeThemeProducts__address_dummy%5D=&Filter%5BKassoeThemeProducts__sku_dummy2%5D=&Filter%5BKassoeThemeProducts__address_dummy2%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5Bcustom__is_booked%5D=0`;
+                        window.open(url, '_blank');
+                      } else {
+                        showError("Please enter an SKU number first.");
+                      }
+                    }}
+                    disabled={notPropertyRelated}
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">Check Accommodation in Platform</span>
+                </div>
+                <FormDescription>
+                  {notPropertyRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${formCountry === 'United Kingdom' ? 'UK' : 'CH'}' and be followed by numbers.`}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <PropertyAddressField skuValue={skuValue} country={formCountry} />
+          <FormField
+            control={form.control}
+            name="not_property_related"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                 <FormControl>
                   <Checkbox
                     checked={field.value}
@@ -904,115 +713,331 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                   />
                 </FormControl>
                 <div className="space-y-1 leading-none">
-                  <FormLabel className="text-blue-700">
-                    I have verified these bank details with the payee.<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+                  <FormLabel>
+                    Not Property Related
                   </FormLabel>
-                  <FormDescription className="text-blue-600">
-                    Please ensure the bank details are correct to avoid payment delays or errors.
+                  <FormDescription>
+                    Check this box if this payment request is not associated with an SKU.
                   </FormDescription>
                 </div>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="from_day"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-semibold">Accruals Period From Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger id={field.name}>
-                    <FormControl>
-                      <SelectValue placeholder="Select day" />
-                    </FormControl>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {daysOfMonth.map((day) => (
-                      <SelectItem key={day} value={day}>
-                        {day}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
               </FormItem>
             )}
           />
           <FormField
             control={form.control}
-            name="to_day"
+            name="account_name"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="font-semibold">Accruals Period To Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger id={field.name}>
-                    <FormControl>
-                      <SelectValue placeholder="Select day" />
-                    </FormControl>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {daysOfMonth.map((day) => (
-                      <SelectItem key={day} value={day}>
-                        {day}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormLabel className="font-semibold">Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., John Doe" {...field} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-        </div>
 
-        <FormField
-          control={form.control}
-          name="payment_reference"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Payment Reference</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., SO-RENT-001" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
+          {formCountry === 'United Kingdom' ? (
+            <>
+              <FormField
+                control={form.control}
+                name="sort_code"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Sort Code<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., 12-34-56"
+                        {...field}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
+                          if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
+                          if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+                          else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
+                          field.onChange(value);
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter the 6-digit Sort Code in XX-XX-XX format.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="account_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., 1234 5678"
+                        {...field}
+                        value={formatUkAccountNumber(field.value)}
+                        onChange={(e) => {
+                          let value = e.target.value.replace(/\D/g, '');
+                          if (value.length > 8) value = value.substring(0, 8);
+                          field.onChange(value);
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Enter the 8-digit Bank Account Number.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
+          ) : (
+            <>
+              <FormField
+                control={form.control}
+                name="account_address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Account Address<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="e.g., 123 Bank St, City, Country" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="iban_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., CH9300762011623852957" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </>
           )}
-        />
 
-        <FormField
-          control={form.control}
-          name="status"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                <SelectTrigger id={field.name}>
+          {formCountry === 'Switzerland' && (
+            <FormField
+              control={form.control}
+              name="bank_account"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Bank Account<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger id={field.name}>
+                      <FormControl>
+                        <SelectValue placeholder="Select a bank account" />
+                      </FormControl>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
+                      <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
+                      <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+
+          <FormField
+            control={form.control}
+            name="bank_details_verified"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
                   <FormControl>
-                    <SelectValue placeholder="Select status" />
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
                   </FormControl>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Pending' by default and can only be changed by an administrator."}
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          {form.formState.isSubmitting ? "Adding Standing Order..." : "Add Standing Order"}
-        </Button>
-      </form>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="text-blue-700">
+                      I have verified these bank details with the payee.<span className="text-red-600 ml-1 text-lg font-bold">*</span>
+                    </FormLabel>
+                    <FormDescription className="text-blue-600">
+                      Please ensure the bank details are correct to avoid payment delays or errors.
+                    </FormDescription>
+                  </div>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="from_day"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Accruals Period From Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger id={field.name}>
+                      <FormControl>
+                        <SelectValue placeholder="Select day" />
+                      </FormControl>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {daysOfMonth.map((day) => (
+                        <SelectItem key={day} value={day}>
+                          {day}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="to_day"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="font-semibold">Accruals Period To Day<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger id={field.name}>
+                      <FormControl>
+                        <SelectValue placeholder="Select day" />
+                      </FormControl>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {daysOfMonth.map((day) => (
+                        <SelectItem key={day} value={day}>
+                          {day}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="payment_reference"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Payment Reference</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., SO-RENT-001" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="payment_date"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="font-semibold">Payment Start Date<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <FormControl>
+                  <DatePicker
+                    date={field.value}
+                    setDate={field.onChange}
+                    placeholder="Select start date"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="payment_end_date"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="font-semibold">Payment End Date</FormLabel>
+                <FormControl>
+                  <DatePicker
+                    date={field.value}
+                    setDate={field.onChange}
+                    placeholder="Select end date (optional)"
+                  />
+                </FormControl>
+                <FormDescription>
+                  Optional: set an end date if the standing order should stop automatically.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="payment_day"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Payment Day</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select payment day" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {daysOfMonth.map((day) => (
+                      <SelectItem key={day} value={day}>
+                        Day {day}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  The day of the month when the payment should be made.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <SelectTrigger id={field.name}>
+                    <FormControl>
+                      <SelectValue placeholder="Select status" />
+                    </FormControl>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="paused">Paused</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  {isAdmin ? "Select the current status of this standing order." : "New standing orders are 'Pending' by default and can only be changed by an administrator."}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button type="submit" className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
+            Submit Standing Order
+          </Button>
+        </form>
+      </Form>
+
+      {/* Supplier Suggestions Dialog */}
       <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1062,7 +1087,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           </Button>
         </DialogContent>
       </Dialog>
-    </Form>
+    </>
   );
 };
 

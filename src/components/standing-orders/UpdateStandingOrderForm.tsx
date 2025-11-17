@@ -180,13 +180,21 @@ const updateStandingOrderFormSchema = z.object({
     }
   }
 
-  // NEW: End date must be after start date if provided
-  if (data.payment_end_date && data.payment_end_date < data.payment_date) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Payment End Date must be after the Payment Start Date.",
-      path: ['payment_end_date'],
-    });
+  // End date must be after start date if provided
+  if (data.payment_end_date && data.payment_date) {
+    const startDate = new Date(data.payment_date);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(data.payment_end_date);
+    endDate.setHours(0, 0, 0, 0);
+
+    if (endDate < startDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Payment End Date must be on or after the Payment Start Date.",
+        path: ['payment_end_date'],
+      });
+    }
   }
 });
 
