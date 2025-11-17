@@ -66,7 +66,7 @@ const StandingOrderCommentsCard: React.FC<StandingOrderCommentsCardProps> = ({
             comments.map((comment) => (
               <div key={comment.id} className="border-l-2 border-gray-200 pl-4">
                 <p className="text-sm text-muted-foreground">
-                  {format(new Date(comment.changed_at), 'PPP p')} by {auditUsers?.[comment.changed_by_user_id || ''] || comment.changed_by_user_id || 'System'}
+                  {format(new Date(comment.changed_at), 'PPP p')} by <strong className="text-foreground">{auditUsers?.[comment.changed_by_user_id || ''] || comment.changed_by_user_id || 'System'}</strong>
                 </p>
                 <p className="text-base">{formatAuditDescription(comment.change_description)}</p>
               </div>

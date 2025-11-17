@@ -119,12 +119,10 @@ const PaymentRequestDetail = () => {
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
-        let displayString = profile.user_email || profile.id;
+        let displayString = profile.user_email || profile.id; // Fallback
         if (profile.first_name || profile.last_name) {
           const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-          if (profile.user_email) {
-            displayString = `${name} (${profile.user_email})`;
-          } else {
+          if (name) {
             displayString = name;
           }
         }

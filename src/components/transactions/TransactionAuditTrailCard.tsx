@@ -35,7 +35,7 @@ const TransactionAuditTrailCard: React.FC<TransactionAuditTrailCardProps> = ({
             {audits.map((audit) => (
               <div key={audit.id} className="border-l-2 border-gray-200 pl-4">
                 <p className="text-sm text-muted-foreground">
-                  {format(new Date(audit.changed_at), 'PPP p')} by {auditUsers?.[audit.changed_by_user_id || ''] || audit.changed_by_user_id || 'System'}
+                  {format(new Date(audit.changed_at), 'PPP p')} by <strong className="text-foreground">{auditUsers?.[audit.changed_by_user_id || ''] || audit.changed_by_user_id || 'System'}</strong>
                 </p>
                 <p className="text-base">{formatAuditDescription(audit.change_description)}</p>
               </div>

@@ -72,7 +72,7 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="font-bold">Requested By:</p>
-              <p>{auditUsers?.[request.requester_id] || request.requester_id}</p>
+              <p className="font-semibold text-foreground">{auditUsers?.[request.requester_id] || request.requester_id}</p>
             </div>
             <div>
               <p className="font-bold">Country:</p>

@@ -113,10 +113,12 @@ const StandingOrderDetail = () => {
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       (data || []).forEach((profile: any) => {
-        let displayString = profile.user_email || profile.id;
+        let displayString = profile.user_email || profile.id; // Fallback
         if (profile.first_name || profile.last_name) {
           const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-          displayString = profile.user_email ? `${name} (${profile.user_email})` : name;
+          if (name) {
+            displayString = name;
+          }
         }
         usersMap[profile.id] = displayString;
       });
@@ -442,7 +444,7 @@ const StandingOrderDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="font-bold">Requested By:</p>
-                <p>{auditUsers?.[standingOrder.requester_id] || standingOrder.requester_id}</p>
+                <p className="font-semibold text-foreground">{auditUsers?.[standingOrder.requester_id] || standingOrder.requester_id}</p>
               </div>
               <div>
                 <p className="font-bold">Created At:</p>

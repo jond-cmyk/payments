@@ -114,12 +114,10 @@ const DirectDebitDetail = () => {
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
-        let displayString = profile.user_email || profile.id;
+        let displayString = profile.user_email || profile.id; // Fallback
         if (profile.first_name || profile.last_name) {
           const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-          if (profile.user_email) {
-            displayString = `${name} (${profile.user_email})`;
-          } else {
+          if (name) {
             displayString = name;
           }
         }
@@ -384,7 +382,7 @@ const DirectDebitDetail = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="font-bold">Requested By:</p>
-                <p>{auditUsers?.[directDebit.requester_id] || directDebit.requester_id}</p>
+                <p className="font-semibold text-foreground">{auditUsers?.[directDebit.requester_id] || directDebit.requester_id}</p>
               </div>
               <div>
                 <p className="font-bold">Created At:</p>
