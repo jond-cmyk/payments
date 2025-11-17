@@ -222,37 +222,30 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
 
   const form = useForm<z.infer<typeof updateStandingOrderFormSchema>>({
     resolver: zodResolver(updateStandingOrderFormSchema),
-  });
-
-  // NEW: useEffect to reset form with prop data
-  useEffect(() => {
-    if (standingOrder) {
-        const isUK = standingOrder.country === 'United Kingdom';
-        form.reset({
-            payee: standingOrder.payee || "",
-            payment_date: new Date(standingOrder.payment_date + 'T00:00:00'),
-            payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date + 'T00:00:00') : undefined,
-            sku: standingOrder.sku || (standingOrder.country === 'United Kingdom' ? 'UK' : 'CH'),
-            not_property_related: standingOrder.not_property_related,
-            categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }],
-            total_amount: standingOrder.total_amount,
-            account_name: standingOrder.account_name || "",
-            account_address: standingOrder.account_address || "",
-            iban_number: standingOrder.iban_number || "",
-            sort_code: standingOrder.sort_code || "",
-            account_number: standingOrder.account_number || "",
-            from_day: String(standingOrder.from_day),
-            to_day: String(standingOrder.to_day),
-            payment_reference: standingOrder.payment_reference || "",
-            status: standingOrder.status === 'awaiting_info' ? 'pending' : standingOrder.status,
-            country: standingOrder.country,
-            bank_details_verified: standingOrder.bank_details_verified,
-            payment_day: standingOrder.payment_day ? String(standingOrder.payment_day) : undefined,
-            currency: isUK ? 'GBP' : standingOrder.currency || undefined,
-            bank_account: standingOrder.bank_account || undefined,
-        });
+    defaultValues: {
+      payee: standingOrder.payee || "",
+      payment_date: new Date(standingOrder.payment_date + 'T00:00:00'),
+      payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date + 'T00:00:00') : undefined,
+      sku: standingOrder.sku || (standingOrder.country === 'United Kingdom' ? 'UK' : 'CH'),
+      not_property_related: standingOrder.not_property_related,
+      categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }],
+      total_amount: standingOrder.total_amount,
+      account_name: standingOrder.account_name || "",
+      account_address: standingOrder.account_address || "",
+      iban_number: standingOrder.iban_number || "",
+      sort_code: standingOrder.sort_code || "",
+      account_number: standingOrder.account_number || "",
+      from_day: String(standingOrder.from_day),
+      to_day: String(standingOrder.to_day),
+      payment_reference: standingOrder.payment_reference || "",
+      status: standingOrder.status === 'awaiting_info' ? 'pending' : standingOrder.status,
+      country: standingOrder.country,
+      bank_details_verified: standingOrder.bank_details_verified,
+      payment_day: standingOrder.payment_day ? String(standingOrder.payment_day) : undefined,
+      currency: standingOrder.country === 'United Kingdom' ? 'GBP' : standingOrder.currency || undefined,
+      bank_account: standingOrder.bank_account || undefined,
     }
-  }, [standingOrder, form.reset]);
+  });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,

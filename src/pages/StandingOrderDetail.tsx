@@ -44,6 +44,7 @@ const StandingOrderDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditStandingOrderDialogOpen, setIsEditStandingOrderDialogOpen] = useState(false);
+  const [editingStandingOrder, setEditingStandingOrder] = useState<StandingOrder | null>(null);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -241,7 +242,7 @@ const StandingOrderDetail = () => {
         <h1 className="text-3xl font-bold">Standing Order #{standingOrder.id.substring(0, 8)}</h1>
         {isAdmin && (
           <div className="flex space-x-2">
-            <Button variant="outline" className="shadow-sm" onClick={() => setIsEditStandingOrderDialogOpen(true)}>
+            <Button variant="outline" className="shadow-sm" onClick={() => { setEditingStandingOrder(standingOrder); setIsEditStandingOrderDialogOpen(true); }}>
               <Edit className="mr-2 h-4 w-4" /> Edit Standing Order
             </Button>
             <AlertDialog>
@@ -471,13 +472,17 @@ const StandingOrderDetail = () => {
 
       <StandingOrderAuditTrailCard audits={generalAudits} auditUsers={auditUsers || {}} />
 
-      {standingOrder && (
+      {editingStandingOrder && (
         <Dialog open={isEditStandingOrderDialogOpen} onOpenChange={setIsEditStandingOrderDialogOpen}>
           <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Standing Order: {standingOrder.payee}</DialogTitle>
+              <DialogTitle>Edit Standing Order: {editingStandingOrder.payee}</DialogTitle>
             </DialogHeader>
-            <UpdateStandingOrderForm standingOrder={standingOrder} onStandingOrderUpdated={handleStandingOrderUpdated} />
+            <UpdateStandingOrderForm 
+              key={editingStandingOrder.id}
+              standingOrder={editingStandingOrder} 
+              onStandingOrderUpdated={handleStandingOrderUpdated} 
+            />
           </DialogContent>
         </Dialog>
       )}

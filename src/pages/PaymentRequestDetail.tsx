@@ -584,8 +584,8 @@ const PaymentRequestDetail = () => {
       {/* Conditional rendering based on isEditing state */}
       {isEditing ? (
         <PaymentRequestEditFormCard
+          key={request.id}
           request={request}
-          editForm={editForm}
           handleRequesterEditSubmit={handleRequesterEditSubmit}
         />
       ) : (
