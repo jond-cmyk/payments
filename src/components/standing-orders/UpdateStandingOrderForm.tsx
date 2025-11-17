@@ -178,6 +178,14 @@ const updateStandingOrderFormSchema = z.object({
         path: ['currency'],
       });
     }
+  } else if (data.country === 'Ireland') {
+    if (!data.currency || data.currency.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Currency is required for Ireland.",
+        path: ['currency'],
+      });
+    }
   }
 
   // End date must be after start date if provided
@@ -407,7 +415,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           country: countryForUpdate,
           bank_details_verified: values.bank_details_verified,
           payment_day: safeDay,
-          currency: countryForUpdate === 'United Kingdom' ? 'GBP' : (countryForUpdate === 'Switzerland' ? values.currency : null),
+          currency: countryForUpdate === 'United Kingdom' ? 'GBP' : (countryForUpdate === 'Switzerland' || countryForUpdate === 'Ireland' ? values.currency : null),
           bank_account: countryForUpdate === 'Switzerland' ? values.bank_account : null,
           updated_at: new Date().toISOString(),
         })
@@ -580,7 +588,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </div>
           </Card>
 
-          {formCountry === 'Switzerland' ? (
+          {formCountry !== 'United Kingdom' ? (
             <FormField
               control={form.control}
               name="currency"
@@ -605,13 +613,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 </FormItem>
               )}
             />
-          ) : formCountry === 'United Kingdom' ? (
+          ) : (
             <div className="space-y-2">
               <FormLabel className="font-semibold">Currency</FormLabel>
               <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
               <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
             </div>
-          ) : null}
+          )}
 
           <FormField
             control={form.control}
