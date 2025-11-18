@@ -157,6 +157,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
             <>
               <div className="h-px bg-dyad-blue-foreground my-4" />
               <NavLink to="/admin/panel" icon={<Settings className="h-5 w-5" />} label="Admin Panel" />
+              <NavLink to="/admin/comparable-period-total" icon={<BarChart className="h-5 w-5" />} label="Comparable Period Report" />
             </>
           )}
         </nav>
