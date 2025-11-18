@@ -41,29 +41,6 @@ type ReportLine = {
   period3Total: number;
 };
 
-const getDepartmentNumberFromEntry = (entry: any): number | null => {
-  const candidates = [
-    entry?.departmentalDistribution?.departmentalDistributionNumber,
-    entry?.department?.departmentNumber,
-    entry?.departmentNumber,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === 'number') return candidate;
-    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
-  }
-
-  const selfUrl = entry?.departmentalDistribution?.self;
-  if (selfUrl && typeof selfUrl === 'string') {
-    const match = selfUrl.match(/\/(\d+)$/);
-    if (match && match[1]) {
-      return parseInt(match[1], 10);
-    }
-  }
-
-  return null;
-};
-
 const ComparablePeriodTotal = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
@@ -112,42 +89,47 @@ const ComparablePeriodTotal = () => {
         const fetchAndProcessPeriod = async (date: Date, sku: string) => {
           const startDate = format(startOfMonth(date), 'yyyy-MM-dd');
           const endDate = format(endOfMonth(date), 'yyyy-MM-dd');
-          
-          const { data: yearsData } = await supabase.functions.invoke("economic-api-proxy", {
-            body: { path: "/accounting-years", method: "GET", country: currentCountry },
-          });
-          const yearsResp = yearsData as EconomicProxyResponse<any>;
-          if (yearsResp.error || !yearsResp.ok) throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
-          const accountingYears = extractList(yearsResp?.data);
-          if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found.");
+          const numericSku = parseInt(sku, 10);
+
+          const path = `/departments/${numericSku}/entries`;
+          const query = {
+            'date$gte': startDate,
+            'date$lte': endDate,
+            'pagesize': 1000
+          };
 
           let allEntries: any[] = [];
-          const yearPromises = accountingYears.map(async (yearInfo: any) => {
-            const path = `/accounting-years/${yearInfo.year}/entries`;
-            const query = {
-              'date$gte': startDate,
-              'date$lte': endDate,
-              'pagesize': 1000
-            };
+          let currentPage = 0;
+          while (true) {
+            const paginatedQuery = { ...query, skipPages: String(currentPage) };
             const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-              body: { path, method: "GET", query, country: currentCountry },
+              body: { path, method: "GET", query: paginatedQuery, country: currentCountry },
             });
-            if (error) { console.warn(`Error fetching entries for year ${yearInfo.year}:`, error.message); return []; }
+
+            if (error) throw new Error(error.message);
             const resp = data as EconomicProxyResponse<any>;
-            return resp.ok ? extractList(resp.data) : [];
-          });
+            if (resp.error || !resp.ok) {
+              if (resp.status === 404) {
+                throw new Error(`The e-conomic endpoint for department entries was not found (404). This feature may not be available on your plan.`);
+              }
+              throw new Error(resp.error || `Failed to fetch entries for SKU ${sku}: Status ${resp.status}`);
+            }
 
-          const results = await Promise.all(yearPromises);
-          allEntries = results.flat();
+            const entries = extractList(resp.data);
+            if (!entries || entries.length === 0) {
+              break; // No more entries
+            }
 
-          const numericSku = parseInt(sku, 10);
-          const filteredEntries = allEntries.filter(entry => {
-            const deptNum = getDepartmentNumberFromEntry(entry);
-            return deptNum === numericSku;
-          });
-          
+            allEntries = allEntries.concat(entries);
+
+            if (entries.length < 1000) {
+              break; // Last page
+            }
+            currentPage++;
+          }
+
           const balanceMap = new Map<number, { name: string, total: number }>();
-          for (const entry of filteredEntries) {
+          for (const entry of allEntries) {
             const accountNumber = entry.account?.accountNumber;
             const accountName = entry.account?.name;
             const amount = entry.amount || 0;
