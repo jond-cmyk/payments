@@ -5,14 +5,13 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
-import { BarChart, Search } from 'lucide-react';
+import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { BarChart, Search, FileDown } from 'lucide-react';
 import { exportToCsv } from '@/utils/exportToCsv';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import DatePicker from '@/components/DatePicker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +19,12 @@ import { useCountry } from '@/integrations/supabase/CountryContext';
 import CountrySelector from '@/components/CountrySelector';
 import { formatAmount, extractList } from '@/components/economic/EconomicDetailDialog';
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
+import { useDepartments } from '@/hooks/useDepartments';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Check, ChevronsUpDown } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 type EconomicProxyResponse<T = any> = {
   ok?: boolean;
@@ -31,8 +36,9 @@ type EconomicProxyResponse<T = any> = {
 type ReportLine = {
   accountNumber: number;
   name: string;
-  total: number;
-  comparativeTotal: number;
+  period1Total: number;
+  period2Total: number;
+  period3Total: number;
 };
 
 const ComparablePeriodTotal = () => {
@@ -40,156 +46,164 @@ const ComparablePeriodTotal = () => {
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
   const navigate = useNavigate();
 
-  const [period1EndDate, setPeriod1EndDate] = useState<Date | undefined>(new Date());
-  const [period2EndDate, setPeriod2EndDate] = useState<Date | undefined>(new Date());
+  const [selectedSku, setSelectedSku] = useState<string>('');
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth())); // 0-indexed
   const [enabled, setEnabled] = useState(false);
+  const [departmentSearchOpen, setDepartmentSearchOpen] = useState(false);
 
   const isAdmin = userProfile?.role === 'admin';
 
-  const { data: reportData, isLoading, error, refetch } = useQuery<{ lines: ReportLine[], totals: any, comparativeTotals: any } | null>({
-    queryKey: ['comparablePeriodTotal', period1EndDate, period2EndDate, currentCountry],
+  const { data: departments, isLoading: isLoadingDepartments } = useDepartments(currentCountry);
+
+  const years = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const yearsArray = [];
+    for (let year = currentYear; year >= 2024; year--) {
+      yearsArray.push(String(year));
+    }
+    return yearsArray;
+  }, []);
+
+  const months = useMemo(() => {
+    return Array.from({ length: 12 }, (_, i) => ({
+      value: String(i),
+      label: format(new Date(2000, i, 1), 'MMMM'),
+    }));
+  }, []);
+
+  const { data: reportData, isLoading, error, refetch } = useQuery<{
+    lines: ReportLine[],
+    periodHeaders: string[],
+    totals: { period1: number, period2: number, period3: number }
+  } | null>({
+    queryKey: ['comparablePeriodTotal', selectedSku, selectedYear, selectedMonth, currentCountry],
     queryFn: async () => {
-      if (!period1EndDate || !period2EndDate) {
-        throw new Error("Both period end dates must be selected.");
+      if (!selectedSku || !selectedYear || !selectedMonth) {
+        throw new Error("SKU, Year, and Month must be selected.");
       }
 
-      const toastId = showLoading("Generating report... This may take a moment as we are building it from scratch.");
+      const toastId = showLoading("Generating P&L report...");
       try {
-        const fetchAllPages = async (path: string, query: Record<string, string>) => {
-          let allItems: any[] = [];
-          let currentPage = 0;
-          const pageSize = 1000;
-
-          while (true) {
-            const pageQuery = { ...query, pagesize: String(pageSize), skipPages: String(currentPage) };
-            const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-              body: { path, method: "GET", query: pageQuery, country: currentCountry },
-            });
-            if (error) throw error;
-            const resp = data as EconomicProxyResponse<any>;
-            if (resp.error || !resp.ok) throw new Error(resp.error || `API Error: Status ${resp.status}`);
-            
-            const items = extractList(resp.data);
-            if (!items || items.length === 0) break;
-            
-            allItems = allItems.concat(items);
-            if (items.length < pageSize) break;
-            
-            currentPage++;
-          }
-          return allItems;
-        };
-
-        const calculateTrialBalanceForDate = async (date: Date) => {
-          const formattedDate = format(date, 'yyyy-MM-dd');
+        const fetchAndProcessPeriod = async (date: Date, sku: string) => {
+          const startDate = format(startOfMonth(date), 'yyyy-MM-dd');
+          const endDate = format(endOfMonth(date), 'yyyy-MM-dd');
           
-          // 1. Fetch all accounting years
-          const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
+          const { data: yearsData } = await supabase.functions.invoke("economic-api-proxy", {
             body: { path: "/accounting-years", method: "GET", country: currentCountry },
           });
-          if (yearsError) throw new Error(yearsError.message);
           const yearsResp = yearsData as EconomicProxyResponse<any>;
           if (yearsResp.error || !yearsResp.ok) throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
           const accountingYears = extractList(yearsResp?.data);
-          if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found in e-conomic.");
+          if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found.");
 
-          // 2. Fetch entries for each year up to the target date
           let allEntries: any[] = [];
-          const yearPromises = accountingYears.map(yearInfo => {
-            const year = yearInfo.year;
-            const path = `/accounting-years/${year}/entries`;
-            return fetchAllPages(path, { 'date$lte': formattedDate });
+          const yearPromises = accountingYears.map(async (yearInfo: any) => {
+            const path = `/accounting-years/${yearInfo.year}/entries`;
+            const query = {
+              'date$gte': startDate,
+              'date$lte': endDate,
+              'departmentalDistribution.departmentalDistributionNumber$eq': sku,
+            };
+            const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+              body: { path, method: "GET", query, country: currentCountry },
+            });
+            if (error) { console.warn(`Error fetching entries for year ${yearInfo.year}:`, error.message); return []; }
+            const resp = data as EconomicProxyResponse<any>;
+            return resp.ok ? extractList(resp.data) : [];
           });
 
           const results = await Promise.all(yearPromises);
           allEntries = results.flat();
           
           const balanceMap = new Map<number, { name: string, total: number }>();
-
           for (const entry of allEntries) {
             const accountNumber = entry.account?.accountNumber;
             const accountName = entry.account?.name;
             const amount = entry.amount || 0;
-
             if (accountNumber) {
               if (!balanceMap.has(accountNumber)) {
                 balanceMap.set(accountNumber, { name: accountName || `Account ${accountNumber}`, total: 0 });
               }
-              const current = balanceMap.get(accountNumber)!;
-              current.total += amount;
+              balanceMap.get(accountNumber)!.total += amount;
             }
           }
           return balanceMap;
         };
 
-        const [period1BalanceMap, period2BalanceMap] = await Promise.all([
-          calculateTrialBalanceForDate(period1EndDate),
-          calculateTrialBalanceForDate(period2EndDate),
+        const baseDate = new Date(parseInt(selectedYear), parseInt(selectedMonth));
+        const period1Date = baseDate;
+        const period2Date = subMonths(baseDate, 1);
+        const period3Date = subMonths(baseDate, 2);
+
+        const [period1Map, period2Map, period3Map] = await Promise.all([
+          fetchAndProcessPeriod(period1Date, selectedSku),
+          fetchAndProcessPeriod(period2Date, selectedSku),
+          fetchAndProcessPeriod(period3Date, selectedSku),
         ]);
 
-        const mergedData: Map<number, ReportLine> = new Map();
+        const allAccountNumbers = new Set([
+          ...Array.from(period1Map.keys()),
+          ...Array.from(period2Map.keys()),
+          ...Array.from(period3Map.keys()),
+        ]);
 
-        period1BalanceMap.forEach((value, key) => {
-          mergedData.set(key, {
-            accountNumber: key,
-            name: value.name,
-            total: value.total,
-            comparativeTotal: 0,
-          });
-        });
+        const lines: ReportLine[] = Array.from(allAccountNumbers).map(accountNumber => {
+          const p1Data = period1Map.get(accountNumber);
+          const p2Data = period2Map.get(accountNumber);
+          const p3Data = period3Map.get(accountNumber);
+          return {
+            accountNumber,
+            name: p1Data?.name || p2Data?.name || p3Data?.name || `Account ${accountNumber}`,
+            period1Total: p1Data?.total || 0,
+            period2Total: p2Data?.total || 0,
+            period3Total: p3Data?.total || 0,
+          };
+        }).sort((a, b) => a.accountNumber - b.accountNumber);
 
-        period2BalanceMap.forEach((value, key) => {
-          if (mergedData.has(key)) {
-            const existing = mergedData.get(key)!;
-            existing.comparativeTotal = value.total;
-          } else {
-            mergedData.set(key, {
-              accountNumber: key,
-              name: value.name,
-              total: 0,
-              comparativeTotal: value.total,
-            });
-          }
-        });
-
-        const finalLines = Array.from(mergedData.values()).sort((a, b) => a.accountNumber - b.accountNumber);
-        
-        const period1Total = Array.from(period1BalanceMap.values()).reduce((sum, acc) => sum + acc.total, 0);
-        const period2Total = Array.from(period2BalanceMap.values()).reduce((sum, acc) => sum + acc.total, 0);
+        const totals = {
+          period1: Array.from(period1Map.values()).reduce((sum, acc) => sum + acc.total, 0),
+          period2: Array.from(period2Map.values()).reduce((sum, acc) => sum + acc.total, 0),
+          period3: Array.from(period3Map.values()).reduce((sum, acc) => sum + acc.total, 0),
+        };
 
         dismissToast(toastId);
         showSuccess("Report generated successfully.");
         return {
-          lines: finalLines,
-          totals: { total: period1Total },
-          comparativeTotals: { total: period2Total },
+          lines,
+          periodHeaders: [format(period1Date, 'MMMM yyyy'), format(period2Date, 'MMMM yyyy'), format(period3Date, 'MMMM yyyy')],
+          totals,
         };
       } catch (e: any) {
         dismissToast(toastId);
         showError(e.message);
-        setEnabled(false); // Disable query on error
+        setEnabled(false);
         return null;
       }
     },
     enabled: enabled,
-    staleTime: Infinity, // Only refetch on manual trigger
+    staleTime: Infinity,
   });
 
   const handleGenerateReport = () => {
+    if (!selectedSku) {
+      showError("Please select a property/SKU.");
+      return;
+    }
     setEnabled(true);
     refetch();
   };
 
   const handleExport = () => {
-    if (reportData?.lines) {
+    if (reportData?.lines && reportData.periodHeaders) {
       const dataToExport = reportData.lines.map(line => ({
         'Account Number': line.accountNumber,
         'Account Name': line.name,
-        [`Period 1 Total (as of ${format(period1EndDate!, 'yyyy-MM-dd')})`]: line.total,
-        [`Period 2 Total (as of ${format(period2EndDate!, 'yyyy-MM-dd')})`]: line.comparativeTotal,
-        'Difference': line.total - line.comparativeTotal,
+        [reportData.periodHeaders[0]]: line.period1Total,
+        [reportData.periodHeaders[1]]: line.period2Total,
+        [reportData.periodHeaders[2]]: line.period3Total,
       }));
-      exportToCsv(dataToExport, `comparable_period_report_${format(new Date(), 'yyyyMMdd')}.csv`);
+      exportToCsv(dataToExport, `p&l_report_${selectedSku}_${format(new Date(), 'yyyyMMdd')}.csv`);
     }
   };
 
@@ -204,14 +218,14 @@ const ComparablePeriodTotal = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <PageTitle title="Comparable Period Report - KH Payments" />
+      <PageTitle title="P&L Report - KH Payments" />
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
-            <BarChart className="mr-2 h-6 w-6" /> Comparable Period Total Report
+            <BarChart className="mr-2 h-6 w-6" /> P&L Report by Property
           </CardTitle>
           <CardDescription>
-            Generate a report from e-conomic comparing account totals between two different dates.
+            Generate a Profit & Loss report for a specific property, comparing the selected month with the two previous months.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -224,15 +238,72 @@ const ComparablePeriodTotal = () => {
                   availableCountries={availableCountries.filter(c => c.value !== 'all')}
                 />
               </div>
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Period 1 End Date</label>
-                <DatePicker date={period1EndDate} setDate={setPeriod1EndDate} />
+              <div className="flex-1 min-w-[250px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Property / SKU*</label>
+                <Popover open={departmentSearchOpen} onOpenChange={setDepartmentSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={departmentSearchOpen}
+                      className="w-full justify-between"
+                      disabled={isLoadingDepartments}
+                    >
+                      {selectedSku
+                        ? departments?.find((dept) => String(dept.departmentNumber) === selectedSku)?.name
+                        : "Select property..."}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                    <Command>
+                      <CommandInput placeholder="Search property..." />
+                      <CommandList>
+                        <CommandEmpty>No property found.</CommandEmpty>
+                        <CommandGroup>
+                          {departments?.map((dept) => (
+                            <CommandItem
+                              key={dept.departmentNumber}
+                              value={`${dept.name} ${dept.departmentNumber}`}
+                              onSelect={() => {
+                                setSelectedSku(String(dept.departmentNumber));
+                                setDepartmentSearchOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedSku === String(dept.departmentNumber) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {dept.name} ({dept.departmentNumber})
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Period 2 End Date</label>
-                <DatePicker date={period2EndDate} setDate={setPeriod2EndDate} />
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {years.map(year => <SelectItem key={year} value={year}>{year}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
-              <Button onClick={handleGenerateReport} disabled={isLoading || !period1EndDate || !period2EndDate}>
+              <div className="flex-1 min-w-[150px]">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {months.map(month => <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleGenerateReport} disabled={isLoading || !selectedSku}>
                 <Search className="mr-2 h-4 w-4" />
                 {isLoading ? "Generating..." : "Generate Report"}
               </Button>
@@ -249,11 +320,11 @@ const ComparablePeriodTotal = () => {
               <Card>
                 <CardHeader>
                   <div className="flex justify-between items-center">
-                    <CardTitle>Report Results</CardTitle>
+                    <CardTitle>Report Results for SKU {selectedSku}</CardTitle>
                     <Button variant="outline" onClick={handleExport}>Export to CSV</Button>
                   </div>
                   <CardDescription>
-                    Comparing totals as of {format(period1EndDate!, 'PPP')} vs. {format(period2EndDate!, 'PPP')}.
+                    Comparing P&L for {reportData.periodHeaders.join(', ')}.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -262,9 +333,9 @@ const ComparablePeriodTotal = () => {
                       <TableHeader>
                         <TableRow>
                           <TableHead>Account</TableHead>
-                          <TableHead className="text-right">Period 1 Total</TableHead>
-                          <TableHead className="text-right">Period 2 Total</TableHead>
-                          <TableHead className="text-right">Difference</TableHead>
+                          {reportData.periodHeaders.map(header => (
+                            <TableHead key={header} className="text-right">{header}</TableHead>
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -279,16 +350,16 @@ const ComparablePeriodTotal = () => {
                             {reportData.lines.map((line) => (
                               <TableRow key={line.accountNumber}>
                                 <TableCell className="font-medium">{line.accountNumber} - {line.name}</TableCell>
-                                <TableCell className="text-right">{formatAmount(line.total)}</TableCell>
-                                <TableCell className="text-right">{formatAmount(line.comparativeTotal)}</TableCell>
-                                <TableCell className="text-right font-semibold">{formatAmount(line.total - line.comparativeTotal)}</TableCell>
+                                <TableCell className="text-right">{formatAmount(line.period1Total)}</TableCell>
+                                <TableCell className="text-right">{formatAmount(line.period2Total)}</TableCell>
+                                <TableCell className="text-right">{formatAmount(line.period3Total)}</TableCell>
                               </TableRow>
                             ))}
                             <TableRow className="font-bold bg-muted">
                               <TableCell>Totals</TableCell>
-                              <TableCell className="text-right">{formatAmount(reportData.totals?.total)}</TableCell>
-                              <TableCell className="text-right">{formatAmount(reportData.comparativeTotals?.total)}</TableCell>
-                              <TableCell className="text-right">{formatAmount((reportData.totals?.total || 0) - (reportData.comparativeTotals?.total || 0))}</TableCell>
+                              <TableCell className="text-right">{formatAmount(reportData.totals?.period1)}</TableCell>
+                              <TableCell className="text-right">{formatAmount(reportData.totals?.period2)}</TableCell>
+                              <TableCell className="text-right">{formatAmount(reportData.totals?.period3)}</TableCell>
                             </TableRow>
                           </>
                         )}
