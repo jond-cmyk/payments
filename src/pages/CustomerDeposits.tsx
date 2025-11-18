@@ -11,7 +11,7 @@ import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Home, Search, RotateCw, AlertTriangle, ArrowUp, ArrowDown, Database } from 'lucide-react';
+import { Home, Search, RotateCw, AlertTriangle, ArrowUp, ArrowDown, Database, FileText } from 'lucide-react';
 import { showError, showLoading, dismissToast, showSuccess } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
@@ -58,6 +58,15 @@ const pick = (obj: any, keys: string[]): any => {
     if (found) return current;
   }
   return undefined;
+};
+
+const pathFromSelf = (self: string): string | undefined => {
+  if (typeof self !== "string" || !self) return undefined;
+  if (self.startsWith("http")) {
+    const parts = self.split("/");
+    return "/" + parts.slice(3).join("/");
+  }
+  return self.startsWith("/") ? self : "/" + self;
 };
 
 const CustomerDeposits = () => {
@@ -217,6 +226,54 @@ const CustomerDeposits = () => {
     return null;
   };
 
+  const handleViewInvoice = useCallback(async (item: EconomicLedgerEntry) => {
+    try {
+      let basePath: string | undefined;
+      const invoiceObject = item.invoice || item;
+
+      const selfLink = pick(invoiceObject, ['self']);
+      if (selfLink && typeof selfLink === 'string') {
+        const path = pathFromSelf(selfLink);
+        if (path && (path.includes('/invoices/booked/') || path.includes('/invoices/drafts/'))) {
+          basePath = path;
+        }
+      }
+
+      if (!basePath) {
+        const bookedInvoiceNumber = pick(invoiceObject, ['bookedInvoiceNumber']);
+        if (bookedInvoiceNumber) {
+          basePath = `/invoices/booked/${bookedInvoiceNumber}`;
+        }
+      }
+
+      if (!basePath) {
+        const draftInvoiceNumber = pick(invoiceObject, ['draftInvoiceNumber']);
+        if (draftInvoiceNumber) {
+          basePath = `/invoices/drafts/${draftInvoiceNumber}`;
+        }
+      }
+
+      if (!basePath) {
+        const genericInvoiceNumber = pick(item, ['invoiceNumber', 'invoice.invoiceNumber']);
+        if (genericInvoiceNumber) {
+          basePath = `/invoices/booked/${genericInvoiceNumber}`;
+        }
+      }
+      
+      if (!basePath) {
+        console.error("Failed to determine invoice path from item:", item);
+        throw new Error("Could not determine a valid invoice path for this entry.");
+      }
+
+      const pdfPath = `${basePath}/pdf`;
+      const proxyUrl = `https://vcpvwcfuvpngmxenhixj.supabase.co/functions/v1/economic-pdf-proxy?path=${encodeURIComponent(pdfPath)}&country=${encodeURIComponent(currentCountry)}`;
+
+      window.open(proxyUrl, '_blank');
+    } catch (e: any) {
+      showError(e.message);
+    }
+  }, [currentCountry]);
+
   if (isSessionLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
   }
@@ -348,7 +405,7 @@ const CustomerDeposits = () => {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="date">Date</SelectItem>
-                            <SelectItem value="entryNumber">Entry Number</SelectItem>
+                            <SelectItem value="invoice.bookedInvoiceNumber">Invoice Number</SelectItem>
                             <SelectItem value="amount">Amount</SelectItem>
                           </SelectContent>
                         </Select>
@@ -361,20 +418,26 @@ const CustomerDeposits = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="cursor-pointer" onClick={() => handleSort('date')}>Date {renderSortIcon('date')}</TableHead>
-                              <TableHead className="cursor-pointer" onClick={() => handleSort('entryNumber')}>Entry No. {renderSortIcon('entryNumber')}</TableHead>
+                              <TableHead className="cursor-pointer" onClick={() => handleSort('invoice.bookedInvoiceNumber')}>Invoice No. {renderSortIcon('invoice.bookedInvoiceNumber')}</TableHead>
                               <TableHead>Text</TableHead>
                               <TableHead>Customer</TableHead>
                               <TableHead className="text-right cursor-pointer" onClick={() => handleSort('amount')}>Amount {renderSortIcon('amount')}</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             {displayedEntries.map((entry, index) => (
                               <TableRow key={entry.self || index}>
                                 <TableCell>{entry.date && typeof entry.date === 'string' ? format(parseISO(entry.date), 'PPP') : 'Invalid Date'}</TableCell>
-                                <TableCell>{entry.entryNumber}</TableCell>
+                                <TableCell>{pick(entry, ['invoice.bookedInvoiceNumber', 'invoice.invoiceNumber', 'invoiceNumber']) || entry.entryNumber}</TableCell>
                                 <TableCell>{entry.text}</TableCell>
                                 <TableCell>{entry.customer?.name || `Customer #${entry.customer?.customerNumber}`}</TableCell>
                                 <TableCell className="text-right">{formatAmount(entry.amount)} {entry.currency}</TableCell>
+                                <TableCell className="text-right">
+                                  <Button variant="outline" size="sm" onClick={() => handleViewInvoice(entry)}>
+                                    <FileText className="mr-2 h-4 w-4" /> View Invoice
+                                  </Button>
+                                </TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
