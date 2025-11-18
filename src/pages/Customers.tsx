@@ -963,6 +963,7 @@ const CustomerRow: React.FC<CustomerRowProps> = ({ customer, country }) => {
               customerName={`${customer.name} #${customer.customerNumber}`}
               returnAmount={Math.abs(firstCreditBalance.amount)}
               currency={firstCreditBalance.currency}
+              country={country}
               onSubmit={handleCreateDepositReturnRequest}
               isSubmitting={isSubmittingDepositReturn}
             />

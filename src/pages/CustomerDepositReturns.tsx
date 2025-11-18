@@ -182,9 +182,8 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
         bank_details_verified: formValues.bank_details_verified,
         bank_account_name: formValues.bank_account_name,
         iban_number: formValues.iban_number,
-        // UK fields are not applicable here as this is for Switzerland
-        sort_code: null,
-        account_number: null,
+        sort_code: formValues.sort_code,
+        account_number: formValues.account_number,
       });
 
       if (error) throw error;
@@ -310,6 +309,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
               customerName={customerName}
               returnAmount={Math.abs(selectedEntry.remainder)}
               currency={selectedEntry.currency}
+              country={country}
               onSubmit={handleCreateDepositReturnRequest}
               isSubmitting={isSubmitting}
             />

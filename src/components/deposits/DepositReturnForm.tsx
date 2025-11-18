@@ -11,33 +11,79 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Checkbox } from '@/components/ui/checkbox';
 import { DollarSign } from 'lucide-react';
 
-const formSchema = z.object({
+const createFormSchema = (country: string) => z.object({
   bank_account_name: z.string().min(1, "Bank Account Name is required."),
   account_address: z.string().min(1, "Account Address is required."),
-  iban_number: z.string().min(1, "IBAN Number is required."),
+  iban_number: z.string().optional(),
+  sort_code: z.string().optional(),
+  account_number: z.string().optional(),
+  overseas_bank_account: z.boolean().default(false),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
+}).superRefine((data, ctx) => {
+  if (country === 'United Kingdom') {
+    if (data.overseas_bank_account) {
+      if (!data.iban_number || data.iban_number.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "IBAN Number is required for overseas accounts.",
+          path: ['iban_number'],
+        });
+      }
+    } else {
+      if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Sort Code is required and must be in XX-XX-XX format.",
+          path: ['sort_code'],
+        });
+      }
+      if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Bank Account Number is required and must be 8 digits.",
+          path: ['account_number'],
+        });
+      }
+    }
+  } else { // For non-UK countries
+    if (!data.iban_number || data.iban_number.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "IBAN Number is required.",
+        path: ['iban_number'],
+      });
+    }
+  }
 });
-
-type DepositReturnFormValues = z.infer<typeof formSchema>;
 
 interface DepositReturnFormProps {
   customerName: string;
   returnAmount: number;
   currency: string;
-  onSubmit: (values: DepositReturnFormValues) => Promise<void>;
+  country: string;
+  onSubmit: (values: any) => Promise<void>;
   isSubmitting: boolean;
 }
 
-const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, returnAmount, currency, onSubmit, isSubmitting }) => {
+const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, returnAmount, currency, country, onSubmit, isSubmitting }) => {
+  const formSchema = createFormSchema(country);
+  type DepositReturnFormValues = z.infer<typeof formSchema>;
+
   const form = useForm<DepositReturnFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       bank_account_name: "",
       account_address: "",
       iban_number: "",
+      sort_code: "",
+      account_number: "",
+      overseas_bank_account: false,
       bank_details_verified: false,
     },
   });
+
+  const isUk = country === 'United Kingdom';
+  const isOverseas = form.watch('overseas_bank_account');
 
   return (
     <Form {...form}>
@@ -72,19 +118,97 @@ const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, ret
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="iban_number"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>IBAN Number</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., CH9300762011623852957" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+
+        {isUk && (
+          <FormField
+            control={form.control}
+            name="overseas_bank_account"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>
+                    This is an overseas (non-UK) bank account.
+                  </FormLabel>
+                  <FormDescription>
+                    Check this box to provide an IBAN instead of Sort Code and Account Number.
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
+        )}
+
+        {(!isUk || (isUk && isOverseas)) && (
+          <FormField
+            control={form.control}
+            name="iban_number"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>IBAN Number</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., CH9300762011623852957" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+
+        {isUk && !isOverseas && (
+          <>
+            <FormField
+              control={form.control}
+              name="sort_code"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Sort Code</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g., 12-34-56"
+                      {...field}
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/\D/g, '');
+                        if (value.length > 6) value = value.substring(0, 6);
+                        if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+                        else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
+                        field.onChange(value);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="account_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Account Number</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g., 12345678"
+                      {...field}
+                      onChange={(e) => {
+                        let value = e.target.value.replace(/\D/g, '');
+                        if (value.length > 8) value = value.substring(0, 8);
+                        field.onChange(value);
+                      }}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        )}
+
         <FormField
           control={form.control}
           name="bank_details_verified"
