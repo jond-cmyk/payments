@@ -41,14 +41,38 @@ type ReportLine = {
   period3Total: number;
 };
 
+const getDepartmentNumberFromEntry = (entry: any): number | null => {
+  const candidates = [
+    entry?.departmentalDistribution?.departmentalDistributionNumber,
+    entry?.department?.departmentNumber,
+    entry?.departmentNumber,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number') return candidate;
+    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
+  }
+
+  const selfUrl = entry?.departmentalDistribution?.self;
+  if (selfUrl && typeof selfUrl === 'string') {
+    const match = selfUrl.match(/\/(\d+)$/);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+};
+
 const ComparablePeriodTotal = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
   const navigate = useNavigate();
 
+  const lastMonthDate = subMonths(new Date(), 1);
   const [selectedSku, setSelectedSku] = useState<string>('');
-  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
-  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth())); // 0-indexed
+  const [selectedYear, setSelectedYear] = useState<string>(String(lastMonthDate.getFullYear()));
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(lastMonthDate.getMonth())); // 0-indexed
   const [enabled, setEnabled] = useState(false);
   const [departmentSearchOpen, setDepartmentSearchOpen] = useState(false);
 
@@ -103,7 +127,6 @@ const ComparablePeriodTotal = () => {
             const query = {
               'date$gte': startDate,
               'date$lte': endDate,
-              'departmentalDistribution.departmentalDistributionNumber$eq': sku,
             };
             const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
               body: { path, method: "GET", query, country: currentCountry },
@@ -115,9 +138,15 @@ const ComparablePeriodTotal = () => {
 
           const results = await Promise.all(yearPromises);
           allEntries = results.flat();
+
+          const numericSku = parseInt(sku, 10);
+          const filteredEntries = allEntries.filter(entry => {
+            const deptNum = getDepartmentNumberFromEntry(entry);
+            return deptNum === numericSku;
+          });
           
           const balanceMap = new Map<number, { name: string, total: number }>();
-          for (const entry of allEntries) {
+          for (const entry of filteredEntries) {
             const accountNumber = entry.account?.accountNumber;
             const accountName = entry.account?.name;
             const amount = entry.amount || 0;
