@@ -129,8 +129,8 @@ const ComparablePeriodTotal = () => {
           if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found.");
 
           const targetYearInfo = accountingYears.find((y: any) => {
-              const from = y.fromDate ? parseISO(y.fromDate) : null;
-              const to = y.toDate ? parseISO(y.toDate) : null;
+              const from = y.fromDate ? new Date(y.fromDate) : null;
+              const to = y.toDate ? new Date(y.toDate) : null;
               return from && to && isWithinInterval(date, { start: from, end: to });
           });
 
@@ -140,9 +140,9 @@ const ComparablePeriodTotal = () => {
           }
 
           const path = `/accounting-years/${targetYearInfo.year}/entries`;
+          const filterString = `date$gte:${startDate}$and:date$lte:${endDate}`;
           const query = {
-              'date$gte': startDate,
-              'date$lte': endDate,
+              'filter': filterString,
               'pagesize': 1000
           };
 
