@@ -41,6 +41,29 @@ type ReportLine = {
   period3Total: number;
 };
 
+const getDepartmentNumberFromEntry = (entry: any): number | null => {
+  const candidates = [
+    entry?.departmentalDistribution?.departmentalDistributionNumber,
+    entry?.department?.departmentNumber,
+    entry?.departmentNumber,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number') return candidate;
+    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
+  }
+
+  const selfUrl = entry?.departmentalDistribution?.self;
+  if (selfUrl && typeof selfUrl === 'string') {
+    const match = selfUrl.match(/\/(\d+)$/);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+};
+
 const ComparablePeriodTotal = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
@@ -92,48 +115,90 @@ const ComparablePeriodTotal = () => {
 
       const toastId = showLoading("Generating P&L report...");
       try {
-        const numericSku = parseInt(selectedSku, 10);
-        const path = `/departments/${numericSku}/entries`;
-        const query = { pagesize: 1000 };
+        const fetchAndProcessPeriod = async (date: Date, sku: string) => {
+          const startDate = format(startOfMonth(date), 'yyyy-MM-dd');
+          const endDate = format(endOfMonth(date), 'yyyy-MM-dd');
+          const numericSku = parseInt(sku, 10);
 
-        let allEntriesForSku: any[] = [];
-        let currentPage = 0;
-        while (true) {
-          const paginatedQuery = { ...query, skipPages: String(currentPage) };
-          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-            body: { path, method: "GET", query: paginatedQuery, country: currentCountry },
+          const { data: yearsData } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path: "/accounting-years", method: "GET", country: currentCountry },
+          });
+          const yearsResp = yearsData as EconomicProxyResponse<any>;
+          if (yearsResp.error || !yearsResp.ok) throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+          const accountingYears = extractList(yearsResp?.data);
+          if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found.");
+
+          const targetYearInfo = accountingYears.find((y: any) => {
+              const from = y.fromDate ? parseISO(y.fromDate) : null;
+              const to = y.toDate ? parseISO(y.toDate) : null;
+              return from && to && isWithinInterval(date, { start: from, end: to });
           });
 
-          if (error) throw new Error(error.message);
-          const resp = data as EconomicProxyResponse<any>;
-          if (resp.error || !resp.ok) {
-            if (resp.status === 404) throw new Error(`The e-conomic endpoint for department entries was not found (404). This feature may not be available on your plan.`);
-            throw new Error(resp.error || `Failed to fetch entries for SKU ${selectedSku}: Status ${resp.status}`);
+          if (!targetYearInfo) {
+              console.warn(`No accounting year found for date ${format(date, 'yyyy-MM-dd')}. Skipping period.`);
+              return { balanceMap: new Map(), filteredEntries: [] };
           }
 
-          const entries = extractList(resp.data);
-          if (!entries || entries.length === 0) break;
-          allEntriesForSku = allEntriesForSku.concat(entries);
-          if (entries.length < 1000) break;
-          currentPage++;
-        }
+          const path = `/accounting-years/${targetYearInfo.year}/entries`;
+          const query = {
+              'date$gte': startDate,
+              'date$lte': endDate,
+              'pagesize': 1000
+          };
 
-        const baseDate = new Date(parseInt(selectedYear), parseInt(selectedMonth));
-        const period1Date = baseDate;
-        const period2Date = subMonths(baseDate, 1);
-        const period3Date = subMonths(baseDate, 2);
+          let allEntriesForMonth: any[] = [];
+          let currentPage = 0;
+          while (true) {
+            const paginatedQuery = { ...query, skipPages: String(currentPage) };
+            const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+              body: { path, method: "GET", query: paginatedQuery, country: currentCountry },
+            });
 
-        const period1Interval = { start: startOfMonth(period1Date), end: endOfMonth(period1Date) };
-        const period2Interval = { start: startOfMonth(period2Date), end: endOfMonth(period2Date) };
-        const period3Interval = { start: startOfMonth(period3Date), end: endOfMonth(period3Date) };
+            if (error) throw new Error(error.message);
+            const resp = data as EconomicProxyResponse<any>;
+            if (resp.error || !resp.ok) {
+              console.error(`Failed to fetch entries page ${currentPage} for ${format(date, 'MMMM yyyy')}: Status ${resp.status}`);
+              break;
+            }
 
-        const period1Entries = allEntriesForSku.filter(e => e.date && isWithinInterval(parseISO(e.date), period1Interval));
-        const period2Entries = allEntriesForSku.filter(e => e.date && isWithinInterval(parseISO(e.date), period2Interval));
-        const period3Entries = allEntriesForSku.filter(e => e.date && isWithinInterval(parseISO(e.date), period3Interval));
+            const entries = extractList(resp.data);
+            if (!entries || entries.length === 0) break;
+            allEntriesForMonth = allEntriesForMonth.concat(entries);
+            if (entries.length < 1000) break;
+            currentPage++;
+          }
 
-        const processPeriod = (entries: any[]) => {
+          const enrichedEntries = await Promise.all(allEntriesForMonth.map(async (entry) => {
+              let deptNum = getDepartmentNumberFromEntry(entry);
+              if (deptNum !== null) {
+                  return { ...entry, finalDepartmentNumber: deptNum };
+              }
+
+              const invoiceSelf = entry.invoice?.self;
+              if (invoiceSelf) {
+                  try {
+                      const invoicePath = new URL(invoiceSelf).pathname;
+                      const { data: invoiceData, error: invoiceError } = await supabase.functions.invoke("economic-api-proxy", {
+                          body: { path: invoicePath, method: "GET", country: currentCountry },
+                      });
+                      if (invoiceError || !invoiceData || (invoiceData as any).error) {
+                          return { ...entry, finalDepartmentNumber: null };
+                      }
+                      const fullInvoice = (invoiceData as any).data;
+                      deptNum = getDepartmentNumberFromEntry(fullInvoice);
+                      return { ...entry, finalDepartmentNumber: deptNum };
+                  } catch (e: any) {
+                      console.warn(`Could not enrich entry ${entry.entryNumber} from invoice: ${e.message}`);
+                      return { ...entry, finalDepartmentNumber: null };
+                  }
+              }
+              return { ...entry, finalDepartmentNumber: null };
+          }));
+
+          const filteredEntries = enrichedEntries.filter(entry => entry.finalDepartmentNumber === numericSku);
+          
           const balanceMap = new Map<number, { name: string, total: number }>();
-          for (const entry of entries) {
+          for (const entry of filteredEntries) {
             const accountNumber = entry.account?.accountNumber;
             const accountName = entry.account?.name;
             const amount = entry.amount || 0;
@@ -144,14 +209,29 @@ const ComparablePeriodTotal = () => {
               balanceMap.get(accountNumber)!.total += amount;
             }
           }
-          return balanceMap;
+          return { balanceMap, filteredEntries };
         };
 
-        const period1Map = processPeriod(period1Entries);
-        const period2Map = processPeriod(period2Entries);
-        const period3Map = processPeriod(period3Entries);
+        const baseDate = new Date(parseInt(selectedYear), parseInt(selectedMonth));
+        const period1Date = baseDate;
+        const period2Date = subMonths(baseDate, 1);
+        const period3Date = subMonths(baseDate, 2);
 
-        const allAccountNumbers = new Set([...period1Map.keys(), ...period2Map.keys(), ...period3Map.keys()]);
+        const [period1Result, period2Result, period3Result] = await Promise.all([
+          fetchAndProcessPeriod(period1Date, selectedSku),
+          fetchAndProcessPeriod(period2Date, selectedSku),
+          fetchAndProcessPeriod(period3Date, selectedSku),
+        ]);
+
+        const period1Map = period1Result.balanceMap;
+        const period2Map = period2Result.balanceMap;
+        const period3Map = period3Result.balanceMap;
+
+        const allAccountNumbers = new Set([
+          ...Array.from(period1Map.keys()),
+          ...Array.from(period2Map.keys()),
+          ...Array.from(period3Map.keys()),
+        ]);
 
         const lines: ReportLine[] = Array.from(allAccountNumbers).map(accountNumber => ({
           accountNumber,
@@ -173,9 +253,9 @@ const ComparablePeriodTotal = () => {
           lines,
           periodHeaders: [format(period1Date, 'MMMM yyyy'), format(period2Date, 'MMMM yyyy'), format(period3Date, 'MMMM yyyy')],
           totals,
-          period1Entries,
-          period2Entries,
-          period3Entries,
+          period1Entries: period1Result.filteredEntries,
+          period2Entries: period2Result.filteredEntries,
+          period3Entries: period3Result.filteredEntries,
         };
       } catch (e: any) {
         dismissToast(toastId);
