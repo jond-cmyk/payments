@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { format, parseISO, isWithinInterval } from 'date-fns';
-import { BarChart, Calendar, Search, RotateCw } from 'lucide-react';
+import { format } from 'date-fns';
+import { BarChart, Search } from 'lucide-react';
 import { exportToCsv } from '@/utils/exportToCsv';
 
 import PageTitle from '@/components/PageTitle';
@@ -53,49 +53,62 @@ const ComparablePeriodTotal = () => {
         throw new Error("Both period end dates must be selected.");
       }
 
-      const toastId = showLoading("Generating report...");
+      const toastId = showLoading("Generating report by comparing two trial balances...");
       try {
-        // 1. Fetch accounting years to find the correct one for the primary date
-        const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path: "/accounting-years", method: "GET", country: currentCountry },
-        });
-
-        if (yearsError) throw new Error(yearsError.message);
-        const yearsResp = yearsData as EconomicProxyResponse<any>;
-        if (yearsResp.error || !yearsResp.ok) throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
-        
-        const accountingYears = extractList(yearsResp?.data);
-        if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found in e-conomic.");
-
-        // Find the accounting year that contains the primary period end date
-        const targetYear = accountingYears.find(y => {
-          const from = parseISO(y.fromDate);
-          const to = parseISO(y.toDate);
-          return isWithinInterval(period1EndDate, { start: from, end: to });
-        });
-
-        if (!targetYear) {
-          throw new Error(`No accounting year found in e-conomic that includes the date ${format(period1EndDate, 'PPP')}.`);
-        }
-
-        // 2. Fetch the report data
-        const path = `/reports/accounting-years/${targetYear.year}/comparative-period-total`;
-        const query = {
-          date: format(period1EndDate, 'yyyy-MM-dd'),
-          comparativeDate: format(period2EndDate, 'yyyy-MM-dd'),
+        const fetchTrialBalance = async (date: Date) => {
+          const path = `/reports/trial-balance`;
+          const query = { date: format(date, 'yyyy-MM-dd') };
+          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path, method: "GET", query, country: currentCountry },
+          });
+          if (error) throw new Error(error.message);
+          const resp = data as EconomicProxyResponse<any>;
+          if (resp.error || !resp.ok) throw new Error(resp.error || `Failed to generate report for ${format(date, 'PPP')}: Status ${resp.status}`);
+          return resp.data;
         };
 
-        const { data: reportApiData, error: reportError } = await supabase.functions.invoke("economic-api-proxy", {
-          body: { path, method: "GET", query, country: currentCountry },
+        const [period1Data, period2Data] = await Promise.all([
+          fetchTrialBalance(period1EndDate),
+          fetchTrialBalance(period2EndDate),
+        ]);
+
+        const period1Lines = period1Data?.lines || [];
+        const period2Lines = period2Data?.lines || [];
+
+        const mergedData: Map<number, ReportLine> = new Map();
+
+        period1Lines.forEach((line: any) => {
+          mergedData.set(line.accountNumber, {
+            accountNumber: line.accountNumber,
+            name: line.name,
+            total: line.total,
+            comparativeTotal: 0,
+          });
         });
 
-        if (reportError) throw new Error(reportError.message);
-        const reportResp = reportApiData as EconomicProxyResponse<any>;
-        if (reportResp.error || !reportResp.ok) throw new Error(reportResp.error || `Failed to generate report: Status ${reportResp.status}`);
-        
+        period2Lines.forEach((line: any) => {
+          if (mergedData.has(line.accountNumber)) {
+            const existing = mergedData.get(line.accountNumber)!;
+            existing.comparativeTotal = line.total;
+          } else {
+            mergedData.set(line.accountNumber, {
+              accountNumber: line.accountNumber,
+              name: line.name,
+              total: 0,
+              comparativeTotal: line.total,
+            });
+          }
+        });
+
+        const finalLines = Array.from(mergedData.values()).sort((a, b) => a.accountNumber - b.accountNumber);
+
         dismissToast(toastId);
         showSuccess("Report generated successfully.");
-        return reportResp.data;
+        return {
+          lines: finalLines,
+          totals: period1Data?.totals,
+          comparativeTotals: period2Data?.totals,
+        };
       } catch (e: any) {
         dismissToast(toastId);
         showError(e.message);
@@ -219,8 +232,8 @@ const ComparablePeriodTotal = () => {
                             <TableRow className="font-bold bg-muted">
                               <TableCell>Totals</TableCell>
                               <TableCell className="text-right">{formatAmount(reportData.totals?.total)}</TableCell>
-                              <TableCell className="text-right">{formatAmount(reportData.comparativeTotals?.comparativeTotal)}</TableCell>
-                              <TableCell className="text-right">{formatAmount((reportData.totals?.total || 0) - (reportData.comparativeTotals?.comparativeTotal || 0))}</TableCell>
+                              <TableCell className="text-right">{formatAmount(reportData.comparativeTotals?.total)}</TableCell>
+                              <TableCell className="text-right">{formatAmount((reportData.totals?.total || 0) - (reportData.comparativeTotals?.total || 0))}</TableCell>
                             </TableRow>
                           </>
                         )}
