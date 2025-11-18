@@ -354,7 +354,7 @@ const ComparablePeriodTotal = () => {
   const handleExport = () => {
     if (reportData) {
       const dataToExport: any[] = [];
-
+  
       const createRow = (label: string, periodValues: (number | string)[]) => {
         const row: Record<string, any> = { 'Account': label };
         reportData.periodHeaders.forEach((header, index) => {
@@ -362,25 +362,39 @@ const ComparablePeriodTotal = () => {
         });
         return row;
       };
-
-      dataToExport.push({ Section: 'Revenue' });
+  
+      // Add a blank row helper
+      const addBlankRow = () => dataToExport.push({ 'Account': '' });
+  
+      dataToExport.push({ 'Account': 'Revenue' });
       reportData.revenueLines.forEach(line => dataToExport.push(createRow(`${line.accountNumber} - ${line.name}`, line.periodTotals)));
       dataToExport.push(createRow('Revenue Subtotal', reportData.revenueSubtotals.periodTotals));
-
-      dataToExport.push({ Section: 'Direct Costs' });
+  
+      addBlankRow();
+  
+      dataToExport.push({ 'Account': 'Direct Costs' });
       reportData.directCostsLines.forEach(line => dataToExport.push(createRow(`${line.accountNumber} - ${line.name}`, line.periodTotals)));
       dataToExport.push(createRow('Direct Costs Subtotal', reportData.directCostsSubtotals.periodTotals));
-
+  
+      addBlankRow();
+  
       dataToExport.push(createRow('Property Profit/Loss', reportData.profitLoss.periodTotals));
-
-      dataToExport.push({ Section: 'Additional Costs' });
+  
+      addBlankRow();
+  
+      dataToExport.push({ 'Account': 'Additional Costs' });
       reportData.additionalCostsLines.forEach(line => dataToExport.push(createRow(`${line.accountNumber} - ${line.name}`, line.periodTotals)));
       dataToExport.push(createRow('Additional Costs Subtotal', reportData.additionalCostsSubtotals.periodTotals));
-
+  
+      addBlankRow();
+  
       const assetValues = [reportData.assetPurchasesBalance, ...Array(reportData.periodHeaders.length - 1).fill('')];
       dataToExport.push(createRow('Asset Purchases (6319)', assetValues));
-
-      exportToCsv(dataToExport, `p&l_report_${selectedSku}_${format(new Date(), 'yyyyMMdd')}.csv`);
+  
+      // Define the column order explicitly to ensure consistency
+      const columnOrder = ['Account', ...reportData.periodHeaders];
+  
+      exportToCsv(dataToExport, `p&l_report_${selectedSku}_${format(new Date(), 'yyyyMMdd')}.csv`, columnOrder);
     }
   };
 
