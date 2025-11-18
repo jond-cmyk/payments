@@ -336,7 +336,10 @@ const CustomerDeposits = () => {
                     </TableBody>
                   </Table>
                 ) : (
-                  <p className="text-center text-muted-foreground mt-8">No customer deposits found for SKU "{debouncedFilterTerm}".</p>
+                  <p className="text-center text-muted-foreground mt-8">
+                    No customer deposits found for SKU "{debouncedFilterTerm}".
+                    <span className="block text-xs mt-1">This can happen if the SKU exists but is not associated with a customer in the raw data. Check the diagnostic table below.</span>
+                  </p>
                 )}
 
                 <Card className="mt-8">

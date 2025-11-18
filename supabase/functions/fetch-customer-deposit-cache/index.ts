@@ -46,41 +46,34 @@ const extractList = (payload: any): any[] => {
   return [];
 };
 
-// NEW: Optimized helper to enrich entries with customer data in a single batch
+// "Slow but working" enrichment logic that is more reliable
 async function enrichEntriesWithCustomerData(supabaseClient: any, entries: any[], country: string) {
-  const entriesMissingCustomerName = entries.filter(entry => !(entry.customer && entry.customer.name) && entry.customer && entry.customer.customerNumber);
-  
-  if (entriesMissingCustomerName.length === 0) {
-    return entries; // All entries have names, nothing to do.
-  }
+  const enrichedEntries = [];
+  for (const entry of entries) {
+    if (entry.customer && entry.customer.name) {
+      enrichedEntries.push(entry);
+      continue;
+    }
 
-  const customerNumbersToFetch = [...new Set(entriesMissingCustomerName.map(entry => entry.customer.customerNumber))];
-
-  if (customerNumbersToFetch.length === 0) {
-    return entries; // No customer numbers to fetch.
-  }
-
-  try {
-    const filter = `customerNumber$in:[${customerNumbersToFetch.join(',')}]`;
-    const path = `/customers?filter=${filter}&pagesize=1000`;
-    const customerData = await fetchEconomicData(supabaseClient, path, country);
-    const customers = extractList(customerData);
-
-    const customerMap = new Map(customers.map(c => [c.customerNumber, c]));
-
-    return entries.map(entry => {
-      if (!(entry.customer && entry.customer.name) && entry.customer && entry.customer.customerNumber) {
-        const fullCustomer = customerMap.get(entry.customer.customerNumber);
-        if (fullCustomer) {
-          return { ...entry, customer: fullCustomer };
+    const invoiceSelf = entry.invoice?.self || entry.bookedInvoice?.self;
+    if (invoiceSelf) {
+      try {
+        const path = new URL(invoiceSelf).pathname;
+        const invoiceData = await fetchEconomicData(supabaseClient, path, country);
+        if (invoiceData && invoiceData.customer) {
+          enrichedEntries.push({ ...entry, customer: invoiceData.customer });
+        } else {
+          enrichedEntries.push(entry);
         }
+      } catch (e) {
+        console.warn(`Could not enrich entry ${entry.entryNumber} from invoice: ${e.message}`);
+        enrichedEntries.push(entry);
       }
-      return entry;
-    });
-  } catch (e) {
-    console.warn(`Could not enrich entries with customer data: ${e.message}`);
-    return entries; // Return original entries on error
+    } else {
+      enrichedEntries.push(entry);
+    }
   }
+  return enrichedEntries;
 }
 
 // Helper to fetch all entries for a specific account and year, with pagination
@@ -99,7 +92,7 @@ async function fetchEntriesForYear(supabaseAdminClient: any, year: string, count
             break;
         }
 
-        // Enrich entries with customer data before adding them to the main list
+        // Use the more reliable enrichment logic
         const enrichedPage = await enrichEntriesWithCustomerData(supabaseAdminClient, entries, country);
         allEntries = allEntries.concat(enrichedPage);
 
