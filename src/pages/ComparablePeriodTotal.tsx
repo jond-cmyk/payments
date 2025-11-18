@@ -297,7 +297,16 @@ const ComparablePeriodTotal = () => {
           period3Total: period3Map.get(accountNumber)?.total || 0,
         })).sort((a, b) => a.accountNumber - b.accountNumber);
 
-        const revenueLines = lines.filter(l => l.accountNumber >= 910 && l.accountNumber <= 949);
+        let revenueLines = lines.filter(l => l.accountNumber >= 910 && l.accountNumber <= 949);
+        
+        // Invert the revenue figures to be positive
+        revenueLines = revenueLines.map(line => ({
+            ...line,
+            period1Total: line.period1Total * -1,
+            period2Total: line.period2Total * -1,
+            period3Total: line.period3Total * -1,
+        }));
+
         const directCostsLines = lines.filter(l => l.accountNumber >= 950 && l.accountNumber <= 2974);
         const additionalCostsLines = lines.filter(l => l.accountNumber === 3057);
 
