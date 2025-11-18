@@ -46,11 +46,39 @@ const extractList = (payload: any): any[] => {
   return [];
 };
 
-// "Slow but working" enrichment logic that is more reliable
-async function enrichEntriesWithCustomerData(supabaseClient: any, entries: any[], country: string) {
+// Server-side helper to get department number
+const getDepartmentNumberFromEntry = (entry: any): number | null => {
+  const candidates = [
+    entry?.departmentalDistribution?.departmentalDistributionNumber,
+    entry?.department?.departmentNumber,
+    entry?.departmentNumber,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number') return candidate;
+    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
+  }
+
+  const selfUrl = entry?.departmentalDistribution?.self;
+  if (selfUrl && typeof selfUrl === 'string') {
+    const match = selfUrl.match(/\/(\d+)$/);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+};
+
+// More robust enrichment logic that merges full invoice data if needed
+async function enrichEntriesWithFullData(supabaseClient: any, entries: any[], country: string) {
   const enrichedEntries = [];
   for (const entry of entries) {
-    if (entry.customer && entry.customer.name) {
+    const hasCustomerName = entry.customer && entry.customer.name;
+    const hasDepartment = getDepartmentNumberFromEntry(entry) !== null;
+
+    // If we have both, no need to fetch extra data.
+    if (hasCustomerName && hasDepartment) {
       enrichedEntries.push(entry);
       continue;
     }
@@ -60,14 +88,12 @@ async function enrichEntriesWithCustomerData(supabaseClient: any, entries: any[]
       try {
         const path = new URL(invoiceSelf).pathname;
         const invoiceData = await fetchEconomicData(supabaseClient, path, country);
-        if (invoiceData && invoiceData.customer) {
-          enrichedEntries.push({ ...entry, customer: invoiceData.customer });
-        } else {
-          enrichedEntries.push(entry);
-        }
+        // Merge invoiceData into entry. Entry's properties will overwrite invoice's properties if they conflict.
+        const mergedEntry = { ...invoiceData, ...entry };
+        enrichedEntries.push(mergedEntry);
       } catch (e) {
         console.warn(`Could not enrich entry ${entry.entryNumber} from invoice: ${e.message}`);
-        enrichedEntries.push(entry);
+        enrichedEntries.push(entry); // Push original on error
       }
     } else {
       enrichedEntries.push(entry);
@@ -93,7 +119,7 @@ async function fetchEntriesForYear(supabaseAdminClient: any, year: string, count
         }
 
         // Use the more reliable enrichment logic
-        const enrichedPage = await enrichEntriesWithCustomerData(supabaseAdminClient, entries, country);
+        const enrichedPage = await enrichEntriesWithFullData(supabaseAdminClient, entries, country);
         allEntries = allEntries.concat(enrichedPage);
 
         if (entries.length < pageSize) {

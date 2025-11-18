@@ -338,8 +338,62 @@ const CustomerDeposits = () => {
                 ) : (
                   <p className="text-center text-muted-foreground mt-8">
                     No customer deposits found for SKU "{debouncedFilterTerm}".
+                    <span className="block text-xs mt-1">This can happen if the SKU exists but is not associated with a customer in the raw data. Check the diagnostic table below.</span>
                   </p>
                 )}
+
+                <Card className="mt-8">
+                  <CardHeader>
+                    <CardTitle>Diagnostic Raw Data Table</CardTitle>
+                    <CardDescription>
+                      This table shows ALL entries from the cache. Rows matching your search for SKU "{debouncedFilterTerm}" are highlighted in yellow. Check the "Detected SKU" column to see if the number is being correctly identified.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Entry #</TableHead>
+                            <TableHead>Text</TableHead>
+                            <TableHead>Detected SKU</TableHead>
+                            <TableHead>Raw Department Data</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {allAccountEntries && allAccountEntries.length > 0 ? (
+                            allAccountEntries.map((entry, index) => {
+                              const detectedSku = getDepartmentNumberFromEntry(entry);
+                              const matchesSearch = debouncedFilterTerm && detectedSku === parseInt(debouncedFilterTerm, 10);
+                              return (
+                                <TableRow key={entry.self || index} className={matchesSearch ? 'bg-yellow-200' : ''}>
+                                  <TableCell>{entry.entryNumber}</TableCell>
+                                  <TableCell>{entry.text}</TableCell>
+                                  <TableCell className="font-bold text-blue-600">
+                                    {detectedSku ?? 'Not Found'}
+                                  </TableCell>
+                                  <TableCell>
+                                    <pre className="text-xs bg-gray-100 p-1 rounded max-w-xs overflow-auto">
+                                      {JSON.stringify({
+                                        department: entry.department,
+                                        departmentalDistribution: entry.departmentalDistribution,
+                                        departmentNumber: entry.departmentNumber
+                                      }, null, 2)}
+                                    </pre>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={4} className="text-center">No raw data to display.</TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </CardContent>
+                </Card>
               </>
             )}
           </div>
