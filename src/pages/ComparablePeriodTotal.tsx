@@ -299,6 +299,14 @@ const ComparablePeriodTotal = () => {
     setIsDetailDialogOpen(true);
   };
 
+  const handleViewTotalDetails = (periodIndex: number) => {
+    if (!reportData) return;
+    const periodEntries = [reportData.period1Entries, reportData.period2Entries, reportData.period3Entries][periodIndex];
+    setDialogData(periodEntries);
+    setDialogTitle(`All Transactions for ${reportData.periodHeaders[periodIndex]}`);
+    setIsDetailDialogOpen(true);
+  };
+
   const detailColumns: DialogColumn[] = [
     { key: 'date', header: 'Date', format: 'date' },
     { key: 'entryNumber', header: 'Entry No.' },
@@ -462,9 +470,15 @@ const ComparablePeriodTotal = () => {
                             ))}
                             <TableRow className="font-bold bg-muted">
                               <TableCell>Totals</TableCell>
-                              <TableCell className="text-right">{formatAmount(reportData.totals?.period1)}</TableCell>
-                              <TableCell className="text-right">{formatAmount(reportData.totals?.period2)}</TableCell>
-                              <TableCell className="text-right">{formatAmount(reportData.totals?.period3)}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="link" onClick={() => handleViewTotalDetails(0)}>{formatAmount(reportData.totals?.period1)}</Button>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="link" onClick={() => handleViewTotalDetails(1)}>{formatAmount(reportData.totals?.period2)}</Button>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="link" onClick={() => handleViewTotalDetails(2)}>{formatAmount(reportData.totals?.period3)}</Button>
+                              </TableCell>
                             </TableRow>
                           </>
                         )}
