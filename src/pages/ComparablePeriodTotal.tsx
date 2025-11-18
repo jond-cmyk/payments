@@ -570,15 +570,17 @@ const ComparablePeriodTotal = () => {
                           ))}
                         </TableRow>
                       </TableHeader>
-                      <TableBody>
-                        {isLoading ? (
-                          Array.from({ length: 10 }).map((_, i) => (
+                      {isLoading ? (
+                        <TableBody>
+                          {Array.from({ length: 10 }).map((_, i) => (
                             <TableRow key={i}>
                               <TableCell colSpan={4}><Skeleton className="h-6 w-full" /></TableCell>
                             </TableRow>
-                          ))
-                        ) : (
-                          <>
+                          ))}
+                        </TableBody>
+                      ) : (
+                        <>
+                          <tbody className="border-2 border-dyad-blue rounded-lg">
                             <TableRow className="bg-dyad-blue text-dyad-blue-foreground font-bold hover:bg-dyad-blue">
                               <TableCell colSpan={4}>Revenue</TableCell>
                             </TableRow>
@@ -597,7 +599,7 @@ const ComparablePeriodTotal = () => {
                               <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(2, 'revenue')}>{formatAmount(reportData.revenueSubtotals.period3)}</Button></TableCell>
                             </TableRow>
 
-                            <TableRow className="bg-dyad-blue text-dyad-blue-foreground font-bold hover:bg-dyad-blue">
+                            <TableRow className="bg-dyad-blue text-dyad-blue-foreground font-bold hover:bg-dyad-blue border-t-2 border-dyad-blue">
                               <TableCell colSpan={4}>Direct Costs</TableCell>
                             </TableRow>
                             {reportData.directCostsLines.map((line) => (
@@ -615,14 +617,22 @@ const ComparablePeriodTotal = () => {
                               <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(2, 'costs')}>{formatAmount(reportData.directCostsSubtotals.period3)}</Button></TableCell>
                             </TableRow>
 
-                            <TableRow className="font-extrabold bg-dyad-blue-light text-dyad-blue-foreground border-t-2 border-b-2 border-dyad-blue hover:bg-dyad-blue-light">
+                            <TableRow className="font-extrabold bg-dyad-blue-light text-dyad-blue-foreground border-t-2 border-dyad-blue hover:bg-dyad-blue-light">
                               <TableCell>Property Profit/Loss</TableCell>
                               <TableCell className="text-right">{formatAmount(reportData.profitLoss.period1)}</TableCell>
                               <TableCell className="text-right">{formatAmount(reportData.profitLoss.period2)}</TableCell>
                               <TableCell className="text-right">{formatAmount(reportData.profitLoss.period3)}</TableCell>
                             </TableRow>
+                          </tbody>
 
-                            <TableRow className="bg-dyad-blue text-dyad-blue-foreground font-bold hover:bg-dyad-blue">
+                          <tbody>
+                            <TableRow>
+                              <TableCell colSpan={4} className="py-4"></TableCell>
+                            </TableRow>
+                          </tbody>
+
+                          <tbody className="border-2 border-gray-300 rounded-lg">
+                            <TableRow className="bg-gray-200 font-bold text-gray-800 hover:bg-gray-200">
                               <TableCell colSpan={4}>Additional Costs</TableCell>
                             </TableRow>
                             {reportData.additionalCostsLines.map((line) => (
@@ -633,20 +643,20 @@ const ComparablePeriodTotal = () => {
                                 <TableCell className="text-right"><Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 2)}>{formatAmount(line.period3Total)}</Button></TableCell>
                               </TableRow>
                             ))}
-                            <TableRow className="font-bold bg-dyad-blue/10 hover:bg-dyad-blue/20">
+                            <TableRow className="font-bold bg-gray-100 text-gray-800 hover:bg-gray-100">
                               <TableCell className="pl-6">Additional Costs Subtotal</TableCell>
                               <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(0, 'additional')}>{formatAmount(reportData.additionalCostsSubtotals.period1)}</Button></TableCell>
                               <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(1, 'additional')}>{formatAmount(reportData.additionalCostsSubtotals.period2)}</Button></TableCell>
                               <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(2, 'additional')}>{formatAmount(reportData.additionalCostsSubtotals.period3)}</Button></TableCell>
                             </TableRow>
 
-                            <TableRow className="bg-dyad-blue/10 hover:bg-dyad-blue/20">
+                            <TableRow className="bg-gray-100 text-gray-800 hover:bg-gray-100">
                               <TableCell>Asset Purchases (6319)</TableCell>
                               <TableCell className="text-right" colSpan={3}>{formatAmount(reportData.assetPurchasesBalance)}</TableCell>
                             </TableRow>
-                          </>
-                        )}
-                      </TableBody>
+                          </tbody>
+                        </>
+                      )}
                     </Table>
                   </div>
                 </CardContent>
