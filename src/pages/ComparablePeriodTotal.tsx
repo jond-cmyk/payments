@@ -53,61 +53,96 @@ const ComparablePeriodTotal = () => {
         throw new Error("Both period end dates must be selected.");
       }
 
-      const toastId = showLoading("Generating report by comparing two trial balances...");
+      const toastId = showLoading("Generating report... This may take a moment as we are building it from scratch.");
       try {
-        const fetchTrialBalance = async (date: Date) => {
-          const path = `/reports/trial-balance`;
-          const query = { date: format(date, 'yyyy-MM-dd') };
-          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-            body: { path, method: "GET", query, country: currentCountry },
-          });
-          if (error) throw new Error(error.message);
-          const resp = data as EconomicProxyResponse<any>;
-          if (resp.error || !resp.ok) throw new Error(resp.error || `Failed to generate report for ${format(date, 'PPP')}: Status ${resp.status}`);
-          return resp.data;
+        const fetchAllPages = async (path: string, query: Record<string, string>) => {
+          let allItems: any[] = [];
+          let currentPage = 0;
+          const pageSize = 1000;
+
+          while (true) {
+            const pageQuery = { ...query, pagesize: String(pageSize), skipPages: String(currentPage) };
+            const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+              body: { path, method: "GET", query: pageQuery, country: currentCountry },
+            });
+            if (error) throw error;
+            const resp = data as EconomicProxyResponse<any>;
+            if (resp.error || !resp.ok) throw new Error(resp.error || `API Error: Status ${resp.status}`);
+            
+            const items = extractList(resp.data);
+            if (!items || items.length === 0) break;
+            
+            allItems = allItems.concat(items);
+            if (items.length < pageSize) break;
+            
+            currentPage++;
+          }
+          return allItems;
         };
 
-        const [period1Data, period2Data] = await Promise.all([
-          fetchTrialBalance(period1EndDate),
-          fetchTrialBalance(period2EndDate),
-        ]);
+        const calculateTrialBalanceForDate = async (date: Date) => {
+          const formattedDate = format(date, 'yyyy-MM-dd');
+          const entries = await fetchAllPages('/entries', { 'date$lte': formattedDate });
+          
+          const balanceMap = new Map<number, { name: string, total: number }>();
 
-        const period1Lines = period1Data?.lines || [];
-        const period2Lines = period2Data?.lines || [];
+          for (const entry of entries) {
+            const accountNumber = entry.account?.accountNumber;
+            const accountName = entry.account?.name;
+            const amount = entry.amount || 0;
+
+            if (accountNumber) {
+              if (!balanceMap.has(accountNumber)) {
+                balanceMap.set(accountNumber, { name: accountName || `Account ${accountNumber}`, total: 0 });
+              }
+              const current = balanceMap.get(accountNumber)!;
+              current.total += amount;
+            }
+          }
+          return balanceMap;
+        };
+
+        const [period1BalanceMap, period2BalanceMap] = await Promise.all([
+          calculateTrialBalanceForDate(period1EndDate),
+          calculateTrialBalanceForDate(period2EndDate),
+        ]);
 
         const mergedData: Map<number, ReportLine> = new Map();
 
-        period1Lines.forEach((line: any) => {
-          mergedData.set(line.accountNumber, {
-            accountNumber: line.accountNumber,
-            name: line.name,
-            total: line.total,
+        period1BalanceMap.forEach((value, key) => {
+          mergedData.set(key, {
+            accountNumber: key,
+            name: value.name,
+            total: value.total,
             comparativeTotal: 0,
           });
         });
 
-        period2Lines.forEach((line: any) => {
-          if (mergedData.has(line.accountNumber)) {
-            const existing = mergedData.get(line.accountNumber)!;
-            existing.comparativeTotal = line.total;
+        period2BalanceMap.forEach((value, key) => {
+          if (mergedData.has(key)) {
+            const existing = mergedData.get(key)!;
+            existing.comparativeTotal = value.total;
           } else {
-            mergedData.set(line.accountNumber, {
-              accountNumber: line.accountNumber,
-              name: line.name,
+            mergedData.set(key, {
+              accountNumber: key,
+              name: value.name,
               total: 0,
-              comparativeTotal: line.total,
+              comparativeTotal: value.total,
             });
           }
         });
 
         const finalLines = Array.from(mergedData.values()).sort((a, b) => a.accountNumber - b.accountNumber);
+        
+        const period1Total = Array.from(period1BalanceMap.values()).reduce((sum, acc) => sum + acc.total, 0);
+        const period2Total = Array.from(period2BalanceMap.values()).reduce((sum, acc) => sum + acc.total, 0);
 
         dismissToast(toastId);
         showSuccess("Report generated successfully.");
         return {
           lines: finalLines,
-          totals: period1Data?.totals,
-          comparativeTotals: period2Data?.totals,
+          totals: { total: period1Total },
+          comparativeTotals: { total: period2Total },
         };
       } catch (e: any) {
         dismissToast(toastId);
