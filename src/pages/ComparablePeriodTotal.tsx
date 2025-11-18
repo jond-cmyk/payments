@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, isWithinInterval, parseISO } from 'date-fns';
 import { BarChart, Search, FileDown } from 'lucide-react';
 import { exportToCsv } from '@/utils/exportToCsv';
 
@@ -39,6 +39,29 @@ type ReportLine = {
   period1Total: number;
   period2Total: number;
   period3Total: number;
+};
+
+const getDepartmentNumberFromEntry = (entry: any): number | null => {
+  const candidates = [
+    entry?.departmentalDistribution?.departmentalDistributionNumber,
+    entry?.department?.departmentNumber,
+    entry?.departmentNumber,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number') return candidate;
+    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
+  }
+
+  const selfUrl = entry?.departmentalDistribution?.self;
+  if (selfUrl && typeof selfUrl === 'string') {
+    const match = selfUrl.match(/\/(\d+)$/);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
 };
 
 const ComparablePeriodTotal = () => {
@@ -91,11 +114,30 @@ const ComparablePeriodTotal = () => {
           const endDate = format(endOfMonth(date), 'yyyy-MM-dd');
           const numericSku = parseInt(sku, 10);
 
-          const path = `/departments/${numericSku}/entries`;
+          const { data: yearsData } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path: "/accounting-years", method: "GET", country: currentCountry },
+          });
+          const yearsResp = yearsData as EconomicProxyResponse<any>;
+          if (yearsResp.error || !yearsResp.ok) throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+          const accountingYears = extractList(yearsResp?.data);
+          if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found.");
+
+          const targetYearInfo = accountingYears.find((y: any) => {
+              const from = y.fromDate ? parseISO(y.fromDate) : null;
+              const to = y.toDate ? parseISO(y.toDate) : null;
+              return from && to && isWithinInterval(date, { start: from, end: to });
+          });
+
+          if (!targetYearInfo) {
+              console.warn(`No accounting year found for date ${format(date, 'yyyy-MM-dd')}. Skipping period.`);
+              return new Map();
+          }
+
+          const path = `/accounting-years/${targetYearInfo.year}/entries`;
           const query = {
-            'date$gte': startDate,
-            'date$lte': endDate,
-            'pagesize': 1000
+              'date$gte': startDate,
+              'date$lte': endDate,
+              'pagesize': 1000
           };
 
           let allEntries: any[] = [];
@@ -109,27 +151,48 @@ const ComparablePeriodTotal = () => {
             if (error) throw new Error(error.message);
             const resp = data as EconomicProxyResponse<any>;
             if (resp.error || !resp.ok) {
-              if (resp.status === 404) {
-                throw new Error(`The e-conomic endpoint for department entries was not found (404). This feature may not be available on your plan.`);
-              }
-              throw new Error(resp.error || `Failed to fetch entries for SKU ${sku}: Status ${resp.status}`);
+              console.error(`Failed to fetch entries page ${currentPage}: Status ${resp.status}`);
+              break;
             }
 
             const entries = extractList(resp.data);
-            if (!entries || entries.length === 0) {
-              break; // No more entries
-            }
-
+            if (!entries || entries.length === 0) break;
             allEntries = allEntries.concat(entries);
-
-            if (entries.length < 1000) {
-              break; // Last page
-            }
+            if (entries.length < 1000) break;
             currentPage++;
           }
 
+          const enrichedEntries = await Promise.all(allEntries.map(async (entry) => {
+              let deptNum = getDepartmentNumberFromEntry(entry);
+              if (deptNum !== null) {
+                  return { ...entry, finalDepartmentNumber: deptNum };
+              }
+
+              const invoiceSelf = entry.invoice?.self;
+              if (invoiceSelf) {
+                  try {
+                      const invoicePath = new URL(invoiceSelf).pathname;
+                      const { data: invoiceData, error: invoiceError } = await supabase.functions.invoke("economic-api-proxy", {
+                          body: { path: invoicePath, method: "GET", country: currentCountry },
+                      });
+                      if (invoiceError || !invoiceData || (invoiceData as any).error) {
+                          return { ...entry, finalDepartmentNumber: null };
+                      }
+                      const fullInvoice = (invoiceData as any).data;
+                      deptNum = getDepartmentNumberFromEntry(fullInvoice);
+                      return { ...entry, finalDepartmentNumber: deptNum };
+                  } catch (e: any) {
+                      console.warn(`Could not enrich entry ${entry.entryNumber} from invoice: ${e.message}`);
+                      return { ...entry, finalDepartmentNumber: null };
+                  }
+              }
+              return { ...entry, finalDepartmentNumber: null };
+          }));
+
+          const filteredEntries = enrichedEntries.filter(entry => entry.finalDepartmentNumber === numericSku);
+          
           const balanceMap = new Map<number, { name: string, total: number }>();
-          for (const entry of allEntries) {
+          for (const entry of filteredEntries) {
             const accountNumber = entry.account?.accountNumber;
             const accountName = entry.account?.name;
             const amount = entry.amount || 0;
