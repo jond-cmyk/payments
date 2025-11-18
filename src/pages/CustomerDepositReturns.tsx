@@ -171,6 +171,9 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
       let reason = `Deposit Return for Final Statement - Entry #${selectedEntry.entryNumber}`;
       if (deductionsAmount > 0) {
         reason += ` (less deductions of ${deductionsAmount.toFixed(2)} ${selectedEntry.currency})`;
+        if (formValues.deductions_reason) {
+          reason += ` - Reason: ${formValues.deductions_reason}`;
+        }
       }
 
       const customerAddress = [
@@ -313,7 +316,7 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
       {/* Form Dialog */}
       {selectedEntry && (
         <Dialog open={showFormDialog} onOpenChange={setShowFormDialog}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Request Deposit Return</DialogTitle>
               <DialogDescription>

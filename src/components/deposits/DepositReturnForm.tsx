@@ -21,6 +21,7 @@ const createFormSchema = (country: string, returnAmount: number) => z.object({
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
   apply_deductions: z.boolean().default(false),
   deductions_amount: z.coerce.number().optional(),
+  deductions_reason: z.string().optional(), // New field for deduction reason
 }).superRefine((data, ctx) => {
   if (country === 'United Kingdom') {
     if (data.overseas_bank_account) {
@@ -71,6 +72,13 @@ const createFormSchema = (country: string, returnAmount: number) => z.object({
         path: ['deductions_amount'],
       });
     }
+    if (!data.deductions_reason || data.deductions_reason.trim().length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A reason for deductions (min 10 characters) is required.",
+        path: ['deductions_reason'],
+      });
+    }
   }
 });
 
@@ -99,6 +107,7 @@ const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, ret
       bank_details_verified: false,
       apply_deductions: false,
       deductions_amount: 0,
+      deductions_reason: "",
     },
   });
 
@@ -138,25 +147,44 @@ const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, ret
             )}
           />
           {applyDeductions && (
-            <FormField
-              control={form.control}
-              name="deductions_amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Deductions Amount</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      {...field}
-                      className="bg-white text-black"
-                    />
-                  </FormControl>
-                  <FormMessage className="text-yellow-300" />
-                </FormItem>
-              )}
-            />
+            <>
+              <FormField
+                control={form.control}
+                name="deductions_amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Total Deductions Amount</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        {...field}
+                        className="bg-white text-black"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-yellow-300" />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="deductions_reason"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reason for Deductions</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Provide a brief reason for the deductions (min 10 characters)..."
+                        {...field}
+                        className="bg-white text-black"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-yellow-300" />
+                  </FormItem>
+                )}
+              />
+            </>
           )}
         </div>
 
