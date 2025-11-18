@@ -102,9 +102,13 @@ const ComparablePeriodTotal = () => {
   }, []);
 
   const { data: reportData, isLoading, error, refetch } = useQuery<{
-    lines: ReportLine[],
+    revenueLines: ReportLine[],
+    directCostsLines: ReportLine[],
+    revenueSubtotals: { period1: number, period2: number, period3: number },
+    directCostsSubtotals: { period1: number, period2: number, period3: number },
+    profitLoss: { period1: number, period2: number, period3: number },
+    assetPurchasesBalance: number,
     periodHeaders: string[],
-    totals: { period1: number, period2: number, period3: number },
     period1Entries: any[],
     period2Entries: any[],
     period3Entries: any[],
@@ -141,17 +145,12 @@ const ComparablePeriodTotal = () => {
 
           const path = `/accounting-years/${targetYearInfo.year}/entries`;
           const filterString = `date$gte:${startDate}$and:date$lte:${endDate}`;
-          const query = {
-              'filter': filterString,
-              'pagesize': 1000
-          };
-
+          
           let allEntriesForMonth: any[] = [];
           let currentPage = 0;
           while (true) {
-            const paginatedQuery = { ...query, skipPages: String(currentPage) };
             const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
-              body: { path, method: "GET", query: paginatedQuery, country: currentCountry },
+              body: { path: `${path}?pagesize=1000&skipPages=${currentPage}&filter=${filterString}`, method: "GET", country: currentCountry },
             });
 
             if (error) throw new Error(error.message);
@@ -212,26 +211,68 @@ const ComparablePeriodTotal = () => {
           return { balanceMap, filteredEntries };
         };
 
+        const fetchCumulativeBalance = async (accountNumber: number, sku: string) => {
+          const numericSku = parseInt(sku, 10);
+          const { data: yearsData } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path: "/accounting-years", method: "GET", country: currentCountry },
+          });
+          const yearsResp = yearsData as EconomicProxyResponse<any>;
+          if (yearsResp.error || !yearsResp.ok) throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+          const accountingYears = extractList(yearsResp?.data);
+          if (!accountingYears || accountingYears.length === 0) return 0;
+
+          let allEntriesForAccount: any[] = [];
+          const yearPromises = accountingYears.map(async (yearInfo: any) => {
+            const path = `/accounts/${accountNumber}/accounting-years/${yearInfo.year}/entries?pagesize=1000`;
+            const { data, error } = await supabase.functions.invoke("economic-api-proxy", { body: { path, method: "GET", country: currentCountry } });
+            if (!error && data) {
+              const resp = data as EconomicProxyResponse<any>;
+              if (resp.ok) {
+                return extractList(resp.data) || [];
+              }
+            }
+            return [];
+          });
+          const results = await Promise.all(yearPromises);
+          allEntriesForAccount = results.flat();
+
+          const enrichedEntries = await Promise.all(allEntriesForAccount.map(async (entry) => {
+            let deptNum = getDepartmentNumberFromEntry(entry);
+            if (deptNum !== null) return { ...entry, finalDepartmentNumber: deptNum };
+            const invoiceSelf = entry.invoice?.self;
+            if (invoiceSelf) {
+              try {
+                const invoicePath = new URL(invoiceSelf).pathname;
+                const { data: invoiceData } = await supabase.functions.invoke("economic-api-proxy", { body: { path: invoicePath, method: "GET", country: currentCountry } });
+                const fullInvoice = (invoiceData as any)?.data;
+                deptNum = getDepartmentNumberFromEntry(fullInvoice);
+                return { ...entry, finalDepartmentNumber: deptNum };
+              } catch { return { ...entry, finalDepartmentNumber: null }; }
+            }
+            return { ...entry, finalDepartmentNumber: null };
+          }));
+
+          const filteredEntries = enrichedEntries.filter(entry => entry.finalDepartmentNumber === numericSku);
+          return filteredEntries.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+        };
+
         const baseDate = new Date(parseInt(selectedYear), parseInt(selectedMonth));
         const period1Date = baseDate;
         const period2Date = subMonths(baseDate, 1);
         const period3Date = subMonths(baseDate, 2);
 
-        const [period1Result, period2Result, period3Result] = await Promise.all([
+        const [period1Result, period2Result, period3Result, assetPurchasesBalance] = await Promise.all([
           fetchAndProcessPeriod(period1Date, selectedSku),
           fetchAndProcessPeriod(period2Date, selectedSku),
           fetchAndProcessPeriod(period3Date, selectedSku),
+          fetchCumulativeBalance(6319, selectedSku),
         ]);
 
         const period1Map = period1Result.balanceMap;
         const period2Map = period2Result.balanceMap;
         const period3Map = period3Result.balanceMap;
 
-        const allAccountNumbers = new Set([
-          ...Array.from(period1Map.keys()),
-          ...Array.from(period2Map.keys()),
-          ...Array.from(period3Map.keys()),
-        ]);
+        const allAccountNumbers = new Set([...period1Map.keys(), ...period2Map.keys(), ...period3Map.keys()]);
 
         const lines: ReportLine[] = Array.from(allAccountNumbers).map(accountNumber => ({
           accountNumber,
@@ -241,18 +282,35 @@ const ComparablePeriodTotal = () => {
           period3Total: period3Map.get(accountNumber)?.total || 0,
         })).sort((a, b) => a.accountNumber - b.accountNumber);
 
-        const totals = {
-          period1: lines.reduce((sum, line) => sum + line.period1Total, 0),
-          period2: lines.reduce((sum, line) => sum + line.period2Total, 0),
-          period3: lines.reduce((sum, line) => sum + line.period3Total, 0),
+        const revenueLines = lines.filter(l => l.accountNumber >= 910 && l.accountNumber <= 949);
+        const directCostsLines = lines.filter(l => l.accountNumber >= 950 && l.accountNumber <= 2974);
+
+        const revenueSubtotals = {
+          period1: revenueLines.reduce((sum, line) => sum + line.period1Total, 0),
+          period2: revenueLines.reduce((sum, line) => sum + line.period2Total, 0),
+          period3: revenueLines.reduce((sum, line) => sum + line.period3Total, 0),
+        };
+        const directCostsSubtotals = {
+          period1: directCostsLines.reduce((sum, line) => sum + line.period1Total, 0),
+          period2: directCostsLines.reduce((sum, line) => sum + line.period2Total, 0),
+          period3: directCostsLines.reduce((sum, line) => sum + line.period3Total, 0),
+        };
+        const profitLoss = {
+          period1: revenueSubtotals.period1 - directCostsSubtotals.period1,
+          period2: revenueSubtotals.period2 - directCostsSubtotals.period2,
+          period3: revenueSubtotals.period3 - directCostsSubtotals.period3,
         };
 
         dismissToast(toastId);
         showSuccess("Report generated successfully.");
         return {
-          lines,
+          revenueLines,
+          directCostsLines,
+          revenueSubtotals,
+          directCostsSubtotals,
+          profitLoss,
+          assetPurchasesBalance,
           periodHeaders: [format(period1Date, 'MMMM yyyy'), format(period2Date, 'MMMM yyyy'), format(period3Date, 'MMMM yyyy')],
-          totals,
           period1Entries: period1Result.filteredEntries,
           period2Entries: period2Result.filteredEntries,
           period3Entries: period3Result.filteredEntries,
@@ -278,14 +336,27 @@ const ComparablePeriodTotal = () => {
   };
 
   const handleExport = () => {
-    if (reportData?.lines && reportData.periodHeaders) {
-      const dataToExport = reportData.lines.map(line => ({
-        'Account Number': line.accountNumber,
-        'Account Name': line.name,
-        [reportData.periodHeaders[0]]: line.period1Total,
-        [reportData.periodHeaders[1]]: line.period2Total,
-        [reportData.periodHeaders[2]]: line.period3Total,
-      }));
+    if (reportData) {
+      const dataToExport = [
+        { Section: 'Revenue' },
+        ...reportData.revenueLines.map(line => ({
+          'Account': `${line.accountNumber} - ${line.name}`,
+          [reportData.periodHeaders[0]]: line.period1Total,
+          [reportData.periodHeaders[1]]: line.period2Total,
+          [reportData.periodHeaders[2]]: line.period3Total,
+        })),
+        { 'Account': 'Revenue Subtotal', [reportData.periodHeaders[0]]: reportData.revenueSubtotals.period1, [reportData.periodHeaders[1]]: reportData.revenueSubtotals.period2, [reportData.periodHeaders[2]]: reportData.revenueSubtotals.period3 },
+        { Section: 'Direct Costs' },
+        ...reportData.directCostsLines.map(line => ({
+          'Account': `${line.accountNumber} - ${line.name}`,
+          [reportData.periodHeaders[0]]: line.period1Total,
+          [reportData.periodHeaders[1]]: line.period2Total,
+          [reportData.periodHeaders[2]]: line.period3Total,
+        })),
+        { 'Account': 'Direct Costs Subtotal', [reportData.periodHeaders[0]]: reportData.directCostsSubtotals.period1, [reportData.periodHeaders[1]]: reportData.directCostsSubtotals.period2, [reportData.periodHeaders[2]]: reportData.directCostsSubtotals.period3 },
+        { 'Account': 'Property Profit/Loss', [reportData.periodHeaders[0]]: reportData.profitLoss.period1, [reportData.periodHeaders[1]]: reportData.profitLoss.period2, [reportData.periodHeaders[2]]: reportData.profitLoss.period3 },
+        { 'Account': 'Asset Purchases (6319)', [reportData.periodHeaders[0]]: reportData.assetPurchasesBalance, [reportData.periodHeaders[1]]: '', [reportData.periodHeaders[2]]: '' },
+      ];
       exportToCsv(dataToExport, `p&l_report_${selectedSku}_${format(new Date(), 'yyyyMMdd')}.csv`);
     }
   };
@@ -299,11 +370,22 @@ const ComparablePeriodTotal = () => {
     setIsDetailDialogOpen(true);
   };
 
-  const handleViewTotalDetails = (periodIndex: number) => {
+  const handleViewTotalDetails = (periodIndex: number, section: 'revenue' | 'costs' | 'all') => {
     if (!reportData) return;
     const periodEntries = [reportData.period1Entries, reportData.period2Entries, reportData.period3Entries][periodIndex];
-    setDialogData(periodEntries);
-    setDialogTitle(`All Transactions for ${reportData.periodHeaders[periodIndex]}`);
+    let entriesToShow = periodEntries;
+    let title = `All Transactions for ${reportData.periodHeaders[periodIndex]}`;
+
+    if (section === 'revenue') {
+      entriesToShow = periodEntries.filter(e => e.account?.accountNumber >= 910 && e.account?.accountNumber <= 949);
+      title = `Revenue Transactions for ${reportData.periodHeaders[periodIndex]}`;
+    } else if (section === 'costs') {
+      entriesToShow = periodEntries.filter(e => e.account?.accountNumber >= 950 && e.account?.accountNumber <= 2974);
+      title = `Direct Costs Transactions for ${reportData.periodHeaders[periodIndex]}`;
+    }
+
+    setDialogData(entriesToShow);
+    setDialogTitle(title);
     setIsDetailDialogOpen(true);
   };
 
@@ -454,31 +536,52 @@ const ComparablePeriodTotal = () => {
                           ))
                         ) : (
                           <>
-                            {reportData.lines.map((line) => (
+                            <TableRow className="bg-gray-100 font-bold hover:bg-gray-100">
+                              <TableCell colSpan={4}>Revenue</TableCell>
+                            </TableRow>
+                            {reportData.revenueLines.map((line) => (
                               <TableRow key={line.accountNumber}>
-                                <TableCell className="font-medium">{line.accountNumber} - {line.name}</TableCell>
-                                <TableCell className="text-right">
-                                  <Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 0)}>{formatAmount(line.period1Total)}</Button>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 1)}>{formatAmount(line.period2Total)}</Button>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 2)}>{formatAmount(line.period3Total)}</Button>
-                                </TableCell>
+                                <TableCell className="font-medium pl-6">{line.accountNumber} - {line.name}</TableCell>
+                                <TableCell className="text-right"><Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 0)}>{formatAmount(line.period1Total)}</Button></TableCell>
+                                <TableCell className="text-right"><Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 1)}>{formatAmount(line.period2Total)}</Button></TableCell>
+                                <TableCell className="text-right"><Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 2)}>{formatAmount(line.period3Total)}</Button></TableCell>
                               </TableRow>
                             ))}
-                            <TableRow className="font-bold bg-muted">
-                              <TableCell>Totals</TableCell>
-                              <TableCell className="text-right">
-                                <Button variant="link" onClick={() => handleViewTotalDetails(0)}>{formatAmount(reportData.totals?.period1)}</Button>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button variant="link" onClick={() => handleViewTotalDetails(1)}>{formatAmount(reportData.totals?.period2)}</Button>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <Button variant="link" onClick={() => handleViewTotalDetails(2)}>{formatAmount(reportData.totals?.period3)}</Button>
-                              </TableCell>
+                            <TableRow className="font-bold bg-gray-50 hover:bg-gray-50">
+                              <TableCell className="pl-6">Revenue Subtotal</TableCell>
+                              <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(0, 'revenue')}>{formatAmount(reportData.revenueSubtotals.period1)}</Button></TableCell>
+                              <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(1, 'revenue')}>{formatAmount(reportData.revenueSubtotals.period2)}</Button></TableCell>
+                              <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(2, 'revenue')}>{formatAmount(reportData.revenueSubtotals.period3)}</Button></TableCell>
+                            </TableRow>
+
+                            <TableRow className="bg-gray-100 font-bold hover:bg-gray-100">
+                              <TableCell colSpan={4}>Direct Costs</TableCell>
+                            </TableRow>
+                            {reportData.directCostsLines.map((line) => (
+                              <TableRow key={line.accountNumber}>
+                                <TableCell className="font-medium pl-6">{line.accountNumber} - {line.name}</TableCell>
+                                <TableCell className="text-right"><Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 0)}>{formatAmount(line.period1Total)}</Button></TableCell>
+                                <TableCell className="text-right"><Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 1)}>{formatAmount(line.period2Total)}</Button></TableCell>
+                                <TableCell className="text-right"><Button variant="link" onClick={() => handleViewDetails(line.accountNumber, 2)}>{formatAmount(line.period3Total)}</Button></TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow className="font-bold bg-gray-50 hover:bg-gray-50">
+                              <TableCell className="pl-6">Direct Costs Subtotal</TableCell>
+                              <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(0, 'costs')}>{formatAmount(reportData.directCostsSubtotals.period1)}</Button></TableCell>
+                              <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(1, 'costs')}>{formatAmount(reportData.directCostsSubtotals.period2)}</Button></TableCell>
+                              <TableCell className="text-right"><Button variant="link" onClick={() => handleViewTotalDetails(2, 'costs')}>{formatAmount(reportData.directCostsSubtotals.period3)}</Button></TableCell>
+                            </TableRow>
+
+                            <TableRow className="font-extrabold bg-blue-100 border-t-2 border-b-2 border-blue-300 hover:bg-blue-100">
+                              <TableCell>Property Profit/Loss</TableCell>
+                              <TableCell className="text-right">{formatAmount(reportData.profitLoss.period1)}</TableCell>
+                              <TableCell className="text-right">{formatAmount(reportData.profitLoss.period2)}</TableCell>
+                              <TableCell className="text-right">{formatAmount(reportData.profitLoss.period3)}</TableCell>
+                            </TableRow>
+
+                            <TableRow className="bg-gray-50 hover:bg-gray-50">
+                              <TableCell>Asset Purchases (6319)</TableCell>
+                              <TableCell className="text-right" colSpan={3}>{formatAmount(reportData.assetPurchasesBalance)}</TableCell>
                             </TableRow>
                           </>
                         )}
