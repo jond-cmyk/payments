@@ -57,12 +57,6 @@ const adminLinks = [
     title: 'Deposit Return Advisements',
     description: 'Review and process advised deposit returns.',
   },
-  {
-    to: '/admin/comparable-period-total',
-    icon: <BarChart className="h-8 w-8 text-dyad-blue" />,
-    title: 'Comparable Period Report',
-    description: 'Generate a comparable period total report from e-conomic.',
-  },
 ];
 
 const AdminPanel = () => {

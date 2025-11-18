@@ -440,8 +440,8 @@ const ComparablePeriodTotal = () => {
     return <div className="flex items-center justify-center h-full text-lg">Loading...</div>;
   }
 
-  if (!session || !isAdmin) {
-    navigate("/dashboard");
+  if (!session) {
+    navigate('/login');
     return null;
   }
 

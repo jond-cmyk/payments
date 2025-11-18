@@ -123,7 +123,7 @@ const App = () => {
                         <Route path="/admin/feedback" element={<AdminFeedback />} />
                         <Route path="/admin/economic-integration" element={<EconomicIntegration />} />
                         <Route path="/admin/departments" element={<AdminDepartments />} />
-                        <Route path="/admin/comparable-period-total" element={<ComparablePeriodTotal />} />
+                        <Route path="/comparable-period-total" element={<ComparablePeriodTotal />} />
                       </Route>
 
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
