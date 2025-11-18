@@ -82,11 +82,31 @@ const ComparablePeriodTotal = () => {
 
         const calculateTrialBalanceForDate = async (date: Date) => {
           const formattedDate = format(date, 'yyyy-MM-dd');
-          const entries = await fetchAllPages('/entries', { 'date$lte': formattedDate });
+          
+          // 1. Fetch all accounting years
+          const { data: yearsData, error: yearsError } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path: "/accounting-years", method: "GET", country: currentCountry },
+          });
+          if (yearsError) throw new Error(yearsError.message);
+          const yearsResp = yearsData as EconomicProxyResponse<any>;
+          if (yearsResp.error || !yearsResp.ok) throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+          const accountingYears = extractList(yearsResp?.data);
+          if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found in e-conomic.");
+
+          // 2. Fetch entries for each year up to the target date
+          let allEntries: any[] = [];
+          const yearPromises = accountingYears.map(yearInfo => {
+            const year = yearInfo.year;
+            const path = `/accounting-years/${year}/entries`;
+            return fetchAllPages(path, { 'date$lte': formattedDate });
+          });
+
+          const results = await Promise.all(yearPromises);
+          allEntries = results.flat();
           
           const balanceMap = new Map<number, { name: string, total: number }>();
 
-          for (const entry of entries) {
+          for (const entry of allEntries) {
             const accountNumber = entry.account?.accountNumber;
             const accountName = entry.account?.name;
             const amount = entry.amount || 0;
