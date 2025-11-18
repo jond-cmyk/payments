@@ -139,6 +139,7 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
           <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />
           <NavLink to="/landlord-deposits" icon={<HomeIcon className="h-5 w-5" />} label="Landlord Deposits" />
           <NavLink to="/deposit-return-advisements" icon={<DollarSign className="h-5 w-5" />} label="Deposit Return Advisements" />
+          <NavLink to="/property-pnl" icon={<BarChart className="h-5 w-5" />} label="Property P&L" />
           
           <div className="h-px bg-dyad-blue-foreground my-4" /> 
 
@@ -151,7 +152,6 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => { // Removed className f
           </NavLink>
           <NavLink to="/profile" icon={<User className="h-5 w-5" />} label="My Profile" />
           <NavLink to="/admin/statistics" icon={<BarChart className="h-5 w-5" />} label="Statistics" />
-          <NavLink to="/comparable-period-total" icon={<BarChart className="h-5 w-5" />} label="Comparable Period Report" />
           <NavLink to="/user-guide" icon={<BookOpen className="h-5 w-5" />} label="User Guide" />
           
           {currentRole === 'admin' && (

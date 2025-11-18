@@ -43,7 +43,7 @@ const LandlordDeposits = lazy(() => import("./pages/LandlordDeposits"));
 const CustomerDeposits = lazy(() => import("./pages/CustomerDeposits")); // NEW IMPORT
 const DepositReturnAdvisements = lazy(() => import("./pages/DepositReturnAdvisements"));
 const UserGuide = lazy(() => import("./pages/UserGuide"));
-const ComparablePeriodTotal = lazy(() => import("./pages/ComparablePeriodTotal"));
+const PropertyPnL = lazy(() => import("./pages/PropertyPnL"));
 
 const queryClient = new QueryClient();
 
@@ -123,7 +123,7 @@ const App = () => {
                         <Route path="/admin/feedback" element={<AdminFeedback />} />
                         <Route path="/admin/economic-integration" element={<EconomicIntegration />} />
                         <Route path="/admin/departments" element={<AdminDepartments />} />
-                        <Route path="/comparable-period-total" element={<ComparablePeriodTotal />} />
+                        <Route path="/property-pnl" element={<PropertyPnL />} />
                       </Route>
 
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

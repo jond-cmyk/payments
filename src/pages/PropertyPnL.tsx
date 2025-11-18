@@ -62,7 +62,7 @@ const getDepartmentNumberFromEntry = (entry: any): number | null => {
   return null;
 };
 
-const ComparablePeriodTotal = () => {
+const PropertyPnL = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
   const navigate = useNavigate();
@@ -112,7 +112,7 @@ const ComparablePeriodTotal = () => {
     periodHeaders: string[],
     periodEntries: any[][],
   } | null>({
-    queryKey: ['comparablePeriodTotal', selectedSku, selectedYear, selectedMonth, currentCountry, numPeriods],
+    queryKey: ['propertyPnLReport', selectedSku, selectedYear, selectedMonth, currentCountry, numPeriods],
     queryFn: async () => {
       if (!selectedSku) throw new Error("SKU must be selected.");
 
@@ -447,11 +447,11 @@ const ComparablePeriodTotal = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <PageTitle title="P&L Report - KH Payments" />
+      <PageTitle title="Property P&L Report - KH Payments" />
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle className="flex items-center text-2xl font-bold">
-            <BarChart className="mr-2 h-6 w-6" /> P&L Report by Property
+            <BarChart className="mr-2 h-6 w-6" /> Property P&L Report
           </CardTitle>
           <CardDescription>
             Generate a Profit & Loss report for a specific property, comparing the selected month with previous months.
@@ -685,4 +685,4 @@ const ComparablePeriodTotal = () => {
   );
 };
 
-export default ComparablePeriodTotal;
+export default PropertyPnL;
