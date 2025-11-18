@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Checkbox } from '@/components/ui/checkbox';
 import { DollarSign } from 'lucide-react';
 
-const createFormSchema = (country: string) => z.object({
+const createFormSchema = (country: string, returnAmount: number) => z.object({
   bank_account_name: z.string().min(1, "Bank Account Name is required."),
   account_address: z.string().min(1, "Account Address is required."),
   iban_number: z.string().optional(),
@@ -19,6 +19,8 @@ const createFormSchema = (country: string) => z.object({
   account_number: z.string().optional(),
   overseas_bank_account: z.boolean().default(false),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
+  apply_deductions: z.boolean().default(false),
+  deductions_amount: z.coerce.number().optional(),
 }).superRefine((data, ctx) => {
   if (country === 'United Kingdom') {
     if (data.overseas_bank_account) {
@@ -54,6 +56,22 @@ const createFormSchema = (country: string) => z.object({
       });
     }
   }
+
+  if (data.apply_deductions) {
+    if (data.deductions_amount === undefined || data.deductions_amount === null || data.deductions_amount <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Deduction amount must be a positive number.",
+        path: ['deductions_amount'],
+      });
+    } else if (data.deductions_amount > returnAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Deductions cannot be greater than the total return amount.",
+        path: ['deductions_amount'],
+      });
+    }
+  }
 });
 
 interface DepositReturnFormProps {
@@ -66,7 +84,7 @@ interface DepositReturnFormProps {
 }
 
 const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, returnAmount, currency, country, onSubmit, isSubmitting }) => {
-  const formSchema = createFormSchema(country);
+  const formSchema = createFormSchema(country, returnAmount);
   type DepositReturnFormValues = z.infer<typeof formSchema>;
 
   const form = useForm<DepositReturnFormValues>({
@@ -79,11 +97,16 @@ const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, ret
       account_number: "",
       overseas_bank_account: false,
       bank_details_verified: false,
+      apply_deductions: false,
+      deductions_amount: 0,
     },
   });
 
   const isUk = country === 'United Kingdom';
   const isOverseas = form.watch('overseas_bank_account');
+  const applyDeductions = form.watch('apply_deductions');
+  const deductionsAmount = form.watch('deductions_amount') || 0;
+  const finalReturnAmount = returnAmount - deductionsAmount;
 
   return (
     <Form {...form}>
@@ -92,6 +115,58 @@ const DepositReturnForm: React.FC<DepositReturnFormProps> = ({ customerName, ret
           <p><strong>Customer:</strong> {customerName}</p>
           <p><strong>Return Amount:</strong> {returnAmount.toFixed(2)} {currency}</p>
         </div>
+
+        <div className="p-4 bg-dyad-blue text-white rounded-md space-y-4">
+          <FormField
+            control={form.control}
+            name="apply_deductions"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    className="border-white data-[state=checked]:bg-white data-[state=checked]:text-dyad-blue"
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>
+                    Does This Final Statement Have Invoices To Be Deducted From The Deposit Balance?
+                  </FormLabel>
+                </div>
+              </FormItem>
+            )}
+          />
+          {applyDeductions && (
+            <FormField
+              control={form.control}
+              name="deductions_amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Total Deductions Amount</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      {...field}
+                      className="bg-white text-black"
+                    />
+                  </FormControl>
+                  <FormMessage className="text-yellow-300" />
+                </FormItem>
+              )}
+            />
+          )}
+        </div>
+
+        {applyDeductions && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-md text-center">
+            <p className="text-sm font-medium text-green-700">Final Net Refund Amount</p>
+            <p className="text-2xl font-bold text-green-900">{finalReturnAmount.toFixed(2)} {currency}</p>
+          </div>
+        )}
+
         <FormField
           control={form.control}
           name="bank_account_name"

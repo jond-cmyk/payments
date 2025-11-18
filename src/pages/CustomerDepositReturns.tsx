@@ -158,6 +158,21 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
     const toastId = showLoading("Creating deposit return request...");
 
     try {
+      const deductionsAmount = formValues.deductions_amount || 0;
+      const finalReturnAmount = Math.abs(selectedEntry.remainder) - deductionsAmount;
+
+      if (finalReturnAmount < 0) {
+        showError("Deductions cannot be greater than the return amount.");
+        setIsSubmitting(false);
+        dismissToast(toastId);
+        return;
+      }
+
+      let reason = `Deposit Return for Final Statement - Entry #${selectedEntry.entryNumber}`;
+      if (deductionsAmount > 0) {
+        reason += ` (less deductions of ${deductionsAmount.toFixed(2)} ${selectedEntry.currency})`;
+      }
+
       const customerAddress = [
         group.customer.address?.street,
         group.customer.address?.city,
@@ -170,14 +185,14 @@ const CustomerAccordionItem = ({ customerName, group, country, handleViewInvoice
         supplier_name: customerName,
         supplier_address: customerAddress || 'Address not available in e-conomic',
         currency: selectedEntry.currency,
-        total_amount: Math.abs(selectedEntry.remainder),
-        reason_for_payment: `Deposit Return for Final Statement - Entry #${selectedEntry.entryNumber}`,
+        total_amount: finalReturnAmount,
+        reason_for_payment: reason,
         date_payment_required: new Date().toISOString().split('T')[0],
         status: 'pending',
         country: country,
         is_deposit_return: true,
         not_sku_related: true,
-        categories: [{ category: '8201_customer_deposit', amount: Math.abs(selectedEntry.remainder) }],
+        categories: [{ category: '8201_customer_deposit', amount: finalReturnAmount }],
         invoice_pdf_urls: [],
         bank_details_verified: formValues.bank_details_verified,
         bank_account_name: formValues.bank_account_name,
