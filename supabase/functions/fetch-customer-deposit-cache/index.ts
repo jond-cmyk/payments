@@ -140,22 +140,14 @@ serve(async (req) => {
         throw new Error("No accounting years found in e-conomic.");
     }
 
-    // Find only the current accounting year to speed up the process
-    const today = new Date();
-    const currentYearObject = accountingYears.find((y: any) => {
-        const from = y.fromDate ? parseISO(y.fromDate) : null;
-        const to = y.toDate ? parseISO(y.toDate) : null;
-        return from && to && isWithinInterval(today, { start: from, end: to });
+    console.log(`[fetch-customer-deposit-cache] Fetching all entries for account #${CUSTOMER_DEPOSIT_ACCOUNT_NUMBER} across ${accountingYears.length} accounting year(s).`);
+    const fetchPromises = accountingYears.map(async (yearInfo: any) => {
+        return fetchEntriesForYear(supabaseAdminClient, yearInfo.year, country, CUSTOMER_DEPOSIT_ACCOUNT_NUMBER);
     });
 
-    if (!currentYearObject || !currentYearObject.year) {
-        throw new Error("Could not determine the current accounting year from e-conomic.");
-    }
-
-    console.log(`[fetch-customer-deposit-cache] Found current accounting year: ${currentYearObject.year}`);
-
-    // Fetch entries ONLY for the current year
-    const allEntries = await fetchEntriesForYear(supabaseAdminClient, currentYearObject.year, country, CUSTOMER_DEPOSIT_ACCOUNT_NUMBER);
+    const results = await Promise.all(fetchPromises);
+    const allEntries = results.flat();
+    console.log(`[fetch-customer-deposit-cache] Total entries fetched across all years: ${allEntries.length}`);
 
     const { error: upsertError } = await supabaseAdminClient
       .from('customer_deposit_cache')
