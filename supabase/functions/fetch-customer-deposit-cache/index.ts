@@ -46,7 +46,7 @@ const extractList = (payload: any): any[] => {
   return [];
 };
 
-// Server-side helper to get department number
+// Helper to get department number
 const getDepartmentNumberFromEntry = (entry: any): number | null => {
   const candidates = [
     entry?.departmentalDistribution?.departmentalDistributionNumber,
@@ -70,34 +70,45 @@ const getDepartmentNumberFromEntry = (entry: any): number | null => {
   return null;
 };
 
-// More robust enrichment logic that merges full invoice data if needed
+// More robust enrichment logic that merges full invoice and customer data if needed
 async function enrichEntriesWithFullData(supabaseClient: any, entries: any[], country: string) {
   const enrichedEntries = [];
   for (const entry of entries) {
-    const hasCustomerName = entry.customer && entry.customer.name;
-    const hasDepartment = getDepartmentNumberFromEntry(entry) !== null;
+    let enrichedEntry = { ...entry }; // Start with a copy of the original entry
 
-    // If we have both, no need to fetch extra data.
-    if (hasCustomerName && hasDepartment) {
-      enrichedEntries.push(entry);
-      continue;
+    const hasCustomerName = enrichedEntry.customer && enrichedEntry.customer.name;
+    const customerNumber = enrichedEntry.customer?.customerNumber;
+
+    // If customer name is missing but we have a customer number, fetch customer data
+    if (!hasCustomerName && customerNumber) {
+      try {
+        const customerPath = `/customers/${customerNumber}`;
+        const customerData = await fetchEconomicData(supabaseClient, customerPath, country);
+        if (customerData) {
+          // Merge customer data. The original entry's customer object might be sparse.
+          enrichedEntry.customer = { ...customerData, ...enrichedEntry.customer };
+        }
+      } catch (e) {
+        console.warn(`Could not enrich customer data for entry ${entry.entryNumber}: ${e.message}`);
+      }
     }
+    
+    const hasDepartment = getDepartmentNumberFromEntry(enrichedEntry) !== null;
+    const invoiceSelf = enrichedEntry.invoice?.self || enrichedEntry.bookedInvoice?.self;
 
-    const invoiceSelf = entry.invoice?.self || entry.bookedInvoice?.self;
-    if (invoiceSelf) {
+    // If department is missing and we have an invoice link, fetch invoice data to get department
+    if (!hasDepartment && invoiceSelf) {
       try {
         const path = new URL(invoiceSelf).pathname;
         const invoiceData = await fetchEconomicData(supabaseClient, path, country);
-        // Merge invoiceData into entry. Entry's properties will overwrite invoice's properties if they conflict.
-        const mergedEntry = { ...invoiceData, ...entry };
-        enrichedEntries.push(mergedEntry);
+        // Merge invoice data. The original entry's properties will overwrite invoice's properties.
+        enrichedEntry = { ...invoiceData, ...enrichedEntry };
       } catch (e) {
-        console.warn(`Could not enrich entry ${entry.entryNumber} from invoice: ${e.message}`);
-        enrichedEntries.push(entry); // Push original on error
+        console.warn(`Could not enrich department data for entry ${entry.entryNumber} from invoice: ${e.message}`);
       }
-    } else {
-      enrichedEntries.push(entry);
     }
+    
+    enrichedEntries.push(enrichedEntry);
   }
   return enrichedEntries;
 }
