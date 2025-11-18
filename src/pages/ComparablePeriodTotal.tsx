@@ -41,6 +41,29 @@ type ReportLine = {
   period3Total: number;
 };
 
+const getDepartmentNumberFromEntry = (entry: any): number | null => {
+  const candidates = [
+    entry?.departmentalDistribution?.departmentalDistributionNumber,
+    entry?.department?.departmentNumber,
+    entry?.departmentNumber,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number') return candidate;
+    if (typeof candidate === 'string' && /^\d+$/.test(candidate)) return parseInt(candidate, 10);
+  }
+
+  const selfUrl = entry?.departmentalDistribution?.self;
+  if (selfUrl && typeof selfUrl === 'string') {
+    const match = selfUrl.match(/\/(\d+)$/);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return null;
+};
+
 const ComparablePeriodTotal = () => {
   const { session, isLoading: isSessionLoading, userProfile } = useSession();
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
@@ -89,46 +112,51 @@ const ComparablePeriodTotal = () => {
         const fetchAndProcessPeriod = async (date: Date, sku: string) => {
           const startDate = format(startOfMonth(date), 'yyyy-MM-dd');
           const endDate = format(endOfMonth(date), 'yyyy-MM-dd');
-          const numericSku = parseInt(sku, 10);
+          
+          const { data: yearsData } = await supabase.functions.invoke("economic-api-proxy", {
+            body: { path: "/accounting-years", method: "GET", country: currentCountry },
+          });
+          const yearsResp = yearsData as EconomicProxyResponse<any>;
+          if (yearsResp.error || !yearsResp.ok) throw new Error(yearsResp.error || `Failed to fetch accounting years: Status ${yearsResp.status}`);
+          const accountingYears = extractList(yearsResp?.data);
+          if (!accountingYears || accountingYears.length === 0) throw new Error("No accounting years found.");
 
-          const path = `/accounting-reports/department-profit-loss`;
-          const query = {
-              from: startDate,
-              to: endDate,
-          };
-
-          const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
+          let allEntries: any[] = [];
+          const yearPromises = accountingYears.map(async (yearInfo: any) => {
+            const path = `/accounting-years/${yearInfo.year}/entries`;
+            const query = {
+              'date$gte': startDate,
+              'date$lte': endDate,
+              'pagesize': 1000
+            };
+            const { data, error } = await supabase.functions.invoke("economic-api-proxy", {
               body: { path, method: "GET", query, country: currentCountry },
+            });
+            if (error) { console.warn(`Error fetching entries for year ${yearInfo.year}:`, error.message); return []; }
+            const resp = data as EconomicProxyResponse<any>;
+            return resp.ok ? extractList(resp.data) : [];
           });
 
-          if (error) throw new Error(error.message);
-          const resp = data as EconomicProxyResponse<any>;
-          if (resp.error || !resp.ok) {
-              throw new Error(resp.error || `Failed to fetch P&L report: Status ${resp.status}`);
-          }
+          const results = await Promise.all(yearPromises);
+          allEntries = results.flat();
 
-          const accounts = extractList(resp.data);
-          if (!accounts) {
-              console.warn(`No accounts data found in P&L report for ${startDate} to ${endDate}`);
-              return new Map();
-          }
-
+          const numericSku = parseInt(sku, 10);
+          const filteredEntries = allEntries.filter(entry => {
+            const deptNum = getDepartmentNumberFromEntry(entry);
+            return deptNum === numericSku;
+          });
+          
           const balanceMap = new Map<number, { name: string, total: number }>();
-
-          for (const account of accounts) {
-              const accountNumber = account.accountNumber;
-              const accountName = account.name;
-              const departments = extractList(account.departments);
-
-              if (accountNumber && departments) {
-                  const targetDepartment = departments.find(dept => dept.departmentNumber === numericSku);
-                  if (targetDepartment) {
-                      const balance = targetDepartment.balance || 0;
-                      if (balance !== 0) {
-                          balanceMap.set(accountNumber, { name: accountName, total: balance });
-                      }
-                  }
+          for (const entry of filteredEntries) {
+            const accountNumber = entry.account?.accountNumber;
+            const accountName = entry.account?.name;
+            const amount = entry.amount || 0;
+            if (accountNumber) {
+              if (!balanceMap.has(accountNumber)) {
+                balanceMap.set(accountNumber, { name: accountName || `Account ${accountNumber}`, total: 0 });
               }
+              balanceMap.get(accountNumber)!.total += amount;
+            }
           }
           return balanceMap;
         };
