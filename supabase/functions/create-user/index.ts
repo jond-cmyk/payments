@@ -38,12 +38,10 @@ serve(async (req) => {
     console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 1. Create user in Supabase Auth using admin privileges
-    // Set email_confirm based on the is_approved flag.
-    // If is_approved is true, email_confirmed_at should be set on creation.
+    // Supabase will now handle sending a confirmation email.
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: is_approved, // Directly use is_approved to set email_confirmed_at
       user_metadata: {
         first_name: first_name,
         last_name: last_name,
@@ -66,7 +64,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Edge Function: User created with ID: ${authData.user.id}. auth.users.email_confirmed_at: ${authData.user.email_confirmed_at}`);
+    console.log(`Edge Function: User created with ID: ${authData.user.id}. A confirmation email will be sent.`);
 
     // 2. Update the user's profile with the selected role, approval status, and country
     // The handle_new_user trigger creates a default profile, we then update it.

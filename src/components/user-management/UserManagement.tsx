@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Profile } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
-import { format } from 'date-fns'; // Import format for filename
+import { format, formatDistanceToNow } from 'date-fns'; // Import format for filename
 
 import {
   Table,
@@ -38,6 +38,7 @@ import AddUserForm from '@/components/user-management/AddUserForm';
 import EditUserForm from '@/components/user-management/EditUserForm';
 import CountryFlag from '@/components/CountryFlag';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const UserManagement = () => {
   const { session, isLoading: isSessionLoading, user, userProfile: currentUserProfile } = useSession();
@@ -67,13 +68,13 @@ const UserManagement = () => {
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string }) => {
       console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`);
-      const { id, is_approved, ...fieldsToUpdate } = updatedFields;
-      console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with fields: ${JSON.stringify(fieldsToUpdate)}, is_approved: ${is_approved}`);
+      const { id, ...fieldsToUpdate } = updatedFields;
+      console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with fields: ${JSON.stringify(fieldsToUpdate)}`);
 
-      // 1. Update the public.profiles table
+      // Update the public.profiles table
       const { error: profileUpdateError } = await supabase
         .from('profiles')
-        .update({ ...fieldsToUpdate, is_approved: is_approved, updated_at: new Date().toISOString() })
+        .update({ ...fieldsToUpdate, updated_at: new Date().toISOString() })
         .eq('id', id);
       
       if (profileUpdateError) {
@@ -81,32 +82,12 @@ const UserManagement = () => {
         throw new Error(`Failed to update user profile: ${profileUpdateError.message}`);
       }
       console.log(`[UserManagement] Successfully updated public.profiles for user ${id}.`);
-
-      // 2. If is_approved status is being changed, update auth.users via Edge Function
-      if (typeof is_approved === 'boolean') {
-        console.log(`[UserManagement] Invoking Edge Function 'update-user-approval' for user ${id} with isApproved: ${is_approved}`);
-        const { data, error: invokeError } = await supabase.functions.invoke('update-user-approval', {
-          body: { userId: id, isApproved: is_approved },
-        });
-
-        if (invokeError) {
-          console.error(`[UserManagement] Edge Function invoke error for user ${id}:`, invokeError);
-          throw new Error(invokeError.message);
-        }
-
-        if (data?.error) {
-          console.error(`[UserManagement] Edge Function returned error for user ${id}:`, data.error);
-          throw new Error(data.error);
-        }
-        console.log(`[UserManagement] Edge Function 'update-user-approval' invoked successfully for user ${id}. Response: ${JSON.stringify(data)}`);
-      }
       
       return true;
     },
     onSuccess: async () => {
       showSuccess("User profile updated successfully!");
       await queryClient.invalidateQueries({ queryKey: ['allProfiles'] });
-      await queryClient.invalidateQueries({ queryKey: ['session'] }); 
       setIsEditDialogOpen(false);
       setEditingUser(null);
     },
@@ -178,7 +159,7 @@ const UserManagement = () => {
 
   // Define columns for Profile export
   const profileExportColumns: (keyof Profile)[] = [
-    'id', 'first_name', 'last_name', 'user_email', 'role', 'is_approved', 'country', 'updated_at', 'avatar_url'
+    'id', 'first_name', 'last_name', 'user_email', 'role', 'is_approved', 'country', 'updated_at', 'avatar_url', 'last_sign_in_at'
   ];
 
   const handleDownloadUsers = () => {
@@ -256,6 +237,7 @@ const UserManagement = () => {
                     <TableHead>Role</TableHead>
                     <TableHead>Country</TableHead>
                     <TableHead>Approved</TableHead>
+                    <TableHead>Last Logged In</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -272,7 +254,7 @@ const UserManagement = () => {
                             profile.role === 'admin'
                               ? 'bg-purple-500 text-purple-50'
                               : 'bg-gray-500 text-gray-50',
-                            "border border-white" // Added white border
+                            "border border-white"
                           )}
                         >
                           {profile.role?.charAt(0).toUpperCase() + profile.role?.slice(1)}
@@ -288,13 +270,27 @@ const UserManagement = () => {
                       </TableCell>
                       <TableCell>
                         {profile.is_approved ? (
-                          <Badge className={cn("bg-green-500 text-green-50", "border border-white")}> {/* Added white border */}
+                          <Badge className={cn("bg-green-500 text-green-50", "border border-white")}>
                             <CheckCircle className="mr-1 h-3 w-3" /> Approved
                           </Badge>
                         ) : (
-                          <Badge className={cn("bg-red-500 text-red-50", "border border-white")}> {/* Added white border */}
+                          <Badge className={cn("bg-red-500 text-red-50", "border border-white")}>
                             <XCircle className="mr-1 h-3 w-3" /> Pending
                           </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {profile.last_sign_in_at ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>{formatDistanceToNow(new Date(profile.last_sign_in_at), { addSuffix: true })}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {format(new Date(profile.last_sign_in_at), 'PPP p')}
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          'Never'
                         )}
                       </TableCell>
                       <TableCell className="text-right flex items-center justify-end space-x-2">
