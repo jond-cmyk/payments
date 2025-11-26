@@ -67,40 +67,24 @@ const UserManagement = () => {
 
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
-      console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`);
-      const { id, is_approved, permissions, ...fieldsToUpdate } = updatedFields;
-      console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with permissions`);
+      const { id, ...fieldsToUpdate } = updatedFields;
 
-      // 1. Update the public.profiles table with permissions
-      const { error: profileUpdateError } = await supabase
+      console.log(`[UserManagement] Updating profile directly for user ID: ${id}`);
+
+      // Direct update to the profiles table. RLS policies allow admins to do this.
+      const { error } = await supabase
         .from('profiles')
-        .update({ ...fieldsToUpdate, is_approved: is_approved, permissions: permissions, updated_at: new Date().toISOString() })
+        .update({
+          ...fieldsToUpdate,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', id);
-      
-      if (profileUpdateError) {
-        console.error(`[UserManagement] Error updating public.profiles for user ${id}:`, profileUpdateError);
-        throw new Error(`Failed to update user profile: ${profileUpdateError.message}`);
+
+      if (error) {
+        console.error(`[UserManagement] Supabase update error:`, error);
+        throw new Error(error.message);
       }
-      console.log(`[UserManagement] Successfully updated public.profiles for user ${id}.`);
 
-      // 2. If is_approved status is being changed, update auth.users via Edge Function
-      if (typeof is_approved === 'boolean') {
-        console.log(`[UserManagement] Invoking Edge Function 'update-user-approval' for user ${id} with isApproved: ${is_approved}`);
-        const { data, error: invokeError } = await supabase.functions.invoke('update-user-approval', {
-          body: { userId: id, isApproved: is_approved },
-        });
-
-        if (invokeError) {
-          console.error(`[UserManagement] Edge Function invoke error for user ${id}:`, invokeError);
-          throw new Error(invokeError.message);
-        }
-
-        if (data?.error) {
-          console.error(`[UserManagement] Edge Function returned error for user ${id}:`, data.error);
-          throw new Error(data.error);
-        }
-      }
-      
       return true;
     },
     onSuccess: async () => {
@@ -119,6 +103,7 @@ const UserManagement = () => {
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       console.log(`[UserManagement] deleteUserMutation: Invoking Edge Function 'delete-user' for user ID: ${userId}`);
+      // This still needs an Edge Function because we are deleting from auth.users
       const { data, error } = await supabase.functions.invoke('delete-user', {
         body: { userId },
       });
@@ -154,7 +139,6 @@ const UserManagement = () => {
     setIsEditDialogOpen(true);
   };
 
-  // FIXED: Updated type signature to match EditUserForm's onSave prop (fields are optional)
   const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role?: Profile['role']; is_approved?: boolean; country?: string; permissions: UserPermissions }) => {
     if (!editingUser) return;
     const toastId = showLoading("Saving user changes...");
