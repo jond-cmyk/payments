@@ -7,23 +7,27 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 
 const PendingApproval = () => {
-  const { session, isLoading, isApproved } = useSession();
+  const { session, isLoading, isApproved, userProfile } = useSession();
   const navigate = useNavigate();
 
   useEffect(() => {
     console.log("PendingApproval: Current session state - isLoading:", isLoading, "session:", session, "isApproved:", isApproved);
-    console.log("PendingApproval: session?.user?.email_confirmed_at:", session?.user?.email_confirmed_at); // NEW LOG
+    console.log("PendingApproval: session?.user?.email_confirmed_at:", session?.user?.email_confirmed_at);
     if (!isLoading) {
       if (!session) {
         // If no session, redirect to login
         navigate('/login');
       } else if (isApproved) {
-        // If session exists and user is approved, redirect to dashboard
-        navigate('/dashboard');
+        // If session exists and user is approved, redirect
+        if (userProfile?.role === 'sales') {
+          navigate('/admin/customers');
+        } else {
+          navigate('/dashboard');
+        }
       }
       // If session exists but not approved, stay on this page
     }
-  }, [session, isLoading, isApproved, navigate]);
+  }, [session, isLoading, isApproved, navigate, userProfile]);
 
   const handleLogout = async () => {
     console.log("PendingApproval: Attempting to log out...");
@@ -33,9 +37,6 @@ const PendingApproval = () => {
     } else {
       console.log("PendingApproval: Logout successful. SessionContext will handle navigation.");
     }
-    // Removed explicit navigate('/login') and setTimeout.
-    // The SessionContext's onAuthStateChange listener will detect SIGNED_OUT
-    // and the Index/Login pages' useEffects will handle redirection.
   };
 
   if (isLoading || !session || isApproved) {

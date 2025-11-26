@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
-  const { session, isLoading, isApproved } = useSession();
+  const { session, isLoading, isApproved, userProfile } = useSession();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,8 +18,13 @@ const Login = () => {
       if (session) {
         // If a session exists, immediately redirect based on our app's approval status
         if (isApproved) {
-          console.log("Login: Session found and approved, redirecting to /dashboard.");
-          navigate('/dashboard');
+          if (userProfile?.role === 'sales') {
+            console.log("Login: Sales user found and approved, redirecting to /admin/customers.");
+            navigate('/admin/customers');
+          } else {
+            console.log("Login: Session found and approved, redirecting to /dashboard.");
+            navigate('/dashboard');
+          }
         } else {
           console.log("Login: Session found but not approved, redirecting to /pending-approval.");
           navigate('/pending-approval');
@@ -29,7 +34,7 @@ const Login = () => {
         // No session, so we continue to render the Auth component for sign-in/sign-up
       }
     }
-  }, [session, isLoading, isApproved, navigate]);
+  }, [session, isLoading, isApproved, navigate, userProfile]);
 
   if (isLoading || session) { // If loading or a session already exists, don't render the Auth component
     console.log("Login: Displaying loading state or redirecting due to existing session.");

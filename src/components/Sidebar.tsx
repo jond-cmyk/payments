@@ -92,8 +92,10 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => {
       <ScrollArea className="flex-1">
         <nav className="space-y-1">
           
-          {/* Core Features - Available to Everyone */}
-          <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
+          {/* Core Features - Available to Everyone EXCEPT Sales */}
+          {!isSales && (
+            <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
+          )}
           
           {/* Requester & Admin Only Features */}
           {(isRequester || isAdmin) && (
@@ -108,11 +110,6 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => {
               <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
               <div className="h-px bg-dyad-blue-foreground my-4" />
             </>
-          )}
-
-          {/* Sales Only Features - Shown when role is Sales */}
-          {isSales && (
-            <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
           )}
 
           {/* Sales / Property Features - Available to Everyone (including Sales) */}

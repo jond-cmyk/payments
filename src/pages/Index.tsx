@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useSession } from "@/integrations/supabase/SessionContext";
 
 const Index = () => {
-  const { session, isLoading, isApproved } = useSession();
+  const { session, isLoading, isApproved, userProfile } = useSession();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -13,18 +13,23 @@ const Index = () => {
     if (!isLoading) {
       if (session) {
         if (isApproved) {
-          console.log("Index: Session found and approved, redirecting to /dashboard.");
-          navigate('/dashboard'); // Redirect to dashboard if logged in and approved
+          if (userProfile?.role === 'sales') {
+            console.log("Index: Sales role detected, redirecting to /admin/customers.");
+            navigate('/admin/customers');
+          } else {
+            console.log("Index: Session found and approved, redirecting to /dashboard.");
+            navigate('/dashboard');
+          }
         } else {
           console.log("Index: Session found but not approved, redirecting to /pending-approval.");
-          navigate('/pending-approval'); // Redirect to pending approval if logged in but not approved
+          navigate('/pending-approval');
         }
       } else {
         console.log("Index: No session found, redirecting to /login.");
-        navigate('/login'); // Redirect to login if not logged in
+        navigate('/login');
       }
     }
-  }, [session, isLoading, isApproved, navigate]);
+  }, [session, isLoading, isApproved, navigate, userProfile]);
 
   if (isLoading) {
     return (
