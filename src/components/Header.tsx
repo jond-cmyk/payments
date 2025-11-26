@@ -9,6 +9,7 @@ import Sidebar from './Sidebar';
 import PageTitle from './PageTitle';
 import { ThemeToggle } from './ThemeToggle';
 import { Input } from '@/components/ui/input';
+import { useSession } from '@/integrations/supabase/SessionContext';
 
 const Header = () => {
   const location = useLocation();
@@ -16,6 +17,7 @@ const Header = () => {
   const [searchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
   const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { userProfile } = useSession();
 
   // Sync search input with URL query param
   useEffect(() => {
@@ -31,9 +33,10 @@ const Header = () => {
     }
 
     debounceTimeoutRef.current = setTimeout(() => {
-      if (term) {
+      const trimmedTerm = term.trim();
+      if (trimmedTerm) {
         // Always navigate to dashboard to show results
-        navigate(`/dashboard?q=${encodeURIComponent(term)}`);
+        navigate(`/dashboard?q=${encodeURIComponent(trimmedTerm)}`);
       } else {
         // If search is cleared and we are on dashboard, remove query param.
         if (location.pathname === '/dashboard') {
@@ -136,22 +139,25 @@ const Header = () => {
       <h2 className="text-xl font-semibold hidden md:block">{title.replace(' - KH Payments', '')}</h2>
       
       <div className="ml-auto flex items-center gap-4">
-        <div className="relative flex-1 md:grow-0">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-dyad-blue-foreground/70" />
-          <Input
-            type="search"
-            placeholder="Search all records..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            className="w-full rounded-lg bg-dyad-blue text-dyad-blue-foreground placeholder:text-dyad-blue-foreground/70 pl-8 md:w-[200px] lg:w-[336px] border-dyad-blue-light"
-          />
-          {searchTerm && (
-            <XCircle
-              className="absolute right-2.5 top-2.5 h-4 w-4 text-dyad-blue-foreground/70 cursor-pointer hover:text-dyad-blue-foreground"
-              onClick={clearSearch}
+        {/* Search Input - Hidden for Sales */}
+        {userProfile?.role !== 'sales' && (
+          <div className="relative flex-1 md:grow-0">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-dyad-blue-foreground/70" />
+            <Input
+              type="search"
+              placeholder="Search all records..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="w-full rounded-lg bg-dyad-blue text-dyad-blue-foreground placeholder:text-dyad-blue-foreground/70 pl-8 md:w-[200px] lg:w-[336px] border-dyad-blue-light"
             />
-          )}
-        </div>
+            {searchTerm && (
+              <XCircle
+                className="absolute right-2.5 top-2.5 h-4 w-4 text-dyad-blue-foreground/70 cursor-pointer hover:text-dyad-blue-foreground"
+                onClick={clearSearch}
+              />
+            )}
+          </div>
+        )}
         <ThemeToggle />
       </div>
     </header>
