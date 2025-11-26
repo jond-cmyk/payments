@@ -6,13 +6,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // This is needed if you're planning to invoke your function from a browser.
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
@@ -36,8 +35,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 1. Create user in Supabase Auth using admin privileges
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
@@ -65,8 +62,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    console.log(`Edge Function: User created with ID: ${authData.user.id}.`);
 
     // 2. Update the user's profile with the selected role, approval status, country, and permissions
     const { error: profileError } = await supabaseAdminClient
