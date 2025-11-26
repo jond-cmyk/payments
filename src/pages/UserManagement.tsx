@@ -70,36 +70,38 @@ const UserManagement = () => {
       console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`);
       const { id, is_approved, permissions, ...fieldsToUpdate } = updatedFields;
       
-      // 1. Use the new secure RPC function to update the profile
-      // This handles permissions, role, country, etc. atomically and bypasses table RLS issues
-      const { data: rpcData, error: rpcError } = await supabase.rpc('admin_update_user_profile', {
-        target_user_id: id,
-        new_first_name: fieldsToUpdate.first_name || null,
-        new_last_name: fieldsToUpdate.last_name || null,
-        new_role: fieldsToUpdate.role || 'requester',
-        new_country: fieldsToUpdate.country || 'Switzerland',
-        new_is_approved: is_approved ?? false,
-        new_permissions: permissions
+      // Use the new Edge Function to update the profile
+      // This bypasses RLS and schema cache issues by running server-side
+      const { data, error } = await supabase.functions.invoke('admin-update-profile', {
+        body: {
+          targetUserId: id,
+          updates: {
+            first_name: fieldsToUpdate.first_name || null,
+            last_name: fieldsToUpdate.last_name || null,
+            role: fieldsToUpdate.role || 'requester',
+            country: fieldsToUpdate.country || 'Switzerland',
+            is_approved: is_approved ?? false,
+            permissions: permissions
+          }
+        }
       });
 
-      if (rpcError) {
-        console.error(`[UserManagement] RPC 'admin_update_user_profile' failed:`, rpcError);
-        throw new Error(`Failed to update user profile: ${rpcError.message}`);
+      if (error) {
+        console.error(`[UserManagement] Edge Function invoke error:`, error);
+        throw new Error(`Failed to update user profile: ${error.message}`);
       }
 
-      // 2. If is_approved status is being changed, we still need to sync with auth.users
-      // The RPC above updates the 'profiles' table, but auth metadata might need sync for login checks
+      if (data?.error) {
+        console.error(`[UserManagement] Edge Function returned error:`, data.error);
+        throw new Error(data.error);
+      }
+
+      // 2. If is_approved status is being changed, attempt sync with auth.users (optional logging step)
       if (typeof is_approved === 'boolean') {
-        console.log(`[UserManagement] Invoking Edge Function 'update-user-approval' for user ${id}`);
-        const { data, error: invokeError } = await supabase.functions.invoke('update-user-approval', {
+        const { error: approvalError } = await supabase.functions.invoke('update-user-approval', {
           body: { userId: id, isApproved: is_approved },
         });
-
-        if (invokeError) {
-          console.error(`[UserManagement] Edge Function invoke error:`, invokeError);
-          // We don't throw here to avoid rolling back the successful profile update
-          // Just log it, as the profile update is the critical part for RLS
-        }
+        if (approvalError) console.warn("Update approval log failed (non-critical):", approvalError);
       }
       
       return true;
