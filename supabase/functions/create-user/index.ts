@@ -1,6 +1,4 @@
 // @ts-ignore
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
 
 const corsHeaders = {
@@ -10,7 +8,7 @@ const corsHeaders = {
 };
 
 // @ts-ignore
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
