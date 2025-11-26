@@ -67,28 +67,28 @@ const UserManagement = () => {
 
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
-      console.log(`[UserManagement] RPC mutationFn started for user ID: ${updatedFields.id}`);
-      const { id, first_name, last_name, role, country, is_approved, permissions } = updatedFields;
+      console.log(`[UserManagement] Standard .update() mutationFn started for user ID: ${updatedFields.id}`);
+      const { id, ...fieldsToUpdate } = updatedFields;
 
-      // Call the new RPC function with a single payload object
-      const { data, error } = await supabase.rpc('admin_update_user_profile', {
-        payload: {
-          target_user_id: id,
-          new_first_name: first_name || null,
-          new_last_name: last_name || null,
-          new_role: role || 'requester',
-          new_country: country || 'Switzerland',
-          new_is_approved: is_approved ?? false,
-          new_permissions: permissions,
-        }
-      });
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          first_name: fieldsToUpdate.first_name,
+          last_name: fieldsToUpdate.last_name,
+          role: fieldsToUpdate.role,
+          country: fieldsToUpdate.country,
+          is_approved: fieldsToUpdate.is_approved,
+          permissions: fieldsToUpdate.permissions,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
 
       if (error) {
-        console.error(`[UserManagement] RPC call error:`, error);
+        console.error(`[UserManagement] .update() error:`, error);
         throw new Error(`Failed to update user profile: ${error.message}`);
       }
 
-      console.log('[UserManagement] RPC call successful, response:', data);
+      console.log(`[UserManagement] .update() successful for user ${id}.`);
       return true;
     },
     onSuccess: async () => {
