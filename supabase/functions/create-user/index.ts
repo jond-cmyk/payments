@@ -1,16 +1,16 @@
 // @ts-ignore
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
-};
+}
 
-// @ts-ignore
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
@@ -24,15 +24,15 @@ Deno.serve(async (req) => {
           persistSession: false,
         },
       }
-    );
+    )
 
-    const { email, password, first_name, last_name, role, is_approved, country, permissions } = await req.json();
+    const { email, password, first_name, last_name, role, is_approved, country, permissions } = await req.json()
 
     if (!email || !password || !role || !country) {
       return new Response(JSON.stringify({ error: 'Email, password, role, and country are required.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
     // 1. Create user in Supabase Auth
@@ -44,20 +44,20 @@ Deno.serve(async (req) => {
         first_name: first_name,
         last_name: last_name,
       },
-    });
+    })
 
     if (authError) {
       return new Response(JSON.stringify({ error: `Failed to create user: ${authError.message}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
     if (!authData.user) {
       return new Response(JSON.stringify({ error: 'User creation failed, no user data returned.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
     // 2. Update the user's profile
@@ -72,25 +72,25 @@ Deno.serve(async (req) => {
         permissions: permissions,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', authData.user.id);
+      .eq('id', authData.user.id)
 
     if (profileError) {
-      await supabaseAdminClient.auth.admin.deleteUser(authData.user.id); // Rollback
+      await supabaseAdminClient.auth.admin.deleteUser(authData.user.id) // Rollback
       return new Response(JSON.stringify({ error: `Failed to update user profile: ${profileError.message}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
 
     return new Response(JSON.stringify({ message: 'User created successfully!' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
 
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
   }
-});
+})

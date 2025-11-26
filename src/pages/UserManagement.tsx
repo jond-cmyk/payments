@@ -65,27 +65,25 @@ const UserManagement = () => {
     enabled: isAdmin,
   });
 
+  // DIRECT DATABASE UPDATE: Bypasses the crashing Edge Function
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
       const { id, ...fieldsToUpdate } = updatedFields;
 
-      console.log(`[UserManagement] Invoking 'update-user-profile' Edge Function for user ID: ${id}`);
+      console.log(`[UserManagement] Updating profile directly for user ID: ${id}`);
 
-      const { data, error: invokeError } = await supabase.functions.invoke('update-user-profile', {
-        body: {
-          userId: id,
-          profileData: fieldsToUpdate,
-        },
-      });
+      // Direct update to the profiles table. RLS policies allow admins to do this.
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          ...fieldsToUpdate,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
 
-      if (invokeError) {
-        console.error(`[UserManagement] Edge Function invoke error:`, invokeError);
-        throw new Error(invokeError.message);
-      }
-
-      if (data?.error) {
-        console.error(`[UserManagement] Edge Function returned error:`, data.error);
-        throw new Error(data.error);
+      if (error) {
+        console.error(`[UserManagement] Supabase update error:`, error);
+        throw new Error(error.message);
       }
 
       return true;
@@ -106,6 +104,7 @@ const UserManagement = () => {
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       console.log(`[UserManagement] deleteUserMutation: Invoking Edge Function 'delete-user' for user ID: ${userId}`);
+      // This MUST use an Edge Function because we are deleting from auth.users (requires service role)
       const { data, error } = await supabase.functions.invoke('delete-user', {
         body: { userId },
       });
