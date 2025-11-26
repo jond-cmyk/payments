@@ -1,20 +1,21 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { UserPlus } from 'lucide-react';
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { useCountry } from '@/integrations/supabase/CountryContext';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Profile } from '@/types/supabase'; // Import Profile type
+import PermissionSelector from './PermissionSelector';
+import { defaultPermissions, UserPermissions } from '@/types/supabase';
 
 // Zod schema for adding a new user
 const addUserFormSchema = z.object({
@@ -26,11 +27,11 @@ const addUserFormSchema = z.object({
     required_error: "Role is required",
   }),
   is_approved: z.boolean().default(false),
-  country: z.string().min(1, "Country is required"), // New country field
+  country: z.string().min(1, "Country is required"),
 });
 
 interface AddUserFormProps {
-  onUserAdded: () => void; // Callback to refresh user list and close dialog
+  onUserAdded: () => void;
 }
 
 const roleOptions = [
@@ -39,7 +40,8 @@ const roleOptions = [
 ];
 
 const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
-  const { availableCountries } = useCountry(); // Use availableCountries from context
+  const { availableCountries } = useCountry();
+  const [permissions, setPermissions] = React.useState<UserPermissions>(defaultPermissions);
 
   const form = useForm<z.infer<typeof addUserFormSchema>>({
     resolver: zodResolver(addUserFormSchema),
@@ -50,17 +52,51 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
       last_name: "",
       role: "requester",
       is_approved: false,
-      country: "Switzerland", // Default to Switzerland
+      country: "Switzerland",
     },
   });
+
+  const watchedRole = form.watch('role');
+
+  // Auto-set default permissions based on role selection
+  useEffect(() => {
+    if (watchedRole === 'admin') {
+      // Set all to true
+      const allTrue = JSON.parse(JSON.stringify(defaultPermissions));
+      Object.keys(allTrue).forEach(cat => {
+        Object.keys(allTrue[cat]).forEach(key => allTrue[cat][key] = true);
+      });
+      setPermissions(allTrue);
+    } else {
+      // Set basic requester defaults
+      const requesterDefaults = JSON.parse(JSON.stringify(defaultPermissions));
+      // Support defaults
+      requesterDefaults.support.dashboard = true;
+      requesterDefaults.support.new_request = true;
+      requesterDefaults.support.all_requests = true;
+      requesterDefaults.support.missing_receipts = true;
+      requesterDefaults.support.completed_receipts = true;
+      requesterDefaults.support.direct_debits = true;
+      requesterDefaults.support.standing_orders = true;
+      // Sales defaults
+      requesterDefaults.sales.customers = true;
+      requesterDefaults.sales.customer_deposits = true;
+      requesterDefaults.sales.customer_deposit_returns = true;
+      requesterDefaults.sales.landlord_deposits = true;
+      requesterDefaults.sales.deposit_return_advisement = true;
+      requesterDefaults.sales.property_pnl = true;
+      
+      setPermissions(requesterDefaults);
+    }
+  }, [watchedRole]);
 
   const onSubmit = async (values: z.infer<typeof addUserFormSchema>) => {
     const toastId = showLoading("Adding new user...");
 
     try {
-      // Invoke the Edge Function to create the user with admin privileges
+      // Invoke the Edge Function to create the user
       const { data, error: invokeError } = await supabase.functions.invoke('create-user', {
-        body: values, // Pass all form values to the Edge Function
+        body: { ...values, permissions }, // Include permissions in the body
       });
 
       if (invokeError) {
@@ -73,8 +109,9 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
 
       dismissToast(toastId);
       showSuccess(data?.message || `User '${values.email}' added successfully!`);
-      form.reset({ country: "Switzerland" }); // Reset with default country
-      onUserAdded(); // Call callback to refresh list and close dialog
+      form.reset({ country: "Switzerland" });
+      setPermissions(defaultPermissions);
+      onUserAdded();
     } catch (error: any) {
       dismissToast(toastId);
       showError(error.message || "An unexpected error occurred.");
@@ -187,6 +224,15 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
             </FormItem>
           )}
         />
+        
+        <div className="space-y-2">
+          <FormLabel className="text-base">Access Permissions</FormLabel>
+          <PermissionSelector 
+            permissions={permissions} 
+            setPermissions={setPermissions} 
+          />
+        </div>
+
         <FormField
           control={form.control}
           name="is_approved"

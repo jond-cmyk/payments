@@ -3,6 +3,54 @@
  * These mirror the public schema tables and views.
  */
 
+export type UserPermissions = {
+  sales: {
+    customers: boolean;
+    customer_deposits: boolean;
+    customer_deposit_returns: boolean;
+    landlord_deposits: boolean;
+    deposit_return_advisement: boolean;
+    property_pnl: boolean;
+  };
+  support: {
+    dashboard: boolean;
+    new_request: boolean;
+    all_requests: boolean;
+    missing_receipts: boolean;
+    completed_receipts: boolean;
+    direct_debits: boolean;
+    standing_orders: boolean;
+  };
+  admin: {
+    statistics: boolean;
+    admin_panel: boolean;
+  };
+};
+
+export const defaultPermissions: UserPermissions = {
+  sales: {
+    customers: false,
+    customer_deposits: false,
+    customer_deposit_returns: false,
+    landlord_deposits: false,
+    deposit_return_advisement: false,
+    property_pnl: false,
+  },
+  support: {
+    dashboard: false,
+    new_request: false,
+    all_requests: false,
+    missing_receipts: false,
+    completed_receipts: false,
+    direct_debits: false,
+    standing_orders: false,
+  },
+  admin: {
+    statistics: false,
+    admin_panel: false,
+  },
+};
+
 /** Profiles table and profile_with_email view */
 export type Profile = {
   id: string;
@@ -15,6 +63,7 @@ export type Profile = {
   country: string | null;
   user_email?: string | null;
   last_sign_in_at?: string | null;
+  permissions?: UserPermissions | null;
 };
 
 /** Payment Requests */

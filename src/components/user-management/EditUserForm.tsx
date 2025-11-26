@@ -1,19 +1,20 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Profile } from '@/types/supabase';
+import { Profile, UserPermissions, defaultPermissions } from '@/types/supabase';
 import { User } from '@supabase/supabase-js';
 import { UserCheck } from 'lucide-react';
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
+import { useCountry } from '@/integrations/supabase/CountryContext';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import PermissionSelector from './PermissionSelector';
 
 // Zod schema for editing a user's profile
 const editUserFormSchema = z.object({
@@ -23,13 +24,13 @@ const editUserFormSchema = z.object({
     required_error: "Role is required",
   }),
   is_approved: z.boolean().default(false),
-  country: z.string().min(1, "Country is required"), // New country field
+  country: z.string().min(1, "Country is required"),
 });
 
 interface EditUserFormProps {
   profile: Profile;
   currentUser: User | null;
-  onSave: (values: z.infer<typeof editUserFormSchema>) => Promise<void>;
+  onSave: (values: z.infer<typeof editUserFormSchema> & { permissions: UserPermissions }) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -39,7 +40,9 @@ const roleOptions = [
 ];
 
 const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSave, isSaving }) => {
-  const { availableCountries } = useCountry(); // Use availableCountries from context
+  const { availableCountries } = useCountry();
+  // Initialize permissions from profile or defaults
+  const [permissions, setPermissions] = useState<UserPermissions>(profile.permissions || defaultPermissions);
 
   const form = useForm<z.infer<typeof editUserFormSchema>>({
     resolver: zodResolver(editUserFormSchema),
@@ -48,19 +51,12 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
       last_name: profile.last_name || "",
       role: profile.role,
       is_approved: profile.is_approved,
-      country: profile.country || "Switzerland", // Set default from profile or 'Switzerland'
+      country: profile.country || "Switzerland",
     },
   });
 
-  // NEW LOG: Log initial profile.is_approved and form's default is_approved
-  React.useEffect(() => {
-    console.log(`[EditUserForm] Initial profile.is_approved: ${profile.is_approved}`);
-    console.log(`[EditUserForm] Form default is_approved: ${form.getValues('is_approved')}`);
-  }, [profile.is_approved, form]);
-
   const onSubmit = async (values: z.infer<typeof editUserFormSchema>) => {
-    console.log(`[EditUserForm] Submitting form with is_approved: ${values.is_approved}`); // NEW LOG
-    await onSave(values);
+    await onSave({ ...values, permissions });
   };
 
   // Disable editing role/approval/country for the current logged-in user
@@ -145,6 +141,16 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
             </FormItem>
           )}
         />
+        
+        <div className="space-y-2">
+          <FormLabel className="text-base">Access Permissions</FormLabel>
+          <PermissionSelector 
+            permissions={permissions} 
+            setPermissions={setPermissions}
+            disabled={isSaving || isCurrentUser} 
+          />
+        </div>
+
         <FormField
           control={form.control}
           name="is_approved"
@@ -153,10 +159,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
               <FormControl>
                 <Checkbox
                   checked={field.value}
-                  onCheckedChange={(checked) => {
-                    console.log(`[EditUserForm] Checkbox onCheckedChange: ${checked}`); // NEW LOG
-                    field.onChange(checked);
-                  }}
+                  onCheckedChange={field.onChange}
                   disabled={isSaving || isCurrentUser}
                 />
               </FormControl>

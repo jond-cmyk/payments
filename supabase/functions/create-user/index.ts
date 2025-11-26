@@ -26,7 +26,7 @@ serve(async (req) => {
       }
     );
 
-    const { email, password, first_name, last_name, role, is_approved, country } = await req.json();
+    const { email, password, first_name, last_name, role, is_approved, country, permissions } = await req.json();
 
     if (!email || !password || !role || !country) {
       return new Response(JSON.stringify({ error: 'Email, password, role, and country are required.' }), {
@@ -38,7 +38,6 @@ serve(async (req) => {
     console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 1. Create user in Supabase Auth using admin privileges
-    // Supabase will now handle sending a confirmation email.
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
       password: password,
@@ -64,18 +63,18 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Edge Function: User created with ID: ${authData.user.id}. A confirmation email will be sent.`);
+    console.log(`Edge Function: User created with ID: ${authData.user.id}.`);
 
-    // 2. Update the user's profile with the selected role, approval status, and country
-    // The handle_new_user trigger creates a default profile, we then update it.
+    // 2. Update the user's profile with the selected role, approval status, country, and permissions
     const { error: profileError } = await supabaseAdminClient
       .from('profiles')
       .update({
         role: role,
-        is_approved: is_approved, // This is the value from the form
+        is_approved: is_approved,
         first_name: first_name,
         last_name: last_name,
-        country: country, // Set the country
+        country: country,
+        permissions: permissions, // Save the permissions JSONB
         updated_at: new Date().toISOString(),
       })
       .eq('id', authData.user.id);

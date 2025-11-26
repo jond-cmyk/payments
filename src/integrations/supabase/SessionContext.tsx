@@ -3,8 +3,8 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './client';
-import { Profile } from '@/types/supabase'; // Import Profile type
-import { useQuery, useQueryClient } from '@tanstack/react-query'; // NEW IMPORT
+import { Profile, UserPermissions, defaultPermissions } from '@/types/supabase';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface SessionContextType {
   session: Session | null;
@@ -12,6 +12,7 @@ interface SessionContextType {
   isLoading: boolean;
   isApproved: boolean | null;
   userProfile: Profile | null;
+  hasPermission: (category: keyof UserPermissions, permission: string) => boolean;
 }
 
 // Create the context
@@ -23,8 +24,8 @@ const SESSION_REFRESH_INTERVAL = 5 * 60 * 1000;
 export const SessionContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [isLoadingSession, setIsLoadingSession] = useState(true); // Renamed to avoid conflict with useQuery's isLoading
-  const queryClient = useQueryClient(); // NEW: Initialize queryClient
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const queryClient = useQueryClient();
 
   // Fetch user profile using useQuery
   const { data: userProfileData, isLoading: isLoadingProfile, error: profileError } = useQuery<Profile | null>({
@@ -46,22 +47,39 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     },
     enabled: !!user?.id, // Only run query if user ID is available
     staleTime: 5 * 60 * 1000, // Profile data can be considered fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes (renamed from cacheTime)
+    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
   });
 
-  // Explicitly type userProfile from the query data
   const userProfile: Profile | null = userProfileData;
 
   // Determine combined approval status
   const isApproved = useMemo(() => {
     if (!user || !userProfile) {
-      console.log(`[SessionContext] isApproved: No user or profile. Result: false`);
       return false;
     }
-    const isProfileApproved = userProfile.is_approved ?? false; // Use userProfile directly
-    console.log(`[SessionContext] isApproved: User ${user.id}. Profile approved: ${isProfileApproved}. Result: ${isProfileApproved}`);
-    return isProfileApproved;
+    return userProfile.is_approved ?? false;
   }, [user, userProfile]);
+
+  // Helper to check permissions
+  const hasPermission = (category: keyof UserPermissions, permission: string): boolean => {
+    if (!userProfile) return false;
+    
+    // Fallback for Admins if permissions are not yet migrated/set: Give full access
+    if (userProfile.role === 'admin' && !userProfile.permissions) {
+      return true;
+    }
+
+    // Fallback for Requesters if permissions are not yet migrated/set: Give basic support access
+    if (userProfile.role === 'requester' && !userProfile.permissions) {
+      // Grant basic support permissions by default for backward compatibility
+      if (category === 'support') return true;
+      return false;
+    }
+
+    const perms = userProfile.permissions || defaultPermissions;
+    // @ts-ignore - we know the category exists from the keyof type, but TS might complain about the specific string key
+    return !!perms[category]?.[permission];
+  };
 
   // Effect for initial session load and auth state changes
   useEffect(() => {
@@ -89,19 +107,14 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
       console.log("SessionContext: Auth state changed (listener). Event:", _event, "Session:", currentSession);
       setSession(currentSession);
       setUser(currentSession?.user || null);
-      // When auth state changes, invalidate the userProfile query to ensure it refetches
       if (currentSession?.user) {
         queryClient.invalidateQueries({ queryKey: ['userProfile', currentSession.user.id] });
       } else {
-        queryClient.invalidateQueries({ queryKey: ['userProfile'] }); // Invalidate all profiles if user logs out
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] });
       }
     });
 
-    // --- Periodic Session Refresh ---
-    // NOTE: Removed 'session' from dependency array to prevent infinite loop.
-    // We rely on supabase.auth.refreshSession() to handle the token logic internally.
     const refreshSession = async () => {
-      // We don't need to check if (session) here, as supabase.auth.refreshSession() handles the token logic.
       console.log("[SessionContext] Attempting periodic session refresh...");
       const { error } = await supabase.auth.refreshSession();
       if (error) {
@@ -112,19 +125,18 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     };
 
     const intervalId = setInterval(refreshSession, SESSION_REFRESH_INTERVAL);
-    // --------------------------------
 
     return () => {
       console.log("SessionContext: Unsubscribing from auth state listener and clearing refresh interval.");
       subscription.unsubscribe();
       clearInterval(intervalId);
     };
-  }, [queryClient]); // Dependency array now only contains stable values
+  }, [queryClient]);
 
-  const isLoading = isLoadingSession || isLoadingProfile; // Combined loading state
+  const isLoading = isLoadingSession || isLoadingProfile;
 
   return (
-    <SessionContext.Provider value={{ session, user, isLoading, isApproved, userProfile }}>
+    <SessionContext.Provider value={{ session, user, isLoading, isApproved, userProfile, hasPermission }}>
       {children}
     </SessionContext.Provider>
   );

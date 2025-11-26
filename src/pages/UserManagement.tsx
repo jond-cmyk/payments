@@ -5,10 +5,10 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Profile } from '@/types/supabase';
+import { Profile, UserPermissions } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { exportToCsv } from '@/utils/exportToCsv'; // Import exportToCsv
-import { format, formatDistanceToNow } from 'date-fns'; // Import format for filename
+import { exportToCsv } from '@/utils/exportToCsv';
+import { format, formatDistanceToNow } from 'date-fns';
 
 import {
   Table,
@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, CheckCircle, XCircle, UserPlus, Trash2, Edit, FileDown } from 'lucide-react'; // Import FileDown
+import { Users, CheckCircle, XCircle, UserPlus, Trash2, Edit, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import {
@@ -66,15 +66,15 @@ const UserManagement = () => {
   });
 
   const updateUserProfileMutation = useMutation({
-    mutationFn: async (updatedFields: Partial<Profile> & { id: string }) => {
+    mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
       console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`);
-      const { id, is_approved, ...fieldsToUpdate } = updatedFields;
-      console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with fields: ${JSON.stringify(fieldsToUpdate)}, is_approved: ${is_approved}`);
+      const { id, is_approved, permissions, ...fieldsToUpdate } = updatedFields;
+      console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with permissions`);
 
-      // 1. Update the public.profiles table
+      // 1. Update the public.profiles table with permissions
       const { error: profileUpdateError } = await supabase
         .from('profiles')
-        .update({ ...fieldsToUpdate, is_approved: is_approved, updated_at: new Date().toISOString() })
+        .update({ ...fieldsToUpdate, is_approved: is_approved, permissions: permissions, updated_at: new Date().toISOString() })
         .eq('id', id);
       
       if (profileUpdateError) {
@@ -99,7 +99,6 @@ const UserManagement = () => {
           console.error(`[UserManagement] Edge Function returned error for user ${id}:`, data.error);
           throw new Error(data.error);
         }
-        console.log(`[UserManagement] Edge Function 'update-user-approval' invoked successfully for user ${id}. Response: ${JSON.stringify(data)}`);
       }
       
       return true;
@@ -133,7 +132,6 @@ const UserManagement = () => {
         console.error(`[UserManagement] Edge Function returned error for deleting user ${userId}:`, data.error);
         throw new Error(data.error);
       }
-      console.log(`[UserManagement] Edge Function 'delete-user' invoked successfully for user ${userId}. Response: ${JSON.stringify(data)}`);
       return true;
     },
     onSuccess: async () => {
@@ -156,7 +154,7 @@ const UserManagement = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role: Profile['role']; is_approved: boolean; country: string }) => {
+  const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role: Profile['role']; is_approved: boolean; country: string; permissions: UserPermissions }) => {
     if (!editingUser) return;
     const toastId = showLoading("Saving user changes...");
     try {
@@ -233,7 +231,7 @@ const UserManagement = () => {
                 <UserPlus className="mr-2 h-4 w-4" /> Add New User
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Add New User</DialogTitle>
                 <DialogDescription>
@@ -365,11 +363,11 @@ const UserManagement = () => {
 
       {editingUser && (
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit User: {editingUser.first_name || editingUser.user_email || 'N/A'}</DialogTitle>
               <DialogDescription>
-                Update the profile details and approval status for this user.
+                Update the profile details, permissions, and approval status for this user.
               </DialogDescription>
             </DialogHeader>
             <EditUserForm
