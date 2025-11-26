@@ -1,6 +1,4 @@
 // @ts-ignore
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -8,7 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+// @ts-ignore
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -35,6 +35,7 @@ serve(async (req) => {
       })
     }
 
+    // Ensure updated_at is set
     profileData.updated_at = new Date().toISOString()
 
     const { error: profileUpdateError } = await supabaseAdminClient
@@ -43,10 +44,8 @@ serve(async (req) => {
       .eq('id', userId)
 
     if (profileUpdateError) {
-      return new Response(JSON.stringify({ error: `Failed to update user profile: ${profileUpdateError.message}` }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      console.error(`Edge Function: Error updating profile for user ${userId}:`, profileUpdateError)
+      throw new Error(`Failed to update user profile: ${profileUpdateError.message}`)
     }
 
     return new Response(JSON.stringify({ message: 'User profile updated successfully.' }), {
@@ -55,6 +54,7 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
+    console.error('Edge Function unhandled error:', error)
     return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

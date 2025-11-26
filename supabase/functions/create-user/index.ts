@@ -1,6 +1,4 @@
 // @ts-ignore
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -8,12 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-serve(async (req) => {
+// @ts-ignore
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    // Create a Supabase client with the service role key
     const supabaseAdminClient = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -35,11 +36,13 @@ serve(async (req) => {
       })
     }
 
-    // 1. Create user in Supabase Auth
+    console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`)
+
+    // 1. Create user in Supabase Auth using admin privileges
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: true,
+      email_confirm: true, // Auto-confirm email for created users
       user_metadata: {
         first_name: first_name,
         last_name: last_name,
@@ -47,6 +50,7 @@ serve(async (req) => {
     })
 
     if (authError) {
+      console.error('Edge Function: Error creating user in auth:', authError)
       return new Response(JSON.stringify({ error: `Failed to create user: ${authError.message}` }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -54,13 +58,16 @@ serve(async (req) => {
     }
 
     if (!authData.user) {
+      console.error('Edge Function: User creation failed, no user data returned.')
       return new Response(JSON.stringify({ error: 'User creation failed, no user data returned.' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    // 2. Update profile
+    console.log(`Edge Function: User created with ID: ${authData.user.id}.`)
+
+    // 2. Update the user's profile with the selected role, approval status, country, and permissions
     const { error: profileError } = await supabaseAdminClient
       .from('profiles')
       .update({
@@ -69,12 +76,14 @@ serve(async (req) => {
         first_name: first_name,
         last_name: last_name,
         country: country,
-        permissions: permissions,
+        permissions: permissions, // Save the permissions JSONB
         updated_at: new Date().toISOString(),
       })
       .eq('id', authData.user.id)
 
     if (profileError) {
+      // If profile update fails, attempt to delete the auth user to prevent orphaned accounts
+      console.error('Edge Function: Error updating user profile, attempting to roll back user creation:', profileError)
       await supabaseAdminClient.auth.admin.deleteUser(authData.user.id) // Rollback
       return new Response(JSON.stringify({ error: `Failed to update user profile: ${profileError.message}. User creation rolled back.` }), {
         status: 500,
@@ -88,7 +97,8 @@ serve(async (req) => {
     })
 
   } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred.' }), {
+    console.error('Edge Function unhandled error:', error)
+    return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred in the Edge Function.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
