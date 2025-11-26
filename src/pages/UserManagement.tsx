@@ -67,37 +67,25 @@ const UserManagement = () => {
 
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
-      console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`);
-      const { id, is_approved, permissions, ...fieldsToUpdate } = updatedFields;
-      
-      // 1. Update public.profiles directly (Allowed by RLS for admins)
-      const { error: profileUpdateError } = await supabase
-        .from('profiles')
-        .update({ 
-          ...fieldsToUpdate, 
-          is_approved: is_approved, 
-          permissions: permissions, 
-          updated_at: new Date().toISOString() 
-        })
-        .eq('id', id);
-      
-      if (profileUpdateError) {
-        console.error(`[UserManagement] Error updating public.profiles for user ${id}:`, profileUpdateError);
-        throw new Error(`Failed to update user profile: ${profileUpdateError.message}`);
+      console.log(`[UserManagement] RPC mutationFn started for user ID: ${updatedFields.id}`);
+      const { id, first_name, last_name, role, country, is_approved, permissions } = updatedFields;
+
+      const { data, error } = await supabase.rpc('admin_update_user_profile', {
+        target_user_id: id,
+        new_first_name: first_name || null,
+        new_last_name: last_name || null,
+        new_role: role || 'requester',
+        new_country: country || 'Switzerland',
+        new_is_approved: is_approved ?? false,
+        new_permissions: permissions,
+      });
+
+      if (error) {
+        console.error(`[UserManagement] RPC call error:`, error);
+        throw new Error(`Failed to update user profile: ${error.message}`);
       }
 
-      // 2. Sync approval status (Optional/Secondary - non-blocking)
-      if (typeof is_approved === 'boolean') {
-        try {
-            // Fire and forget attempt to sync with auth system logs if needed
-            await supabase.functions.invoke('update-user-approval', {
-                body: { userId: id, isApproved: is_approved },
-            });
-        } catch (e) {
-            console.warn("Failed to invoke update-user-approval edge function (non-critical):", e);
-        }
-      }
-      
+      console.log('[UserManagement] RPC call successful, response:', data);
       return true;
     },
     onSuccess: async () => {
