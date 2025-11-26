@@ -9,7 +9,7 @@ export type Profile = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
-  role: 'admin' | 'requester';
+  role: 'admin' | 'requester' | 'sales';
   updated_at: string;
   is_approved: boolean;
   country: string | null;

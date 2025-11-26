@@ -21,7 +21,7 @@ const addUserFormSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters long"),
   first_name: z.string().optional(),
   last_name: z.string().optional(),
-  role: z.enum(['requester', 'admin'], {
+  role: z.enum(['requester', 'admin', 'sales'], { // Added sales
     required_error: "Role is required",
   }),
   is_approved: z.boolean().default(false),
@@ -34,6 +34,7 @@ interface AddUserFormProps {
 
 const roleOptions = [
   { value: 'requester', label: 'Requester' },
+  { value: 'sales', label: 'Sales' }, // Added sales
   { value: 'admin', label: 'Admin' },
 ];
 
@@ -59,7 +60,7 @@ const AddUserForm: React.FC<AddUserFormProps> = ({ onUserAdded }) => {
     try {
       // Invoke the Edge Function to create the user
       const { data, error: invokeError } = await supabase.functions.invoke('create-user', {
-        body: { ...values }, // No permissions sent
+        body: { ...values },
       });
 
       if (invokeError) {

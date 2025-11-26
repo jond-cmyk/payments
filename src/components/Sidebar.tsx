@@ -21,6 +21,9 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => {
   const navigate = useNavigate();
 
   const isAdmin = userProfile?.role === 'admin';
+  const isSales = userProfile?.role === 'sales';
+  const isRequester = userProfile?.role === 'requester';
+
   const displayName = userProfile?.first_name && userProfile?.last_name
     ? `${userProfile.first_name} ${userProfile.last_name}`
     : user?.email || 'Guest';
@@ -89,24 +92,30 @@ const Sidebar = ({ isMobile = false }: SidebarProps) => {
       <ScrollArea className="flex-1">
         <nav className="space-y-1">
           
-          {/* Core Features - Available to everyone */}
+          {/* Core Features - Available to Everyone */}
           <NavLink to="/dashboard" icon={<Home className="h-5 w-5" />} label="Dashboard" />
-          <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
-          <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
           
-          <div className="h-px bg-dyad-blue-foreground my-4" />
-          
-          <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
-          <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
-          
-          <div className="h-px bg-dyad-blue-foreground my-4" /> 
-          
-          <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
-          <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
-          
-          <div className="h-px bg-dyad-blue-foreground my-4" />
-          
-          {/* Sales / Property Features - Available to everyone */}
+          {/* Requester & Admin Only Features */}
+          {(isRequester || isAdmin) && (
+            <>
+              <NavLink to="/new-request" icon={<PlusCircle className="h-5 w-5" />} label="New Request" />
+              <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
+              <div className="h-px bg-dyad-blue-foreground my-4" />
+              <NavLink to="/missing-receipts" icon={<FileX className="h-5 w-5" />} label="Missing Receipts" />
+              <NavLink to="/completed-receipts" icon={<Archive className="h-5 w-5" />} label="Completed Receipts" />
+              <div className="h-px bg-dyad-blue-foreground my-4" /> 
+              <NavLink to="/direct-debits" icon={<Banknote className="h-5 w-5" />} label="Direct Debits" />
+              <NavLink to="/standing-orders" icon={<Repeat className="h-5 w-5" />} label="Standing Orders" />
+              <div className="h-px bg-dyad-blue-foreground my-4" />
+            </>
+          )}
+
+          {/* Sales Only Features - Shown when role is Sales */}
+          {isSales && (
+            <NavLink to="/admin/requests" icon={<List className="h-5 w-5" />} label="All Requests" />
+          )}
+
+          {/* Sales / Property Features - Available to Everyone (including Sales) */}
           <NavLink to="/admin/customers" icon={<Users className="h-5 w-5" />} label="Customers" />
           <NavLink to="/customer-deposits" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposits" />
           <NavLink to="/customer-deposit-returns" icon={<DollarSign className="h-5 w-5" />} label="Customer Deposit Returns" />

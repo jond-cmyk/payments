@@ -19,7 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 const editUserFormSchema = z.object({
   first_name: z.string().optional(),
   last_name: z.string().optional(),
-  role: z.enum(['requester', 'admin'], {
+  role: z.enum(['requester', 'admin', 'sales'], { // Added sales
     required_error: "Role is required",
   }),
   is_approved: z.boolean().default(false),
@@ -35,6 +35,7 @@ interface EditUserFormProps {
 
 const roleOptions = [
   { value: 'requester', label: 'Requester' },
+  { value: 'sales', label: 'Sales' }, // Added sales
   { value: 'admin', label: 'Admin' },
 ];
 
