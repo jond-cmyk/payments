@@ -26,7 +26,7 @@ serve(async (req) => {
       }
     )
 
-    const { email, password, first_name, last_name, role, is_approved, country, permissions } = await req.json()
+    const { email, password, first_name, last_name, role, is_approved, country } = await req.json()
 
     if (!email || !password || !role || !country) {
       return new Response(JSON.stringify({ error: 'Email, password, role, and country are required.' }), {
@@ -60,7 +60,7 @@ serve(async (req) => {
       })
     }
 
-    // 2. Update the user's profile
+    // 2. Update the user's profile (REMOVED PERMISSIONS)
     const { error: profileError } = await supabaseAdminClient
       .from('profiles')
       .update({
@@ -69,7 +69,6 @@ serve(async (req) => {
         first_name: first_name,
         last_name: last_name,
         country: country,
-        permissions: permissions,
         updated_at: new Date().toISOString(),
       })
       .eq('id', authData.user.id)

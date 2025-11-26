@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from './client';
-import { Profile, UserPermissions, defaultPermissions } from '@/types/supabase';
+import { Profile } from '@/types/supabase';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 interface SessionContextType {
@@ -12,7 +12,6 @@ interface SessionContextType {
   isLoading: boolean;
   isApproved: boolean | null;
   userProfile: Profile | null;
-  hasPermission: (category: keyof UserPermissions, permission: string) => boolean;
 }
 
 // Create the context
@@ -28,8 +27,8 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
   const queryClient = useQueryClient();
 
   // Fetch user profile using useQuery
-  const { data: userProfileData, isLoading: isLoadingProfile, error: profileError } = useQuery<Profile | null>({
-    queryKey: ['userProfile', user?.id], // Query key depends on user ID
+  const { data: userProfileData, isLoading: isLoadingProfile } = useQuery<Profile | null>({
+    queryKey: ['userProfile', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
       const { data, error } = await supabase
@@ -42,12 +41,11 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         console.error("SessionContext: Error fetching user profile:", error);
         return null;
       }
-      console.log(`[SessionContext] Fetched profile for user ${user.id}:`, data);
       return data;
     },
-    enabled: !!user?.id, // Only run query if user ID is available
-    staleTime: 5 * 60 * 1000, // Profile data can be considered fresh for 5 minutes
-    gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
   });
 
   const userProfile: Profile | null = userProfileData;
@@ -60,33 +58,10 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     return userProfile.is_approved ?? false;
   }, [user, userProfile]);
 
-  // Helper to check permissions
-  const hasPermission = (category: keyof UserPermissions, permission: string): boolean => {
-    if (!userProfile) return false;
-    
-    // Fallback for Admins if permissions are not yet migrated/set: Give full access
-    if (userProfile.role === 'admin' && !userProfile.permissions) {
-      return true;
-    }
-
-    // Fallback for Requesters if permissions are not yet migrated/set: Give basic support access
-    if (userProfile.role === 'requester' && !userProfile.permissions) {
-      // Grant basic support permissions by default for backward compatibility
-      if (category === 'support') return true;
-      return false;
-    }
-
-    const perms = userProfile.permissions || defaultPermissions;
-    // @ts-ignore - we know the category exists from the keyof type, but TS might complain about the specific string key
-    return !!perms[category]?.[permission];
-  };
-
   // Effect for initial session load and auth state changes
   useEffect(() => {
     const loadInitialSession = async () => {
-      console.log("SessionContext: Starting initial session load.");
       setIsLoadingSession(true);
-
       const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
 
       if (sessionError) {
@@ -98,13 +73,11 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
         setUser(initialSession?.user || null);
       }
       setIsLoadingSession(false);
-      console.log("SessionContext: Initial session load complete. isLoadingSession set to false.");
     };
 
     loadInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
-      console.log("SessionContext: Auth state changed (listener). Event:", _event, "Session:", currentSession);
       setSession(currentSession);
       setUser(currentSession?.user || null);
       if (currentSession?.user) {
@@ -115,19 +88,12 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
     });
 
     const refreshSession = async () => {
-      console.log("[SessionContext] Attempting periodic session refresh...");
-      const { error } = await supabase.auth.refreshSession();
-      if (error) {
-        console.warn("[SessionContext] Periodic refresh failed (might be expired or network issue):", error.message);
-      } else {
-        console.log("[SessionContext] Periodic refresh successful.");
-      }
+      await supabase.auth.refreshSession();
     };
 
     const intervalId = setInterval(refreshSession, SESSION_REFRESH_INTERVAL);
 
     return () => {
-      console.log("SessionContext: Unsubscribing from auth state listener and clearing refresh interval.");
       subscription.unsubscribe();
       clearInterval(intervalId);
     };
@@ -136,7 +102,7 @@ export const SessionContextProvider = ({ children }: { children: React.ReactNode
   const isLoading = isLoadingSession || isLoadingProfile;
 
   return (
-    <SessionContext.Provider value={{ session, user, isLoading, isApproved, userProfile, hasPermission }}>
+    <SessionContext.Provider value={{ session, user, isLoading, isApproved, userProfile }}>
       {children}
     </SessionContext.Provider>
   );

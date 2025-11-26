@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Profile, UserPermissions, defaultPermissions } from '@/types/supabase';
+import { Profile } from '@/types/supabase';
 import { User } from '@supabase/supabase-js';
 import { UserCheck } from 'lucide-react';
 import { useCountry } from '@/integrations/supabase/CountryContext';
@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import PermissionSelector from './PermissionSelector';
 
 // Zod schema for editing a user's profile
 const editUserFormSchema = z.object({
@@ -30,7 +29,7 @@ const editUserFormSchema = z.object({
 interface EditUserFormProps {
   profile: Profile;
   currentUser: User | null;
-  onSave: (values: z.infer<typeof editUserFormSchema> & { permissions: UserPermissions }) => Promise<void>;
+  onSave: (values: z.infer<typeof editUserFormSchema>) => Promise<void>;
   isSaving: boolean;
 }
 
@@ -41,8 +40,6 @@ const roleOptions = [
 
 const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSave, isSaving }) => {
   const { availableCountries } = useCountry();
-  // Initialize permissions from profile or defaults
-  const [permissions, setPermissions] = useState<UserPermissions>(profile.permissions || defaultPermissions);
 
   const form = useForm<z.infer<typeof editUserFormSchema>>({
     resolver: zodResolver(editUserFormSchema),
@@ -56,7 +53,7 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
   });
 
   const onSubmit = async (values: z.infer<typeof editUserFormSchema>) => {
-    await onSave({ ...values, permissions });
+    await onSave(values);
   };
 
   // Disable editing role/approval/country for the current logged-in user
@@ -142,15 +139,6 @@ const EditUserForm: React.FC<EditUserFormProps> = ({ profile, currentUser, onSav
           )}
         />
         
-        <div className="space-y-2">
-          <FormLabel className="text-base">Access Permissions</FormLabel>
-          <PermissionSelector 
-            permissions={permissions} 
-            setPermissions={setPermissions}
-            disabled={isSaving || isCurrentUser} 
-          />
-        </div>
-
         <FormField
           control={form.control}
           name="is_approved"

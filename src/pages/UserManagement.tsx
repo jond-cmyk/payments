@@ -5,7 +5,7 @@ import { useSession } from '@/integrations/supabase/SessionContext';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Profile, UserPermissions } from '@/types/supabase';
+import { Profile } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { exportToCsv } from '@/utils/exportToCsv';
 import { format, formatDistanceToNow } from 'date-fns';
@@ -65,14 +65,13 @@ const UserManagement = () => {
     enabled: isAdmin,
   });
 
-  // DIRECT DATABASE UPDATE: Bypasses the crashing Edge Function
+  // DIRECT DATABASE UPDATE: Removed permissions from update logic
   const updateUserProfileMutation = useMutation({
-    mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
+    mutationFn: async (updatedFields: Partial<Profile> & { id: string }) => {
       const { id, ...fieldsToUpdate } = updatedFields;
 
       console.log(`[UserManagement] Updating profile directly for user ID: ${id}`);
 
-      // Direct update to the profiles table. RLS policies allow admins to do this.
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -104,7 +103,6 @@ const UserManagement = () => {
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
       console.log(`[UserManagement] deleteUserMutation: Invoking Edge Function 'delete-user' for user ID: ${userId}`);
-      // This MUST use an Edge Function because we are deleting from auth.users (requires service role)
       const { data, error } = await supabase.functions.invoke('delete-user', {
         body: { userId },
       });
@@ -140,7 +138,7 @@ const UserManagement = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role?: Profile['role']; is_approved?: boolean; country?: string; permissions: UserPermissions }) => {
+  const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role?: Profile['role']; is_approved?: boolean; country?: string }) => {
     if (!editingUser) return;
     const toastId = showLoading("Saving user changes...");
     try {
@@ -161,7 +159,6 @@ const UserManagement = () => {
     }
   };
 
-  // Define columns for Profile export
   const profileExportColumns: (keyof Profile)[] = [
     'id', 'first_name', 'last_name', 'user_email', 'role', 'is_approved', 'country', 'updated_at', 'avatar_url', 'last_sign_in_at'
   ];
@@ -353,7 +350,7 @@ const UserManagement = () => {
             <DialogHeader>
               <DialogTitle>Edit User: {editingUser.first_name || editingUser.user_email || 'N/A'}</DialogTitle>
               <DialogDescription>
-                Update the profile details, permissions, and approval status for this user.
+                Update the profile details and approval status for this user.
               </DialogDescription>
             </DialogHeader>
             <EditUserForm
