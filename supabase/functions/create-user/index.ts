@@ -9,7 +9,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -35,6 +35,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log(`Edge Function: Received payload for user ${email} - role: ${role}, is_approved: ${is_approved}, country: ${country}`);
 
     // 1. Create user in Supabase Auth using admin privileges
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
@@ -62,6 +64,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log(`Edge Function: User created with ID: ${authData.user.id}.`);
 
     // 2. Update the user's profile with the selected role, approval status, country, and permissions
     const { error: profileError } = await supabaseAdminClient
