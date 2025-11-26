@@ -1,6 +1,4 @@
 // @ts-ignore
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -9,7 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
 }
 
-serve(async (req) => {
+// @ts-ignore
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
