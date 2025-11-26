@@ -70,14 +70,17 @@ const UserManagement = () => {
       console.log(`[UserManagement] RPC mutationFn started for user ID: ${updatedFields.id}`);
       const { id, first_name, last_name, role, country, is_approved, permissions } = updatedFields;
 
+      // Call the new RPC function with a single payload object
       const { data, error } = await supabase.rpc('admin_update_user_profile', {
-        target_user_id: id,
-        new_first_name: first_name || null,
-        new_last_name: last_name || null,
-        new_role: role || 'requester',
-        new_country: country || 'Switzerland',
-        new_is_approved: is_approved ?? false,
-        new_permissions: permissions,
+        payload: {
+          target_user_id: id,
+          new_first_name: first_name || null,
+          new_last_name: last_name || null,
+          new_role: role || 'requester',
+          new_country: country || 'Switzerland',
+          new_is_approved: is_approved ?? false,
+          new_permissions: permissions,
+        }
       });
 
       if (error) {
