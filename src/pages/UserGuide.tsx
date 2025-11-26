@@ -95,17 +95,31 @@ const UserGuide = () => {
       icon: <DollarSign className="h-6 w-6 text-dyad-blue" />,
       content: (
         <>
-          <p>These sections help manage deposits related to properties:</p>
+          <p>These sections help manage deposits related to properties using data from e-conomic:</p>
           <ul className="list-disc list-inside space-y-2 mt-4 pl-4">
-            <li><strong>Landlord Deposits:</strong> Search by property SKU to see the current deposit balance held by a landlord. If a refund is due, you can click **Advise of Deposit Return** to create a task for an admin.</li>
+            <li><strong>Landlord Deposits:</strong> Search by property SKU to see the current deposit balance held by a landlord (Account 5201). If a refund is due, you can click **Advise of Deposit Return** to create a task for an admin.</li>
+            <li><strong>Customer Deposits:</strong> Search by property SKU to see the current deposit balance held *from* a customer (Account 8201). This helps track what a customer has paid.</li>
             <li><strong>Customer Deposit Returns:</strong> Search for 'Final Statement' entries in e-conomic to initiate a deposit return request *to* a customer if they have a credit balance.</li>
-            <li><strong>Deposit Return Advisements:</strong> A queue for admins to review and process deposit return requests initiated from the Landlord Deposits page.</li>
+            <li><strong>Deposit Return Advisements:</strong> A queue for reviewing and processing deposit return requests initiated from the Landlord Deposits page.</li>
           </ul>
         </>
       ),
     },
     {
-      title: "6. Notifications & Profile",
+      title: "6. Customers & Financial Reports",
+      icon: <BarChart className="h-6 w-6 text-dyad-blue" />,
+      content: (
+        <>
+          <p>Access real-time financial data directly from e-conomic:</p>
+          <ul className="list-disc list-inside space-y-2 mt-4 pl-4">
+            <li><strong>Customers:</strong> View customer details, current balances, and overdue amounts. You can drill down to see specific invoices, ledger cards, and outstanding transactions.</li>
+            <li><strong>Property P&L:</strong> Generate Profit & Loss reports for specific properties (SKUs). Select a property, year, month, and duration to see revenue, costs, and profit trends over time. You can also export these reports to Excel.</li>
+          </ul>
+        </>
+      ),
+    },
+    {
+      title: "7. Notifications & Profile",
       icon: <Bell className="h-6 w-6 text-dyad-blue" />,
       content: (
         <>
@@ -122,7 +136,7 @@ const UserGuide = () => {
 
   const adminSections = [
     {
-      title: "7. Admin Panel & Tools",
+      title: "8. Admin Panel & Tools",
       icon: <Settings className="h-6 w-6 text-dyad-blue" />,
       content: (
         <>
@@ -156,28 +170,31 @@ const UserGuide = () => {
   ];
 
   const permissionsMatrix = [
-    { feature: "View Dashboard", requester: true, admin: true },
-    { feature: "Create New Payment Request", requester: true, admin: true },
-    { feature: "Create New Standing Order", requester: true, admin: true },
-    { feature: "Create New Direct Debit", requester: true, admin: true },
-    { feature: "View All Requests (Table)", requester: true, admin: true },
-    { feature: "View/Add Missing Receipts", requester: true, admin: true },
-    { feature: "View Completed Receipts", requester: true, admin: true },
-    { feature: "Edit own Pending/Queried Requests", requester: true, admin: true },
-    { feature: "Edit any Direct Debit", requester: true, admin: true },
-    { feature: "Edit any Standing Order", requester: false, admin: true },
-    { feature: "View Customer Deposit Returns", requester: true, admin: true },
-    { feature: "View Landlord Deposits", requester: true, admin: true },
-    { feature: "Advise Deposit Return (Landlord)", requester: true, admin: true },
-    { feature: "View Deposit Return Advisements", requester: true, admin: true },
-    { feature: "Submit Feedback", requester: true, admin: true },
-    { feature: "View Statistics", requester: true, admin: true },
-    { feature: "---", requester: false, admin: false },
-    { feature: "Approve/Decline/Query/Pause/Cancel Requests", requester: false, admin: true },
-    { feature: "Mark Deposit Advisement as Processed", requester: false, admin: true },
-    { feature: "Upload Spreadsheets (Transactions/SO/DD)", requester: false, admin: true },
-    { feature: "User Management (Approve/Edit Roles)", requester: false, admin: true },
-    { feature: "Access Admin Panel & E-conomic Tools", requester: false, admin: true },
+    { feature: "View Dashboard", requester: true, sales: false, admin: true },
+    { feature: "Create New Payment Request", requester: true, sales: false, admin: true },
+    { feature: "Create New Standing Order", requester: true, sales: false, admin: true },
+    { feature: "Create New Direct Debit", requester: true, sales: false, admin: true },
+    { feature: "View All Requests (Table)", requester: true, sales: false, admin: true },
+    { feature: "View/Add Missing Receipts", requester: true, sales: false, admin: true },
+    { feature: "View Completed Receipts", requester: true, sales: false, admin: true },
+    { feature: "Edit own Pending/Queried Requests", requester: true, sales: false, admin: true },
+    { feature: "Edit any Direct Debit", requester: true, sales: false, admin: true },
+    { feature: "Edit any Standing Order", requester: false, sales: false, admin: true },
+    { feature: "View Customers", requester: true, sales: true, admin: true },
+    { feature: "View Customer Deposits", requester: true, sales: true, admin: true },
+    { feature: "View Customer Deposit Returns", requester: true, sales: true, admin: true },
+    { feature: "View Landlord Deposits", requester: true, sales: true, admin: true },
+    { feature: "Advise Deposit Return (Landlord)", requester: true, sales: true, admin: true },
+    { feature: "View Deposit Return Advisements", requester: true, sales: true, admin: true },
+    { feature: "View Property P&L", requester: true, sales: true, admin: true },
+    { feature: "Submit Feedback", requester: true, sales: true, admin: true },
+    { feature: "View Statistics", requester: true, sales: false, admin: true },
+    { feature: "---", requester: false, sales: false, admin: false },
+    { feature: "Approve/Decline/Query/Pause/Cancel Requests", requester: false, sales: false, admin: true },
+    { feature: "Mark Deposit Advisement as Processed", requester: false, sales: false, admin: true },
+    { feature: "Upload Spreadsheets (Transactions/SO/DD)", requester: false, sales: false, admin: true },
+    { feature: "User Management (Approve/Edit Roles)", requester: false, sales: false, admin: true },
+    { feature: "Access Admin Panel & E-conomic Tools", requester: false, sales: false, admin: true },
   ];
 
   const Checkmark = () => <Check className="h-5 w-5 text-green-600 mx-auto" />;
@@ -278,7 +295,7 @@ const UserGuide = () => {
               <Users className="h-6 w-6 mr-3" /> Feature Access Matrix
             </h3>
             <p className="text-gray-700">
-              This table outlines which features are available to users based on their role (Requester or Admin).
+              This table outlines which features are available to users based on their role (Requester, Sales, or Admin).
             </p>
             <div className="overflow-x-auto border rounded-md">
               <Table>
@@ -286,18 +303,22 @@ const UserGuide = () => {
                   <TableRow className="bg-muted/50">
                     <TableHead className="w-1/2 font-bold text-gray-900">Feature / Action</TableHead>
                     <TableHead className="text-center font-bold text-gray-900">Requester</TableHead>
+                    <TableHead className="text-center font-bold text-gray-900">Sales</TableHead>
                     <TableHead className="text-center font-bold text-gray-900">Admin</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {permissionsMatrix.map((item, index) => (
                     item.feature === '---' ? (
-                      <TableRow key={index} className="h-2 bg-gray-100/50"><TableCell colSpan={3} className="p-0"></TableCell></TableRow>
+                      <TableRow key={index} className="h-2 bg-gray-100/50"><TableCell colSpan={4} className="p-0"></TableCell></TableRow>
                     ) : (
                       <TableRow key={item.feature} className="hover:bg-gray-50">
                         <TableCell className="font-medium">{item.feature}</TableCell>
                         <TableCell className="text-center">
                           {item.requester ? <Checkmark /> : <Cross />}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {item.sales ? <Checkmark /> : <Cross />}
                         </TableCell>
                         <TableCell className="text-center">
                           {item.admin ? <Checkmark /> : <Cross />}
