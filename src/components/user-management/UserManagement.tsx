@@ -65,6 +65,7 @@ const UserManagement = () => {
     enabled: isAdmin,
   });
 
+  // REVERTED: Using direct DB update instead of Edge Function
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
       const { id, ...fieldsToUpdate } = updatedFields;
