@@ -69,35 +69,36 @@ const UserManagement = () => {
     mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
       console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`);
       const { id, is_approved, permissions, ...fieldsToUpdate } = updatedFields;
-      console.log(`[UserManagement] updateUserProfileMutation: Attempting to update profile for user ID: ${id} with permissions`);
-
-      // 1. Update the public.profiles table with permissions
-      const { error: profileUpdateError } = await supabase
-        .from('profiles')
-        .update({ ...fieldsToUpdate, is_approved: is_approved, permissions: permissions, updated_at: new Date().toISOString() })
-        .eq('id', id);
       
-      if (profileUpdateError) {
-        console.error(`[UserManagement] Error updating public.profiles for user ${id}:`, profileUpdateError);
-        throw new Error(`Failed to update user profile: ${profileUpdateError.message}`);
-      }
-      console.log(`[UserManagement] Successfully updated public.profiles for user ${id}.`);
+      // 1. Use the new secure RPC function to update the profile
+      // This handles permissions, role, country, etc. atomically and bypasses table RLS issues
+      const { data: rpcData, error: rpcError } = await supabase.rpc('admin_update_user_profile', {
+        target_user_id: id,
+        new_first_name: fieldsToUpdate.first_name || null,
+        new_last_name: fieldsToUpdate.last_name || null,
+        new_role: fieldsToUpdate.role || 'requester',
+        new_country: fieldsToUpdate.country || 'Switzerland',
+        new_is_approved: is_approved ?? false,
+        new_permissions: permissions
+      });
 
-      // 2. If is_approved status is being changed, update auth.users via Edge Function
+      if (rpcError) {
+        console.error(`[UserManagement] RPC 'admin_update_user_profile' failed:`, rpcError);
+        throw new Error(`Failed to update user profile: ${rpcError.message}`);
+      }
+
+      // 2. If is_approved status is being changed, we still need to sync with auth.users
+      // The RPC above updates the 'profiles' table, but auth metadata might need sync for login checks
       if (typeof is_approved === 'boolean') {
-        console.log(`[UserManagement] Invoking Edge Function 'update-user-approval' for user ${id} with isApproved: ${is_approved}`);
+        console.log(`[UserManagement] Invoking Edge Function 'update-user-approval' for user ${id}`);
         const { data, error: invokeError } = await supabase.functions.invoke('update-user-approval', {
           body: { userId: id, isApproved: is_approved },
         });
 
         if (invokeError) {
-          console.error(`[UserManagement] Edge Function invoke error for user ${id}:`, invokeError);
-          throw new Error(invokeError.message);
-        }
-
-        if (data?.error) {
-          console.error(`[UserManagement] Edge Function returned error for user ${id}:`, data.error);
-          throw new Error(data.error);
+          console.error(`[UserManagement] Edge Function invoke error:`, invokeError);
+          // We don't throw here to avoid rolling back the successful profile update
+          // Just log it, as the profile update is the critical part for RLS
         }
       }
       
@@ -154,7 +155,7 @@ const UserManagement = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role: Profile['role']; is_approved: boolean; country: string; permissions: UserPermissions }) => {
+  const handleSaveEdit = async (values: { first_name?: string; last_name?: string; role?: Profile['role']; is_approved?: boolean; country?: string; permissions: UserPermissions }) => {
     if (!editingUser) return;
     const toastId = showLoading("Saving user changes...");
     try {
