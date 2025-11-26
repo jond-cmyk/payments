@@ -70,38 +70,32 @@ const UserManagement = () => {
       console.log(`[UserManagement] mutationFn started for user ID: ${updatedFields.id}`);
       const { id, is_approved, permissions, ...fieldsToUpdate } = updatedFields;
       
-      // Use the new Edge Function to update the profile
-      // This bypasses RLS and schema cache issues by running server-side
-      const { data, error } = await supabase.functions.invoke('admin-update-profile', {
-        body: {
-          targetUserId: id,
-          updates: {
-            first_name: fieldsToUpdate.first_name || null,
-            last_name: fieldsToUpdate.last_name || null,
-            role: fieldsToUpdate.role || 'requester',
-            country: fieldsToUpdate.country || 'Switzerland',
-            is_approved: is_approved ?? false,
-            permissions: permissions
-          }
-        }
-      });
-
-      if (error) {
-        console.error(`[UserManagement] Edge Function invoke error:`, error);
-        throw new Error(`Failed to update user profile: ${error.message}`);
+      // 1. Update public.profiles directly (Allowed by RLS for admins)
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({ 
+          ...fieldsToUpdate, 
+          is_approved: is_approved, 
+          permissions: permissions, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', id);
+      
+      if (profileUpdateError) {
+        console.error(`[UserManagement] Error updating public.profiles for user ${id}:`, profileUpdateError);
+        throw new Error(`Failed to update user profile: ${profileUpdateError.message}`);
       }
 
-      if (data?.error) {
-        console.error(`[UserManagement] Edge Function returned error:`, data.error);
-        throw new Error(data.error);
-      }
-
-      // 2. If is_approved status is being changed, attempt sync with auth.users (optional logging step)
+      // 2. Sync approval status (Optional/Secondary - non-blocking)
       if (typeof is_approved === 'boolean') {
-        const { error: approvalError } = await supabase.functions.invoke('update-user-approval', {
-          body: { userId: id, isApproved: is_approved },
-        });
-        if (approvalError) console.warn("Update approval log failed (non-critical):", approvalError);
+        try {
+            // Fire and forget attempt to sync with auth system logs if needed
+            await supabase.functions.invoke('update-user-approval', {
+                body: { userId: id, isApproved: is_approved },
+            });
+        } catch (e) {
+            console.warn("Failed to invoke update-user-approval edge function (non-critical):", e);
+        }
       }
       
       return true;
