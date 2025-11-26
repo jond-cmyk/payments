@@ -41,6 +41,7 @@ serve(async (req) => {
     const { data: authData, error: authError } = await supabaseAdminClient.auth.admin.createUser({
       email: email,
       password: password,
+      email_confirm: true, // Auto-confirm email for created users
       user_metadata: {
         first_name: first_name,
         last_name: last_name,
