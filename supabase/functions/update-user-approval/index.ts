@@ -37,18 +37,6 @@ serve(async (req) => {
 
     console.log(`Edge Function: Updating approval for user ${userId} to ${isApproved}`);
 
-    // We can optionally verify the auth user exists, but the main goal here is to sync any auth-level metadata if needed.
-    // For now, the app relies on the `profiles` table `is_approved` column which is handled by the client-side call.
-    // However, if we wanted to actually ban/disable the user in Supabase Auth, we would do it here.
-    
-    /* 
-    // Example: Ban user if not approved (prevents login token generation)
-    const { error: authUpdateError } = await supabaseAdminClient.auth.admin.updateUserById(
-      userId,
-      { ban_duration: isApproved ? 'none' : '876000h' } // 100 years ban if not approved
-    );
-    */
-
     // Since the request is primarily to sync/log, we'll just return success for now as the profile update handles the logic.
     // This function acts as a placeholder for any future strict auth enforcement.
 
