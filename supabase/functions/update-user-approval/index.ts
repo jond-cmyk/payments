@@ -1,17 +1,16 @@
 // @ts-ignore
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+// @ts-ignore
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, PUT, DELETE',
-};
+}
 
-// @ts-ignore
-Deno.serve(async (req) => {
-  // Handle CORS preflight requests
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
@@ -25,29 +24,27 @@ Deno.serve(async (req) => {
           persistSession: false,
         },
       }
-    );
+    )
 
-    const { userId, isApproved } = await req.json();
+    const { userId, isApproved } = await req.json()
 
     if (!userId || isApproved === undefined) {
       return new Response(JSON.stringify({ error: 'userId and isApproved are required.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      })
     }
-
-    console.log(`Edge Function: Updating approval for user ${userId} to ${isApproved}`);
 
     return new Response(JSON.stringify({ message: 'User approval status updated.' }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
 
   } catch (error: any) {
-    console.error('Edge Function unhandled error:', error);
+    console.error('Edge Function unhandled error:', error)
     return new Response(JSON.stringify({ error: error.message || 'An unexpected error occurred.' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
   }
-});
+})
