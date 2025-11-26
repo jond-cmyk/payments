@@ -67,28 +67,27 @@ const UserManagement = () => {
 
   const updateUserProfileMutation = useMutation({
     mutationFn: async (updatedFields: Partial<Profile> & { id: string; permissions: UserPermissions }) => {
-      console.log(`[UserManagement] Standard .update() mutationFn started for user ID: ${updatedFields.id}`);
       const { id, ...fieldsToUpdate } = updatedFields;
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          first_name: fieldsToUpdate.first_name,
-          last_name: fieldsToUpdate.last_name,
-          role: fieldsToUpdate.role,
-          country: fieldsToUpdate.country,
-          is_approved: fieldsToUpdate.is_approved,
-          permissions: fieldsToUpdate.permissions,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
+      console.log(`[UserManagement] Invoking 'update-user-profile' Edge Function for user ID: ${id}`);
 
-      if (error) {
-        console.error(`[UserManagement] .update() error:`, error);
-        throw new Error(`Failed to update user profile: ${error.message}`);
+      const { data, error: invokeError } = await supabase.functions.invoke('update-user-profile', {
+        body: {
+          userId: id,
+          profileData: fieldsToUpdate,
+        },
+      });
+
+      if (invokeError) {
+        console.error(`[UserManagement] Edge Function invoke error:`, invokeError);
+        throw new Error(invokeError.message);
       }
 
-      console.log(`[UserManagement] .update() successful for user ${id}.`);
+      if (data?.error) {
+        console.error(`[UserManagement] Edge Function returned error:`, data.error);
+        throw new Error(data.error);
+      }
+
       return true;
     },
     onSuccess: async () => {
