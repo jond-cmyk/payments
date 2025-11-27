@@ -20,7 +20,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Red Hat Display", ...fontFamily.sans], // Set Red Hat Display as the primary sans-serif font
+        sans: ["Red Hat Text", ...fontFamily.sans], // Set Red Hat Text as the primary sans-serif font
       },
       colors: {
         border: "hsl(var(--border))",

@@ -4,7 +4,8 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%; /* Very light gray background */
+    /* Kassoe Background: #E5F0F3 (HSL: 193 37% 93%) */
+    --background: 193 37% 93%; 
     --foreground: 222.2 84% 4.9%; /* Dark text for contrast */
 
     --card: 0 0% 100%;
@@ -13,11 +14,12 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 192 100% 28%; /* New dominant blue: #00718f */
+    /* Kassoe Blue: #00728F (HSL approx: 192 100% 28%) */
+    --primary: 192 100% 28%; 
     --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 196 34% 56%; /* New secondary blue: #66a9ba */
-    --secondary-foreground: 222.2 47.4% 11.2%; /* Dark text for contrast */
+    --secondary: 196 34% 56%; /* Lighter complementary blue */
+    --secondary-foreground: 222.2 47.4% 11.2%; 
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -36,22 +38,22 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 192 100% 28%; /* New dominant blue for ring */
+    --ring: 192 100% 28%; /* Kassoe Blue for ring */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 192 100% 28%; /* Dyad blue for sidebar background */
+    --sidebar-background: 192 100% 28%; /* Kassoe Blue for sidebar background */
     --sidebar-foreground: 0 0% 100%; /* White for sidebar text */
     --sidebar-primary: 0 0% 100%; /* White for active sidebar items background */
     --sidebar-primary-foreground: 222.2 84% 4.9%; /* Dark text for active sidebar items */
     --sidebar-accent: 0 0% 100%; /* White for hover background */
     --sidebar-accent-foreground: 222.2 84% 4.9%; /* Dark text for hover text */
-    --sidebar-border: 192 100% 28%; /* Dyad blue for sidebar border */
-    --sidebar-ring: 192 100% 28%; /* Dyad blue ring */
+    --sidebar-border: 192 100% 28%; /* Kassoe Blue for sidebar border */
+    --sidebar-ring: 192 100% 28%; /* Kassoe Blue ring */
 
-    --dyad-blue: 192 100% 28%; /* #00718f */
+    --dyad-blue: 192 100% 28%; /* #00728F */
     --dyad-blue-foreground: 0 0% 100%; /* White */
-    --dyad-blue-light: 196 34% 56%; /* #66a9ba */
+    --dyad-blue-light: 196 34% 56%; /* Lighter variant */
   }
 
   .dark {
@@ -64,11 +66,11 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 192 100% 28%; /* New dominant blue: #00718f */
+    --primary: 192 100% 28%; /* Kassoe Blue */
     --primary-foreground: 0 0% 100%; /* White */
 
-    --secondary: 196 34% 56%; /* New secondary blue: #66a9ba */
-    --secondary-foreground: 210 40% 98%; /* Light text for contrast */
+    --secondary: 196 34% 56%; 
+    --secondary-foreground: 210 40% 98%; 
 
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
@@ -81,20 +83,20 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 192 100% 28%; /* New dominant blue for ring */
+    --ring: 192 100% 28%; 
     
-    --sidebar-background: 192 100% 28%; /* Dyad blue for sidebar background */
-    --sidebar-foreground: 0 0% 100%; /* White for sidebar text */
-    --sidebar-primary: 0 0% 100%; /* White for active sidebar items background */
-    --sidebar-primary-foreground: 222.2 84% 4.9%; /* Dark text for active sidebar items */
-    --sidebar-accent: 0 0% 100%; /* White for hover background */
-    --sidebar-accent-foreground: 222.2 84% 4.9%; /* Dark text for hover text */
-    --sidebar-border: 192 100% 28%; /* Dyad blue for sidebar border */
-    --sidebar-ring: 192 100% 28%; /* Dyad blue ring */
+    --sidebar-background: 192 100% 28%; 
+    --sidebar-foreground: 0 0% 100%; 
+    --sidebar-primary: 0 0% 100%; 
+    --sidebar-primary-foreground: 222.2 84% 4.9%; 
+    --sidebar-accent: 0 0% 100%; 
+    --sidebar-accent-foreground: 222.2 84% 4.9%; 
+    --sidebar-border: 192 100% 28%; 
+    --sidebar-ring: 192 100% 28%; 
 
-    --dyad-blue: 192 100% 28%; /* #00718f */
-    --dyad-blue-foreground: 0 0% 100%; /* White */
-    --dyad-blue-light: 196 34% 56%; /* #66a9ba */
+    --dyad-blue: 192 100% 28%; 
+    --dyad-blue-foreground: 0 0% 100%; 
+    --dyad-blue-light: 196 34% 56%; 
   }
 }
 
