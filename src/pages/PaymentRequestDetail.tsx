@@ -11,11 +11,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { PauseCircle, DollarSign, AlertTriangle } from 'lucide-react'; // Import DollarSign
+import { PauseCircle, DollarSign, AlertTriangle, FileDown } from 'lucide-react'; // Added FileDown
+import { pdf } from '@react-pdf/renderer'; // Import pdf generator
 
 import { editFormSchema, EditFormSchema } from '@/schemas/paymentRequestSchema';
 import PaymentRequestDisplayCards from '@/components/payment-requests/PaymentRequestDisplayCards';
 import PaymentRequestEditFormCard from '@/components/payment-requests/PaymentRequestEditFormCard';
+import PaymentRequestPDF from '@/components/payment-requests/PaymentRequestPDF'; // Import PDF component
 
 import AdminActionsCard from '@/components/payment-requests/AdminActionsCard';
 import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUploadCard';
@@ -51,6 +53,7 @@ const PaymentRequestDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); // New state for PDF loading
 
   const userRole = userProfile?.role || null;
 
@@ -485,6 +488,46 @@ const PaymentRequestDetail = () => {
     }
   };
 
+  // PDF Generation Handler
+  const handleDownloadPDF = async () => {
+    if (!request) return;
+    setIsGeneratingPdf(true);
+    const toastId = showLoading("Generating PDF...");
+
+    try {
+      // Get the requester name
+      const requesterName = auditUsers?.[request.requester_id] || request.requester_id;
+
+      // Generate the PDF blob
+      const blob = await pdf(
+        <PaymentRequestPDF request={request} requesterName={requesterName} />
+      ).toBlob();
+
+      // Create a URL for the blob
+      const url = URL.createObjectURL(blob);
+
+      // Create a temporary link element to trigger the download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `payment_request_${request.supplier_name.replace(/\s+/g, '_')}_${request.id.substring(0, 8)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+
+      // Cleanup
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      dismissToast(toastId);
+      showSuccess("PDF downloaded successfully!");
+    } catch (error: any) {
+      console.error("PDF generation error:", error);
+      dismissToast(toastId);
+      showError("Failed to generate PDF.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   if (isLoading || isRequestLoading || isAuditsLoading || isAuditUsersLoading) {
     return <div className="flex items-center justify-center h-full text-lg">Loading payment request...</div>;
   }
@@ -544,28 +587,41 @@ const PaymentRequestDetail = () => {
         </Card>
       )}
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <h1 className="text-3xl font-bold">Payment Request #{request.id.substring(0, 8)}</h1>
-        {canAmend && !isEditing && (
-          <Button onClick={() => setIsEditing(true)} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm">
-            Amend Request
+        <div className="flex gap-2">
+          {/* Save as PDF Button */}
+          <Button 
+            variant="outline" 
+            onClick={handleDownloadPDF} 
+            disabled={isGeneratingPdf}
+            className="shadow-sm"
+          >
+            <FileDown className="mr-2 h-4 w-4" />
+            {isGeneratingPdf ? 'Generating...' : 'Save as PDF'}
           </Button>
-        )}
-        {isEditing && (
-          <div className="space-x-2">
-            <Button variant="outline" onClick={() => { setIsEditing(false); }} className="shadow-sm">
-              Cancel
+
+          {canAmend && !isEditing && (
+            <Button onClick={() => setIsEditing(true)} className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm">
+              Amend Request
             </Button>
-            <Button 
-              form="edit-request-form" 
-              type="submit" 
-              className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
-              disabled={updateRequestMutation.isPending}
-            >
-              Save Changes
-            </Button>
-          </div>
-        )}
+          )}
+          {isEditing && (
+            <div className="space-x-2">
+              <Button variant="outline" onClick={() => { setIsEditing(false); }} className="shadow-sm">
+                Cancel
+              </Button>
+              <Button 
+                form="edit-request-form" 
+                type="submit" 
+                className="bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground shadow-sm"
+                disabled={updateRequestMutation.isPending}
+              >
+                Save Changes
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       <AdminActionsCard
