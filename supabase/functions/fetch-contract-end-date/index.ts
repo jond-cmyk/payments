@@ -106,30 +106,35 @@ serve(async (req) => {
     let dateStr = "";
     let extractionMethod = "";
 
-    // Strategy A: Contextual Value Search (Robust)
-    // Find *any* value="DD/MM/YYYY" or value="YYYY-MM-DD"
+    // Common date regex patterns
+    // Matches: DD.MM.YYYY, DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD
+    // Enhanced to support single digit day/month
+    const dateRegexStr = "(\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})";
+
+    // Strategy A: Contextual Value Search (Backward)
+    // Find *any* value="DATE"
     // Then check the preceding context for "end_date" identifiers
     if (!dateStr) {
-        // Regex matches value="date" (single or double quotes)
-        const valueMatches = [...editHtml.matchAll(/value=["'](\d{2}[./-]\d{2}[./-]\d{4}|\d{4}-\d{2}-\d{2})["']/gi)];
+        const valueMatches = [...editHtml.matchAll(new RegExp(`value=["']${dateRegexStr}["']`, 'gi'))];
         
         for (const match of valueMatches) {
             const dateVal = match[1];
             const index = match.index || 0;
-            // Look at the 400 chars BEFORE this match to see if it belongs to end_date
-            const context = editHtml.substring(Math.max(0, index - 400), index);
+            // Look at the 500 chars BEFORE this match to see if it belongs to end_date
+            const context = editHtml.substring(Math.max(0, index - 500), index);
             
-            // Check for keywords in the context
             if (
                 context.includes('name="end_date"') || 
                 context.includes("name='end_date'") ||
                 context.includes('id="end-date"') || 
                 context.includes("id='end-date'") ||
-                context.includes('for="end-date"')
+                context.includes('for="end-date"') ||
+                context.includes('End date') || 
+                context.includes('Slutdato') // Danish
             ) {
                 dateStr = dateVal;
-                extractionMethod = "Contextual Value (Robust)";
-                console.log(`[fetch-contract-end-date] Strategy A found: ${dateStr}`);
+                extractionMethod = "Strategy A: Contextual Value (Backward)";
+                console.log(`[fetch-contract-end-date] ${extractionMethod} found: ${dateStr}`);
                 break;
             }
         }
@@ -137,64 +142,85 @@ serve(async (req) => {
 
     // Strategy B: JSON/Script Variable Assignment (Loose)
     if (!dateStr) {
-        // Look for common JS patterns often found in script tags
         const jsonPatterns = [
-            /["']end_date["']\s*:\s*["'](\d{4}-\d{2}-\d{2}|\d{2}[./-]\d{2}[./-]\d{4})["']/i, 
-            /end_date\s*=\s*["'](\d{4}-\d{2}-\d{2}|\d{2}[./-]\d{2}[./-]\d{4})["']/i,
-            /\.val\s*\(\s*["'](\d{4}-\d{2}-\d{2}|\d{2}[./-]\d{2}[./-]\d{4})["']\s*\)/i // jQuery .val()
+            new RegExp(`["']end_date["']\\s*:\\s*["']${dateRegexStr}["']`, 'i'), 
+            new RegExp(`end_date\\s*=\\s*["']${dateRegexStr}["']`, 'i'),
+            new RegExp(`\\.val\\s*\\(\\s*["']${dateRegexStr}["']\\s*\\)`, 'i') // jQuery .val()
         ];
 
         for (const pattern of jsonPatterns) {
             const match = editHtml.match(pattern);
             if (match) {
                 dateStr = match[1];
-                extractionMethod = "JSON/Script Variable";
-                console.log(`[fetch-contract-end-date] Strategy B (JSON) found: ${dateStr}`);
+                extractionMethod = "Strategy B: JSON/Script Variable";
+                console.log(`[fetch-contract-end-date] ${extractionMethod} found: ${dateStr}`);
                 break;
             }
         }
     }
 
     // Strategy C: Spatial Search (Post-Label in Flattened HTML)
-    // Looking for text "End date" followed closely by a date string
     if (!dateStr) {
-        console.log(`[fetch-contract-end-date] Strategy C: Searching flattened HTML near 'End date' label...`);
-        // Find label "End date"
-        const labelRegex = />\s*End date\s*</i;
+        // Find label "End date" or "Slutdato" (Danish) or "Contract end"
+        // Searching loosely for just the text to be safe
+        const labelRegex = />\s*(End date|Slutdato|Contract end)\s*[:<]/i;
         const labelMatch = editHtml.match(labelRegex);
         
         if (labelMatch && labelMatch.index !== undefined) {
-            // Scan the 300 chars following the label
-            const searchWindow = editHtml.substring(labelMatch.index, labelMatch.index + 300);
+            // Scan the 400 chars following the label
+            const searchWindow = editHtml.substring(labelMatch.index, labelMatch.index + 400);
             
-            // Look for date pattern
-            const datePattern = /(\d{2}[./-]\d{2}[./-]\d{4})/g;
-            const dateMatches = [...searchWindow.matchAll(datePattern)];
+            const datePattern = new RegExp(dateRegexStr, 'i');
+            const dateMatch = searchWindow.match(datePattern);
             
-            if (dateMatches.length > 0) {
-                dateStr = dateMatches[0][0];
-                extractionMethod = "Spatial (Post-Label)";
-                console.log(`[fetch-contract-end-date] Strategy C found: ${dateStr}`);
+            if (dateMatch) {
+                dateStr = dateMatch[0];
+                extractionMethod = "Strategy C: Spatial (Post-Label)";
+                console.log(`[fetch-contract-end-date] ${extractionMethod} found: ${dateStr}`);
+            }
+        }
+    }
+
+    // Strategy D: Attribute Search (Forward)
+    // Find name="end_date" and look forward for value="DATE"
+    if (!dateStr) {
+        const nameRegex = /name=["']end_date["']/i;
+        const nameMatch = editHtml.match(nameRegex);
+
+        if (nameMatch && nameMatch.index !== undefined) {
+            // Scan 300 chars forward for a value attribute containing a date
+            const searchWindow = editHtml.substring(nameMatch.index, nameMatch.index + 300);
+            const valueDateRegex = new RegExp(`value=["']${dateRegexStr}["']`, 'i');
+            const valueMatch = searchWindow.match(valueDateRegex);
+
+            if (valueMatch) {
+                dateStr = valueMatch[1];
+                extractionMethod = "Strategy D: Attribute Search (Forward)";
+                console.log(`[fetch-contract-end-date] ${extractionMethod} found: ${dateStr}`);
             }
         }
     }
 
     if (!dateStr || dateStr.trim() === '') {
-        const debugSnippet = editHtml.substring(0, 1000).replace(/</g, '&lt;'); 
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Could not extract End Date. All strategies failed. Please ensure the date is visible in the portal and your cookie is valid.` 
+            message: `Could not extract End Date. All strategies (A-D) failed. Please ensure the date is visible in the portal.` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // 5. FORMAT DATE
     let endDate = dateStr;
-    const ddmmyyyyRegex = /^(\d{2})[./-](\d{2})[./-](\d{4})$/;
+    
+    // Normalize format: regex for D.M.YYYY, D-M-YYYY, D/M/YYYY
+    const ddmmyyyyRegex = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/;
     const dateMatch = dateStr.match(ddmmyyyyRegex);
 
     if (dateMatch) {
-        // Reformat from dd/mm/yyyy to yyyy-mm-dd
-        endDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+        const day = dateMatch[1].padStart(2, '0');
+        const month = dateMatch[2].padStart(2, '0');
+        const year = dateMatch[3];
+        // Reformat to yyyy-mm-dd
+        endDate = `${year}-${month}-${day}`;
     }
 
     // Basic validity check
