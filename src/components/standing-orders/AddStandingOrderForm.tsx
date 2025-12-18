@@ -496,29 +496,18 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => {
-                      const currentDisabledState = form.formState.isSubmitting;
-                      console.log(`[AddStandingOrderForm] Account Number field.value BEFORE render: "${field.value}"`);
-                      console.log(`[AddStandingOrderForm] Account Number disabled state: ${currentDisabledState}`);
-                      return (
-                        <FormItem>
-                          <FormLabel>Account Number</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="1234 5678"
-                              {...field}
-                              value={field.value || ''}
-                              onChange={(e) => {
-                                console.log("AddStandingOrderForm: Account Number onChange fired. Input value:", e.target.value);
-                                field.onChange(e.target.value);
-                              }}
-                              disabled={currentDisabledState}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="1234 5678"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                 />
             </>
         )}
