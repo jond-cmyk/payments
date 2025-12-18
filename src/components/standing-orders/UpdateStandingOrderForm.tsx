@@ -46,6 +46,7 @@ const updateStandingOrderFormSchema = z.object({
     required_error: "Payment Start Date is required.",
   }),
   payment_end_date: z.date().optional(),
+  agreement_end_date: z.date().optional(), // NEW field
   sku: z.string().optional(),
   not_property_related: z.boolean().default(false),
   categories: z.array(z.object({
@@ -65,10 +66,10 @@ const updateStandingOrderFormSchema = z.object({
   }).default('active'),
   country: z.string().min(1, "Country is required."),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
-  total_amount: z.coerce.number(), // REMOVED .min(0.01) to prevent silent validation failure
+  total_amount: z.coerce.number(),
   payment_day: z.string().optional().nullable(),
-  currency: z.string().optional(), // NEW: Add currency field
-  bank_account: z.string().optional(), // NEW: Add bank_account field
+  currency: z.string().optional(),
+  bank_account: z.string().optional(),
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
@@ -94,7 +95,6 @@ const updateStandingOrderFormSchema = z.object({
     }
   }
 
-  // Conditional validation for bank details based on country
   if (data.country === 'United Kingdom') {
     if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
       ctx.addIssue({
@@ -155,7 +155,6 @@ const updateStandingOrderFormSchema = z.object({
     }
   }
 
-  // NEW: Conditional validation for Switzerland-specific fields
   if (data.country === 'Switzerland') {
     if (!data.currency || data.currency.trim() === '') {
       ctx.addIssue({
@@ -193,10 +192,8 @@ const updateStandingOrderFormSchema = z.object({
   if (data.payment_end_date && data.payment_date) {
     const startDate = new Date(data.payment_date);
     startDate.setHours(0, 0, 0, 0);
-
     const endDate = new Date(data.payment_end_date);
     endDate.setHours(0, 0, 0, 0);
-
     if (endDate < startDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -226,6 +223,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       payee: standingOrder.payee || "",
       payment_date: new Date(standingOrder.payment_date + 'T00:00:00'),
       payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date + 'T00:00:00') : undefined,
+      agreement_end_date: standingOrder.agreement_end_date ? new Date(standingOrder.agreement_end_date + 'T00:00:00') : undefined,
       sku: standingOrder.sku || (standingOrder.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: standingOrder.not_property_related,
       categories: standingOrder.categories.length > 0 ? standingOrder.categories : [{ category: "", amount: 0 }],
@@ -267,7 +265,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     name: "total_amount",
   });
 
-  // Calculate total amount whenever categories array changes
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, item) => {
       const parsedAmount = parseFloat((item as any)?.amount) || 0;
@@ -278,7 +275,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     }
   }, [watchedCategories, form]);
 
-  // NEW: Payee Search Logic
   const handlePayeeBlur = async () => {
     const payeeName = form.getValues('payee');
     const currentFormCountry = form.getValues('country');
@@ -342,16 +338,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             formattedSortCode = value;
         }
         form.setValue('sort_code', formattedSortCode, options);
-        
         const cleanAccountNumber = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
         form.setValue('account_number', cleanAccountNumber, options);
-
         form.setValue('account_address', '', options);
         form.setValue('iban_number', '', options);
     } else {
         form.setValue('account_address', suggestion.address || '', options);
         form.setValue('iban_number', suggestion.iban_number || '', options);
-        
         form.setValue('sort_code', '', options);
         form.setValue('account_number', '', options);
     }
@@ -373,22 +366,14 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
         throw new Error("User not authenticated.");
       }
 
-      // Preserve the month and year from the existing payment_date, but update the day
-      const prevDate = standingOrder.payment_date ? new Date(standingOrder.payment_date + 'T00:00:00Z') : new Date(); // Use UTC parsing for prevDate
-      const year = prevDate.getUTCFullYear(); // Use UTC year
-      const monthIndex = prevDate.getUTCMonth(); // Use UTC month (0-based)
-      
-      // Calculate last day of month in UTC
+      const prevDate = standingOrder.payment_date ? new Date(standingOrder.payment_date + 'T00:00:00Z') : new Date();
+      const year = prevDate.getUTCFullYear();
+      const monthIndex = prevDate.getUTCMonth();
       const lastDayOfMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
       const safeDay = values.payment_day ? Math.min(parseInt(values.payment_day), lastDayOfMonth) : null;
-      
-      // FIX: Use Date.UTC to prevent timezone shifting the date
       const paymentDate = values.payment_date.toISOString().split('T')[0];
-
-      // FIX: Use original country if form value is missing (due to disabled field for non-admins)
       const countryForUpdate = (values.country && values.country.trim() !== '') ? values.country : standingOrder.country;
 
-      // Prepare bank details based on country
       const bankDetails = countryForUpdate === 'United Kingdom'
         ? {
             account_address: null,
@@ -408,7 +393,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
         .update({
           payee: values.payee,
           payment_date: paymentDate,
-          payment_end_date: values.payment_end_date ? values.payment_end_date.toISOString().split('T')[0] : null, // NEW
+          payment_end_date: values.payment_end_date ? values.payment_end_date.toISOString().split('T')[0] : null,
+          agreement_end_date: values.agreement_end_date ? values.agreement_end_date.toISOString().split('T')[0] : null, // NEW
           sku: values.not_property_related ? null : values.sku,
           not_property_related: values.not_property_related,
           categories: values.categories,
@@ -442,7 +428,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
     }
   };
 
-  // Filter category options based on the selected country in the form
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
   ).map(opt => ({ value: opt.value, label: opt.label }));
@@ -500,7 +485,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             )}
           />
 
-          {/* Dynamic Categories Section */}
           <Card className="p-4 shadow-sm">
             <CardTitle className="text-lg font-semibold mb-4 flex items-center">
               <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
@@ -649,7 +633,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             name="payment_end_date"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel className="font-semibold">Agreement End Date</FormLabel> {/* Changed from Payment End Date */}
+                <FormLabel className="font-semibold">Payment End Date</FormLabel>
                 <FormControl>
                   <DatePicker
                     date={field.value}
@@ -659,7 +643,29 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                   />
                 </FormControl>
                 <FormDescription>
-                  Optional: set an end date if the standing order should stop automatically.
+                  Optional: set an end date if the standing order should stop automatically in the bank.
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="agreement_end_date"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="font-semibold">Agreement End Date</FormLabel>
+                <FormControl>
+                  <DatePicker
+                    date={field.value}
+                    setDate={field.onChange}
+                    placeholder="Select end date (optional)"
+                    disabled={!isAdmin}
+                  />
+                </FormControl>
+                <FormDescription>
+                  The contractual end date of the agreement.
                 </FormDescription>
                 <FormMessage />
               </FormItem>

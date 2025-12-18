@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StandingOrder, StandingOrderAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast, showInfo } from '@/utils/toast';
 import { format } from 'date-fns';
-import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, CalendarDays, UserCircle2, RefreshCw } from 'lucide-react'; // Added RefreshCw
+import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, CalendarDays, UserCircle2, RefreshCw } from 'lucide-react'; 
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 
@@ -172,7 +172,7 @@ const StandingOrderDetail = () => {
     }
   };
 
-  // Mutation to check external end date
+  // Mutation to check external end date (Agreement End Date)
   const checkExternalEndDateMutation = useMutation({
     mutationFn: async (sku: string) => {
       const { data, error } = await supabase.functions.invoke('fetch-contract-end-date', {
@@ -186,7 +186,7 @@ const StandingOrderDetail = () => {
         const { error } = await supabase
           .from('standing_orders')
           .update({ 
-            payment_end_date: data.endDate,
+            agreement_end_date: data.endDate, // UPDATED: Updates the new column
             updated_at: new Date().toISOString()
           })
           .eq('id', id);
@@ -195,9 +195,9 @@ const StandingOrderDetail = () => {
         
         queryClient.invalidateQueries({ queryKey: ['standingOrder', id] });
         queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
-        // Automatically add an audit entry or comment
+        
         await addCommentMutation.mutateAsync(`Auto-updated Agreement End Date to ${data.endDate} from external system check.`);
-        showSuccess(`Updated agreement end date to ${data.endDate}.`);
+        showSuccess(`Updated Agreement End Date to ${data.endDate}.`);
       } else {
         showInfo(data.message || "No agreement end date found in external system.");
       }
@@ -209,7 +209,7 @@ const StandingOrderDetail = () => {
 
   const handleCheckExternalEndDate = () => {
     if (standingOrder?.sku) {
-      const toastId = showLoading("Checking external system...");
+      const toastId = showLoading("Checking external system for agreement end date...");
       checkExternalEndDateMutation.mutate(standingOrder.sku, {
         onSettled: () => dismissToast(toastId)
       });
@@ -337,6 +337,14 @@ const StandingOrderDetail = () => {
                 <p className="font-bold">Payment Start Date:</p>
                 <p>{format(new Date(standingOrder.payment_date), 'PPP')}</p>
               </div>
+              
+              {/* Payment End Date (Bank setting) */}
+              <div>
+                <p className="font-bold">Payment End Date:</p>
+                <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
+              </div>
+
+              {/* Agreement End Date (Contract setting) with Sync Button */}
               <div>
                 <p className="font-bold flex items-center gap-2">
                   Agreement End Date:
@@ -353,8 +361,9 @@ const StandingOrderDetail = () => {
                     </Button>
                   )}
                 </p>
-                <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
+                <p>{standingOrder.agreement_end_date ? format(new Date(standingOrder.agreement_end_date), 'PPP') : 'No agreement end date'}</p>
               </div>
+
               <div>
                 <p className="font-bold">Payment Day:</p>
                 <p>{standingOrder.payment_day ? `Day ${standingOrder.payment_day}` : 'N/A'}</p>
