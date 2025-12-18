@@ -454,24 +454,28 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="1234 5678"
-                            {...field}
-                            disabled={!isAdmin}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      console.log(`[UpdateStandingOrderForm] Account Number field.value: "${field.value}"`);
+                      console.log(`[UpdateStandingOrderForm] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, isSubmitting: ${form.formState.isSubmitting}`);
+                      return (
+                        <FormItem>
+                          <FormLabel>Account Number</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="1234 5678"
+                              {...field}
+                              disabled={!isAdmin}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                 />
             </>
         )}
 
-        <Button type="submit" className="w-full">Update Standing Order</Button>
+        <Button type="submit" className="w-full">Create Standing Order</Button>
       </form>
     </Form>
   );

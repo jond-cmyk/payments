@@ -496,18 +496,22 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="1234 5678"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      console.log(`[AddStandingOrderForm] Account Number field.value: "${field.value}"`);
+                      console.log(`[AddStandingOrderForm] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, isSubmitting: ${form.formState.isSubmitting}`);
+                      return (
+                        <FormItem>
+                          <FormLabel>Account Number</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="1234 5678"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                 />
             </>
         )}

@@ -783,22 +783,26 @@ const NewPaymentRequest = () => {
                   <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., 1234 5678"
-                            {...field}
-                            disabled={form.formState.isSubmitting}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Enter the 8-digit Bank Account Number.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      console.log(`[NewPaymentRequest] Account Number field.value: "${field.value}"`);
+                      console.log(`[NewPaymentRequest] User Role: ${userProfile?.role}, isAdmin: ${userProfile?.role === 'admin'}, isSubmitting: ${form.formState.isSubmitting}`);
+                      return (
+                        <FormItem>
+                          <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="e.g., 1234 5678"
+                              {...field}
+                              disabled={form.formState.isSubmitting}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Enter the 8-digit Bank Account Number.
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   <FormField
                     control={form.control}

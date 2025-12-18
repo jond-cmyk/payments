@@ -370,18 +370,22 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Number</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            disabled={isDisabled}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      console.log(`[PaymentRequestEditFormCard] Account Number field.value: "${field.value}"`);
+                      console.log(`[PaymentRequestEditFormCard] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, Request Status: ${request.status}, isSubmitting: ${form.formState.isSubmitting}, isDisabled: ${isDisabled}`);
+                      return (
+                        <FormItem>
+                          <FormLabel>Account Number</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              disabled={isDisabled}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   <FormField
                     control={form.control}
@@ -560,10 +564,13 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   </FormItem>
                 )}
               />
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+              <Button type="submit" className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
+                Submit Payment Request
+              </Button>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
   );
 };
 

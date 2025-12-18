@@ -283,7 +283,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <FormItem>
                 <FormLabel className="font-semibold">SKU</FormLabel>
                 <FormControl>
-                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notPropertyRelated || !canEditFields} />
+                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !canEditFields} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -415,15 +415,19 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
           <FormField
             control={form.control}
             name="account_number"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., 1234567890" {...field} disabled={!canEditFields} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+            render={({ field }) => {
+              console.log(`[EditDirectDebitForm] Account Number field.value: "${field.value}"`);
+              console.log(`[EditDirectDebitForm] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, canEditFields: ${canEditFields}, isSubmitting: ${form.formState.isSubmitting}`);
+              return (
+                <FormItem>
+                  <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., 1234567890" {...field} disabled={!canEditFields} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              );
+            }}
           />
           <FormField
             control={form.control}
