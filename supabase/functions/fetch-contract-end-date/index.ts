@@ -80,7 +80,6 @@ serve(async (req) => {
     }
 
     // 2. PARSE LINK STEP
-    // Look for edit links where the ID is NOT 0
     const productLinkMatch = searchHtml.match(/href="([^"]*\/products\/edit\/[1-9]\d*\/[^"]*)"/);
     
     if (!productLinkMatch) {
@@ -100,8 +99,6 @@ serve(async (req) => {
     // 3. FETCH DETAILS STEP
     const editRes = await fetch(editUrl, { headers });
     const rawHtml = await editRes.text();
-    
-    // NORMALIZE HTML: Remove newlines and excessive spaces to make regex reliable
     const editHtml = rawHtml.replace(/\s+/g, ' ');
 
     // 4. PARSE DATE STEP
@@ -113,22 +110,15 @@ serve(async (req) => {
     const dateValidator = new RegExp(`^(${dateRegexStr})$`);
 
     // Strategy 1: Strict Input Field Match (Forward Search)
-    // We look for the name attribute containing specific keywords, then find the immediate value attribute.
     if (!dateStr) {
         const fieldNames = ['end_date', 'slutdato', 'ophørsdato', 'expiry'];
         const namePattern = fieldNames.join('|');
-        
-        // Regex to find the input tag name attribute
         const nameRegex = new RegExp(`name=["'][^"']*(${namePattern})[^"']*["']`, 'gi');
         
         let nameMatch;
         while ((nameMatch = nameRegex.exec(editHtml)) !== null) {
             const nameIndex = matchIndex(nameMatch);
-            
-            // Look ahead for the value attribute within 400 chars (generous input tag length)
             const searchWindow = editHtml.substring(nameIndex, nameIndex + 400);
-            
-            // Find the FIRST value attribute
             const valueMatch = searchWindow.match(/value=["']([^"']*)["']/i);
             
             if (valueMatch) {
@@ -136,10 +126,8 @@ serve(async (req) => {
                 if (dateValidator.test(val)) {
                     dateStr = val;
                     extractionMethod = `Strategy 1: Strict Input (name="${nameMatch[0]}")`;
-                    console.log(`[fetch-contract-end-date] Found date in specific input field: ${dateStr}`);
                     break; 
                 } else if (val === "") {
-                    // Critical: If the targeted field is empty, STOP.
                     console.log(`[fetch-contract-end-date] Found target field '${nameMatch[0]}' but value is empty.`);
                     extractionMethod = "Empty Target Field";
                     break;
@@ -148,7 +136,7 @@ serve(async (req) => {
         }
     }
 
-    // Strategy 2: JSON/Script Variable Assignment (Strict)
+    // Strategy 2: JSON/Script Variable Assignment
     if (!dateStr && extractionMethod !== "Empty Target Field") {
         const jsonPatterns = [
             new RegExp(`["'](?:end_date|slutdato)["']\\s*:\\s*["'](${dateRegexStr})["']`, 'i'), 
@@ -160,26 +148,25 @@ serve(async (req) => {
             if (match) {
                 dateStr = match[1];
                 extractionMethod = "Strategy 2: JSON/Script Variable";
-                console.log(`[fetch-contract-end-date] ${extractionMethod} found: ${dateStr}`);
                 break;
             }
         }
     }
 
+    // *** MODIFIED LOGIC HERE ***
     if (!dateStr || dateStr.trim() === '') {
-        const isExplicitlyEmpty = extractionMethod === "Empty Target Field";
+        // If we found the page but found no date, we now assume it is INTENTIONALLY empty.
+        // This triggers the frontend to clear the field.
         return new Response(JSON.stringify({ 
             endDate: null, 
-            isExplicitlyEmpty,
-            message: `End Date field is ${isExplicitlyEmpty ? 'explicitly empty' : 'not found'}. (${extractionMethod || 'No match'})`,
+            isExplicitlyEmpty: true, // Changed to TRUE to force clearing
+            message: `No date found on external portal. Field will be cleared. (${extractionMethod || 'No match found'})`,
             url: editUrl 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // 5. FORMAT DATE
     let endDate = dateStr;
-    
-    // Normalize format
     const ddmmyyyyRegex = /^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/;
     const dateMatch = dateStr.match(ddmmyyyyRegex);
 
@@ -190,11 +177,13 @@ serve(async (req) => {
         endDate = `${year}-${month}-${day}`;
     }
 
-    // Basic validity check
     if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+         // If format conversion fails, treat as empty/null rather than erroring out?
+         // For safety, let's just return null but not force empty, so user can check manually.
          return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Found value '${dateStr}' via ${extractionMethod} but format conversion failed.` 
+            message: `Found value '${dateStr}' but format conversion failed.`,
+            url: editUrl
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -218,7 +207,6 @@ serve(async (req) => {
   }
 })
 
-// Helper to safely get index from regex match result
 function matchIndex(match: RegExpExecArray): number {
     return match.index !== undefined ? match.index : 0;
 }
