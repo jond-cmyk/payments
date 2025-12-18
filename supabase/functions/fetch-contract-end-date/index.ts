@@ -53,7 +53,7 @@ serve(async (req) => {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     };
 
-    console.log(`[fetch-contract-end-date] 1. Searching for SKU: ${sku} in category 367...`);
+    console.log(`[fetch-contract-end-date] 1. Searching for SKU: ${sku}...`);
 
     // 1. SEARCH STEP
     const searchUrl = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/367?Filter[KassoeThemeProducts__sku]=${encodeURIComponent(sku)}`;
@@ -75,7 +75,7 @@ serve(async (req) => {
     if (searchHtml.includes('name="login"') || searchHtml.includes('class="login"')) {
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: "Authentication failed (Login page detected during search). Check your cookie." 
+            message: "Authentication failed (Login page detected). Check your cookie." 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -83,11 +83,10 @@ serve(async (req) => {
     const productLinkMatch = searchHtml.match(/href="([^"]*\/products\/edit\/[^"]*)"/);
     
     if (!productLinkMatch) {
-        console.log(`[fetch-contract-end-date] Edit link not found in search results for ${sku}.`);
-        const skuFound = searchHtml.includes(sku);
+        console.log(`[fetch-contract-end-date] Edit link not found for ${sku}.`);
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Search for ${sku} returned no edit links.${!skuFound ? " SKU text not found in results." : ""}` 
+            message: `Search for ${sku} returned no edit links.` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -103,51 +102,65 @@ serve(async (req) => {
     // 4. PARSE DATE STEP
     let dateStr = "";
 
-    // Array of Regex Strategies based on user feedback
-    const regexStrategies = [
-        // Strategy 1: Explicit ID + Value (The structure provided by user)
-        // Matches: id="end-date" ... value="31/12/2025"
-        /id=["']end-date["'][^>]*value=["']([^"']+)["']/i,
-        
-        // Strategy 2: Explicit Name + Value
-        // Matches: name="end_date" ... value="31/12/2025"
-        /name=["']end_date["'][^>]*value=["']([^"']+)["']/i,
-        
-        // Strategy 3: Value + Explicit ID (Reverse order)
-        // Matches: value="31/12/2025" ... id="end-date"
-        /value=["']([^"']+)["'][^>]*id=["']end-date["']/i,
+    // Strategy A: Direct Attribute Search (Loose)
+    // Matches: id="end-date" ... value="31/12/2025" OR value="31/12/2025" ... id="end-date"
+    // Handles attributes being separated by newlines or other attributes
+    const looseValueRegex = /(?:id=["']end-date["']|name=["']end_date["'])[\s\S]*?value=["'](\d{2}[./-]\d{2}[./-]\d{4})["']|value=["'](\d{2}[./-]\d{2}[./-]\d{4})["'][\s\S]*?(?:id=["']end-date["']|name=["']end_date["'])/i;
+    const looseMatch = editHtml.match(looseValueRegex);
+    if (looseMatch) {
+        dateStr = looseMatch[1] || looseMatch[2];
+        console.log(`[fetch-contract-end-date] Strategy A (Loose Attr) found: ${dateStr}`);
+    }
 
-        // Strategy 4: Fallback to the generic Input tag capture from before, but looser
-        /<input[^>]*name=["']end_date["'][^>]*value=["']([^"']+)["'][^>]*>/i
-    ];
-
-    for (const regex of regexStrategies) {
-        const match = editHtml.match(regex);
-        if (match && match[1]) {
-            dateStr = match[1];
-            console.log(`[fetch-contract-end-date] Date found using regex: ${regex.source}`);
-            break;
+    // Strategy B: Javascript Value Assignment
+    if (!dateStr) {
+        const jsDateRegex = /val\s*\(\s*["'](\d{2}[./-]\d{2}[./-]\d{4})["']\s*\)/i;
+        const jsMatch = editHtml.match(jsDateRegex);
+        if (jsMatch) {
+            dateStr = jsMatch[1];
+            console.log(`[fetch-contract-end-date] Strategy B (JS) found: ${dateStr}`);
         }
     }
 
-    // Strategy 5: Deep Search (Javascript assignments)
+    // Strategy C: Spatial Search (Nearest date after "End date" label)
     if (!dateStr) {
-        const jsMatch = editHtml.match(/val\s*\(\s*["'](\d{2}\/\d{2}\/\d{4})["']\s*\)/i);
-        if (jsMatch) dateStr = jsMatch[1];
+        console.log(`[fetch-contract-end-date] Strategy C: Searching for nearest date string...`);
+        const labelRegex = />\s*End date\s*</i;
+        const labelMatch = editHtml.match(labelRegex);
+        
+        if (labelMatch && labelMatch.index !== undefined) {
+            // Scan the 2000 chars following the label
+            const searchWindow = editHtml.substring(labelMatch.index, labelMatch.index + 2000);
+            const datePattern = /(\d{2}[./-]\d{2}[./-]\d{4})/g;
+            const dateMatches = [...searchWindow.matchAll(datePattern)];
+            
+            if (dateMatches.length > 0) {
+                // Take the first date found after the label
+                dateStr = dateMatches[0][0];
+                console.log(`[fetch-contract-end-date] Strategy C found: ${dateStr}`);
+            }
+        }
+    }
+
+    // Strategy D: Last Resort - Any future date in doc
+    if (!dateStr) {
+         console.log(`[fetch-contract-end-date] Strategy D: Searching entire doc for any valid dates...`);
+         const allDates = [...editHtml.matchAll(/(\d{2}[./-]\d{2}[./-]\d{4})/g)].map(m => m[0]);
+         // Filter for potential valid dates (e.g. containing 2024, 2025, etc)
+         const futureDates = allDates.filter(d => d.includes('202') || d.includes('203'));
+         if (futureDates.length > 0) {
+             dateStr = futureDates[0]; // Take the first plausible future date
+             console.log(`[fetch-contract-end-date] Strategy D found: ${dateStr}`);
+         }
     }
 
     if (!dateStr || dateStr.trim() === '') {
-        // Find the input tag to show context in error
-        const simpleMatch = editHtml.match(/<input[^>]*name=["']end_date["'][^>]*>/i);
-        const inputContext = simpleMatch ? simpleMatch[0] : "Input tag not found";
-        
+        const debugSnippet = editHtml.substring(0, 1000).replace(/</g, '&lt;'); // Grab head of doc for context
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Could not extract End Date value. Tag found: "${inputContext}". It implies the 'value' attribute is missing from the server response, despite appearing in browser dev tools.` 
+            message: `Could not extract End Date. Deep search failed. Page preview: ${debugSnippet.substring(0, 200)}...` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
-
-    console.log(`[fetch-contract-end-date] Raw extracted date string: "${dateStr}"`);
 
     // 5. FORMAT DATE
     let endDate = dateStr;
@@ -157,14 +170,14 @@ serve(async (req) => {
     if (dateMatch) {
         // Reformat from dd/mm/yyyy to yyyy-mm-dd
         endDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
-    } else {
-        // Check if it's already YYYY-MM-DD
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-             return new Response(JSON.stringify({ 
-                endDate: null, 
-                message: `Found date string '${dateStr}' but could not parse format (expected DD/MM/YYYY).` 
-            }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
+    }
+
+    // Basic validity check
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+         return new Response(JSON.stringify({ 
+            endDate: null, 
+            message: `Found date string '${dateStr}' but format conversion failed.` 
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     console.log(`[fetch-contract-end-date] 3. Success! End Date: ${endDate}`);
