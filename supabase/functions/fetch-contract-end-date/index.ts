@@ -106,32 +106,27 @@ serve(async (req) => {
     let dateStr = "";
     let extractionMethod = "";
 
-    // Common date regex patterns
     // Matches: DD.MM.YYYY, DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD
-    // Enhanced to support single digit day/month
     const dateRegexStr = "(\\d{4}-\\d{2}-\\d{2}|\\d{1,2}[./-]\\d{1,2}[./-]\\d{4})";
+    
+    // Keywords to identify the correct field
+    const keywords = ['end_date', 'end-date', 'End date', 'Slutdato', 'Ophørsdato', 'Contract end', 'Expiry'];
+    const keywordPattern = keywords.join('|');
 
     // Strategy A: Contextual Value Search (Backward)
     // Find *any* value="DATE"
     // Then check the preceding context for "end_date" identifiers
+    // Increased window to 1000 chars
     if (!dateStr) {
         const valueMatches = [...editHtml.matchAll(new RegExp(`value=["']${dateRegexStr}["']`, 'gi'))];
         
         for (const match of valueMatches) {
             const dateVal = match[1];
             const index = match.index || 0;
-            // Look at the 500 chars BEFORE this match to see if it belongs to end_date
-            const context = editHtml.substring(Math.max(0, index - 500), index);
+            // Look at the 1000 chars BEFORE this match
+            const context = editHtml.substring(Math.max(0, index - 1000), index);
             
-            if (
-                context.includes('name="end_date"') || 
-                context.includes("name='end_date'") ||
-                context.includes('id="end-date"') || 
-                context.includes("id='end-date'") ||
-                context.includes('for="end-date"') ||
-                context.includes('End date') || 
-                context.includes('Slutdato') // Danish
-            ) {
+            if (new RegExp(keywordPattern, 'i').test(context)) {
                 dateStr = dateVal;
                 extractionMethod = "Strategy A: Contextual Value (Backward)";
                 console.log(`[fetch-contract-end-date] ${extractionMethod} found: ${dateStr}`);
@@ -160,15 +155,14 @@ serve(async (req) => {
     }
 
     // Strategy C: Spatial Search (Post-Label in Flattened HTML)
+    // Increased window to 2000 chars
     if (!dateStr) {
-        // Find label "End date" or "Slutdato" (Danish) or "Contract end"
-        // Searching loosely for just the text to be safe
-        const labelRegex = />\s*(End date|Slutdato|Contract end)\s*[:<]/i;
+        const labelRegex = new RegExp(`>\\s*(${keywordPattern})\\s*[:<]`, 'i');
         const labelMatch = editHtml.match(labelRegex);
         
         if (labelMatch && labelMatch.index !== undefined) {
-            // Scan the 400 chars following the label
-            const searchWindow = editHtml.substring(labelMatch.index, labelMatch.index + 400);
+            // Scan the 2000 chars following the label
+            const searchWindow = editHtml.substring(labelMatch.index, labelMatch.index + 2000);
             
             const datePattern = new RegExp(dateRegexStr, 'i');
             const dateMatch = searchWindow.match(datePattern);
@@ -182,14 +176,14 @@ serve(async (req) => {
     }
 
     // Strategy D: Attribute Search (Forward)
-    // Find name="end_date" and look forward for value="DATE"
+    // Increased window to 1000 chars
     if (!dateStr) {
         const nameRegex = /name=["']end_date["']/i;
         const nameMatch = editHtml.match(nameRegex);
 
         if (nameMatch && nameMatch.index !== undefined) {
-            // Scan 300 chars forward for a value attribute containing a date
-            const searchWindow = editHtml.substring(nameMatch.index, nameMatch.index + 300);
+            // Scan 1000 chars forward for a value attribute containing a date
+            const searchWindow = editHtml.substring(nameMatch.index, nameMatch.index + 1000);
             const valueDateRegex = new RegExp(`value=["']${dateRegexStr}["']`, 'i');
             const valueMatch = searchWindow.match(valueDateRegex);
 
@@ -201,10 +195,43 @@ serve(async (req) => {
         }
     }
 
+    // Strategy E: Proximity Fallback (Global Date Scan)
+    // Find ALL dates, pick the one closest to a keyword
+    if (!dateStr) {
+        const allDateMatches = [...editHtml.matchAll(new RegExp(dateRegexStr, 'gi'))];
+        let closestDistance = Infinity;
+        let bestCandidate = "";
+
+        // Find all keyword occurrences
+        const keywordMatches = [...editHtml.matchAll(new RegExp(keywordPattern, 'gi'))];
+
+        for (const dateMatch of allDateMatches) {
+            const dateIndex = dateMatch.index || 0;
+            const dateVal = dateMatch[0];
+
+            for (const kwMatch of keywordMatches) {
+                const kwIndex = kwMatch.index || 0;
+                // Only consider if date appears AFTER keyword (typical for forms)
+                // and within reasonable distance (e.g. 1500 chars)
+                const dist = dateIndex - kwIndex;
+                if (dist > 0 && dist < 1500 && dist < closestDistance) {
+                    closestDistance = dist;
+                    bestCandidate = dateVal;
+                }
+            }
+        }
+
+        if (bestCandidate) {
+            dateStr = bestCandidate;
+            extractionMethod = "Strategy E: Proximity Fallback";
+            console.log(`[fetch-contract-end-date] ${extractionMethod} found: ${dateStr} (distance: ${closestDistance})`);
+        }
+    }
+
     if (!dateStr || dateStr.trim() === '') {
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Could not extract End Date. All strategies (A-D) failed. Please ensure the date is visible in the portal.` 
+            message: `Could not extract End Date. All strategies (A-E) failed. HTML scanned: ${editHtml.length} chars.` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
