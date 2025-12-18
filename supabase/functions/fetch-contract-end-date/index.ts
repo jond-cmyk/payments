@@ -103,111 +103,68 @@ serve(async (req) => {
     // 4. PARSE DATE STEP
     let dateStr = "";
 
-    // Strategy A: Standard Input Value
-    // Look for <input ... name="end_date" ... value="...">
-    // We construct a regex that finds the name attribute, then looks around it
-    const inputTagRegex = /<input[^>]*name="end_date"[^>]*>/i;
-    const inputTagMatch = editHtml.match(inputTagRegex);
-
-    if (inputTagMatch) {
-        const inputTag = inputTagMatch[0];
-        // Check for value attribute (flexible quotes and spacing)
-        const valueMatch = inputTag.match(/value\s*=\s*["']([^"']+)["']/i);
-        if (valueMatch && valueMatch[1].trim()) {
-            dateStr = valueMatch[1];
-            console.log(`[fetch-contract-end-date] Strategy A: Found date in input value: ${dateStr}`);
-        }
-    }
-
-    // Strategy B: JavaScript Value Assignment
-    // Matches: $('#end-date').val('...') or document.getElementById('end-date').value = '...'
-    // This often appears in script tags at the bottom of the page
-    if (!dateStr) {
-        // Look for ID based assignment
-        const idAssignmentRegex = /['"]#end-date['"]\s*\)\s*\.val\s*\(\s*['"]([^'"]+)['"]\s*\)/i;
-        const idMatch = editHtml.match(idAssignmentRegex);
-        if (idMatch) {
-            dateStr = idMatch[1];
-            console.log(`[fetch-contract-end-date] Strategy B: Found date in JS val() for #end-date: ${dateStr}`);
-        }
-    }
-
-    // Strategy C: Aggressive Search for Nearest Date
-    // If explicit field binding isn't found, find the "end_date" label/input in HTML 
-    // and grab the closest subsequent date string.
-    if (!dateStr) {
-        console.log(`[fetch-contract-end-date] Strategy C: Searching for nearest date string...`);
+    // Array of Regex Strategies based on user feedback
+    const regexStrategies = [
+        // Strategy 1: Explicit ID + Value (The structure provided by user)
+        // Matches: id="end-date" ... value="31/12/2025"
+        /id=["']end-date["'][^>]*value=["']([^"']+)["']/i,
         
-        // 1. Find position of the input field
-        const anchorRegex = /name="end_date"/i;
-        const anchorMatch = editHtml.match(anchorRegex);
+        // Strategy 2: Explicit Name + Value
+        // Matches: name="end_date" ... value="31/12/2025"
+        /name=["']end_date["'][^>]*value=["']([^"']+)["']/i,
         
-        if (anchorMatch && anchorMatch.index !== undefined) {
-            const anchorIndex = anchorMatch.index;
-            
-            // 2. Find ALL date-like strings in the document
-            // Patterns: DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY, YYYY-MM-DD
-            const datePattern = /\b(\d{2}[./-]\d{2}[./-]\d{4})|(\d{4}-\d{2}-\d{2})\b/g;
-            
-            let bestMatch = null;
-            let minDistance = Infinity;
+        // Strategy 3: Value + Explicit ID (Reverse order)
+        // Matches: value="31/12/2025" ... id="end-date"
+        /value=["']([^"']+)["'][^>]*id=["']end-date["']/i,
 
-            for (const match of editHtml.matchAll(datePattern)) {
-                // Calculate distance from the "end_date" input
-                // We typically expect the value to be AFTER the name attribute
-                const dist = match.index - anchorIndex;
-                
-                // We accept dates that are shortly after (e.g. in value attribute or script) 
-                // but not too far (e.g. unrelated footer dates). 
-                // 5000 chars covers a lot of script blocks.
-                if (dist > 0 && dist < 5000) { 
-                    if (dist < minDistance) {
-                        minDistance = dist;
-                        bestMatch = match[0];
-                    }
-                }
-            }
+        // Strategy 4: Fallback to the generic Input tag capture from before, but looser
+        /<input[^>]*name=["']end_date["'][^>]*value=["']([^"']+)["'][^>]*>/i
+    ];
 
-            if (bestMatch) {
-                dateStr = bestMatch;
-                console.log(`[fetch-contract-end-date] Strategy C: Found nearest date (${minDistance} chars after input): ${dateStr}`);
-            }
+    for (const regex of regexStrategies) {
+        const match = editHtml.match(regex);
+        if (match && match[1]) {
+            dateStr = match[1];
+            console.log(`[fetch-contract-end-date] Date found using regex: ${regex.source}`);
+            break;
         }
     }
 
-    // If still no date, return all found dates for debugging
+    // Strategy 5: Deep Search (Javascript assignments)
+    if (!dateStr) {
+        const jsMatch = editHtml.match(/val\s*\(\s*["'](\d{2}\/\d{2}\/\d{4})["']\s*\)/i);
+        if (jsMatch) dateStr = jsMatch[1];
+    }
+
     if (!dateStr || dateStr.trim() === '') {
-        const inputContext = inputTagMatch ? inputTagMatch[0] : "Input not found";
+        // Find the input tag to show context in error
+        const simpleMatch = editHtml.match(/<input[^>]*name=["']end_date["'][^>]*>/i);
+        const inputContext = simpleMatch ? simpleMatch[0] : "Input tag not found";
         
-        // Collect all dates found in the document to help user debug
-        const allDates = [...editHtml.matchAll(/\b(\d{2}[./-]\d{2}[./-]\d{4})|(\d{4}-\d{2}-\d{2})\b/g)]
-            .map(m => m[0])
-            .slice(0, 10); // Limit to first 10 to avoid huge payload
-
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Could not extract End Date. Input tag found: "${inputContext}". Dates found in doc: [${allDates.join(', ')}].` 
+            message: `Could not extract End Date value. Tag found: "${inputContext}". It implies the 'value' attribute is missing from the server response, despite appearing in browser dev tools.` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 5. PARSE & FORMAT DATE (Standardize to YYYY-MM-DD)
+    console.log(`[fetch-contract-end-date] Raw extracted date string: "${dateStr}"`);
+
+    // 5. FORMAT DATE
     let endDate = dateStr;
-    
-    // Check format: DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
     const ddmmyyyyRegex = /^(\d{2})[./-](\d{2})[./-](\d{4})$/;
     const dateMatch = dateStr.match(ddmmyyyyRegex);
 
     if (dateMatch) {
         // Reformat from dd/mm/yyyy to yyyy-mm-dd
         endDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
-    } else if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        // Already YYYY-MM-DD, do nothing
-        endDate = dateStr;
     } else {
-         return new Response(JSON.stringify({ 
-            endDate: null, 
-            message: `Found date string '${dateStr}' but could not parse format (expected DD/MM/YYYY or YYYY-MM-DD).` 
-        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        // Check if it's already YYYY-MM-DD
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+             return new Response(JSON.stringify({ 
+                endDate: null, 
+                message: `Found date string '${dateStr}' but could not parse format (expected DD/MM/YYYY).` 
+            }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
     }
 
     console.log(`[fetch-contract-end-date] 3. Success! End Date: ${endDate}`);
