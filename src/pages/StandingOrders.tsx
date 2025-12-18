@@ -216,15 +216,17 @@ const StandingOrders = () => {
       if (sortColumn !== 'id') query = query.order('id', { ascending: false });
 
       // Range
-      if (itemsPerPage !== 'all') query = query.range(from, to);
+      // Only apply DB range if NOT filtering by date discrepancy client-side
+      // When filtering by date discrepancy, we must fetch all records to check computed values
+      if (itemsPerPage !== 'all' && !filterDateDiscrepancy) query = query.range(from, to);
 
       const { data, error, count } = await query;
       if (error) throw error;
 
       // Client-side filter for Date Discrepancy (excluding verified items)
-      let filteredData = data;
+      let filteredData = data || [];
       if (filterDateDiscrepancy) {
-        filteredData = data.filter(order => {
+        filteredData = filteredData.filter(order => {
           // If already checked/verified by admin, exclude from "Has Date Discrepancy" list
           if (order.agreement_end_date_checked) return false;
 
@@ -232,7 +234,16 @@ const StandingOrders = () => {
           const diff = Math.abs(differenceInDays(parseISO(order.payment_end_date), parseISO(order.agreement_end_date)));
           return diff > 15;
         });
+        
+        // Update total items count based on the full filtered list
         setTotalItems(filteredData.length); 
+        
+        // Manual Pagination Slicing for client-side filtered data
+        if (itemsPerPage !== 'all') {
+            const startIndex = (currentPage - 1) * (itemsPerPage as number);
+            const endIndex = startIndex + (itemsPerPage as number);
+            filteredData = filteredData.slice(startIndex, endIndex);
+        }
       } else {
         setTotalItems(count || 0);
       }
@@ -358,9 +369,6 @@ const StandingOrders = () => {
             // Determine new date value:
             // - If data.endDate exists, use it.
             // - If isExplicitlyEmpty is true, use null.
-            // - Otherwise (scraped but no date found, potentially error), use null if we want to be aggressive, but safest to skip? 
-            // - Based on requirement: "if the date is blank... syncing the terminated date... imperative we only have agreement end date"
-            // - And: "its then not making the Agreement End Date field blank... which it should do"
             
             let newDate: string | null = null;
             if (data.endDate) {
@@ -368,9 +376,7 @@ const StandingOrders = () => {
             } else if (data.isExplicitlyEmpty) {
               newDate = null;
             } else {
-              // Failed to extract a date, and it wasn't explicitly empty (e.g. auth failed, or page layout changed unexpectedly)
-              // In this case, we probably shouldn't wipe existing data blindly unless we trust isExplicitlyEmpty.
-              // We'll skip update if we can't determine a result.
+              // Failed to extract a date, and it wasn't explicitly empty
               skippedCount++;
               setSyncProgress(i + 1);
               continue;
@@ -686,7 +692,10 @@ const StandingOrders = () => {
                   <Checkbox 
                     id="date-discrepancy" 
                     checked={filterDateDiscrepancy}
-                    onCheckedChange={(checked) => setFilterDateDiscrepancy(checked as boolean)}
+                    onCheckedChange={(checked) => {
+                      setFilterDateDiscrepancy(checked as boolean);
+                      setCurrentPage(1);
+                    }}
                   />
                   <label htmlFor="date-discrepancy" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     Has Date Discrepancy
