@@ -362,7 +362,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                                 field.onChange(value);
                             }}
                             disabled={isDisabled}
-                            readOnly={false} // Explicitly set for debugging
+                            readOnly={false}
                           />
                         </FormControl>
                         <FormMessage />
@@ -372,24 +372,29 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Number</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            value={field.value || ''}
-                            onChange={(e) => {
-                              console.log("PaymentRequestEditFormCard: Account Number onChange fired. Value:", e.target.value);
-                              field.onChange(e.target.value);
-                            }}
-                            disabled={isDisabled}
-                            readOnly={false} // Explicitly set for debugging
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      console.log(`[PaymentRequestEditFormCard] Account Number field.value BEFORE render: "${field.value}"`);
+                      const currentDisabledState = isDisabled;
+                      console.log(`[PaymentRequestEditFormCard] Account Number disabled state: ${currentDisabledState}`);
+                      return (
+                        <FormItem>
+                          <FormLabel>Account Number</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              value={field.value || ''}
+                              onChange={(e) => {
+                                console.log("PaymentRequestEditFormCard: Account Number onChange fired. Input value:", e.target.value);
+                                field.onChange(e.target.value);
+                              }}
+                              disabled={currentDisabledState}
+                              readOnly={false}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   <FormField
                     control={form.control}
@@ -401,7 +406,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                           <Input 
                             {...field} 
                             disabled={isDisabled}
-                            readOnly={false} // Explicitly set for debugging
+                            readOnly={false}
                           />
                         </FormControl>
                         <FormMessage />
@@ -422,7 +427,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                                 <Input 
                                   {...field} 
                                   disabled={isDisabled}
-                                  readOnly={false} // Explicitly set for debugging
+                                  readOnly={false}
                                 />
                                 </FormControl>
                                 <FormMessage />
@@ -440,7 +445,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                             <Input 
                               {...field} 
                               disabled={isDisabled}
-                              readOnly={false} // Explicitly set for debugging
+                              readOnly={false}
                             />
                             </FormControl>
                             <FormMessage />

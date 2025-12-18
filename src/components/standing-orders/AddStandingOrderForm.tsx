@@ -181,7 +181,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Form validation failed:", errors))} className="space-y-4">
         <FormField
             control={form.control}
             name="country"
@@ -496,20 +496,29 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => (
+                    render={({ field }) => {
+                      console.log(`[AddStandingOrderForm] Account Number field.value BEFORE render: "${field.value}"`);
+                      const currentDisabledState = form.formState.isSubmitting;
+                      console.log(`[AddStandingOrderForm] Account Number disabled state: ${currentDisabledState}`);
+                      return (
                         <FormItem>
-                        <FormLabel>Account Number</FormLabel>
-                        <FormControl>
-                             <Input
-                                placeholder="1234 5678"
-                                {...field}
-                                value={field.value || ''}
-                                onChange={(e) => field.onChange(e.target.value)}
-                              />
-                        </FormControl>
-                        <FormMessage />
+                          <FormLabel>Account Number</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="1234 5678"
+                              {...field}
+                              value={field.value || ''}
+                              onChange={(e) => {
+                                console.log("AddStandingOrderForm: Account Number onChange fired. Input value:", e.target.value);
+                                field.onChange(e.target.value);
+                              }}
+                              disabled={currentDisabledState}
+                            />
+                          </FormControl>
+                          <FormMessage />
                         </FormItem>
-                    )}
+                      );
+                    }}
                 />
             </>
         )}
