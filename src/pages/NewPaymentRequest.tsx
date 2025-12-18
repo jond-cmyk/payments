@@ -763,15 +763,12 @@ const NewPaymentRequest = () => {
                             placeholder="e.g., 12-34-56"
                             {...field}
                             onChange={(e) => {
-                              console.log("NewPaymentRequest: Sort Code onChange fired. Value:", e.target.value);
                               let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
                               if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
                               if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
                               else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                               field.onChange(value);
                             }}
-                            disabled={form.formState.isSubmitting}
-                            readOnly={false}
                           />
                         </FormControl>
                         <FormDescription>
@@ -784,33 +781,23 @@ const NewPaymentRequest = () => {
                   <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => {
-                      console.log(`[NewPaymentRequest] Account Number field.value BEFORE render: "${field.value}"`);
-                      const currentDisabledState = form.formState.isSubmitting;
-                      console.log(`[NewPaymentRequest] Account Number disabled state: ${currentDisabledState}`);
-                      return (
-                        <FormItem>
-                          <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="e.g., 1234 5678"
-                              {...field}
-                              value={field.value || ''} // Simply pass value without formatting logic
-                              onChange={(e) => {
-                                console.log("NewPaymentRequest: Account Number onChange fired. Input value:", e.target.value);
-                                field.onChange(e.target.value);
-                              }} // Simple text input
-                              disabled={currentDisabledState}
-                              readOnly={false}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Enter the 8-digit Bank Account Number.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., 1234 5678"
+                            {...field}
+                            value={field.value || ''}
+                            onChange={field.onChange} // Pass onChange directly
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the 8-digit Bank Account Number.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                   <FormField
                     control={form.control}
@@ -822,8 +809,6 @@ const NewPaymentRequest = () => {
                           <Input 
                             placeholder="e.g., John Doe" 
                             {...field} 
-                            disabled={form.formState.isSubmitting}
-                            readOnly={false}
                           />
                         </FormControl>
                         <FormDescription>
@@ -847,8 +832,6 @@ const NewPaymentRequest = () => {
                             <Input 
                               placeholder="e.g., John Doe" 
                               {...field} 
-                              disabled={form.formState.isSubmitting}
-                              readOnly={false}
                             />
                           </FormControl>
                           <FormDescription>
@@ -869,8 +852,6 @@ const NewPaymentRequest = () => {
                           <Input 
                             placeholder="e.g., CH9300762011623852957" 
                             {...field} 
-                            disabled={form.formState.isSubmitting}
-                            readOnly={false}
                           />
                         </FormControl>
                         <FormMessage />
