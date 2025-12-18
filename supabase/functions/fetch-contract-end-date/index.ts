@@ -79,8 +79,7 @@ serve(async (req) => {
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 2. PARSE LINK STEP (Extract FULL Edit URL)
-    // We capture the entire relative href, e.g. /admin/kassoe-theme/products/edit/5987/367
+    // 2. PARSE LINK STEP
     const productLinkMatch = searchHtml.match(/href="([^"]*\/products\/edit\/[^"]*)"/);
     
     if (!productLinkMatch) {
@@ -102,50 +101,69 @@ serve(async (req) => {
     const editHtml = await editRes.text();
 
     // 4. PARSE DATE STEP
-    
-    // Find the input tag that definitely contains name="end_date"
+    let dateStr = "";
+
+    // Strategy A: Look for the input tag with a value attribute
     const inputTagRegex = /<input[^>]*name="end_date"[^>]*>/i;
     const inputTagMatch = editHtml.match(inputTagRegex);
 
-    if (!inputTagMatch) {
-         // DEBUG: Return Page Title to see where we landed
-         const titleMatch = editHtml.match(/<title>(.*?)<\/title>/i);
-         const pageTitle = titleMatch ? titleMatch[1] : "No Title Found";
-         
-         // Check for login forms again on this page
-         const isLogin = editHtml.includes('name="login"') || editHtml.includes('class="login"');
-
-         console.log(`[fetch-contract-end-date] Input tag 'end_date' not found. Page Title: ${pageTitle}`);
-         
-         return new Response(JSON.stringify({ 
-            endDate: null, 
-            message: `Product found, but 'end_date' field missing. Page Title: "${pageTitle}". ${isLogin ? "Seems to be a login page." : "Check page content."}`
-        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (inputTagMatch) {
+        const inputTag = inputTagMatch[0];
+        // Allow whitespace around =, and check for value attribute
+        const valueMatch = inputTag.match(/value\s*=\s*["']([^"']*)["']/i);
+        if (valueMatch && valueMatch[1] && valueMatch[1].trim() !== '') {
+            dateStr = valueMatch[1];
+            console.log(`[fetch-contract-end-date] Found date in input value: ${dateStr}`);
+        } else {
+            console.log(`[fetch-contract-end-date] Input tag found but no value attribute. Tag: ${inputTag}`);
+        }
     }
 
-    const inputTag = inputTagMatch[0];
-    console.log(`[fetch-contract-end-date] Found input tag: ${inputTag}`);
-
-    // Extract value attribute
-    // CHANGE: Allow whitespace around equals sign: value = "..."
-    const valueMatch = inputTag.match(/value\s*=\s*["']([^"']*)["']/i);
-
-    if (!valueMatch) {
-        // Return detailed debug info about what was found
-        return new Response(JSON.stringify({ 
-            endDate: null, 
-            message: `Found 'end_date' input, but 'value' attribute extraction failed. Raw tag found: ${inputTag}` 
-        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // Strategy B: Deep Search - Look for Javascript setting the value nearby
+    // Matches patterns like: $('#end-date').val('12/12/2024') or val("12/12/2024")
+    if (!dateStr) {
+        const jsDateRegex = /val\s*\(\s*["'](\d{2}\/\d{2}\/\d{4})["']\s*\)/i;
+        const jsMatch = editHtml.match(jsDateRegex);
+        if (jsMatch) {
+            dateStr = jsMatch[1];
+            console.log(`[fetch-contract-end-date] Found date in JS val(): ${dateStr}`);
+        }
     }
 
-    let dateStr = valueMatch[1];
-    console.log(`[fetch-contract-end-date] Raw date string found: "${dateStr}"`);
+    // Strategy C: Last Resort - Look for ANY date string in the entire HTML
+    // We check if we find a date pattern. If there are multiple, we take the first one found 
+    // after the "end_date" text appears, or just the first valid one.
+    if (!dateStr) {
+        console.log(`[fetch-contract-end-date] Deep searching HTML for date pattern...`);
+        // Find "end_date" position
+        const labelPos = editHtml.indexOf('end_date');
+        if (labelPos !== -1) {
+            // Search in the 1000 characters FOLLOWING "end_date"
+            const searchWindow = editHtml.substring(labelPos, labelPos + 1000);
+            const datePattern = /(\d{2})\/(\d{2})\/(\d{4})/;
+            const deepMatch = searchWindow.match(datePattern);
+            if (deepMatch) {
+                dateStr = deepMatch[0];
+                console.log(`[fetch-contract-end-date] Found date near 'end_date' label: ${dateStr}`);
+            }
+        }
+    }
 
-    // Handle empty date string
     if (!dateStr || dateStr.trim() === '') {
+        // Prepare detailed debug info: 
+        // Get 200 chars after the input tag if found, or 200 chars after "end_date" text
+        let debugContext = "";
+        if (inputTagMatch) {
+            const idx = inputTagMatch.index! + inputTagMatch[0].length;
+            debugContext = editHtml.substring(idx, idx + 200).replace(/</g, '&lt;');
+        } else {
+            const idx = editHtml.indexOf('end_date');
+            if (idx !== -1) debugContext = editHtml.substring(idx, idx + 200).replace(/</g, '&lt;');
+        }
+
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: "Agreement End Date is not set in the external portal (value is empty)." 
+            message: `Could not extract End Date. Input found: ${!!inputTagMatch}. Context after input: "${debugContext.substring(0, 100)}..."` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -162,7 +180,7 @@ serve(async (req) => {
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
              return new Response(JSON.stringify({ 
                 endDate: null, 
-                message: `Found date '${dateStr}' but could not parse format (expected DD/MM/YYYY).` 
+                message: `Found date string '${dateStr}' but could not parse format (expected DD/MM/YYYY).` 
             }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
     }
