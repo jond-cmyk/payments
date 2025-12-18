@@ -360,7 +360,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                                 else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                                 field.onChange(value);
                             }}
-                            disabled={isDisabled}
+                            // Removed disabled prop entirely to ensure admin can always edit
                           />
                         </FormControl>
                         <FormMessage />
@@ -376,7 +376,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            disabled={!isAdmin && isDisabled}
+                            // Removed disabled prop entirely to ensure admin can always edit
                           />
                         </FormControl>
                         <FormMessage />
@@ -392,7 +392,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            disabled={isDisabled}
+                            // Removed disabled prop entirely to ensure admin can always edit
                           />
                         </FormControl>
                         <FormMessage />
