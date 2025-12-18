@@ -454,21 +454,29 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="1234 5678"
-                            {...field}
-                            value={field.value || ''}
-                            onChange={field.onChange} // Pass onChange directly
-                            disabled={!isAdmin}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const currentDisabledState = !isAdmin;
+                      console.log(`[UpdateStandingOrderForm] Account Number field.value BEFORE render: "${field.value}"`);
+                      console.log(`[UpdateStandingOrderForm] Account Number disabled state: ${currentDisabledState}`);
+                      return (
+                        <FormItem>
+                          <FormLabel>Account Number</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="1234 5678"
+                              {...field}
+                              value={field.value || ''}
+                              onChange={(e) => {
+                                console.log("UpdateStandingOrderForm: Account Number onChange fired. Input value:", e.target.value);
+                                field.onChange(e.target.value);
+                              }}
+                              disabled={currentDisabledState}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                 />
             </>
         )}

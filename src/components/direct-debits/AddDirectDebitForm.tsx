@@ -431,15 +431,20 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         <FormField
           control={form.control}
           name="account_number"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., 1234567890" {...field} disabled={form.formState.isSubmitting} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const currentDisabledState = form.formState.isSubmitting;
+            console.log(`[AddDirectDebitForm] Account Number field.value BEFORE render: "${field.value}"`);
+            console.log(`[AddDirectDebitForm] Account Number disabled state: ${currentDisabledState}`);
+            return (
+              <FormItem>
+                <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., 1234567890" {...field} disabled={currentDisabledState} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         <FormField
           control={form.control}
