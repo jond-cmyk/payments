@@ -7,6 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StandingOrder, StandingOrderAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast, showInfo } from '@/utils/toast';
+import { toast } from "sonner"; // Added import
 import { format } from 'date-fns';
 import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, CalendarDays, UserCircle2, RefreshCw } from 'lucide-react'; 
 import { useCountry } from '@/integrations/supabase/CountryContext';
@@ -186,7 +187,7 @@ const StandingOrderDetail = () => {
         const { error } = await supabase
           .from('standing_orders')
           .update({ 
-            agreement_end_date: data.endDate, // UPDATED: Updates the new column
+            agreement_end_date: data.endDate,
             updated_at: new Date().toISOString()
           })
           .eq('id', id);
@@ -199,7 +200,18 @@ const StandingOrderDetail = () => {
         await addCommentMutation.mutateAsync(`Auto-updated Agreement End Date to ${data.endDate} from external system check.`);
         showSuccess(`Updated Agreement End Date to ${data.endDate}.`);
       } else {
-        showInfo(data.message || "No agreement end date found in external system.");
+        if (data.url) {
+            toast.info(data.message || "Could not extract end date.", {
+                description: "Click 'Open Page' to inspect the source page.",
+                action: {
+                    label: "Open Page",
+                    onClick: () => window.open(data.url, '_blank'),
+                },
+                duration: 10000,
+            });
+        } else {
+            showInfo(data.message || "No agreement end date found in external system.");
+        }
       }
     },
     onError: (error: any) => {

@@ -231,7 +231,8 @@ serve(async (req) => {
     if (!dateStr || dateStr.trim() === '') {
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Could not extract End Date. All strategies (A-E) failed. HTML scanned: ${editHtml.length} chars.` 
+            message: `Could not extract End Date. All strategies (A-E) failed. HTML scanned: ${editHtml.length} chars.`,
+            url: editUrl 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
