@@ -80,20 +80,31 @@ serve(async (req) => {
     }
 
     // 2. PARSE LINK STEP
-    const productLinkMatch = searchHtml.match(/href="([^"]*\/products\/edit\/[^"]*)"/);
+    // UPDATED REGEX: Specifically looks for edit links where the ID is NOT 0.
+    // Matches /products/edit/[NON-ZERO DIGIT]...
+    // [1-9]\d* matches any number starting with 1-9 (e.g., 1, 5, 10, 5987)
+    const productLinkMatch = searchHtml.match(/href="([^"]*\/products\/edit\/[1-9]\d*\/[^"]*)"/);
     
     if (!productLinkMatch) {
-        console.log(`[fetch-contract-end-date] Edit link not found for ${sku}.`);
+        console.log(`[fetch-contract-end-date] Specific product edit link not found for ${sku}. Checking for any edit link as fallback...`);
+        
+        // Debug: Check if we found the "create new" link (ID 0) just to log it
+        const createLinkMatch = searchHtml.match(/href="([^"]*\/products\/edit\/0\/[^"]*)"/);
+        if (createLinkMatch) {
+             console.log(`[fetch-contract-end-date] Found 'Create New' link (ID 0), but ignoring it.`);
+        }
+
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Search for ${sku} returned no edit links.` 
+            message: `Search for ${sku} returned no valid product links. (Ignored 'create new' links).`,
+            url: searchUrl // Return search URL so user can check
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     const relativeEditUrl = productLinkMatch[1];
     const editUrl = `https://portal.kassoehousing.com${relativeEditUrl}`;
     
-    console.log(`[fetch-contract-end-date] 2. Found Edit URL: ${editUrl}. Fetching details...`);
+    console.log(`[fetch-contract-end-date] 2. Found Valid Edit URL: ${editUrl}. Fetching details...`);
 
     // 3. FETCH DETAILS STEP
     const editRes = await fetch(editUrl, { headers });
