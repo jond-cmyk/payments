@@ -90,6 +90,8 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
     !option.countries || option.countries.includes(formCountry)
   );
 
+  const isDisabled = !isAdmin && request.status !== 'pending' && request.status !== 'queried';
+
   return (
     <Card className="mb-6 shadow-sm border-2 border-blue-100">
       <CardHeader>
@@ -128,7 +130,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Supplier Name</FormLabel>
                   <FormControl>
-                    <Input {...field} disabled={!isAdmin && request.status !== 'pending' && request.status !== 'queried'} />
+                    <Input {...field} disabled={isDisabled} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -149,7 +151,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         render={({ field }) => (
                             <FormItem className="flex-1 w-full">
                             <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={isDisabled}>
                                 <SelectTrigger>
                                 <FormControl>
                                     <SelectValue placeholder="Select category" />
@@ -184,6 +186,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                                     const rawValue = e.target.value.replace(/[^\d.]/g, '');
                                     field.onChange(rawValue);
                                 }}
+                                disabled={isDisabled}
                                 />
                             </FormControl>
                             <FormMessage />
@@ -191,7 +194,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         )}
                         />
                         {fields.length > 1 && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
+                        <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0" disabled={isDisabled}>
                             <MinusCircle className="h-4 w-4" />
                         </Button>
                         )}
@@ -202,6 +205,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     variant="outline"
                     onClick={() => append({ category: "", amount: 0 })}
                     className="w-full"
+                    disabled={isDisabled}
                     >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Category
                     </Button>
@@ -232,7 +236,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Currency</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isDisabled}>
                         <SelectTrigger>
                         <FormControl>
                             <SelectValue placeholder="Select currency" />
@@ -263,7 +267,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   <FormLabel>SKU Number</FormLabel>
                    <div className="flex items-center gap-2">
                         <FormControl className="flex-1">
-                            <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notSkuRelated} />
+                            <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notSkuRelated || isDisabled} />
                         </FormControl>
                         <Button
                             type="button"
@@ -278,7 +282,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                                 showError("Enter SKU first.");
                             }
                             }}
-                            disabled={notSkuRelated}
+                            disabled={notSkuRelated || isDisabled}
                         >
                             <Search className="h-4 w-4" />
                         </Button>
@@ -298,6 +302,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       <Checkbox
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                        disabled={isDisabled}
                       />
                     </FormControl>
                     <div className="space-y-1 leading-none">
@@ -316,7 +321,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Lease ID</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} disabled={isDisabled} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -330,7 +335,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Supplier Address</FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <Textarea {...field} disabled={isDisabled} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -349,12 +354,15 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                           <Input 
                             {...field} 
                             onChange={(e) => {
+                                console.log("PaymentRequestEditFormCard: Sort Code onChange fired. Value:", e.target.value);
                                 let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
                                 if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
                                 if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
                                 else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                                 field.onChange(value);
                             }}
+                            disabled={isDisabled}
+                            readOnly={false} // Explicitly set for debugging
                           />
                         </FormControl>
                         <FormMessage />
@@ -371,7 +379,12 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                           <Input 
                             {...field} 
                             value={field.value || ''}
-                            onChange={(e) => field.onChange(e.target.value)}
+                            onChange={(e) => {
+                              console.log("PaymentRequestEditFormCard: Account Number onChange fired. Value:", e.target.value);
+                              field.onChange(e.target.value);
+                            }}
+                            disabled={isDisabled}
+                            readOnly={false} // Explicitly set for debugging
                           />
                         </FormControl>
                         <FormMessage />
@@ -385,7 +398,11 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       <FormItem>
                         <FormLabel>Bank Account Name</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input 
+                            {...field} 
+                            disabled={isDisabled}
+                            readOnly={false} // Explicitly set for debugging
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -402,7 +419,11 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                             <FormItem>
                                 <FormLabel>Bank Account Name</FormLabel>
                                 <FormControl>
-                                <Input {...field} />
+                                <Input 
+                                  {...field} 
+                                  disabled={isDisabled}
+                                  readOnly={false} // Explicitly set for debugging
+                                />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -416,7 +437,11 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormItem>
                             <FormLabel>IBAN</FormLabel>
                             <FormControl>
-                            <Input {...field} />
+                            <Input 
+                              {...field} 
+                              disabled={isDisabled}
+                              readOnly={false} // Explicitly set for debugging
+                            />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -435,6 +460,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <Checkbox
                           checked={field.value}
                           onCheckedChange={field.onChange}
+                          disabled={isDisabled}
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
@@ -458,7 +484,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <Textarea {...field} disabled={isDisabled} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -471,7 +497,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Date Payment Required</FormLabel>
-                  <DatePicker date={field.value} setDate={field.onChange} />
+                  <DatePicker date={field.value} setDate={field.onChange} disabled={isDisabled} />
                   <FormMessage />
                 </FormItem>
               )}
@@ -490,6 +516,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       accept=".pdf,.jpg,.jpeg,.png"
                       onChange={onChange}
                       multiple
+                      disabled={isDisabled}
                     />
                   </FormControl>
                   <FormDescription>Uploading new files will append to existing ones.</FormDescription>
@@ -507,6 +534,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     <Checkbox
                       checked={field.value}
                       onCheckedChange={field.onChange}
+                      disabled={isDisabled}
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
@@ -525,6 +553,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     <Checkbox
                       checked={field.value}
                       onCheckedChange={field.onChange}
+                      disabled={isDisabled}
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">

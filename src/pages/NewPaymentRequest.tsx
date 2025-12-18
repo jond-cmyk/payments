@@ -763,12 +763,15 @@ const NewPaymentRequest = () => {
                             placeholder="e.g., 12-34-56"
                             {...field}
                             onChange={(e) => {
+                              console.log("NewPaymentRequest: Sort Code onChange fired. Value:", e.target.value);
                               let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
                               if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
                               if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
                               else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                               field.onChange(value);
                             }}
+                            disabled={false} // Explicitly set for debugging
+                            readOnly={false} // Explicitly set for debugging
                           />
                         </FormControl>
                         <FormDescription>
@@ -789,7 +792,12 @@ const NewPaymentRequest = () => {
                             placeholder="e.g., 1234 5678"
                             {...field}
                             value={field.value || ''} // Simply pass value without formatting logic
-                            onChange={(e) => field.onChange(e.target.value)} // Simple text input
+                            onChange={(e) => {
+                              console.log("NewPaymentRequest: Account Number onChange fired. Value:", e.target.value);
+                              field.onChange(e.target.value);
+                            }} // Simple text input
+                            disabled={false} // Explicitly set for debugging
+                            readOnly={false} // Explicitly set for debugging
                           />
                         </FormControl>
                         <FormDescription>
@@ -806,7 +814,12 @@ const NewPaymentRequest = () => {
                       <FormItem>
                         <FormLabel className="font-semibold">Bank Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., John Doe" {...field} />
+                          <Input 
+                            placeholder="e.g., John Doe" 
+                            {...field} 
+                            disabled={false} // Explicitly set for debugging
+                            readOnly={false} // Explicitly set for debugging
+                          />
                         </FormControl>
                         <FormDescription>
                           Enter the name of the bank account holder.
@@ -826,7 +839,12 @@ const NewPaymentRequest = () => {
                         <FormItem>
                           <FormLabel className="font-semibold">Bank Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., John Doe" {...field} />
+                            <Input 
+                              placeholder="e.g., John Doe" 
+                              {...field} 
+                              disabled={false} // Explicitly set for debugging
+                              readOnly={false} // Explicitly set for debugging
+                            />
                           </FormControl>
                           <FormDescription>
                             Enter the name of the bank account holder.
@@ -843,7 +861,12 @@ const NewPaymentRequest = () => {
                       <FormItem>
                         <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., CH9300762011623852957" {...field} />
+                          <Input 
+                            placeholder="e.g., CH9300762011623852957" 
+                            {...field} 
+                            disabled={false} // Explicitly set for debugging
+                            readOnly={false} // Explicitly set for debugging
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
