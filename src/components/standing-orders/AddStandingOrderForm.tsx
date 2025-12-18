@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form'; // Added useWatch
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,7 +55,6 @@ const formSchema = z.object({
   account_number: z.string().optional(),
   payment_day: z.number().min(1).max(31).optional(),
 }).superRefine((data, ctx) => {
-    // Validation logic (similar to NewPaymentRequest but adapted for Standing Orders)
     const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
     if (!data.not_property_related) {
         if (!data.sku || data.sku.trim() === '') {
@@ -87,6 +86,9 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const { userProfile } = useSession();
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
   
+  // Define isAdmin for any potential conditional logic, though creation is open
+  const isAdmin = userProfile?.role === 'admin';
+
   const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
   const initialCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
 
@@ -148,7 +150,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const toastId = showLoading("Creating standing order...");
     try {
-      // Calculate payment day from start date if not explicitly set
       const paymentDay = values.payment_date.getDate();
 
       const { error } = await supabase.from('standing_orders').insert({
@@ -169,7 +170,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         sort_code: values.country === 'United Kingdom' ? values.sort_code : null,
         account_number: values.country === 'United Kingdom' ? values.account_number?.replace(/\s/g, '') : null,
         payment_day: paymentDay,
-        status: 'pending', // Default to pending
+        status: 'pending', 
       });
 
       if (error) throw error;
@@ -229,7 +230,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
           )}
         />
 
-        {/* Categories Section */}
          <Card className="p-4 shadow-sm">
             <CardTitle className="text-lg font-semibold mb-4 flex items-center">
                 <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts
@@ -436,7 +436,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             />
         </div>
 
-        <FormField
+         <FormField
           control={form.control}
           name="account_name"
           render={({ field }) => (
@@ -512,17 +512,12 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                              <Input
                                 placeholder="1234 5678"
                                 {...field}
-                                value={field.value ? field.value.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : ''}
+                                value={formatUkAccountNumber(field.value)}
                                 onChange={(e) => {
                                   let value = e.target.value.replace(/\D/g, '');
                                   if (value.length > 8) value = value.substring(0, 8);
-                                  // Format for display
-                                  let formatted = value;
-                                  if (value.length > 4) {
-                                      formatted = value.slice(0, 4) + ' ' + value.slice(4);
-                                  }
-                                  // Store formatted value in state
-                                  field.onChange(formatted);
+                                  // Update underlying form value with sanitized string
+                                  field.onChange(value);
                                 }}
                               />
                         </FormControl>

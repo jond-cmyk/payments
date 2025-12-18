@@ -30,6 +30,15 @@ import PropertyAddressField from '@/components/PropertyAddressField';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
+// Helper function to format UK account number for display
+const formatUkAccountNumber = (raw: string | undefined | null): string => {
+  if (raw === undefined || raw === null) return '';
+  let value = String(raw).replace(/\D/g, '');
+  if (value.length > 8) value = value.substring(0, 8);
+  if (value.length > 4) return value.slice(0, 4) + ' ' + value.slice(4);
+  return value;
+};
+
 // Define the Zod schema for form validation (replicated from schema file for local use)
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
@@ -862,20 +871,14 @@ const NewPaymentRequest = () => {
                           <Input
                             placeholder="e.g., 1234 5678"
                             {...field}
-                            // Display the formatted value if it exists, otherwise empty
-                            value={field.value ? field.value.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : ''}
+                            value={formatUkAccountNumber(field.value)}
                             onChange={(e) => {
                               // Strip non-digits
                               let value = e.target.value.replace(/\D/g, '');
                               // Limit to 8 digits
                               if (value.length > 8) value = value.substring(0, 8);
-                              // Format for display: "1234 5678"
-                              let formatted = value;
-                              if (value.length > 4) {
-                                  formatted = value.slice(0, 4) + ' ' + value.slice(4);
-                              }
-                              // Store formatted value in state to ensure controlled input works
-                              field.onChange(formatted);
+                              // Update underlying form value with sanitized string
+                              field.onChange(value);
                             }}
                           />
                         </FormControl>
