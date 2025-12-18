@@ -97,32 +97,51 @@ serve(async (req) => {
 
     // 3. FETCH DETAILS STEP
     const editRes = await fetch(editUrl, { headers });
-    const editHtml = await editRes.text();
+    const rawHtml = await editRes.text();
+    
+    // NORMALIZE HTML: Remove newlines and excessive spaces to make regex reliable against scattered attributes
+    const editHtml = rawHtml.replace(/\s+/g, ' ');
 
     // 4. PARSE DATE STEP
     let dateStr = "";
     let extractionMethod = "";
 
-    // Strategy A: Direct Attribute Search (Loose)
-    // Matches: value="31/12/2025" ... id="end-date" OR name="end_date" ... value="31/12/2025"
-    // We look for the specific field identifiers first
-    const directValueRegex = /(?:name=["']end_date["']|id=["']end-date["'])[^>]*value=["'](\d{2}[./-]\d{2}[./-]\d{4})["']/i;
-    const directMatch = editHtml.match(directValueRegex);
-    
-    if (directMatch) {
-        dateStr = directMatch[1];
-        extractionMethod = "Direct Input Value";
-        console.log(`[fetch-contract-end-date] Strategy A (Direct) found: ${dateStr}`);
+    // Strategy A: Contextual Value Search (Robust)
+    // Find *any* value="DD/MM/YYYY" or value="YYYY-MM-DD"
+    // Then check the preceding context for "end_date" identifiers
+    if (!dateStr) {
+        // Regex matches value="date" (single or double quotes)
+        const valueMatches = [...editHtml.matchAll(/value=["'](\d{2}[./-]\d{2}[./-]\d{4}|\d{4}-\d{2}-\d{2})["']/gi)];
+        
+        for (const match of valueMatches) {
+            const dateVal = match[1];
+            const index = match.index || 0;
+            // Look at the 400 chars BEFORE this match to see if it belongs to end_date
+            const context = editHtml.substring(Math.max(0, index - 400), index);
+            
+            // Check for keywords in the context
+            if (
+                context.includes('name="end_date"') || 
+                context.includes("name='end_date'") ||
+                context.includes('id="end-date"') || 
+                context.includes("id='end-date'") ||
+                context.includes('for="end-date"')
+            ) {
+                dateStr = dateVal;
+                extractionMethod = "Contextual Value (Robust)";
+                console.log(`[fetch-contract-end-date] Strategy A found: ${dateStr}`);
+                break;
+            }
+        }
     }
 
-    // Strategy B: JSON/Script Variable Assignment
-    // Often data is passed as a JSON object: "end_date":"2025-12-31" or similar
+    // Strategy B: JSON/Script Variable Assignment (Loose)
     if (!dateStr) {
+        // Look for common JS patterns often found in script tags
         const jsonPatterns = [
-            /["']end_date["']\s*:\s*["'](\d{4}-\d{2}-\d{2})["']/i, // "end_date": "YYYY-MM-DD"
-            /["']end_date["']\s*:\s*["'](\d{2}[./-]\d{2}[./-]\d{4})["']/i, // "end_date": "DD/MM/YYYY"
-            /end_date\s*=\s*["'](\d{4}-\d{2}-\d{2})["']/i, // end_date = "YYYY-MM-DD"
-            /end_date\s*=\s*["'](\d{2}[./-]\d{2}[./-]\d{4})["']/i // end_date = "DD/MM/YYYY"
+            /["']end_date["']\s*:\s*["'](\d{4}-\d{2}-\d{2}|\d{2}[./-]\d{2}[./-]\d{4})["']/i, 
+            /end_date\s*=\s*["'](\d{4}-\d{2}-\d{2}|\d{2}[./-]\d{2}[./-]\d{4})["']/i,
+            /\.val\s*\(\s*["'](\d{4}-\d{2}-\d{2}|\d{2}[./-]\d{2}[./-]\d{4})["']\s*\)/i // jQuery .val()
         ];
 
         for (const pattern of jsonPatterns) {
@@ -136,45 +155,35 @@ serve(async (req) => {
         }
     }
 
-    // Strategy C: Tight Spatial Search (Date immediately following label)
-    // Only looks 300 chars ahead to prevent finding footer dates
+    // Strategy C: Spatial Search (Post-Label in Flattened HTML)
+    // Looking for text "End date" followed closely by a date string
     if (!dateStr) {
-        console.log(`[fetch-contract-end-date] Strategy C: Searching near 'End date' label...`);
-        // Find label
-        const labelRegex = /<label[^>]*for=["']end-date["'][^>]*>.*?End date.*?<\/label>/is;
+        console.log(`[fetch-contract-end-date] Strategy C: Searching flattened HTML near 'End date' label...`);
+        // Find label "End date"
+        const labelRegex = />\s*End date\s*</i;
         const labelMatch = editHtml.match(labelRegex);
         
         if (labelMatch && labelMatch.index !== undefined) {
-            // Scan ONLY the next 300 characters
+            // Scan the 300 chars following the label
             const searchWindow = editHtml.substring(labelMatch.index, labelMatch.index + 300);
             
             // Look for date pattern
-            const datePattern = /(\d{2}[./-]\d{2}[./-]\d{4})/g; // DD/MM/YYYY
+            const datePattern = /(\d{2}[./-]\d{2}[./-]\d{4})/g;
             const dateMatches = [...searchWindow.matchAll(datePattern)];
             
             if (dateMatches.length > 0) {
                 dateStr = dateMatches[0][0];
-                extractionMethod = "Spatial (Near Label)";
+                extractionMethod = "Spatial (Post-Label)";
                 console.log(`[fetch-contract-end-date] Strategy C found: ${dateStr}`);
             }
         }
-    }
-
-    // Strategy D: Check for 'placeholder' attribute if value is empty, sometimes used as default
-    if (!dateStr) {
-       const placeholderRegex = /(?:name=["']end_date["']|id=["']end-date["'])[^>]*placeholder=["'](\d{2}[./-]\d{2}[./-]\d{4})["']/i;
-       const phMatch = editHtml.match(placeholderRegex);
-       if (phMatch) {
-           dateStr = phMatch[1];
-           extractionMethod = "Placeholder Attribute";
-       }
     }
 
     if (!dateStr || dateStr.trim() === '') {
         const debugSnippet = editHtml.substring(0, 1000).replace(/</g, '&lt;'); 
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Could not extract End Date. Specific search strategies failed. Please ensure the date is visible in the 'End date' field on the portal.` 
+            message: `Could not extract End Date. All strategies failed. Please ensure the date is visible in the portal and your cookie is valid.` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
