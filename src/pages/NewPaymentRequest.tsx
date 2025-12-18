@@ -202,35 +202,21 @@ const NewPaymentRequest = () => {
     name: "categories",
   });
 
+  // Calculate total amount whenever categories array changes
+  // IMPORTANT: Removed 'form' from dependency array to prevent loops
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
       return sum + parsedAmount;
     }, 0);
+    // Only update if actually different to prevent render loops
     if (form.getValues('total_amount') !== newTotal) {
       form.setValue("total_amount", newTotal, { shouldValidate: true });
     }
-  }, [watchedCategories, form]);
+  }, [watchedCategories]); 
 
-  React.useEffect(() => {
-    const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
-    const newCurrency = formCountry === 'United Kingdom' ? 'GBP' : 'CHF';
-
-    form.reset((prev) => ({
-      ...prev,
-      sku_number: newSkuPrefix,
-      currency: newCurrency,
-      iban_number: "",
-      sort_code: "",
-      account_number: "",
-      bank_account_name: "",
-      country: formCountry,
-      categories: [{ category: "", amount: 0 }],
-      total_amount: 0,
-      bank_details_verified: false,
-    }));
-  }, [formCountry, form]);
-
+  // Removed the useEffect that reset the form on country change.
+  // That logic is now inside the onValueChange handler of the Select component below.
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -484,7 +470,27 @@ const NewPaymentRequest = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="font-semibold">Country</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value} disabled={userProfile?.role !== 'admin' && isCountryLocked}>
+                    <Select 
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        // Manually reset form defaults based on new country here
+                        // This prevents the "reset loop" caused by useEffect watching the value
+                        const newSkuPrefix = val === 'United Kingdom' ? 'UK' : 'CH';
+                        const newCurrency = val === 'United Kingdom' ? 'GBP' : 'CHF';
+                        
+                        // We batch these updates or use reset options to keep dirty fields if needed, 
+                        // but here we likely want a clean slate for bank details.
+                        form.setValue('sku_number', newSkuPrefix);
+                        form.setValue('currency', newCurrency);
+                        // Clear bank details as they differ by country format
+                        form.setValue('iban_number', '');
+                        form.setValue('sort_code', '');
+                        form.setValue('account_number', '');
+                        form.setValue('bank_account_name', '');
+                      }} 
+                      value={field.value} 
+                      disabled={userProfile?.role !== 'admin' && isCountryLocked}
+                    >
                       <SelectTrigger id={field.name}>
                         <FormControl>
                           <SelectValue placeholder="Select a country" />

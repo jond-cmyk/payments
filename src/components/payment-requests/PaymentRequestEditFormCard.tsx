@@ -76,6 +76,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   });
 
   // Calculate total amount whenever categories array changes
+  // IMPORTANT: Removed 'form' from dependency array to prevent loops
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
@@ -84,7 +85,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
     if (form.getValues('total_amount') !== newTotal) {
       form.setValue("total_amount", newTotal);
     }
-  }, [watchedCategories, form]);
+  }, [watchedCategories]);
 
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
