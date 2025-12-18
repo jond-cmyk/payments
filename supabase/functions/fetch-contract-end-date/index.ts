@@ -75,15 +75,16 @@ serve(async (req) => {
     if (searchHtml.includes('name="login"') || searchHtml.includes('class="login"')) {
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: "Authentication failed (Login page detected). Check your cookie." 
+            message: "Authentication failed (Login page detected during search). Check your cookie." 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 2. PARSE ID STEP
-    const productLinkMatch = searchHtml.match(/href="[^"]*\/products\/edit\/(\d+)[^"]*"/);
+    // 2. PARSE LINK STEP (Extract FULL Edit URL)
+    // We capture the entire relative href, e.g. /admin/kassoe-theme/products/edit/5987/367
+    const productLinkMatch = searchHtml.match(/href="([^"]*\/products\/edit\/[^"]*)"/);
     
     if (!productLinkMatch) {
-        console.log(`[fetch-contract-end-date] Product ID not found in search results for ${sku}.`);
+        console.log(`[fetch-contract-end-date] Edit link not found in search results for ${sku}.`);
         const skuFound = searchHtml.includes(sku);
         return new Response(JSON.stringify({ 
             endDate: null, 
@@ -91,37 +92,34 @@ serve(async (req) => {
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const productId = productLinkMatch[1];
-    console.log(`[fetch-contract-end-date] 2. Found Product ID: ${productId}. Fetching details...`);
+    const relativeEditUrl = productLinkMatch[1];
+    const editUrl = `https://portal.kassoehousing.com${relativeEditUrl}`;
+    
+    console.log(`[fetch-contract-end-date] 2. Found Edit URL: ${editUrl}. Fetching details...`);
 
     // 3. FETCH DETAILS STEP
-    const editUrl = `https://portal.kassoehousing.com/admin/kassoe-theme/products/edit/${productId}`;
     const editRes = await fetch(editUrl, { headers });
     const editHtml = await editRes.text();
 
-    // 4. PARSE DATE STEP (Robust Two-Step Method)
+    // 4. PARSE DATE STEP
     
     // Find the input tag that definitely contains name="end_date"
-    // Regex explanation:
-    // <input       : match literal '<input'
-    // [^>]*        : match any char except '>' (attributes before name)
-    // name="end_date" : match the name attribute (we allow double quotes)
-    // [^>]*        : match any char except '>' (attributes after name)
-    // >            : match closing bracket
     const inputTagRegex = /<input[^>]*name="end_date"[^>]*>/i;
     const inputTagMatch = editHtml.match(inputTagRegex);
 
     if (!inputTagMatch) {
-         // DEBUG: If we can't find the tag, grab context around "Agreements" to see what's there
-         const agreementIndex = editHtml.indexOf('Agreements');
-         const debugSnippet = agreementIndex !== -1 
-            ? editHtml.substring(agreementIndex, agreementIndex + 500).replace(/</g, '&lt;') 
-            : "Agreements header not found";
+         // DEBUG: Return Page Title to see where we landed
+         const titleMatch = editHtml.match(/<title>(.*?)<\/title>/i);
+         const pageTitle = titleMatch ? titleMatch[1] : "No Title Found";
+         
+         // Check for login forms again on this page
+         const isLogin = editHtml.includes('name="login"') || editHtml.includes('class="login"');
 
-         console.log(`[fetch-contract-end-date] Input tag 'end_date' not found on page ${productId}.`);
+         console.log(`[fetch-contract-end-date] Input tag 'end_date' not found. Page Title: ${pageTitle}`);
+         
          return new Response(JSON.stringify({ 
             endDate: null, 
-            message: "Product found, but 'end_date' input tag is missing. Debug info: " + debugSnippet
+            message: `Product found, but 'end_date' field missing. Page Title: "${pageTitle}". ${isLogin ? "Seems to be a login page." : "Check page content."}`
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -129,13 +127,12 @@ serve(async (req) => {
     console.log(`[fetch-contract-end-date] Found input tag: ${inputTag}`);
 
     // Extract value attribute
-    // We allow single or double quotes
     const valueMatch = inputTag.match(/value=["']([^"']+)["']/i);
 
     if (!valueMatch) {
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Found 'end_date' input, but 'value' attribute is missing. Tag: ${inputTag}` 
+            message: `Found 'end_date' input, but 'value' attribute is missing.` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -156,7 +153,6 @@ serve(async (req) => {
 
     if (dateMatch) {
         // Reformat from dd/mm/yyyy to yyyy-mm-dd
-        // match[1] = dd, match[2] = mm, match[3] = yyyy
         endDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
     } else {
         // Check if it's already YYYY-MM-DD
