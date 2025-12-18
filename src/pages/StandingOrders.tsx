@@ -80,7 +80,7 @@ const StandingOrders = () => {
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
   const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
   const [filterPaymentDay, setFilterPaymentDay] = useState<number | undefined>(undefined);
-  const [filterDateDiscrepancy, setFilterDateDiscrepancy] = useState<boolean>(false); // NEW Filter
+  const [filterDateDiscrepancy, setFilterDateDiscrepancy] = useState<boolean>(false); 
 
   // Local states for immediate input feedback
   const [localFilterPayee, setLocalFilterPayee] = useState<string>('');
@@ -221,16 +221,17 @@ const StandingOrders = () => {
       const { data, error, count } = await query;
       if (error) throw error;
 
-      // Client-side filter for Date Discrepancy (Not easily done in SQL without computed columns)
+      // Client-side filter for Date Discrepancy (excluding verified items)
       let filteredData = data;
       if (filterDateDiscrepancy) {
         filteredData = data.filter(order => {
+          // If already checked/verified by admin, exclude from "Has Date Discrepancy" list
+          if (order.agreement_end_date_checked) return false;
+
           if (!order.payment_end_date || !order.agreement_end_date) return false;
           const diff = Math.abs(differenceInDays(parseISO(order.payment_end_date), parseISO(order.agreement_end_date)));
           return diff > 15;
         });
-        // Note: Total count from Supabase won't reflect this client-side filter accurately for pagination
-        // This is a limitation unless we add a computed column or complex SQL RPC
         setTotalItems(filteredData.length); 
       } else {
         setTotalItems(count || 0);
@@ -287,28 +288,6 @@ const StandingOrders = () => {
     },
   });
 
-  // Toggle Checked Status Mutation
-  const toggleCheckedMutation = useMutation({
-    mutationFn: async ({ id, checked }: { id: string, checked: boolean }) => {
-      const { error } = await supabase
-        .from('standing_orders')
-        .update({ agreement_end_date_checked: checked })
-        .eq('id', id);
-      if (error) throw error;
-      return true;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
-    },
-    onError: (error: any) => {
-      showError(error.message || "Failed to update status.");
-    },
-  });
-
-  const handleToggleChecked = (id: string, currentStatus: boolean | undefined) => {
-    toggleCheckedMutation.mutate({ id, checked: !currentStatus });
-  };
-
   // --- BULK SYNC LOGIC ---
   const handleBulkSync = async () => {
     setIsBulkSyncDialogOpen(true);
@@ -358,12 +337,14 @@ const StandingOrders = () => {
             const currentDate = order.agreement_end_date;
 
             if (fetchedDate !== currentDate) {
-              // Date changed -> Update date AND uncheck validation box
+              // Date changed -> Update date AND UNCHECK the verified status
               await supabase
                 .from('standing_orders')
                 .update({ 
                   agreement_end_date: fetchedDate,
                   agreement_end_date_checked: false, // Auto-uncheck on change
+                  agreement_end_date_checked_at: null, // Clear timestamp
+                  agreement_end_date_checked_by: null, // Clear user
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', order.id);
@@ -686,8 +667,6 @@ const StandingOrders = () => {
                     <TableHead className="w-12 th-resizable">
                       <Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleToggleSelectAll(!!checked)} disabled={!isAdmin} />
                     </TableHead>
-                    {/* NEW: Checked Status Column */}
-                    {isAdmin && <TableHead className="w-12 text-center th-resizable">Checked</TableHead>}
                     <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payee')}>Payee {renderSortIcon('payee')}</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('sku')}>SKU {renderSortIcon('sku')}</TableHead>
                     <TableHead className="th-resizable w-[150px]">Property Address</TableHead>
@@ -710,20 +689,13 @@ const StandingOrders = () => {
                 </TableHeader>
                 <TableBody>
                   {standingOrders.map((order) => {
-                    const hasDiscrepancy = order.payment_end_date && order.agreement_end_date && Math.abs(differenceInDays(parseISO(order.payment_end_date), parseISO(order.agreement_end_date))) > 15;
+                    // Update discrepancy logic: If checked, consider no discrepancy
+                    const hasDiscrepancy = !order.agreement_end_date_checked && order.payment_end_date && order.agreement_end_date && Math.abs(differenceInDays(parseISO(order.payment_end_date), parseISO(order.agreement_end_date))) > 15;
                     return (
                       <TableRow key={order.id} className="hover:bg-gradient-to-r hover:from-dyad-blue-light/5 hover:to-background">
                         <TableCell>
                           <Checkbox checked={selectedStandingOrderIds.includes(order.id)} onCheckedChange={(checked) => handleToggleSelect(order.id, !!checked)} disabled={!isAdmin} />
                         </TableCell>
-                        {isAdmin && (
-                            <TableCell className="text-center">
-                                <Checkbox 
-                                    checked={order.agreement_end_date_checked || false} 
-                                    onCheckedChange={(checked) => handleToggleChecked(order.id, order.agreement_end_date_checked)}
-                                />
-                            </TableCell>
-                        )}
                         <TableCell className="font-medium">{order.payee}</TableCell>
                         <TableCell>{order.not_property_related ? 'N/A' : (order.sku || 'N/A')}</TableCell>
                         <TableCell>{order.not_property_related ? 'N/A' : getAddressFromSku(order.sku)}</TableCell>

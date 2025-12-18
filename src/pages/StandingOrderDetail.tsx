@@ -7,9 +7,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StandingOrder, StandingOrderAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast, showInfo } from '@/utils/toast';
-import { toast } from "sonner"; // Added import
+import { toast } from "sonner";
 import { format } from 'date-fns';
-import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, CalendarDays, UserCircle2, RefreshCw } from 'lucide-react'; 
+import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, UserCircle2, RefreshCw, AlertTriangle } from 'lucide-react'; 
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 
@@ -17,6 +17,7 @@ import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import {
   AlertDialog,
   AlertDialogAction,
@@ -173,6 +174,39 @@ const StandingOrderDetail = () => {
     }
   };
 
+  // Mutation to toggle Agreement End Date Checked
+  const toggleCheckedMutation = useMutation({
+    mutationFn: async ({ id, checked }: { id: string, checked: boolean }) => {
+      if (!user?.id) throw new Error("User not authenticated");
+      
+      const updateData = checked 
+        ? { 
+            agreement_end_date_checked: true,
+            agreement_end_date_checked_at: new Date().toISOString(),
+            agreement_end_date_checked_by: user.id
+          }
+        : {
+            agreement_end_date_checked: false,
+            agreement_end_date_checked_at: null,
+            agreement_end_date_checked_by: null
+          };
+
+      const { error } = await supabase
+        .from('standing_orders')
+        .update(updateData)
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['standingOrder', id] });
+      queryClient.invalidateQueries({ queryKey: ['standingOrders'] }); // Also update list view
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to update verification status.");
+    },
+  });
+
   // Mutation to check external end date (Agreement End Date)
   const checkExternalEndDateMutation = useMutation({
     mutationFn: async (sku: string) => {
@@ -184,10 +218,14 @@ const StandingOrderDetail = () => {
     },
     onSuccess: async (data) => {
       if (data.endDate) {
+        // If date changes, uncheck the verified status
         const { error } = await supabase
           .from('standing_orders')
           .update({ 
             agreement_end_date: data.endDate,
+            agreement_end_date_checked: false, // Reset checked status on change
+            agreement_end_date_checked_at: null,
+            agreement_end_date_checked_by: null,
             updated_at: new Date().toISOString()
           })
           .eq('id', id);
@@ -198,7 +236,7 @@ const StandingOrderDetail = () => {
         queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
         
         await addCommentMutation.mutateAsync(`Auto-updated Agreement End Date to ${data.endDate} from external system check.`);
-        showSuccess(`Updated Agreement End Date to ${data.endDate}.`);
+        showSuccess(`Updated Agreement End Date to ${data.endDate}. Verification reset.`);
       } else {
         if (data.url) {
             toast.info(data.message || "Could not extract end date.", {
@@ -356,24 +394,52 @@ const StandingOrderDetail = () => {
                 <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
               </div>
 
-              {/* Agreement End Date (Contract setting) with Sync Button */}
+              {/* Agreement End Date (Contract setting) with Sync Button and Verification */}
               <div>
-                <p className="font-bold flex items-center gap-2">
-                  Agreement End Date:
-                  {isAdmin && standingOrder.sku && !standingOrder.not_property_related && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800" 
-                      onClick={handleCheckExternalEndDate}
-                      title="Sync Agreement End Date from External System"
-                      disabled={checkExternalEndDateMutation.isPending}
-                    >
-                      <RefreshCw className={cn("h-4 w-4", checkExternalEndDateMutation.isPending && "animate-spin")} />
-                    </Button>
-                  )}
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="font-bold flex items-center gap-2">
+                    Agreement End Date:
+                    {isAdmin && standingOrder.sku && !standingOrder.not_property_related && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800" 
+                        onClick={handleCheckExternalEndDate}
+                        title="Sync Agreement End Date from External System"
+                        disabled={checkExternalEndDateMutation.isPending}
+                      >
+                        <RefreshCw className={cn("h-4 w-4", checkExternalEndDateMutation.isPending && "animate-spin")} />
+                      </Button>
+                    )}
+                  </p>
+                </div>
                 <p>{standingOrder.agreement_end_date ? format(new Date(standingOrder.agreement_end_date), 'PPP') : 'No agreement end date'}</p>
+                
+                {isAdmin && standingOrder.agreement_end_date && (
+                  <div className="mt-2 flex items-start space-x-2 p-2 bg-gray-50 rounded-md">
+                    <Checkbox
+                      id="agreement_end_date_checked"
+                      checked={standingOrder.agreement_end_date_checked || false}
+                      onCheckedChange={(checked) => {
+                        if (standingOrder.id) toggleCheckedMutation.mutate({ id: standingOrder.id, checked: Boolean(checked) });
+                      }}
+                      disabled={toggleCheckedMutation.isPending}
+                    />
+                    <div className="space-y-1">
+                      <label 
+                        htmlFor="agreement_end_date_checked" 
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        Verified
+                      </label>
+                      {standingOrder.agreement_end_date_checked && standingOrder.agreement_end_date_checked_by && (
+                        <p className="text-xs text-muted-foreground">
+                          Checked by {auditUsers?.[standingOrder.agreement_end_date_checked_by] || 'Unknown'} on {standingOrder.agreement_end_date_checked_at ? format(new Date(standingOrder.agreement_end_date_checked_at), 'MMM dd, yyyy') : 'Unknown Date'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
