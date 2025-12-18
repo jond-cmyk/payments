@@ -22,14 +22,6 @@ import { PlusCircle, MinusCircle, Search, DollarSign } from 'lucide-react';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
-const formatUkAccountNumber = (raw: string | undefined | null): string => {
-  if (raw === undefined || raw === null) return '';
-  let value = String(raw).replace(/\D/g, '');
-  if (value.length > 8) value = value.substring(0, 8);
-  if (value.length > 4) return value.slice(0, 4) + ' ' + value.slice(4);
-  return value;
-};
-
 const formSchema = z.object({
   payee: z.string().min(1, "Payee is required"),
   sku: z.string().optional(),
@@ -193,7 +185,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             <FormItem>
               <FormLabel>Payee</FormLabel>
               <FormControl>
-                <Input placeholder="Payee Name" {...field} />
+                <Input placeholder="Payee Name" {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -213,7 +205,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     render={({ field }) => (
                         <FormItem className="flex-1 w-full">
                         <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                             <SelectTrigger>
                             <FormControl>
                                 <SelectValue placeholder="Select category" />
@@ -248,19 +240,21 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                                 const rawValue = e.target.value.replace(/[^\d.]/g, '');
                                 field.onChange(rawValue);
                             }}
+                            disabled={!isAdmin}
                             />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
                     )}
                     />
-                    {fields.length > 1 && (
+                    {fields.length > 1 && isAdmin && (
                     <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
                         <MinusCircle className="h-4 w-4" />
                     </Button>
                     )}
                 </div>
                 ))}
+                {isAdmin && (
                 <Button
                     type="button"
                     variant="outline"
@@ -269,6 +263,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Category
                 </Button>
+                )}
                 <Separator className="my-4" />
                 <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total Amount:</span>
@@ -284,7 +279,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Currency</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
                         <SelectTrigger>
                         <FormControl>
                             <SelectValue placeholder="Select currency" />
@@ -316,7 +311,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               <FormLabel>SKU</FormLabel>
               <div className="flex items-center gap-2">
                 <FormControl className="flex-1">
-                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notPropertyRelated} />
+                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notPropertyRelated || !isAdmin} />
                 </FormControl>
               </div>
               <FormMessage />
@@ -331,7 +326,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           render={({ field }) => (
             <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
               <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={!isAdmin} />
               </FormControl>
               <div className="space-y-1 leading-none">
                 <FormLabel>Not Property Related</FormLabel>
@@ -347,7 +342,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>Start Date</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} />
+                <DatePicker date={field.value} setDate={field.onChange} disabled={!isAdmin} />
                 <FormMessage />
                 </FormItem>
             )}
@@ -358,7 +353,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>End Date (Bank)</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} />
+                <DatePicker date={field.value} setDate={field.onChange} disabled={!isAdmin} />
                 <FormMessage />
                 </FormItem>
             )}
@@ -369,7 +364,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>End Date (Contract)</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} />
+                <DatePicker date={field.value} setDate={field.onChange} disabled={!isAdmin} />
                 <FormMessage />
                 </FormItem>
             )}
@@ -381,7 +376,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     <FormItem>
                     <FormLabel>Payment Reference</FormLabel>
                     <FormControl>
-                        <Input placeholder="Reference" {...field} />
+                        <Input placeholder="Reference" {...field} disabled={!isAdmin} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -396,7 +391,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             <FormItem>
               <FormLabel>Account Name</FormLabel>
               <FormControl>
-                <Input placeholder="Account Holder Name" {...field} />
+                <Input placeholder="Account Holder Name" {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -409,7 +404,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             <FormItem>
               <FormLabel>Account Address</FormLabel>
               <FormControl>
-                <Textarea placeholder="Address" {...field} />
+                <Textarea placeholder="Address" {...field} disabled={!isAdmin} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -424,7 +419,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     <FormItem>
                     <FormLabel>IBAN</FormLabel>
                     <FormControl>
-                        <Input placeholder="IBAN" {...field} />
+                        <Input placeholder="IBAN" {...field} disabled={!isAdmin} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -449,6 +444,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                                   else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                                   field.onChange(value);
                                 }}
+                                disabled={!isAdmin}
                               />
                         </FormControl>
                         <FormMessage />
@@ -465,12 +461,13 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                              <Input
                                 placeholder="1234 5678"
                                 {...field}
-                                value={formatUkAccountNumber(field.value)}
+                                value={field.value || ''}
                                 onChange={(e) => {
                                   let value = e.target.value.replace(/\D/g, '');
                                   if (value.length > 8) value = value.substring(0, 8);
                                   field.onChange(value);
                                 }}
+                                disabled={!isAdmin}
                               />
                         </FormControl>
                         <FormMessage />

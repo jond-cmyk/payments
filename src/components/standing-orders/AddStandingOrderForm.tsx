@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form';
+import { useForm, useFieldArray, useWatch } from 'react-hook-form'; // Added useWatch
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,15 +21,6 @@ import PropertyAddressField from '@/components/PropertyAddressField';
 import { PlusCircle, MinusCircle, Search, DollarSign } from 'lucide-react';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-
-// Helper function to format UK account number for display
-const formatUkAccountNumber = (raw: string | undefined | null): string => {
-  if (raw === undefined || raw === null) return '';
-  let value = String(raw).replace(/\D/g, '');
-  if (value.length > 8) value = value.substring(0, 8);
-  if (value.length > 4) return value.slice(0, 4) + ' ' + value.slice(4);
-  return value;
-};
 
 const formSchema = z.object({
   payee: z.string().min(1, "Payee is required"),
@@ -55,6 +46,7 @@ const formSchema = z.object({
   account_number: z.string().optional(),
   payment_day: z.number().min(1).max(31).optional(),
 }).superRefine((data, ctx) => {
+    // Validation logic (similar to NewPaymentRequest but adapted for Standing Orders)
     const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
     if (!data.not_property_related) {
         if (!data.sku || data.sku.trim() === '') {
@@ -86,7 +78,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const { userProfile } = useSession();
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
   
-  // Define isAdmin for any potential conditional logic, though creation is open
   const isAdmin = userProfile?.role === 'admin';
 
   const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
@@ -150,6 +141,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const toastId = showLoading("Creating standing order...");
     try {
+      // Calculate payment day from start date if not explicitly set
       const paymentDay = values.payment_date.getDate();
 
       const { error } = await supabase.from('standing_orders').insert({
@@ -170,7 +162,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         sort_code: values.country === 'United Kingdom' ? values.sort_code : null,
         account_number: values.country === 'United Kingdom' ? values.account_number?.replace(/\s/g, '') : null,
         payment_day: paymentDay,
-        status: 'pending', 
+        status: 'pending', // Default to pending
       });
 
       if (error) throw error;
@@ -512,11 +504,10 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                              <Input
                                 placeholder="1234 5678"
                                 {...field}
-                                value={formatUkAccountNumber(field.value)}
+                                value={field.value || ''}
                                 onChange={(e) => {
                                   let value = e.target.value.replace(/\D/g, '');
                                   if (value.length > 8) value = value.substring(0, 8);
-                                  // Update underlying form value with sanitized string
                                   field.onChange(value);
                                 }}
                               />
