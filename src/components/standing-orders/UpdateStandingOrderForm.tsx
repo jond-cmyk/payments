@@ -649,7 +649,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             name="payment_end_date"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel className="font-semibold">Payment End Date</FormLabel>
+                <FormLabel className="font-semibold">Agreement End Date</FormLabel> {/* Changed from Payment End Date */}
                 <FormControl>
                   <DatePicker
                     date={field.value}
@@ -904,7 +904,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
               </FormItem>
             )}
           />
-
+          
           <div className="grid grid-cols-2 gap-4">
             <FormField
               control={form.control}

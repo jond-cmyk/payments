@@ -196,10 +196,10 @@ const StandingOrderDetail = () => {
         queryClient.invalidateQueries({ queryKey: ['standingOrder', id] });
         queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
         // Automatically add an audit entry or comment
-        await addCommentMutation.mutateAsync(`Auto-updated End Date to ${data.endDate} from external system check.`);
-        showSuccess(`Updated end date to ${data.endDate}.`);
+        await addCommentMutation.mutateAsync(`Auto-updated Agreement End Date to ${data.endDate} from external system check.`);
+        showSuccess(`Updated agreement end date to ${data.endDate}.`);
       } else {
-        showInfo(data.message || "No end date found in external system.");
+        showInfo(data.message || "No agreement end date found in external system.");
       }
     },
     onError: (error: any) => {
@@ -339,14 +339,14 @@ const StandingOrderDetail = () => {
               </div>
               <div>
                 <p className="font-bold flex items-center gap-2">
-                  Payment End Date:
+                  Agreement End Date:
                   {isAdmin && standingOrder.sku && !standingOrder.not_property_related && (
                     <Button 
                       variant="ghost" 
                       size="sm" 
                       className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800" 
                       onClick={handleCheckExternalEndDate}
-                      title="Sync End Date from External System"
+                      title="Sync Agreement End Date from External System"
                       disabled={checkExternalEndDateMutation.isPending}
                     >
                       <RefreshCw className={cn("h-4 w-4", checkExternalEndDateMutation.isPending && "animate-spin")} />

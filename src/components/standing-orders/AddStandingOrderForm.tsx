@@ -726,7 +726,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                     Not Property Related
                   </FormLabel>
                   <FormDescription>
-                    Check this box if this payment request is not associated with an SKU.
+                    Check this box if this standing order is not associated with a property SKU.
                   </FormDescription>
                 </div>
               </FormItem>
@@ -970,7 +970,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             name="payment_end_date"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel className="font-semibold">Payment End Date</FormLabel>
+                <FormLabel className="font-semibold">Agreement End Date</FormLabel> {/* Changed from Payment End Date */}
                 <FormControl>
                   <DatePicker
                     date={field.value}

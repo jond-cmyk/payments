@@ -26,21 +26,26 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     // TODO: Implement external fetch logic here
     // -------------------------------------------------------------------------
-    // 1. Fetch the external website/API
-    //    const response = await fetch(`https://portal.kassoehousing.com/api/contract?sku=${sku}`);
-    //    const data = await response.json();
+    // The user provided this URL structure: https://portal.kassoehousing.com/admin/kassoe-theme/products/edit/{id}
     //
-    // 2. Extract the end date (format YYYY-MM-DD)
-    //    const endDate = data.end_date; 
+    // Challenge:
+    // 1. The URL uses an ID (e.g., 5987), not the SKU directly.
+    // 2. We need to either map SKU to ID or find a search endpoint.
+    // 3. The page is an admin page, likely requiring authentication/cookies.
+    //
+    // Implementation steps for a developer with credentials:
+    // 1. Authenticate (login) to portal.kassoehousing.com and store session/token.
+    // 2. Use a search endpoint if available (e.g., /admin/kassoe-theme/products/search?sku=...) to get the ID.
+    // 3. Fetch the product edit page or API endpoint for that ID.
+    // 4. Parse the response (HTML or JSON) to extract the 'Agreement End Date' field.
+    // 5. Return the date as 'endDate' in YYYY-MM-DD format.
     
-    // For now, we return null to indicate no logic is present yet.
-    // If you uncomment the line below, it will simulate finding a date 1 year from now.
-    // const endDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0];
+    // For now, return null as no integration is configured.
     const endDate = null; 
 
     return new Response(JSON.stringify({ 
       endDate, 
-      message: endDate ? "Date found." : "External logic not configured. Please update 'fetch-contract-end-date' function." 
+      message: endDate ? "Date found." : "External logic not configured. Please see edge function code for implementation details." 
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
