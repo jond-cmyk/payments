@@ -371,11 +371,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                           <Input 
                             {...field} 
                             value={field.value || ''}
-                            onChange={(e) => {
-                              let value = e.target.value.replace(/\D/g, '');
-                              if (value.length > 8) value = value.substring(0, 8);
-                              field.onChange(value);
-                            }}
+                            onChange={(e) => field.onChange(e.target.value)}
                           />
                         </FormControl>
                         <FormMessage />

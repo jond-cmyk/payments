@@ -8,11 +8,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
-import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
-import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
-import { PayeeSuggestion, StandingOrder } from '@/types/supabase'; // Import PayeeSuggestion type
-import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // NEW IMPORT
-import { PlusCircle, MinusCircle, DollarSign, Search, AlertTriangle } from 'lucide-react'; // Import icons
+import { useCountry } from '@/integrations/supabase/CountryContext';
+import { categoryOptions } from '@/lib/constants';
+import { PayeeSuggestion, StandingOrder } from '@/types/supabase';
+import { majorCurrencies } from '@/schemas/paymentRequestSchema';
+import { PlusCircle, MinusCircle, DollarSign, Search, AlertTriangle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,20 +24,20 @@ import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'; // Import Dialog components
-import { Separator } from '@/components/ui/separator'; // Import Separator
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import PropertyAddressField from '@/components/PropertyAddressField';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
-// Define the Zod schema for form validation (replicated from schema file for local use)
+// Define the Zod schema for form validation
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
   sku_number: z.string().optional(),
   not_sku_related: z.boolean().default(false),
   lease_id: z.string().optional().refine((val) => {
-    if (val === undefined || val === null || val.trim() === '') return true; // Optional, so empty is fine
-    return /^\d+$/.test(val); // Must be numerical if present
+    if (val === undefined || val === null || val.trim() === '') return true;
+    return /^\d+$/.test(val);
   }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
   iban_number: z.string().optional(),
@@ -45,8 +45,8 @@ const formSchema = z.object({
   account_number: z.string().optional(),
   bank_account_name: z.string().optional(),
   currency: z.string().min(1, "Currency is required"),
-  total_amount: z.coerce.number(), // REMOVED .min(0.01) to prevent silent validation failure
-  notes: z.string().optional(), // CHANGED: Renamed from reason_for_payment
+  total_amount: z.coerce.number(),
+  notes: z.string().optional(),
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
   }),
@@ -57,7 +57,7 @@ const formSchema = z.object({
   receipt_required: z.boolean().default(false),
   is_urgent: z.boolean().default(false),
   country: z.string().min(1, "Country is required"),
-  categories: z.array(z.object({ // CHANGED
+  categories: z.array(z.object({
     category: z.string().min(1, "Category is required."),
     amount: z.coerce.number().min(0.01, "Amount must be positive."),
   })).min(1, "At least one category with an amount is required."),
@@ -87,7 +87,6 @@ const formSchema = z.object({
     }
   }
 
-  // NEW: Currency validation based on country
   if (data.country === 'United Kingdom') {
     if (data.currency !== 'GBP') {
       ctx.addIssue({
@@ -105,9 +104,7 @@ const formSchema = z.object({
       });
     }
   }
-  // Note: For other countries, currency is required by z.string().min(1)
 
-  // Conditional validation for bank details based on country
   if (data.country === 'United Kingdom') {
     if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
       ctx.addIssue({
@@ -116,7 +113,7 @@ const formSchema = z.object({
         path: ['sort_code'],
       });
     }
-    if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
+    if (!data.account_number || !/^\d{8}$/.test(data.account_number?.replace(/\s/g, '') || '')) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Bank Account Number is required and must be 8 digits.",
@@ -152,47 +149,12 @@ const formSchema = z.object({
         path: ['bank_account_name'],
       });
     }
-    if (data.sort_code && data.sort_code.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Sort Code should not be provided for this country.",
-        path: ['sort_code'],
-      });
-    }
-    if (data.account_number && data.account_number.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Account Number should not be provided for this country.",
-        path: ['account_number'],
-      });
-    }
-  } else { // All other non-UK, non-CH countries
+  } else {
     if (!data.iban_number || data.iban_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "IBAN Number is required.",
         path: ['iban_number'],
-      });
-    }
-    if (data.sort_code && data.sort_code.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Sort Code should not be provided for this country.",
-        path: ['sort_code'],
-      });
-    }
-    if (data.account_number && data.account_number.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Account Number should not be provided for this country.",
-        path: ['account_number'],
-      });
-    }
-    if (data.bank_account_name && data.bank_account_name.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Bank Account Name should not be provided for this country.",
-        path: ['bank_account_name'],
       });
     }
   }
@@ -207,7 +169,6 @@ const NewPaymentRequest = () => {
   const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
   const [isSearchingSupplier, setIsSearchingSupplier] = useState(false);
 
-  // States for duplicate check
   const [isDuplicateWarningOpen, setIsDuplicateWarningOpen] = useState(false);
   const [duplicateStandingOrderData, setDuplicateStandingOrderData] = useState<StandingOrder | null>(null);
   const [pendingSubmissionValues, setPendingSubmissionValues] = useState<z.infer<typeof formSchema> | null>(null);
@@ -223,41 +184,39 @@ const NewPaymentRequest = () => {
       not_sku_related: false,
       lease_id: "",
       supplier_address: "",
-      iban_number: currentCountry === 'United Kingdom' ? "" : "",
-      sort_code: currentCountry === 'United Kingdom' ? "" : "",
-      account_number: currentCountry === 'United Kingdom' ? "" : "",
-      bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
+      iban_number: "",
+      sort_code: "",
+      account_number: "",
+      bank_account_name: "",
       currency: initialCurrency,
-      total_amount: 0.00, // CHANGED
-      notes: "", // CHANGED: Renamed from reason_for_payment
+      total_amount: 0.00,
+      notes: "",
       date_payment_required: undefined,
       invoice_pdf: undefined,
       receipt_required: false,
       is_urgent: false,
       country: currentCountry,
-      categories: [{ category: "", amount: 0 }], // CHANGED: Initialize with one category
+      categories: [{ category: "", amount: 0 }],
       bank_details_verified: false,
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ // NEW: Field array for categories
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "categories",
   });
 
-  // Watch fields
   const notSkuRelated = form.watch("not_sku_related");
   const formCountry = form.watch("country");
   const skuValue = form.watch("sku_number");
-  const watchedCategories = useWatch({ // NEW: Watch categories for total calculation
+  const watchedCategories = useWatch({
     control: form.control,
     name: "categories",
   });
 
-  // Calculate total amount whenever categories array changes
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
-      const parsedAmount = parseFloat(categoryItem?.amount as any) || 0; // Ensure it's a number
+      const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
       return sum + parsedAmount;
     }, 0);
     if (form.getValues('total_amount') !== newTotal) {
@@ -265,7 +224,6 @@ const NewPaymentRequest = () => {
     }
   }, [watchedCategories, form]);
 
-  // Effect to reset form defaults if currentCountry changes
   React.useEffect(() => {
     const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
     const newCurrency = formCountry === 'United Kingdom' ? 'GBP' : 'CHF';
@@ -274,13 +232,13 @@ const NewPaymentRequest = () => {
       ...prev,
       sku_number: newSkuPrefix,
       currency: newCurrency,
-      iban_number: formCountry === 'United Kingdom' ? "" : "",
-      sort_code: formCountry === 'United Kingdom' ? "" : "",
-      account_number: formCountry === 'United Kingdom' ? "" : "",
-      bank_account_name: formCountry === 'United Kingdom' ? "" : "",
+      iban_number: "",
+      sort_code: "",
+      account_number: "",
+      bank_account_name: "",
       country: formCountry,
-      categories: [{ category: "", amount: 0 }], // Reset categories
-      total_amount: 0, // Reset total amount
+      categories: [{ category: "", amount: 0 }],
+      total_amount: 0,
       bank_details_verified: false,
     }));
   }, [formCountry, form]);
@@ -309,7 +267,6 @@ const NewPaymentRequest = () => {
     const toastId = showLoading("Searching for existing payees...");
 
     try {
-      // Use the unified search function
       const { data, error } = await supabase.functions.invoke('search-all-payees', {
         body: { searchTerm: supplierName, country: currentFormCountry },
       });
@@ -353,35 +310,14 @@ const NewPaymentRequest = () => {
 
     if (currentFormCountry === 'United Kingdom') {
         form.setValue('bank_account_name', suggestion.bank_account_name || '', options);
-        let formattedSortCode = suggestion.sort_code || '';
-        if (formattedSortCode) {
-            let value = formattedSortCode.replace(/\D/g, '');
-            if (value.length > 6) value = value.substring(0, 6);
-            if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
-            else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
-            formattedSortCode = value;
-        }
-        form.setValue('sort_code', formattedSortCode, options);
-        
-        // Auto-format account number suggestion if it comes as plain digits
-        let accNum = suggestion.account_number ? suggestion.account_number.replace(/\s/g, '') : '';
-        // Removing formatting for now to ensure consistency with manual input
-        // if (accNum.length > 4) {
-        //    accNum = accNum.slice(0, 4) + ' ' + accNum.slice(4);
-        // }
-        form.setValue('account_number', accNum, options);
-
+        form.setValue('sort_code', suggestion.sort_code || '', options);
+        form.setValue('account_number', suggestion.account_number || '', options);
         form.setValue('supplier_address', suggestion.address || '', options);
         form.setValue('iban_number', '', options);
     } else {
         form.setValue('supplier_address', suggestion.address || '', options);
         form.setValue('iban_number', suggestion.iban_number || '', options);
-        if (currentFormCountry === 'Switzerland') {
-            form.setValue('bank_account_name', suggestion.bank_account_name || '', options);
-        } else {
-            form.setValue('bank_account_name', '', options);
-        }
-
+        form.setValue('bank_account_name', suggestion.bank_account_name || '', options);
         form.setValue('sort_code', '', options);
         form.setValue('account_number', '', options);
     }
@@ -393,30 +329,26 @@ const NewPaymentRequest = () => {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    // Check for "950 - Rent" category
     const hasRentCategory = values.categories.some(c => c.category === '950_rent');
     
     if (hasRentCategory && values.sku_number && !values.not_sku_related) {
       const toastId = showLoading("Checking for duplicate standing orders...");
       try {
-        // Query standing_orders for matching SKU, Active status, and '950_rent' in categories JSONB
         const { data: duplicateOrders, error: checkError } = await supabase
           .from('standing_orders')
           .select('*')
           .eq('sku', values.sku_number)
           .eq('status', 'active')
-          .contains('categories', JSON.stringify([{ category: '950_rent' }])); // Check if array contains the rent category object
+          .contains('categories', JSON.stringify([{ category: '950_rent' }]));
 
         if (checkError) {
           console.error("Error checking for duplicates:", checkError);
-          // Proceed with submission if check fails, or handle error? Let's proceed but warn in console.
         } else if (duplicateOrders && duplicateOrders.length > 0) {
-          // Found duplicate!
           dismissToast(toastId);
           setDuplicateStandingOrderData(duplicateOrders[0]);
           setPendingSubmissionValues(values);
           setIsDuplicateWarningOpen(true);
-          return; // Stop submission until confirmed
+          return;
         }
       } catch (e) {
         console.error("Exception checking for duplicates:", e);
@@ -424,7 +356,6 @@ const NewPaymentRequest = () => {
       dismissToast(toastId);
     }
 
-    // If no duplicate or check skipped, proceed to actual submission
     await processSubmission(values);
   };
 
@@ -465,15 +396,13 @@ const NewPaymentRequest = () => {
         uploadedInvoiceUrls.push(publicUrlData.publicUrl);
       }
 
-      // Determine final currency value
       const finalCurrency = values.country === 'United Kingdom' ? 'GBP' : values.currency;
 
-      // Prepare bank details based on country
       const bankDetails = values.country === 'United Kingdom'
         ? {
             iban_number: null,
             sort_code: values.sort_code,
-            account_number: values.account_number?.replace(/\s/g, ''), // Remove spaces for DB storage
+            account_number: values.account_number?.replace(/\s/g, ''),
             bank_account_name: values.bank_account_name,
           }
         : {
@@ -483,28 +412,27 @@ const NewPaymentRequest = () => {
             bank_account_name: values.country === 'Switzerland' ? values.bank_account_name : null,
           };
 
-      // Insert payment request data into Supabase
       const { error: insertError } = await supabase
         .from('payment_requests')
         .insert({
           requester_id: user.id,
           supplier_name: values.supplier_name,
-          sku_number: values.not_sku_related ? null : values.sku_number, // Set to null if not SKU related
-          not_sku_related: values.not_sku_related, // Save the checkbox state
-          lease_id: values.lease_id || null, // Include lease_id, set to null if empty
+          sku_number: values.not_sku_related ? null : values.sku_number,
+          not_sku_related: values.not_sku_related,
+          lease_id: values.lease_id || null,
           supplier_address: values.supplier_address,
-          ...bankDetails, // Spread the conditional bank details
-          currency: finalCurrency, // Use final currency
-          total_amount: values.total_amount, // CHANGED: Use total_amount
-          reason_for_payment: values.notes || null, // CHANGED: Use notes, set to null if optional/empty
+          ...bankDetails,
+          currency: finalCurrency,
+          total_amount: values.total_amount,
+          reason_for_payment: values.notes || null,
           date_payment_required: values.date_payment_required.toISOString().split('T')[0],
-          invoice_pdf_urls: uploadedInvoiceUrls, // Store array of URLs
+          invoice_pdf_urls: uploadedInvoiceUrls,
           status: 'pending',
           receipt_required: values.receipt_required,
-          is_urgent: values.is_urgent, // Save urgent status
-          country: values.country, // Add the current country from form values
-          categories: values.categories, // CHANGED: Use categories array
-          bank_details_verified: values.bank_details_verified, // NEW: Include bank_details_verified
+          is_urgent: values.is_urgent,
+          country: values.country,
+          categories: values.categories,
+          bank_details_verified: values.bank_details_verified,
         });
 
       if (insertError) {
@@ -514,25 +442,25 @@ const NewPaymentRequest = () => {
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
       form.reset({
-        supplier_name: "", // Reset supplier name
+        supplier_name: "",
         sku_number: defaultSkuPrefix,
         currency: initialCurrency,
-        total_amount: 0.00, // Reset total amount
+        total_amount: 0.00,
         receipt_required: false,
         is_urgent: false,
         not_sku_related: false,
         invoice_pdf: undefined,
         lease_id: "",
-        iban_number: currentCountry === 'United Kingdom' ? "" : "",
-        sort_code: currentCountry === 'United Kingdom' ? "" : "",
-        account_number: currentCountry === 'United Kingdom' ? "" : "",
-        bank_account_name: currentCountry === 'United Kingdom' ? "" : "",
-        country: currentCountry, // Reset country to current context country
-        categories: [{ category: "", amount: 0 }], // Reset categories
-        supplier_address: "", // Reset supplier address
-        notes: "", // CHANGED: Reset notes
-        date_payment_required: undefined, // Reset date
-        bank_details_verified: false, // NEW: Reset to false
+        iban_number: "",
+        sort_code: "",
+        account_number: "",
+        bank_account_name: "",
+        country: currentCountry,
+        categories: [{ category: "", amount: 0 }],
+        supplier_address: "",
+        notes: "",
+        date_payment_required: undefined,
+        bank_details_verified: false,
       });
       navigate('/dashboard');
     } catch (error: any) {
@@ -549,7 +477,6 @@ const NewPaymentRequest = () => {
     }
   };
 
-  // Filter category options based on the selected country in the form
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
   );
@@ -601,8 +528,8 @@ const NewPaymentRequest = () => {
                         placeholder="e.g., ABC Corp"
                         {...field}
                         onBlur={(e) => {
-                          field.onBlur(); // Call original onBlur
-                          handleSupplierNameBlur(); // Call our custom blur handler
+                          field.onBlur();
+                          handleSupplierNameBlur();
                         }}
                         disabled={form.formState.isSubmitting || isSearchingSupplier}
                       />
@@ -612,7 +539,6 @@ const NewPaymentRequest = () => {
                 )}
               />
               
-              {/* Dynamic Categories Section */}
               <Card className="p-4 shadow-sm">
                 <CardTitle className="text-lg font-semibold mb-4 flex items-center">
                   <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
@@ -691,7 +617,7 @@ const NewPaymentRequest = () => {
                     control={form.control}
                     name="total_amount"
                     render={({ field }) => (
-                      <FormItem className="hidden"> {/* Hidden field for Zod validation */}
+                      <FormItem className="hidden">
                         <FormControl>
                           <Input type="hidden" {...field} />
                         </FormControl>
@@ -702,7 +628,6 @@ const NewPaymentRequest = () => {
                 </div>
               </Card>
 
-              {/* Currency field: Conditional rendering */}
               {formCountry !== 'United Kingdom' ? (
                 <FormField
                   control={form.control}
@@ -751,9 +676,9 @@ const NewPaymentRequest = () => {
                         variant="outline"
                         size="icon"
                         onClick={() => {
-                          const skuValue = form.getValues('sku_number');
-                          if (skuValue) {
-                            const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(skuValue)}&Filter%5BKassoeThemeProducts__address%5D=&Filter%5BKassoeThemeProducts__city%5D=&Filter%5BKassoeThemeProducts__zip%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5BKassoeThemeProducts__active%5D=&Filter%5BKassoeThemeProducts__contract_number%5D=&Filter%5BKassoeThemeProducts__sku_dummy%5D=&Filter%5BKassoeThemeProducts__address_dummy%5D=&Filter%5BKassoeThemeProducts__sku_dummy2%5D=&Filter%5BKassoeThemeProducts__address_dummy2%5D=&Filter%5BKassoeThemeProducts__created_by%5D=0&Filter%5Bcustom__is_booked%5D=0`;
+                          const sku = form.getValues('sku_number');
+                          if (sku) {
+                            const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(sku)}`;
                             window.open(url, '_blank');
                           } else {
                             showError("Please enter an SKU number first.");
@@ -863,16 +788,8 @@ const NewPaymentRequest = () => {
                           <Input
                             placeholder="e.g., 1234 5678"
                             {...field}
-                            value={field.value || ''}
-                            onChange={(e) => {
-                              // Strip non-digits
-                              let value = e.target.value.replace(/\D/g, '');
-                              // Limit to 8 digits
-                              if (value.length > 8) value = value.substring(0, 8);
-                              
-                              // Update underlying form value without adding spaces
-                              field.onChange(value);
-                            }}
+                            value={field.value || ''} // Simply pass value without formatting logic
+                            onChange={(e) => field.onChange(e.target.value)} // Simple text input
                           />
                         </FormControl>
                         <FormDescription>
@@ -901,7 +818,6 @@ const NewPaymentRequest = () => {
                 </>
               ) : (
                 <>
-                  {/* NEW: Bank Account Name for Switzerland */}
                   {formCountry === 'Switzerland' && (
                     <FormField
                       control={form.control}
@@ -1005,7 +921,7 @@ const NewPaymentRequest = () => {
                         accept=".pdf,.jpg,.jpeg,.png"
                         value={value}
                         onChange={onChange}
-                        multiple // Enable multiple file selection
+                        multiple
                       />
                     </FormControl>
                     <FormDescription>
@@ -1065,7 +981,6 @@ const NewPaymentRequest = () => {
             </form>
           </Form>
 
-          {/* Duplicate Standing Order Warning Dialog */}
           <AlertDialog open={isDuplicateWarningOpen} onOpenChange={setIsDuplicateWarningOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
@@ -1095,7 +1010,6 @@ const NewPaymentRequest = () => {
             </AlertDialogContent>
           </AlertDialog>
 
-          {/* Supplier Suggestions Dialog */}
           <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -1115,7 +1029,7 @@ const NewPaymentRequest = () => {
                       {suggestion.country === 'United Kingdom' ? (
                         <>
                           <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
-                          <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number ? suggestion.account_number.replace(/(\d{4})(\d{4})/, '$1 $2') : 'N/A'}</p>
+                          <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number || 'N/A'}</p>
                         </>
                       ) : (
                         <>

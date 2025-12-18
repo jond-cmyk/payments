@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form'; // Added useWatch
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -30,7 +30,7 @@ const formSchema = z.object({
     category: z.string().min(1, "Category is required."),
     amount: z.coerce.number().min(0.01, "Amount must be positive."),
   })).min(1, "At least one category with an amount is required."),
-  total_amount: z.coerce.number(), // This will be calculated
+  total_amount: z.coerce.number(),
   payment_date: z.date({
     required_error: "Start date is required",
   }),
@@ -46,7 +46,6 @@ const formSchema = z.object({
   account_number: z.string().optional(),
   payment_day: z.number().min(1).max(31).optional(),
 }).superRefine((data, ctx) => {
-    // Validation logic (similar to NewPaymentRequest but adapted for Standing Orders)
     const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
     if (!data.not_property_related) {
         if (!data.sku || data.sku.trim() === '') {
@@ -60,7 +59,7 @@ const formSchema = z.object({
         if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Sort Code is required (XX-XX-XX).", path: ['sort_code'] });
         }
-        if (!data.account_number || !/^\d{8}$/.test(data.account_number.replace(/\s/g, ''))) {
+        if (!data.account_number || !/^\d{8}$/.test(data.account_number?.replace(/\s/g, '') || '')) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Account Number must be 8 digits.", path: ['account_number'] });
         }
     } else {
@@ -162,7 +161,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         sort_code: values.country === 'United Kingdom' ? values.sort_code : null,
         account_number: values.country === 'United Kingdom' ? values.account_number?.replace(/\s/g, '') : null,
         payment_day: paymentDay,
-        status: 'pending', // Default to pending
+        status: 'pending', 
       });
 
       if (error) throw error;
@@ -284,12 +283,12 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                 </div>
                 ))}
                 <Button
-                type="button"
-                variant="outline"
-                onClick={() => append({ category: "", amount: 0 })}
-                className="w-full"
+                    type="button"
+                    variant="outline"
+                    onClick={() => append({ category: "", amount: 0 })}
+                    className="w-full"
                 >
-                <PlusCircle className="mr-2 h-4 w-4" /> Add Category
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Category
                 </Button>
                 <Separator className="my-4" />
                 <div className="flex justify-between items-center text-lg font-bold">
@@ -362,7 +361,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
             </FormItem>
           )}
         />
-        <PropertyAddressField skuValue={skuValue} country={formCountry} />
+         <PropertyAddressField skuValue={skuValue} country={formCountry} />
 
         <FormField
           control={form.control}
@@ -505,11 +504,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                                 placeholder="1234 5678"
                                 {...field}
                                 value={field.value || ''}
-                                onChange={(e) => {
-                                  let value = e.target.value.replace(/\D/g, '');
-                                  if (value.length > 8) value = value.substring(0, 8);
-                                  field.onChange(value);
-                                }}
+                                onChange={(e) => field.onChange(e.target.value)}
                               />
                         </FormControl>
                         <FormMessage />
