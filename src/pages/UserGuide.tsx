@@ -3,7 +3,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
-import { BookOpen, Home, PlusCircle, List, FileX, Repeat, Banknote, Users, Settings, DollarSign, MessageSquareText, BarChart, Home as HomeIcon, Check, Lightbulb, Palette, Search, Filter, Clock, CheckCircle, AlertTriangle, FileText, Bell } from 'lucide-react';
+import { BookOpen, Home, PlusCircle, List, FileX, Repeat, Banknote, Users, Settings, DollarSign, MessageSquareText, BarChart, Home as HomeIcon, Check, Lightbulb, Palette, Search, Filter, Clock, CheckCircle, AlertTriangle, FileText, Bell, RefreshCw } from 'lucide-react';
 
 import PageTitle from '@/components/PageTitle';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -86,6 +86,7 @@ const UserGuide = () => {
             <li>**Status:** Payments move from **Pending** (awaiting admin review) to **Active**, **Paused**, or **Cancelled**.</li>
             <li>**Awaiting Info:** If a Direct Debit or Standing Order is uploaded via CSV and is missing critical information, it will be marked as 'Awaiting Info' until an admin or requester edits the details.</li>
             <li>**Audit Trail:** Every change, including comments, is logged in the Audit Trail for full transparency.</li>
+            <li>**External Sync:** Use the <RefreshCw className="h-3 w-3 inline mx-1" /> icon next to "Agreement End Date" to pull the contract end date from the external admin portal.</li>
           </ul>
         </>
       ),
@@ -147,6 +148,7 @@ const UserGuide = () => {
             <li>**E-conomic Integration:** Test API connectivity and diagnose issues.</li>
             <li>**Departments:** View the list of property SKUs/Departments synced from e-conomic.</li>
             <li>**User Feedback:** Review anonymous feedback submissions.</li>
+            <li className="text-red-600">**External Portal Sync:** The "Agreement End Date" sync requires a valid session cookie (`KASSOE_ADMIN_COOKIE`) in Supabase Secrets. If sync fails with "Authentication failed", this secret must be updated with a fresh `vmcms` cookie from the admin portal.</li>
           </ul>
         </>
       ),
