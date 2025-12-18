@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { StandingOrder, StandingOrderAudit } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast, showInfo } from '@/utils/toast';
 import { format } from 'date-fns';
-import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, CalendarDays, UserCircle2 } from 'lucide-react'; // Added new icons for sections
+import { Edit, Trash2, Repeat, DollarSign, Info, Banknote, CalendarDays, UserCircle2, RefreshCw } from 'lucide-react'; // Added RefreshCw
 import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 
@@ -30,16 +30,15 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import UpdateStandingOrderForm from '@/components/standing-orders/UpdateStandingOrderForm';
 import StandingOrderAuditTrailCard from '@/components/standing-orders/StandingOrderAuditTrailCard';
-import StandingOrderCommentsCard from '@/components/standing-orders/StandingOrderCommentsCard'; // NEW: Import StandingOrderCommentsCard
+import StandingOrderCommentsCard from '@/components/standing-orders/StandingOrderCommentsCard';
 import { cn } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
-import { formatAmount } from '@/components/economic/EconomicDetailDialog'; // Import formatAmount
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'; // Import Table components
+import { formatAmount } from '@/components/economic/EconomicDetailDialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import PropertyAddressField from '@/components/PropertyAddressField';
 
 const StandingOrderDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const { session, isLoading: isSessionLoading, user, userProfile } = useSession(); // Added user
+  const { session, isLoading: isSessionLoading, user, userProfile } = useSession();
   const { currentCountry, setCurrentCountry } = useCountry();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -95,15 +94,9 @@ const StandingOrderDetail = () => {
     enabled: !!id,
   });
 
-  // Filter audits into general audit trail and comments
   const generalAudits = audits?.filter(audit => !audit.change_description.startsWith('Comment: ')) || [];
   const comments = audits?.filter(audit => audit.change_description.startsWith('Comment: ')) || [];
 
-  // NEW: Console logs to inspect audit data and filtered comments
-  console.log("[StandingOrderDetail] Raw audits data:", audits);
-  console.log("[StandingOrderDetail] Filtered comments for card:", comments);
-
-  // Fetch user names and emails for audit trail
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
     queryKey: ['auditUsers'],
     queryFn: async () => {
@@ -114,7 +107,7 @@ const StandingOrderDetail = () => {
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       (data || []).forEach((profile: any) => {
-        let displayString = profile.user_email || profile.id; // Fallback
+        let displayString = profile.user_email || profile.id;
         if (profile.first_name || profile.last_name) {
           const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
           if (name) {
@@ -144,11 +137,9 @@ const StandingOrderDetail = () => {
     },
     onError: (error: any) => {
       showError(error.message || "Failed to delete Standing Order.");
-      console.error("Delete Standing Order error:", error);
     },
   });
 
-  // NEW: Mutation for adding comments
   const addCommentMutation = useMutation({
     mutationFn: async (commentText: string) => {
       if (!id || !user?.id) throw new Error("Standing Order ID or user ID missing.");
@@ -168,7 +159,6 @@ const StandingOrderDetail = () => {
     },
     onError: (error: any) => {
       showError(error.message || "Failed to add comment.");
-      console.error("Add comment error:", error);
     },
   });
 
@@ -179,6 +169,50 @@ const StandingOrderDetail = () => {
       dismissToast(toastId);
     } catch (error) {
       dismissToast(toastId);
+    }
+  };
+
+  // Mutation to check external end date
+  const checkExternalEndDateMutation = useMutation({
+    mutationFn: async (sku: string) => {
+      const { data, error } = await supabase.functions.invoke('fetch-contract-end-date', {
+        body: { sku },
+      });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: async (data) => {
+      if (data.endDate) {
+        const { error } = await supabase
+          .from('standing_orders')
+          .update({ 
+            payment_end_date: data.endDate,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', id);
+          
+        if (error) throw error;
+        
+        queryClient.invalidateQueries({ queryKey: ['standingOrder', id] });
+        queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+        // Automatically add an audit entry or comment
+        await addCommentMutation.mutateAsync(`Auto-updated End Date to ${data.endDate} from external system check.`);
+        showSuccess(`Updated end date to ${data.endDate}.`);
+      } else {
+        showInfo(data.message || "No end date found in external system.");
+      }
+    },
+    onError: (error: any) => {
+      showError("Failed to check external system: " + error.message);
+    }
+  });
+
+  const handleCheckExternalEndDate = () => {
+    if (standingOrder?.sku) {
+      const toastId = showLoading("Checking external system...");
+      checkExternalEndDateMutation.mutate(standingOrder.sku, {
+        onSettled: () => dismissToast(toastId)
+      });
     }
   };
 
@@ -195,7 +229,7 @@ const StandingOrderDetail = () => {
         className = 'bg-red-500 text-red-50';
         break;
       case 'pending':
-      case 'awaiting_info': // Added awaiting_info
+      case 'awaiting_info':
         className = 'bg-orange-500 text-orange-50';
         break;
       default:
@@ -304,7 +338,21 @@ const StandingOrderDetail = () => {
                 <p>{format(new Date(standingOrder.payment_date), 'PPP')}</p>
               </div>
               <div>
-                <p className="font-bold">Payment End Date:</p>
+                <p className="font-bold flex items-center gap-2">
+                  Payment End Date:
+                  {isAdmin && standingOrder.sku && !standingOrder.not_property_related && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-6 w-6 p-0 text-blue-600 hover:text-blue-800" 
+                      onClick={handleCheckExternalEndDate}
+                      title="Sync End Date from External System"
+                      disabled={checkExternalEndDateMutation.isPending}
+                    >
+                      <RefreshCw className={cn("h-4 w-4", checkExternalEndDateMutation.isPending && "animate-spin")} />
+                    </Button>
+                  )}
+                </p>
                 <p>{standingOrder.payment_end_date ? format(new Date(standingOrder.payment_end_date), 'PPP') : 'No end date'}</p>
               </div>
               <div>
@@ -420,7 +468,6 @@ const StandingOrderDetail = () => {
                   )}
                 </>
               )}
-              {/* MOVED: Payment Reference */}
               <div>
                 <p className="font-bold">Payment Reference:</p>
                 <p>{standingOrder.payment_reference || 'N/A'}</p>
@@ -460,7 +507,6 @@ const StandingOrderDetail = () => {
         </Card>
       </div>
 
-      {/* NEW: Comments Card */}
       <StandingOrderCommentsCard
         standingOrderId={standingOrder.id}
         comments={comments}
