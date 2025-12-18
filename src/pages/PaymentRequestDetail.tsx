@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { PaymentRequest, PaymentRequestAudit, PaymentRequestCategoryItem } from '@/types/supabase';
+import { PaymentRequest, PaymentRequestAudit, PaymentRequestCategoryItem, StandingOrder } from '@/types/supabase';
 import { showSuccess, showError, showLoading, dismissToast, showInfo } from '@/utils/toast';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +26,8 @@ import PaymentRequestCommentsCard from '@/components/payment-requests/PaymentReq
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 
 // Zod schema for admin query note (kept here as it's admin-specific)
 const queryFormSchema = z.object({
@@ -54,6 +56,11 @@ const PaymentRequestDetail = () => {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); // New state for PDF loading
+
+  // Duplicate Check States for Admin
+  const [isDuplicateWarningOpen, setIsDuplicateWarningOpen] = useState(false);
+  const [duplicateStandingOrderData, setDuplicateStandingOrderData] = useState<StandingOrder | null>(null);
+  const [pendingAdminAction, setPendingAdminAction] = useState<{ status: 'setup_awaiting_approval' | 'approved', reason?: string } | null>(null);
 
   const userRole = userProfile?.role || null;
 
@@ -310,7 +317,7 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled' | 'paused', reason?: string) => {
+  const executeAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled' | 'paused', reason?: string) => {
     const toastId = showLoading(`Setting status to ${status.replace(/_/g, ' ')}...`);
     try {
       if (!user?.id || !request) throw new Error("User or Request data missing.");
@@ -353,6 +360,48 @@ const PaymentRequestDetail = () => {
       console.error("Error in handleAdminAction:", error);
       showError(error.message || `Failed to set status to ${status.replace(/_/g, ' ')}.`);
       return false;
+    }
+  };
+
+  const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled' | 'paused', reason?: string) => {
+    // Intercept check for Setup or Approved
+    if ((status === 'setup_awaiting_approval' || status === 'approved') && request) {
+      const hasRentCategory = request.categories.some(c => c.category === '950_rent');
+      
+      if (hasRentCategory && request.sku_number && !request.not_sku_related) {
+        const toastId = showLoading("Checking for duplicate standing orders...");
+        try {
+          const { data: duplicateOrders, error: checkError } = await supabase
+            .from('standing_orders')
+            .select('*')
+            .eq('sku', request.sku_number)
+            .eq('status', 'active')
+            .contains('categories', JSON.stringify([{ category: '950_rent' }]));
+
+          if (checkError) {
+            console.error("Error checking for duplicates:", checkError);
+          } else if (duplicateOrders && duplicateOrders.length > 0) {
+            dismissToast(toastId);
+            setDuplicateStandingOrderData(duplicateOrders[0]);
+            setPendingAdminAction({ status, reason });
+            setIsDuplicateWarningOpen(true);
+            return false; // Stop execution to show dialog
+          }
+        } catch (e) {
+          console.error("Exception checking for duplicates:", e);
+        }
+        dismissToast(toastId);
+      }
+    }
+
+    return await executeAdminAction(status, reason);
+  };
+
+  const handleConfirmDuplicate = async () => {
+    if (pendingAdminAction) {
+      setIsDuplicateWarningOpen(false);
+      await executeAdminAction(pendingAdminAction.status, pendingAdminAction.reason);
+      setPendingAdminAction(null);
     }
   };
 
@@ -636,6 +685,36 @@ const PaymentRequestDetail = () => {
         isSendingReminder={sendReminderMutation.isPending}
         user={user}
       />
+
+      {/* Duplicate Standing Order Warning Dialog */}
+      <AlertDialog open={isDuplicateWarningOpen} onOpenChange={setIsDuplicateWarningOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center text-amber-600">
+              <AlertTriangle className="mr-2 h-6 w-6" /> Duplicate Warning
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p className="font-semibold text-gray-900">
+                There is an active standing order in place for this SKU with the "Rent" category.
+              </p>
+              {duplicateStandingOrderData && (
+                <div className="bg-amber-50 p-3 rounded border border-amber-200 text-sm">
+                  <p><strong>Payee:</strong> {duplicateStandingOrderData.payee}</p>
+                  <p><strong>Amount:</strong> {formatAmount(duplicateStandingOrderData.total_amount)} {duplicateStandingOrderData.currency || ''}</p>
+                  <p><strong>Start Date:</strong> {new Date(duplicateStandingOrderData.payment_date).toLocaleDateString()}</p>
+                </div>
+              )}
+              <p>Do you wish to continue with {pendingAdminAction?.status === 'approved' ? 'approving' : 'setting up'} this request?</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setIsDuplicateWarningOpen(false); setPendingAdminAction(null); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDuplicate} className="bg-amber-600 hover:bg-amber-700">
+              Yes, Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Conditional rendering based on isEditing state */}
       {isEditing ? (

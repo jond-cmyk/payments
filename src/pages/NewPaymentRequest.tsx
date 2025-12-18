@@ -10,9 +10,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError, showLoading, dismissToast } from '@/utils/toast';
 import { useCountry } from '@/integrations/supabase/CountryContext'; // Import useCountry
 import { categoryOptions } from '@/lib/constants'; // Import categoryOptions
-import { PayeeSuggestion } from '@/types/supabase'; // Import PayeeSuggestion type
+import { PayeeSuggestion, StandingOrder } from '@/types/supabase'; // Import PayeeSuggestion type
 import { majorCurrencies } from '@/schemas/paymentRequestSchema'; // NEW IMPORT
-import { PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react'; // Import icons
+import { PlusCircle, MinusCircle, DollarSign, Search, AlertTriangle } from 'lucide-react'; // Import icons
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,9 +24,11 @@ import PrefixedInput from '@/components/PrefixedInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import FileInput from '@/components/FileInput';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'; // Import Dialog components
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'; // Import Dialog components
 import { Separator } from '@/components/ui/separator'; // Import Separator
 import PropertyAddressField from '@/components/PropertyAddressField';
+import { formatAmount } from '@/components/economic/EconomicDetailDialog';
+import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
 // Helper function to format UK account number for display
 const formatUkAccountNumber = (raw: string | undefined | null): string => {
@@ -214,6 +216,11 @@ const NewPaymentRequest = () => {
   const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
   const [isSearchingSupplier, setIsSearchingSupplier] = useState(false);
 
+  // States for duplicate check
+  const [isDuplicateWarningOpen, setIsDuplicateWarningOpen] = useState(false);
+  const [duplicateStandingOrderData, setDuplicateStandingOrderData] = useState<StandingOrder | null>(null);
+  const [pendingSubmissionValues, setPendingSubmissionValues] = useState<z.infer<typeof formSchema> | null>(null);
+
   const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
   const initialCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
 
@@ -390,15 +397,42 @@ const NewPaymentRequest = () => {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    // --- START DEBUG LOGS ---
-    console.log("--- NewPaymentRequest Submission Debug ---");
-    console.log("Logged-in User ID (auth.uid()):", user?.id);
-    console.log("User Profile Country (from SessionContext):", userProfile?.country);
-    console.log("Form Submitted Country (values.country):", values.country);
-    console.log("Form Submitted Requester ID (user.id):", user?.id);
-    console.log("-----------------------------------------");
-    // --- END DEBUG LOGS ---
+    // Check for "950 - Rent" category
+    const hasRentCategory = values.categories.some(c => c.category === '950_rent');
+    
+    if (hasRentCategory && values.sku_number && !values.not_sku_related) {
+      const toastId = showLoading("Checking for duplicate standing orders...");
+      try {
+        // Query standing_orders for matching SKU, Active status, and '950_rent' in categories JSONB
+        const { data: duplicateOrders, error: checkError } = await supabase
+          .from('standing_orders')
+          .select('*')
+          .eq('sku', values.sku_number)
+          .eq('status', 'active')
+          .contains('categories', JSON.stringify([{ category: '950_rent' }])); // Check if array contains the rent category object
 
+        if (checkError) {
+          console.error("Error checking for duplicates:", checkError);
+          // Proceed with submission if check fails, or handle error? Let's proceed but warn in console.
+        } else if (duplicateOrders && duplicateOrders.length > 0) {
+          // Found duplicate!
+          dismissToast(toastId);
+          setDuplicateStandingOrderData(duplicateOrders[0]);
+          setPendingSubmissionValues(values);
+          setIsDuplicateWarningOpen(true);
+          return; // Stop submission until confirmed
+        }
+      } catch (e) {
+        console.error("Exception checking for duplicates:", e);
+      }
+      dismissToast(toastId);
+    }
+
+    // If no duplicate or check skipped, proceed to actual submission
+    await processSubmission(values);
+  };
+
+  const processSubmission = async (values: z.infer<typeof formSchema>) => {
     const toastId = showLoading("Creating payment request...");
 
     try {
@@ -509,6 +543,13 @@ const NewPaymentRequest = () => {
       dismissToast(toastId);
       showError(error.message || "An unexpected error occurred.");
       console.error("Error creating payment request:", error);
+    }
+  };
+
+  const handleConfirmDuplicate = () => {
+    if (pendingSubmissionValues) {
+      setIsDuplicateWarningOpen(false);
+      processSubmission(pendingSubmissionValues);
     }
   };
 
@@ -1023,6 +1064,36 @@ const NewPaymentRequest = () => {
               </Button>
             </form>
           </Form>
+
+          {/* Duplicate Standing Order Warning Dialog */}
+          <AlertDialog open={isDuplicateWarningOpen} onOpenChange={setIsDuplicateWarningOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center text-amber-600">
+                  <AlertTriangle className="mr-2 h-6 w-6" /> Duplicate Warning
+                </AlertDialogTitle>
+                <AlertDialogDescription className="space-y-3 pt-2">
+                  <p className="font-semibold text-gray-900">
+                    There is an active standing order in place for this SKU with the "Rent" category.
+                  </p>
+                  {duplicateStandingOrderData && (
+                    <div className="bg-amber-50 p-3 rounded border border-amber-200 text-sm">
+                      <p><strong>Payee:</strong> {duplicateStandingOrderData.payee}</p>
+                      <p><strong>Amount:</strong> {formatAmount(duplicateStandingOrderData.total_amount)} {duplicateStandingOrderData.currency || ''}</p>
+                      <p><strong>Start Date:</strong> {new Date(duplicateStandingOrderData.payment_date).toLocaleDateString()}</p>
+                    </div>
+                  )}
+                  <p>Do you still wish to submit this payment request?</p>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setIsDuplicateWarningOpen(false)}>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleConfirmDuplicate} className="bg-amber-600 hover:bg-amber-700">
+                  Yes, Submit Anyway
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Supplier Suggestions Dialog */}
           <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
