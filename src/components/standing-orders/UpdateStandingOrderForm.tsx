@@ -471,10 +471,10 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </>
         )}
 
-        <Button type="submit" className="w-full">Create Standing Order</Button>
+        <Button type="submit" className="w-full">Update Standing Order</Button>
       </form>
     </Form>
   );
 };
 
-export default AddStandingOrderForm;
+export default UpdateStandingOrderForm;

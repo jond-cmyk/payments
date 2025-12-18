@@ -283,7 +283,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               <FormItem>
                 <FormLabel className="font-semibold">SKU</FormLabel>
                 <FormControl>
-                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notPropertyRelated || !canEditFields} />
+                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notPropertyRelated || !canEditFields} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -400,9 +400,11 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                       </FormControl>
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
-                      <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
-                      <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
+                      {Array.from(["UBS - CHF", "UBS - EUR", "UBS - DKK"]).map((account) => (
+                        <SelectItem key={account} value={account}>
+                          {account}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />

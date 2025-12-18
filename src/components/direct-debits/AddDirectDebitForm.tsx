@@ -418,9 +418,11 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
                     </FormControl>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="UBS - CHF">UBS - CHF</SelectItem>
-                    <SelectItem value="UBS - EUR">UBS - EUR</SelectItem>
-                    <SelectItem value="UBS - DKK">UBS - DKK</SelectItem>
+                    {Array.from(["UBS - CHF", "UBS - EUR", "UBS - DKK"]).map((account) => (
+                      <SelectItem key={account} value={account}>
+                        {account}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />

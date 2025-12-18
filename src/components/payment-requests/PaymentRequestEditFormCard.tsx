@@ -4,7 +4,7 @@ import React from 'react';
 import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { PaymentRequest, PaymentRequestCategoryItem } from '@/types/supabase'; // Import category item type
+import { PaymentRequest, PaymentRequestCategoryItem } from '@/types/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,7 +20,7 @@ import { EditFormSchema, editFormSchema } from '@/schemas/paymentRequestSchema';
 import { useSession } from '@/integrations/supabase/SessionContext';
 import { categoryOptions } from '@/lib/constants';
 import { PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react';
-import { showError } from '@/utils/toast'; // Import toast helpers
+import { showError } from '@/utils/toast';
 import { Separator } from '@/components/ui/separator';
 
 interface PaymentRequestEditFormCardProps {
@@ -48,7 +48,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
       iban_number: request.iban_number || '',
       sort_code: request.sort_code || '',
       account_number: request.account_number || '',
-      bank_account_name: request.bank_account_name || '', // Map bank_account_name
+      bank_account_name: request.bank_account_name || '',
       currency: request.currency || (request.country === 'United Kingdom' ? 'GBP' : 'CHF'),
       total_amount: request.total_amount,
       notes: request.reason_for_payment || '',
@@ -56,9 +56,9 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
       receipt_required: request.receipt_required || false,
       is_urgent: request.is_urgent || false,
       country: request.country,
-      categories: formattedCategories as any, // Cast to any to bypass strict type check for form default
-      bank_details_verified: request.bank_details_verified || false, // Default to true if not present, assuming legacy data was verified? Or false. Let's stick to current value.
-      invoice_pdf: undefined, // File inputs are uncontrolled, so undefined
+      categories: formattedCategories as any,
+      bank_details_verified: request.bank_details_verified || false,
+      invoice_pdf: undefined,
     },
   });
 
@@ -82,7 +82,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
       return sum + parsedAmount;
     }, 0);
     if (form.getValues('total_amount') !== newTotal) {
-      form.setValue("total_amount", newTotal); // Update without triggering validation immediately loop
+      form.setValue("total_amount", newTotal);
     }
   }, [watchedCategories, form]);
 
@@ -107,7 +107,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Country</FormLabel>
-                   <Select onValueChange={field.onChange} value={field.value} disabled={true}> {/* Disabled in Edit mode usually, or based on logic */}
+                   <Select onValueChange={field.onChange} value={field.value} disabled={true}>
                       <SelectTrigger>
                         <FormControl>
                           <SelectValue placeholder="Select country" />
@@ -527,35 +527,39 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       />
                     </FormControl>
                     <div className="space-y-1 leading-none">
-                      <FormLabel>Receipt Required</FormLabel>
+                      <FormLabel>
+                        Payment Receipt Required?
+                      </FormLabel>
+                      <FormDescription>
+                        Check this box if a receipt is required after the payment is made.
+                      </FormDescription>
                     </div>
                   </FormItem>
                 )}
-            />
-            
-            <FormField
-              control={form.control}
-              name="is_urgent"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-red-50 border-red-200">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isDisabled}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel className="text-red-700">
-                      Mark as Urgent
-                    </FormLabel>
-                    <FormDescription>
-                      Check this box if this payment request is urgent and requires immediate attention.
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
+              />
+              <FormField
+                control={form.control}
+                name="is_urgent"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-red-50 border-red-200">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={isDisabled}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel className="text-red-700">
+                        Mark as Urgent
+                      </FormLabel>
+                      <FormDescription>
+                        Check this box if this payment request is urgent and requires immediate attention.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
           </form>
         </Form>
       </CardContent>
