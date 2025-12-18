@@ -750,14 +750,6 @@ const NewPaymentRequest = () => {
                           <Input
                             placeholder="e.g., 12-34-56"
                             {...field}
-                            onChange={(e) => {
-                              let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-                              if (value.length > 6) value = value.substring(0, 6); // Max 6 digits
-                              if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
-                              else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
-                              field.onChange(value);
-                            }}
-                            // Removed disabled prop entirely
                           />
                         </FormControl>
                         <FormDescription>
@@ -777,7 +769,6 @@ const NewPaymentRequest = () => {
                           <Input
                             placeholder="e.g., 1234 5678"
                             {...field}
-                            // Removed disabled prop entirely to ensure field is editable
                           />
                         </FormControl>
                         <FormDescription>
@@ -797,7 +788,6 @@ const NewPaymentRequest = () => {
                           <Input 
                             placeholder="e.g., John Doe" 
                             {...field} 
-                            // Removed disabled prop entirely
                           />
                         </FormControl>
                         <FormDescription>
