@@ -770,7 +770,6 @@ const NewPaymentRequest = () => {
                               else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                               field.onChange(value);
                             }}
-                            disabled={form.formState.isSubmitting}
                           />
                         </FormControl>
                         <FormDescription>
@@ -784,8 +783,6 @@ const NewPaymentRequest = () => {
                     control={form.control}
                     name="account_number"
                     render={({ field }) => {
-                      console.log(`[NewPaymentRequest] Account Number field.value: "${field.value}"`);
-                      console.log(`[NewPaymentRequest] User Role: ${userProfile?.role}, isAdmin: ${userProfile?.role === 'admin'}, isSubmitting: ${form.formState.isSubmitting}`);
                       return (
                         <FormItem>
                           <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
@@ -793,7 +790,6 @@ const NewPaymentRequest = () => {
                             <Input
                               placeholder="e.g., 1234 5678"
                               {...field}
-                              disabled={form.formState.isSubmitting}
                             />
                           </FormControl>
                           <FormDescription>
@@ -814,7 +810,6 @@ const NewPaymentRequest = () => {
                           <Input 
                             placeholder="e.g., John Doe" 
                             {...field} 
-                            disabled={form.formState.isSubmitting}
                           />
                         </FormControl>
                         <FormDescription>
@@ -838,7 +833,6 @@ const NewPaymentRequest = () => {
                             <Input 
                               placeholder="e.g., John Doe" 
                               {...field} 
-                              disabled={form.formState.isSubmitting}
                             />
                           </FormControl>
                           <FormDescription>
@@ -859,7 +853,6 @@ const NewPaymentRequest = () => {
                           <Input 
                             placeholder="e.g., CH9300762011623852957" 
                             {...field} 
-                            disabled={form.formState.isSubmitting}
                           />
                         </FormControl>
                         <FormMessage />

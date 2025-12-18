@@ -360,7 +360,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                                 else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                                 field.onChange(value);
                             }}
-                            disabled={isDisabled}
+                            disabled={isDisabled && !isAdmin}
                           />
                         </FormControl>
                         <FormMessage />
@@ -371,15 +371,13 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     control={form.control}
                     name="account_number"
                     render={({ field }) => {
-                      console.log(`[PaymentRequestEditFormCard] Account Number field.value: "${field.value}"`);
-                      console.log(`[PaymentRequestEditFormCard] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, Request Status: ${request.status}, isSubmitting: ${form.formState.isSubmitting}, isDisabled: ${isDisabled}`);
                       return (
                         <FormItem>
                           <FormLabel>Account Number</FormLabel>
                           <FormControl>
                             <Input 
                               {...field} 
-                              disabled={isDisabled}
+                              disabled={isDisabled && !isAdmin}
                             />
                           </FormControl>
                           <FormMessage />
@@ -396,7 +394,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            disabled={isDisabled}
+                            disabled={isDisabled && !isAdmin}
                           />
                         </FormControl>
                         <FormMessage />
