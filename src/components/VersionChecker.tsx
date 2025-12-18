@@ -18,8 +18,14 @@ const VersionChecker = () => {
         });
 
         if (!response.ok) {
-          console.error('Could not fetch version.json');
+          console.error('Could not fetch version.json. Status:', response.status);
           return;
+        }
+
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.warn('Version check: Expected JSON, but received content type:', contentType);
+          return; // Skip if not JSON
         }
 
         const data = await response.json();

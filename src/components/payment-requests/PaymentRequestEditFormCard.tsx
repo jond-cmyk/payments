@@ -370,22 +370,18 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => {
-                      console.log(`[PaymentRequestEditFormCard] Account Number field.value: "${field.value}"`);
-                      console.log(`[PaymentRequestEditFormCard] Account Number disabled state: ${isDisabled}`);
-                      return (
-                        <FormItem>
-                          <FormLabel>Account Number</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              disabled={isDisabled}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            disabled={isDisabled}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                   <FormField
                     control={form.control}

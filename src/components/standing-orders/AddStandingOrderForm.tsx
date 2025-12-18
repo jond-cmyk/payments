@@ -82,8 +82,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
   const initialCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
 
-  console.log("[AddStandingOrderForm] User Role:", userProfile?.role, "isAdmin:", isAdmin);
-
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {

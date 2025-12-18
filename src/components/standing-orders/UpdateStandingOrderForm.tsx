@@ -55,10 +55,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const { userProfile } = useSession();
   const isAdmin = userProfile?.role === 'admin';
   
-  // Log isAdmin status
-  console.log("[UpdateStandingOrderForm] User Role:", userProfile?.role, "isAdmin:", isAdmin);
-  console.log("[UpdateStandingOrderForm] Initial standingOrder.account_number:", standingOrder.account_number);
-
   // Format existing categories for the form
   const formattedCategories = standingOrder.categories && standingOrder.categories.length > 0
     ? standingOrder.categories
@@ -287,7 +283,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                         <SelectTrigger>
                         <FormControl>
                             <SelectValue placeholder="Select currency" />
-                        </FormControl>
+                            </FormControl>
                         </SelectTrigger>
                         <SelectContent>
                         <SelectItem value="CHF">CHF</SelectItem>
@@ -475,10 +471,10 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </>
         )}
 
-        <Button type="submit" className="w-full">Update Standing Order</Button>
+        <Button type="submit" className="w-full">Create Standing Order</Button>
       </form>
     </Form>
   );
 };
 
-export default UpdateStandingOrderForm;
+export default AddStandingOrderForm;
