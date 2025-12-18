@@ -165,7 +165,8 @@ export type StandingOrder = {
   payee: string;
   payment_date: string;
   payment_end_date?: string | null;
-  agreement_end_date?: string | null; // NEW: Added field
+  agreement_end_date?: string | null;
+  agreement_end_date_checked?: boolean; // NEW: Added field
   sku: string | null;
   not_property_related: boolean;
   categories: StandingOrderCategoryItem[];
