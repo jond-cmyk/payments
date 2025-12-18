@@ -217,38 +217,45 @@ const StandingOrderDetail = () => {
       return data;
     },
     onSuccess: async (data) => {
-      let newDate = null;
-      let shouldUpdate = false;
+      let newDate: string | null = null;
+      let dataReceived = false;
 
       if (data.endDate) {
         newDate = data.endDate;
-        shouldUpdate = true;
+        dataReceived = true;
       } else if (data.isExplicitlyEmpty) {
         newDate = null;
-        shouldUpdate = true;
+        dataReceived = true;
       }
 
-      if (shouldUpdate) {
-        // Update date AND uncheck verified status
-        const { error } = await supabase
-          .from('standing_orders')
-          .update({ 
-            agreement_end_date: newDate,
-            agreement_end_date_checked: false, // Reset checked status on change
-            agreement_end_date_checked_at: null,
-            agreement_end_date_checked_by: null,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', id);
-          
-        if (error) throw error;
-        
-        queryClient.invalidateQueries({ queryKey: ['standingOrder', id] });
-        queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
-        
-        const dateText = newDate ? newDate : "No Date (Cleared)";
-        await addCommentMutation.mutateAsync(`Auto-updated Agreement End Date to ${dateText} from external system check.`);
-        showSuccess(`Updated Agreement End Date to ${dateText}. Verification reset.`);
+      if (dataReceived) {
+        // Get current date from state to compare
+        const currentDate = standingOrder?.agreement_end_date || null;
+
+        // Only update if the date has actually changed
+        if (newDate !== currentDate) {
+            const { error } = await supabase
+            .from('standing_orders')
+            .update({ 
+                agreement_end_date: newDate,
+                agreement_end_date_checked: false, // Reset checked status ONLY on change
+                agreement_end_date_checked_at: null,
+                agreement_end_date_checked_by: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', id);
+            
+            if (error) throw error;
+            
+            queryClient.invalidateQueries({ queryKey: ['standingOrder', id] });
+            queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+            
+            const dateText = newDate ? newDate : "No Date (Cleared)";
+            await addCommentMutation.mutateAsync(`Auto-updated Agreement End Date to ${dateText} from external system check.`);
+            showSuccess(`Updated Agreement End Date to ${dateText}. Verification reset.`);
+        } else {
+            showSuccess("Synced with external system. Date is already up to date.");
+        }
       } else {
         if (data.url) {
             toast.info(data.message || "Could not extract end date.", {
