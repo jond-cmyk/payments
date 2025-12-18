@@ -84,9 +84,7 @@ serve(async (req) => {
     
     if (!productLinkMatch) {
         console.log(`[fetch-contract-end-date] Product ID not found in search results for ${sku}.`);
-        
         const skuFound = searchHtml.includes(sku);
-        
         return new Response(JSON.stringify({ 
             endDate: null, 
             message: `Search for ${sku} returned no edit links.${!skuFound ? " SKU text not found in results." : ""}` 
@@ -101,36 +99,57 @@ serve(async (req) => {
     const editRes = await fetch(editUrl, { headers });
     const editHtml = await editRes.text();
 
-    // 4. PARSE DATE STEP
-    // Looking for input with name="end_date"
+    // 4. PARSE DATE STEP (Robust Two-Step Method)
+    
+    // Find the input tag that definitely contains name="end_date"
     // Regex explanation:
-    // 1. name="end_date" ... value="..."
-    // 2. value="..." ... name="end_date"
-    
-    let dateStr = null;
-    
-    const match1 = editHtml.match(/name="end_date"[^>]*value="([^"]+)"/i);
-    if (match1) {
-        dateStr = match1[1];
-    } else {
-        const match2 = editHtml.match(/value="([^"]+)"[^>]*name="end_date"/i);
-        if (match2) {
-            dateStr = match2[1];
-        }
-    }
+    // <input       : match literal '<input'
+    // [^>]*        : match any char except '>' (attributes before name)
+    // name="end_date" : match the name attribute (we allow double quotes)
+    // [^>]*        : match any char except '>' (attributes after name)
+    // >            : match closing bracket
+    const inputTagRegex = /<input[^>]*name="end_date"[^>]*>/i;
+    const inputTagMatch = editHtml.match(inputTagRegex);
 
-    if (!dateStr) {
-         console.log(`[fetch-contract-end-date] Date field 'end_date' not found on page ${productId}.`);
+    if (!inputTagMatch) {
+         // DEBUG: If we can't find the tag, grab context around "Agreements" to see what's there
+         const agreementIndex = editHtml.indexOf('Agreements');
+         const debugSnippet = agreementIndex !== -1 
+            ? editHtml.substring(agreementIndex, agreementIndex + 500).replace(/</g, '&lt;') 
+            : "Agreements header not found";
+
+         console.log(`[fetch-contract-end-date] Input tag 'end_date' not found on page ${productId}.`);
          return new Response(JSON.stringify({ 
             endDate: null, 
-            message: "Product found, but 'End Date' field is empty or missing." 
+            message: "Product found, but 'end_date' input tag is missing. Debug info: " + debugSnippet
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const inputTag = inputTagMatch[0];
+    console.log(`[fetch-contract-end-date] Found input tag: ${inputTag}`);
+
+    // Extract value attribute
+    // We allow single or double quotes
+    const valueMatch = inputTag.match(/value=["']([^"']+)["']/i);
+
+    if (!valueMatch) {
+        return new Response(JSON.stringify({ 
+            endDate: null, 
+            message: `Found 'end_date' input, but 'value' attribute is missing. Tag: ${inputTag}` 
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    let dateStr = valueMatch[1];
+    console.log(`[fetch-contract-end-date] Raw date string found: ${dateStr}`);
+
+    if (!dateStr || dateStr.trim() === '') {
+        return new Response(JSON.stringify({ 
+            endDate: null, 
+            message: "Found 'end_date' input, but value is empty." 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // 5. FORMAT DATE
-    // Expected format from portal: dd/mm/yyyy (e.g. 31/12/2025)
-    // Desired format for DB: yyyy-mm-dd (e.g. 2025-12-31)
-    
     let endDate = dateStr;
     const ddmmyyyyRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
     const dateMatch = dateStr.match(ddmmyyyyRegex);
@@ -140,9 +159,8 @@ serve(async (req) => {
         // match[1] = dd, match[2] = mm, match[3] = yyyy
         endDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
     } else {
-        // Fallback: check if it's already YYYY-MM-DD
+        // Check if it's already YYYY-MM-DD
         if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-             console.log(`[fetch-contract-end-date] Found date '${dateStr}' but format is unrecognized.`);
              return new Response(JSON.stringify({ 
                 endDate: null, 
                 message: `Found date '${dateStr}' but could not parse format (expected DD/MM/YYYY).` 
@@ -150,7 +168,7 @@ serve(async (req) => {
         }
     }
 
-    console.log(`[fetch-contract-end-date] 3. Found End Date: ${endDate} (Raw: ${dateStr})`);
+    console.log(`[fetch-contract-end-date] 3. Success! End Date: ${endDate}`);
 
     return new Response(JSON.stringify({ 
       endDate, 
