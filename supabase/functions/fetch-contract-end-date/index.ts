@@ -56,7 +56,6 @@ serve(async (req) => {
     console.log(`[fetch-contract-end-date] 1. Searching for SKU: ${sku} in category 367...`);
 
     // 1. SEARCH STEP
-    // We filter by KassoeThemeProducts__sku on category 367
     const searchUrl = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/367?Filter[KassoeThemeProducts__sku]=${encodeURIComponent(sku)}`;
     
     const searchRes = await fetch(searchUrl, { headers });
@@ -73,7 +72,6 @@ serve(async (req) => {
     
     const searchHtml = await searchRes.text();
 
-    // Check if login page was returned (sometimes status is 200 even for login page)
     if (searchHtml.includes('name="login"') || searchHtml.includes('class="login"')) {
         return new Response(JSON.stringify({ 
             endDate: null, 
@@ -82,14 +80,11 @@ serve(async (req) => {
     }
 
     // 2. PARSE ID STEP
-    // We look for an edit link. Typically /admin/kassoe-theme/products/edit/{ID}
-    // We use a flexible regex that looks for 'products/edit/' followed by digits.
     const productLinkMatch = searchHtml.match(/href="[^"]*\/products\/edit\/(\d+)[^"]*"/);
     
     if (!productLinkMatch) {
         console.log(`[fetch-contract-end-date] Product ID not found in search results for ${sku}.`);
         
-        // Check if the SKU text is even present in the HTML
         const skuFound = searchHtml.includes(sku);
         
         return new Response(JSON.stringify({ 
@@ -107,22 +102,55 @@ serve(async (req) => {
     const editHtml = await editRes.text();
 
     // 4. PARSE DATE STEP
-    // We try to match the Agreement End Date field. 
-    // We look for 'agreement_end_date' or 'contract_end_date' input with a value.
-    const dateMatch = editHtml.match(/name="[^"]*agreement_end_date[^"]*"\s+value="(\d{4}-\d{2}-\d{2})"/i)
-                   || editHtml.match(/name="[^"]*contract_end_date[^"]*"\s+value="(\d{4}-\d{2}-\d{2})"/i)
-                   || editHtml.match(/value="(\d{4}-\d{2}-\d{2})"[^>]*name="[^"]*agreement_end_date[^"]*"/i);
+    // Looking for input with name="end_date"
+    // Regex explanation:
+    // 1. name="end_date" ... value="..."
+    // 2. value="..." ... name="end_date"
+    
+    let dateStr = null;
+    
+    const match1 = editHtml.match(/name="end_date"[^>]*value="([^"]+)"/i);
+    if (match1) {
+        dateStr = match1[1];
+    } else {
+        const match2 = editHtml.match(/value="([^"]+)"[^>]*name="end_date"/i);
+        if (match2) {
+            dateStr = match2[1];
+        }
+    }
 
-    if (!dateMatch) {
-         console.log(`[fetch-contract-end-date] Date field not found on page ${productId}.`);
+    if (!dateStr) {
+         console.log(`[fetch-contract-end-date] Date field 'end_date' not found on page ${productId}.`);
          return new Response(JSON.stringify({ 
             endDate: null, 
-            message: "Product found, but 'Agreement End Date' field is empty or missing." 
+            message: "Product found, but 'End Date' field is empty or missing." 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    const endDate = dateMatch[1];
-    console.log(`[fetch-contract-end-date] 3. Found End Date: ${endDate}`);
+    // 5. FORMAT DATE
+    // Expected format from portal: dd/mm/yyyy (e.g. 31/12/2025)
+    // Desired format for DB: yyyy-mm-dd (e.g. 2025-12-31)
+    
+    let endDate = dateStr;
+    const ddmmyyyyRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    const dateMatch = dateStr.match(ddmmyyyyRegex);
+
+    if (dateMatch) {
+        // Reformat from dd/mm/yyyy to yyyy-mm-dd
+        // match[1] = dd, match[2] = mm, match[3] = yyyy
+        endDate = `${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`;
+    } else {
+        // Fallback: check if it's already YYYY-MM-DD
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+             console.log(`[fetch-contract-end-date] Found date '${dateStr}' but format is unrecognized.`);
+             return new Response(JSON.stringify({ 
+                endDate: null, 
+                message: `Found date '${dateStr}' but could not parse format (expected DD/MM/YYYY).` 
+            }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
+    }
+
+    console.log(`[fetch-contract-end-date] 3. Found End Date: ${endDate} (Raw: ${dateStr})`);
 
     return new Response(JSON.stringify({ 
       endDate, 
