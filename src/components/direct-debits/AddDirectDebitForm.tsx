@@ -115,6 +115,9 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
   const { currentCountry, availableCountries, isCountryLocked } = useCountry();
 
   const initialCountry = currentCountry === 'all' ? 'Switzerland' : currentCountry;
+  const isAdmin = userProfile?.role === 'admin';
+
+  console.log("[AddDirectDebitForm] User Role:", userProfile?.role, "isAdmin:", isAdmin);
 
   const form = useForm<z.infer<typeof addDirectDebitFormSchema>>({
     resolver: zodResolver(addDirectDebitFormSchema),
@@ -137,7 +140,6 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
   const skuValue = form.watch("sku");
-  const isAdmin = userProfile?.role === 'admin';
 
   React.useEffect(() => {
     const newSkuPrefix = formCountry === 'United Kingdom' ? 'UK' : 'CH';
@@ -431,15 +433,20 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         <FormField
           control={form.control}
           name="account_number"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., 1234567890" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
+          render={({ field }) => {
+            const currentDisabledState = !isAdmin; // Simplified for testing
+            console.log(`[AddDirectDebitForm] Account Number field.value: "${field.value}"`);
+            console.log(`[AddDirectDebitForm] Account Number disabled state: ${currentDisabledState}`);
+            return (
+              <FormItem>
+                <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., 1234567890" {...field} disabled={currentDisabledState} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            );
+          }}
         />
         <FormField
           control={form.control}

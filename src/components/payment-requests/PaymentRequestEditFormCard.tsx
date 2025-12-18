@@ -370,18 +370,22 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Account Number</FormLabel>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            disabled={isDisabled}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      console.log(`[PaymentRequestEditFormCard] Account Number field.value: "${field.value}"`);
+                      console.log(`[PaymentRequestEditFormCard] Account Number disabled state: ${isDisabled}`);
+                      return (
+                        <FormItem>
+                          <FormLabel>Account Number</FormLabel>
+                          <FormControl>
+                            <Input 
+                              {...field} 
+                              disabled={isDisabled}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                   <FormField
                     control={form.control}
@@ -546,7 +550,12 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel className="text-red-700">Mark as Urgent</FormLabel>
+                    <FormLabel className="text-red-700">
+                      Mark as Urgent
+                    </FormLabel>
+                    <FormDescription>
+                      Check this box if this payment request is urgent and requires immediate attention.
+                    </FormDescription>
                   </div>
                 </FormItem>
               )}

@@ -55,6 +55,10 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const { userProfile } = useSession();
   const isAdmin = userProfile?.role === 'admin';
   
+  // Log isAdmin status
+  console.log("[UpdateStandingOrderForm] User Role:", userProfile?.role, "isAdmin:", isAdmin);
+  console.log("[UpdateStandingOrderForm] Initial standingOrder.account_number:", standingOrder.account_number);
+
   // Format existing categories for the form
   const formattedCategories = standingOrder.categories && standingOrder.categories.length > 0
     ? standingOrder.categories

@@ -107,6 +107,13 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   const { user, userProfile } = useSession();
   const { availableCountries } = useCountry();
 
+  const isAdmin = userProfile?.role === 'admin';
+  const isRequesterRole = userProfile?.role === 'requester'; // Check if user is any requester
+  const canEditFields = isAdmin || isRequesterRole; // Admin OR any requester can edit fields
+
+  console.log("[EditDirectDebitForm] User Role:", userProfile?.role, "isAdmin:", isAdmin, "canEditFields:", canEditFields);
+  console.log("[EditDirectDebitForm] Initial directDebit.account_number:", directDebit.account_number);
+
   const form = useForm<z.infer<typeof editDirectDebitFormSchema>>({
     resolver: zodResolver(editDirectDebitFormSchema),
     defaultValues: {
@@ -128,9 +135,6 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   const notPropertyRelated = form.watch("not_property_related");
   const formCountry = form.watch("country");
   const skuValue = form.watch("sku");
-  const isAdmin = userProfile?.role === 'admin';
-  const isRequesterRole = userProfile?.role === 'requester'; // Check if user is any requester
-  const canEditFields = isAdmin || isRequesterRole; // Admin OR any requester can edit fields
 
   const onSubmit = async (values: z.infer<typeof editDirectDebitFormSchema>) => {
     const toastId = showLoading("Updating direct debit...");
@@ -236,7 +240,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   <Input 
                     placeholder="e.g., Electricity Company" 
                     {...field} 
-                    disabled={form.formState.isSubmitting || !canEditFields}
+                    disabled={!canEditFields} // Simplified for testing
                   />
                 </FormControl>
                 <FormMessage />
@@ -257,7 +261,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   <Select
                     onValueChange={(val) => field.onChange(Number(val))}
                     value={field.value !== undefined ? String(field.value) : undefined}
-                    disabled={form.formState.isSubmitting || !canEditFields}
+                    disabled={!canEditFields} // Simplified for testing
                   >
                     <SelectTrigger id={field.name}>
                       <SelectValue placeholder="Select day (1–31)" />
@@ -298,7 +302,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   <Checkbox
                     checked={field.value}
                     onCheckedChange={field.onChange}
-                    disabled={!canEditFields}
+                    disabled={!canEditFields} // Simplified for testing
                   />
                 </FormControl>
                 <div className="space-y-1 leading-none">
@@ -325,7 +329,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                     value={field.value}
                     onChange={field.onChange}
                     placeholder="Select categories..."
-                    disabled={!canEditFields}
+                    disabled={!canEditFields} // Simplified for testing
                   />
                 </FormControl>
                 <FormMessage />
@@ -345,7 +349,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                     step="0.01" 
                     placeholder="0.00" 
                     {...field}
-                    disabled={!canEditFields}
+                    disabled={!canEditFields} // Simplified for testing
                   />
                 </FormControl>
                 <FormMessage />
@@ -360,7 +364,7 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!isAdmin}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
                     <SelectTrigger id={field.name}>
                       <FormControl>
                         <SelectValue placeholder="Select a currency" />
@@ -406,65 +410,70 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
                   </Select>
                   <FormMessage />
                 </FormItem>
-              )}
-            />
-          )}
-          <FormField
-            control={form.control}
-            name="account_number"
-            render={({ field }) => (
+            )}
+          />
+        )}
+        <FormField
+          control={form.control}
+          name="account_number"
+          render={({ field }) => {
+            const currentDisabledState = !canEditFields; // Simplified for testing
+            console.log(`[EditDirectDebitForm] Account Number field.value: "${field.value}"`);
+            console.log(`[EditDirectDebitForm] Account Number disabled state: ${currentDisabledState}`);
+            return (
               <FormItem>
                 <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                 <FormControl>
-                  <Input placeholder="e.g., 1234567890" {...field} disabled={form.formState.isSubmitting || !canEditFields} />
+                  <Input placeholder="e.g., 1234567890" {...field} disabled={currentDisabledState} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="payment_reference"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-semibold">Payment Reference</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., DD-12345" {...field} disabled={!canEditFields} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="status"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
-                  <SelectTrigger id={field.name}>
-                    <FormControl>
-                      <SelectValue placeholder="Select status" />
-                    </FormControl>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                    <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormDescription>
+            );
+          }}
+        />
+        <FormField
+          control={form.control}
+          name="payment_reference"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Payment Reference</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., DD-12345" {...field} disabled={!canEditFields} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="status"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Status<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!isAdmin}>
+                <SelectTrigger id={field.name}>
+                  <FormControl>
+                    <SelectValue placeholder="Select status" />
+                  </FormControl>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="awaiting_info">Awaiting Info</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormDescription>
                   Only administrators can change the status.
                 </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          
-          <Button type="submit" className="w-full" disabled={form.formState.isSubmitting || !canEditFields}>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <Button type="submit" className="w-full" disabled={!canEditFields}>
             <Edit className="mr-2 h-4 w-4" />
-            {form.formState.isSubmitting ? "Saving Changes..." : "Save Changes"}
+            Save Changes
           </Button>
         </form>
       </Form>

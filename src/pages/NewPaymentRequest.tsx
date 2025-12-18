@@ -637,7 +637,7 @@ const NewPaymentRequest = () => {
                     <FormItem>
                       <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <SelectTrigger>
+                        <SelectTrigger id={field.name}>
                           <FormControl>
                             <SelectValue placeholder="Select a currency" />
                           </FormControl>
