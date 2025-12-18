@@ -140,7 +140,6 @@ serve(async (req) => {
                     break; 
                 } else if (val === "") {
                     // Critical: If the targeted field is empty, STOP.
-                    // This prevents finding "Terminated Date" or other dates later in the doc.
                     console.log(`[fetch-contract-end-date] Found target field '${nameMatch[0]}' but value is empty.`);
                     extractionMethod = "Empty Target Field";
                     break;
@@ -150,7 +149,6 @@ serve(async (req) => {
     }
 
     // Strategy 2: JSON/Script Variable Assignment (Strict)
-    // Only run if we haven't definitively found (or found empty) the field
     if (!dateStr && extractionMethod !== "Empty Target Field") {
         const jsonPatterns = [
             new RegExp(`["'](?:end_date|slutdato)["']\\s*:\\s*["'](${dateRegexStr})["']`, 'i'), 
@@ -168,13 +166,12 @@ serve(async (req) => {
         }
     }
 
-    // REMOVED: Loose "Proximity" strategies that scanned for any date near a label.
-    // This was causing the issue where empty fields were skipped and the next populated date was picked.
-
     if (!dateStr || dateStr.trim() === '') {
+        const isExplicitlyEmpty = extractionMethod === "Empty Target Field";
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `End Date field is empty or not found. (${extractionMethod || 'No match'})`,
+            isExplicitlyEmpty,
+            message: `End Date field is ${isExplicitlyEmpty ? 'explicitly empty' : 'not found'}. (${extractionMethod || 'No match'})`,
             url: editUrl 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
@@ -205,6 +202,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ 
       endDate, 
+      isExplicitlyEmpty: false,
       message: `Agreement End Date synced successfully (${endDate}).` 
     }), {
       status: 200,

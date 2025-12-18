@@ -217,12 +217,23 @@ const StandingOrderDetail = () => {
       return data;
     },
     onSuccess: async (data) => {
+      let newDate = null;
+      let shouldUpdate = false;
+
       if (data.endDate) {
-        // If date changes, uncheck the verified status
+        newDate = data.endDate;
+        shouldUpdate = true;
+      } else if (data.isExplicitlyEmpty) {
+        newDate = null;
+        shouldUpdate = true;
+      }
+
+      if (shouldUpdate) {
+        // Update date AND uncheck verified status
         const { error } = await supabase
           .from('standing_orders')
           .update({ 
-            agreement_end_date: data.endDate,
+            agreement_end_date: newDate,
             agreement_end_date_checked: false, // Reset checked status on change
             agreement_end_date_checked_at: null,
             agreement_end_date_checked_by: null,
@@ -235,8 +246,9 @@ const StandingOrderDetail = () => {
         queryClient.invalidateQueries({ queryKey: ['standingOrder', id] });
         queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
         
-        await addCommentMutation.mutateAsync(`Auto-updated Agreement End Date to ${data.endDate} from external system check.`);
-        showSuccess(`Updated Agreement End Date to ${data.endDate}. Verification reset.`);
+        const dateText = newDate ? newDate : "No Date (Cleared)";
+        await addCommentMutation.mutateAsync(`Auto-updated Agreement End Date to ${dateText} from external system check.`);
+        showSuccess(`Updated Agreement End Date to ${dateText}. Verification reset.`);
       } else {
         if (data.url) {
             toast.info(data.message || "Could not extract end date.", {

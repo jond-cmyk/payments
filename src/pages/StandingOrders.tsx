@@ -288,6 +288,28 @@ const StandingOrders = () => {
     },
   });
 
+  // Toggle Checked Status Mutation
+  const toggleCheckedMutation = useMutation({
+    mutationFn: async ({ id, checked }: { id: string, checked: boolean }) => {
+      const { error } = await supabase
+        .from('standing_orders')
+        .update({ agreement_end_date_checked: checked })
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['standingOrders'] });
+    },
+    onError: (error: any) => {
+      showError(error.message || "Failed to update status.");
+    },
+  });
+
+  const handleToggleChecked = (id: string, currentStatus: boolean | undefined) => {
+    toggleCheckedMutation.mutate({ id, checked: !currentStatus });
+  };
+
   // --- BULK SYNC LOGIC ---
   const handleBulkSync = async () => {
     setIsBulkSyncDialogOpen(true);
@@ -330,18 +352,39 @@ const StandingOrders = () => {
             body: { sku: order.sku },
           });
 
-          if (fnError || !data || !data.endDate) {
+          if (fnError || !data) {
             failedCount++;
           } else {
-            const fetchedDate = data.endDate;
+            // Determine new date value:
+            // - If data.endDate exists, use it.
+            // - If isExplicitlyEmpty is true, use null.
+            // - Otherwise (scraped but no date found, potentially error), use null if we want to be aggressive, but safest to skip? 
+            // - Based on requirement: "if the date is blank... syncing the terminated date... imperative we only have agreement end date"
+            // - And: "its then not making the Agreement End Date field blank... which it should do"
+            
+            let newDate: string | null = null;
+            if (data.endDate) {
+              newDate = data.endDate;
+            } else if (data.isExplicitlyEmpty) {
+              newDate = null;
+            } else {
+              // Failed to extract a date, and it wasn't explicitly empty (e.g. auth failed, or page layout changed unexpectedly)
+              // In this case, we probably shouldn't wipe existing data blindly unless we trust isExplicitlyEmpty.
+              // We'll skip update if we can't determine a result.
+              skippedCount++;
+              setSyncProgress(i + 1);
+              continue;
+            }
+
             const currentDate = order.agreement_end_date;
 
-            if (fetchedDate !== currentDate) {
-              // Date changed -> Update date AND UNCHECK the verified status
+            // Check if value actually changed
+            if (newDate !== currentDate) {
+              // Update date AND uncheck validation box
               await supabase
                 .from('standing_orders')
                 .update({ 
-                  agreement_end_date: fetchedDate,
+                  agreement_end_date: newDate,
                   agreement_end_date_checked: false, // Auto-uncheck on change
                   agreement_end_date_checked_at: null, // Clear timestamp
                   agreement_end_date_checked_by: null, // Clear user
@@ -667,6 +710,8 @@ const StandingOrders = () => {
                     <TableHead className="w-12 th-resizable">
                       <Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleToggleSelectAll(!!checked)} disabled={!isAdmin} />
                     </TableHead>
+                    {/* NEW: Checked Status Column */}
+                    {isAdmin && <TableHead className="w-12 text-center th-resizable">Checked</TableHead>}
                     <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('payee')}>Payee {renderSortIcon('payee')}</TableHead>
                     <TableHead className="cursor-pointer hover:text-primary th-resizable" onClick={() => handleSort('sku')}>SKU {renderSortIcon('sku')}</TableHead>
                     <TableHead className="th-resizable w-[150px]">Property Address</TableHead>
@@ -696,6 +741,14 @@ const StandingOrders = () => {
                         <TableCell>
                           <Checkbox checked={selectedStandingOrderIds.includes(order.id)} onCheckedChange={(checked) => handleToggleSelect(order.id, !!checked)} disabled={!isAdmin} />
                         </TableCell>
+                        {isAdmin && (
+                            <TableCell className="text-center">
+                                <Checkbox 
+                                    checked={order.agreement_end_date_checked || false} 
+                                    onCheckedChange={(checked) => handleToggleChecked(order.id, order.agreement_end_date_checked)}
+                                />
+                            </TableCell>
+                        )}
                         <TableCell className="font-medium">{order.payee}</TableCell>
                         <TableCell>{order.not_property_related ? 'N/A' : (order.sku || 'N/A')}</TableCell>
                         <TableCell>{order.not_property_related ? 'N/A' : getAddressFromSku(order.sku)}</TableCell>
