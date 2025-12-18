@@ -56,17 +56,16 @@ serve(async (req) => {
     console.log(`[fetch-contract-end-date] 1. Searching for SKU: ${sku} in category 367...`);
 
     // 1. SEARCH STEP
-    // Updated to use Category 367 and the 'KassoeThemeProducts__sku' filter format
+    // We filter by KassoeThemeProducts__sku on category 367
     const searchUrl = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/367?Filter[KassoeThemeProducts__sku]=${encodeURIComponent(sku)}`;
     
     const searchRes = await fetch(searchUrl, { headers });
     
     if (!searchRes.ok) {
-        // If we get a redirect (3xx) or 403, the cookie might be invalid
         if (searchRes.status === 403 || searchRes.url.includes('login')) {
              return new Response(JSON.stringify({ 
                 endDate: null, 
-                message: "Authentication failed. Your KASSOE_ADMIN_COOKIE (vmcms) may be expired. Please update it." 
+                message: "Authentication failed. Your KASSOE_ADMIN_COOKIE (vmcms) may be expired." 
             }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         }
         throw new Error(`Failed to search portal. Status: ${searchRes.status}`);
@@ -74,25 +73,28 @@ serve(async (req) => {
     
     const searchHtml = await searchRes.text();
 
+    // Check if login page was returned (sometimes status is 200 even for login page)
+    if (searchHtml.includes('name="login"') || searchHtml.includes('class="login"')) {
+        return new Response(JSON.stringify({ 
+            endDate: null, 
+            message: "Authentication failed (Login page detected). Check your cookie." 
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // 2. PARSE ID STEP
-    // We look for a link to edit a product. 
-    // The link format is typically: /admin/kassoe-theme/products/edit/{ID}
-    const productLinkMatch = searchHtml.match(/href="[^"]*\/admin\/kassoe-theme\/products\/edit\/(\d+)"/);
+    // We look for an edit link. Typically /admin/kassoe-theme/products/edit/{ID}
+    // We use a flexible regex that looks for 'products/edit/' followed by digits.
+    const productLinkMatch = searchHtml.match(/href="[^"]*\/products\/edit\/(\d+)[^"]*"/);
     
     if (!productLinkMatch) {
         console.log(`[fetch-contract-end-date] Product ID not found in search results for ${sku}.`);
         
-        // Safety check for login redirection in HTML content
-        if (searchHtml.includes('name="login"') || searchHtml.includes('class="login"')) {
-             return new Response(JSON.stringify({ 
-                endDate: null, 
-                message: "Authentication failed (Login page detected). Please update your KASSOE_ADMIN_COOKIE secret." 
-            }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
+        // Check if the SKU text is even present in the HTML
+        const skuFound = searchHtml.includes(sku);
         
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: `Could not find product ID for SKU ${sku}. Please ensure the SKU exists in category 367.` 
+            message: `Search for ${sku} returned no edit links.${!skuFound ? " SKU text not found in results." : ""}` 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -106,7 +108,7 @@ serve(async (req) => {
 
     // 4. PARSE DATE STEP
     // We try to match the Agreement End Date field. 
-    // Pattern attempts to find 'agreement_end_date' or 'contract_end_date' input with a value.
+    // We look for 'agreement_end_date' or 'contract_end_date' input with a value.
     const dateMatch = editHtml.match(/name="[^"]*agreement_end_date[^"]*"\s+value="(\d{4}-\d{2}-\d{2})"/i)
                    || editHtml.match(/name="[^"]*contract_end_date[^"]*"\s+value="(\d{4}-\d{2}-\d{2})"/i)
                    || editHtml.match(/value="(\d{4}-\d{2}-\d{2})"[^>]*name="[^"]*agreement_end_date[^"]*"/i);
@@ -115,7 +117,7 @@ serve(async (req) => {
          console.log(`[fetch-contract-end-date] Date field not found on page ${productId}.`);
          return new Response(JSON.stringify({ 
             endDate: null, 
-            message: "Product found, but could not extract 'Agreement End Date' from the page." 
+            message: "Product found, but 'Agreement End Date' field is empty or missing." 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
