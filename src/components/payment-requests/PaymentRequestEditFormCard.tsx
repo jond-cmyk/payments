@@ -376,7 +376,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            disabled={isDisabled}
+                            disabled={!isAdmin && isDisabled}
                           />
                         </FormControl>
                         <FormMessage />

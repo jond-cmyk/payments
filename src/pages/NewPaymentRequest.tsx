@@ -757,6 +757,7 @@ const NewPaymentRequest = () => {
                               else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                               field.onChange(value);
                             }}
+                            disabled={form.formState.isSubmitting} // Standard disabled behavior
                           />
                         </FormControl>
                         <FormDescription>
@@ -776,7 +777,7 @@ const NewPaymentRequest = () => {
                           <Input
                             placeholder="e.g., 1234 5678"
                             {...field}
-                            // Removing disabled prop completely to ensure it's editable
+                            disabled={false} // FORCED ENABLED to override any potential field disabled state
                           />
                         </FormControl>
                         <FormDescription>
@@ -796,6 +797,7 @@ const NewPaymentRequest = () => {
                           <Input 
                             placeholder="e.g., John Doe" 
                             {...field} 
+                            disabled={form.formState.isSubmitting} // Standard disabled behavior
                           />
                         </FormControl>
                         <FormDescription>
@@ -819,6 +821,7 @@ const NewPaymentRequest = () => {
                             <Input 
                               placeholder="e.g., John Doe" 
                               {...field} 
+                              disabled={form.formState.isSubmitting}
                             />
                           </FormControl>
                           <FormDescription>
@@ -839,6 +842,7 @@ const NewPaymentRequest = () => {
                           <Input 
                             placeholder="e.g., CH9300762011623852957" 
                             {...field} 
+                            disabled={form.formState.isSubmitting}
                           />
                         </FormControl>
                         <FormMessage />
