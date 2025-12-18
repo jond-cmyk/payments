@@ -379,11 +379,17 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            value={formatUkAccountNumber(field.value)}
+                            value={field.value ? field.value.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : ''}
                             onChange={(e) => {
-                                let value = e.target.value.replace(/\D/g, '');
-                                if (value.length > 8) value = value.substring(0, 8);
-                                field.onChange(value);
+                              let value = e.target.value.replace(/\D/g, '');
+                              if (value.length > 8) value = value.substring(0, 8);
+                              // Format for display
+                              let formatted = value;
+                              if (value.length > 4) {
+                                  formatted = value.slice(0, 4) + ' ' + value.slice(4);
+                              }
+                              // Store formatted value in state
+                              field.onChange(formatted);
                             }}
                           />
                         </FormControl>

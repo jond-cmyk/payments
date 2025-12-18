@@ -304,6 +304,12 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                 )}
             />
         )}
+        {formCountry === 'United Kingdom' && (
+             <div className="space-y-2">
+                <FormLabel>Currency</FormLabel>
+                <Input value="GBP" disabled className="bg-muted/50" />
+            </div>
+        )}
 
         <FormField
           control={form.control}
@@ -463,11 +469,17 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                              <Input
                                 placeholder="1234 5678"
                                 {...field}
-                                value={formatUkAccountNumber(field.value)}
+                                value={field.value ? field.value.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : ''}
                                 onChange={(e) => {
                                   let value = e.target.value.replace(/\D/g, '');
                                   if (value.length > 8) value = value.substring(0, 8);
-                                  field.onChange(value);
+                                  // Format for display
+                                  let formatted = value;
+                                  if (value.length > 4) {
+                                      formatted = value.slice(0, 4) + ' ' + value.slice(4);
+                                  }
+                                  // Store formatted value in state
+                                  field.onChange(formatted);
                                 }}
                                 disabled={!isAdmin}
                               />
