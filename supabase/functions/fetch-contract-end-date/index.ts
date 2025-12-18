@@ -23,29 +23,59 @@ serve(async (req) => {
 
     console.log(`[fetch-contract-end-date] Checking for SKU: ${sku}`);
 
-    // -------------------------------------------------------------------------
-    // TODO: Implement external fetch logic here
-    // -------------------------------------------------------------------------
-    // The user provided this URL structure: https://portal.kassoehousing.com/admin/kassoe-theme/products/edit/{id}
-    //
-    // Challenge:
-    // 1. The URL uses an ID (e.g., 5987), not the SKU directly.
-    // 2. We need to either map SKU to ID or find a search endpoint.
-    // 3. The page is an admin page, likely requiring authentication/cookies.
-    //
-    // Implementation steps for a developer with credentials:
-    // 1. Authenticate (login) to portal.kassoehousing.com and store session/token.
-    // 2. Use a search endpoint if available (e.g., /admin/kassoe-theme/products/search?sku=...) to get the ID.
-    // 3. Fetch the product edit page or API endpoint for that ID.
-    // 4. Parse the response (HTML or JSON) to extract the 'Agreement End Date' field.
-    // 5. Return the date as 'endDate' in YYYY-MM-DD format.
+    // --- TEST MODE ---
+    // If you type "TEST" as the SKU in the UI, this will simulate a successful find.
+    if (sku.toUpperCase() === 'TEST') {
+      const mockDate = new Date();
+      mockDate.setFullYear(mockDate.getFullYear() + 1); // 1 year from now
+      return new Response(JSON.stringify({ 
+        endDate: mockDate.toISOString().split('T')[0], 
+        message: "Test mode: Simulated date returned." 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // --- REAL IMPLEMENTATION SKELETON ---
+    // Note: This requires a session cookie or API token from your admin portal to work.
+    // You would set this in Supabase -> Settings -> API -> Edge Functions Secrets as 'KASSOE_ADMIN_COOKIE'
     
-    // For now, return null as no integration is configured.
+    // @ts-ignore
+    const adminCookie = Deno.env.get('KASSOE_ADMIN_COOKIE');
+    
+    if (!adminCookie) {
+      return new Response(JSON.stringify({ 
+        endDate: null, 
+        message: "Missing 'KASSOE_ADMIN_COOKIE' secret. Cannot authenticate with portal." 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Example logic:
+    // 1. Search for the Product ID using the SKU
+    // const searchUrl = `https://portal.kassoehousing.com/admin/kassoe-theme/products/search?sku=${sku}`;
+    // const searchRes = await fetch(searchUrl, { headers: { Cookie: adminCookie } });
+    // ... parse ID from response ...
+
+    // 2. Fetch the Product Edit page
+    // const productId = '5987'; // This needs to be found dynamically
+    // const productUrl = `https://portal.kassoehousing.com/admin/kassoe-theme/products/edit/${productId}`;
+    // const productRes = await fetch(productUrl, { headers: { Cookie: adminCookie } });
+    // const html = await productRes.text();
+
+    // 3. Extract the date (Regex or parsing)
+    // const match = html.match(/name="contract_end_date" value="(\d{4}-\d{2}-\d{2})"/);
+    // const endDate = match ? match[1] : null;
+
+    // For now, return null to indicate not found on the real site
     const endDate = null; 
 
     return new Response(JSON.stringify({ 
       endDate, 
-      message: endDate ? "Date found." : "External logic not configured. Please see edge function code for implementation details." 
+      message: endDate ? "Date found." : `Could not find end date for SKU ${sku} (Logic implementation required).` 
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
