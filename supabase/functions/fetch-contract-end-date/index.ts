@@ -127,9 +127,11 @@ serve(async (req) => {
     console.log(`[fetch-contract-end-date] Found input tag: ${inputTag}`);
 
     // Extract value attribute
-    const valueMatch = inputTag.match(/value=["']([^"']+)["']/i);
+    // CHANGE: Changed ([^"']+) to ([^"']*) to allow empty strings
+    const valueMatch = inputTag.match(/value=["']([^"']*)["']/i);
 
     if (!valueMatch) {
+        // If match failed entirely, it means value="" attribute syntax wasn't found at all
         return new Response(JSON.stringify({ 
             endDate: null, 
             message: `Found 'end_date' input, but 'value' attribute is missing.` 
@@ -137,12 +139,13 @@ serve(async (req) => {
     }
 
     let dateStr = valueMatch[1];
-    console.log(`[fetch-contract-end-date] Raw date string found: ${dateStr}`);
+    console.log(`[fetch-contract-end-date] Raw date string found: "${dateStr}"`);
 
+    // Handle empty date string
     if (!dateStr || dateStr.trim() === '') {
         return new Response(JSON.stringify({ 
             endDate: null, 
-            message: "Found 'end_date' input, but value is empty." 
+            message: "Agreement End Date is not set in the external portal." 
         }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
