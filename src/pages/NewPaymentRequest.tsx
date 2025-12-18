@@ -203,7 +203,6 @@ const NewPaymentRequest = () => {
   });
 
   // Calculate total amount whenever categories array changes
-  // IMPORTANT: Removed 'form' from dependency array to prevent loops
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
@@ -215,8 +214,8 @@ const NewPaymentRequest = () => {
     }
   }, [watchedCategories]); 
 
-  // Removed the useEffect that reset the form on country change.
-  // That logic is now inside the onValueChange handler of the Select component below.
+  // --- REMOVED THE PROBLEMATIC useEffect THAT WAS RESETTING THE FORM ---
+  // The reset logic has been moved entirely to the Select onValueChange handler below.
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -474,15 +473,11 @@ const NewPaymentRequest = () => {
                       onValueChange={(val) => {
                         field.onChange(val);
                         // Manually reset form defaults based on new country here
-                        // This prevents the "reset loop" caused by useEffect watching the value
                         const newSkuPrefix = val === 'United Kingdom' ? 'UK' : 'CH';
                         const newCurrency = val === 'United Kingdom' ? 'GBP' : 'CHF';
                         
-                        // We batch these updates or use reset options to keep dirty fields if needed, 
-                        // but here we likely want a clean slate for bank details.
                         form.setValue('sku_number', newSkuPrefix);
                         form.setValue('currency', newCurrency);
-                        // Clear bank details as they differ by country format
                         form.setValue('iban_number', '');
                         form.setValue('sort_code', '');
                         form.setValue('account_number', '');
