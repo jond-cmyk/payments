@@ -360,7 +360,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                                 else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
                                 field.onChange(value);
                             }}
-                            disabled={isDisabled && !isAdmin}
+                            disabled={isDisabled}
                           />
                         </FormControl>
                         <FormMessage />
@@ -370,20 +370,18 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                   <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => {
-                      return (
-                        <FormItem>
-                          <FormLabel>Account Number</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              disabled={isDisabled && !isAdmin}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input 
+                            {...field} 
+                            disabled={isDisabled}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                   <FormField
                     control={form.control}
@@ -394,7 +392,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            disabled={isDisabled && !isAdmin}
+                            disabled={isDisabled}
                           />
                         </FormControl>
                         <FormMessage />

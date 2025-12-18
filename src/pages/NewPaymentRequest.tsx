@@ -30,7 +30,6 @@ import PropertyAddressField from '@/components/PropertyAddressField';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 
-// Define the Zod schema for form validation
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
   sku_number: z.string().optional(),
@@ -69,8 +68,7 @@ const formSchema = z.object({
     if (!data.sku_number || data.sku_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `SKU Number is required unless 'Not SKU Related' is checked.`
-,
+        message: `SKU Number is required unless 'Not SKU Related' is checked.`,
         path: ['sku_number'],
       });
     } else if (!data.sku_number.startsWith(skuPrefix)) {
@@ -96,17 +94,6 @@ const formSchema = z.object({
         path: ['currency'],
       });
     }
-  } else if (data.country === 'Switzerland') {
-    if (!data.currency || data.currency.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Currency is required for Switzerland.",
-        path: ['currency'],
-      });
-    }
-  }
-
-  if (data.country === 'United Kingdom') {
     if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -128,14 +115,14 @@ const formSchema = z.object({
         path: ['bank_account_name'],
       });
     }
-    if (data.iban_number && data.iban_number.trim() !== '') {
+  } else if (data.country === 'Switzerland') {
+    if (!data.currency || data.currency.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "IBAN Number should not be provided for United Kingdom.",
-        path: ['iban_number'],
+        message: "Currency is required for Switzerland.",
+        path: ['currency'],
       });
     }
-  } else if (data.country === 'Switzerland') {
     if (!data.iban_number || data.iban_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -782,23 +769,22 @@ const NewPaymentRequest = () => {
                   <FormField
                     control={form.control}
                     name="account_number"
-                    render={({ field }) => {
-                      return (
-                        <FormItem>
-                          <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="e.g., 1234 5678"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            Enter the 8-digit Bank Account Number.
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      );
-                    }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g., 1234 5678"
+                            {...field}
+                            // Removing disabled prop completely to ensure it's editable
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Enter the 8-digit Bank Account Number.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                   <FormField
                     control={form.control}
