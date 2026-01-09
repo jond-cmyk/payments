@@ -11,13 +11,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useCountry } from '@/integrations/supabase/CountryContext';
-import { PauseCircle, DollarSign, AlertTriangle, FileDown } from 'lucide-react'; // Added FileDown
-import { pdf } from '@react-pdf/renderer'; // Import pdf generator
+import { PauseCircle, DollarSign, AlertTriangle, FileDown } from 'lucide-react';
+import { pdf } from '@react-pdf/renderer';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 
 import { editFormSchema, EditFormSchema } from '@/schemas/paymentRequestSchema';
 import PaymentRequestDisplayCards from '@/components/payment-requests/PaymentRequestDisplayCards';
 import PaymentRequestEditFormCard from '@/components/payment-requests/PaymentRequestEditFormCard';
-import PaymentRequestPDF from '@/components/payment-requests/PaymentRequestPDF'; // Import PDF component
+import PaymentRequestPDF from '@/components/payment-requests/PaymentRequestPDF';
 
 import AdminActionsCard from '@/components/payment-requests/AdminActionsCard';
 import AdminReceiptUploadCard from '@/components/payment-requests/AdminReceiptUploadCard';
@@ -29,12 +30,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 
-// Zod schema for admin query note (kept here as it's admin-specific)
+// Zod schema for admin query note
 const queryFormSchema = z.object({
   query_note: z.string().min(1, "Query note is required"),
 });
 
-// Zod schema for admin receipt upload (kept here as it's admin-specific)
+// Zod schema for admin receipt upload
 const receiptUploadSchema = z.object({
   receipt_pdf: z.any()
     .refine((file) => file?.length > 0, "Receipt PDF is required.")
@@ -42,7 +43,7 @@ const receiptUploadSchema = z.object({
     .refine((file) => file?.[0]?.type === "application/pdf" || file?.[0]?.type === "image/jpeg" || file?.[0]?.type === "image/png", "Only .pdf, .jpg, .jpeg, .png files are accepted."),
 });
 
-// Zod schema for admin revert reason (kept here as it's admin-specific)
+// Zod schema for admin revert reason
 const revertFormSchema = z.object({
   revert_reason: z.string().min(1, "Revert reason is required"),
 });
@@ -55,7 +56,7 @@ const PaymentRequestDetail = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false); // New state for PDF loading
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Duplicate Check States for Admin
   const [isDuplicateWarningOpen, setIsDuplicateWarningOpen] = useState(false);
@@ -74,7 +75,6 @@ const PaymentRequestDetail = () => {
         .select('*')
         .eq('id', id);
       
-      // Apply country filter based on user role and selected country
       if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
@@ -88,7 +88,6 @@ const PaymentRequestDetail = () => {
     enabled: !!id,
   });
 
-  // Effect to auto-reset country filter if item not found
   useEffect(() => {
     if (!isRequestLoading && !request && currentCountry !== 'all' && userProfile?.role === 'admin') {
       showInfo("Country filter reset to 'All Countries' to show this item.");
@@ -105,7 +104,6 @@ const PaymentRequestDetail = () => {
         .from('payment_request_audits')
         .select('*')
         .eq('payment_request_id', id)
-        // No country filter on audit table itself, as it references payment_requests
         .order('changed_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -113,12 +111,9 @@ const PaymentRequestDetail = () => {
     enabled: !!id,
   });
 
-  // Filter audits into general audit trail and comments
   const generalAudits = audits?.filter(audit => !audit.change_description.startsWith('Comment: ')) || [];
   const comments = audits?.filter(audit => audit.change_description.startsWith('Comment: ')) || [];
 
-
-  // Fetch user names and emails for audit trail and comments
   const { data: auditUsers, isLoading: isAuditUsersLoading } = useQuery<Record<string, string>>({
     queryKey: ['auditUsers'],
     queryFn: async () => {
@@ -129,7 +124,7 @@ const PaymentRequestDetail = () => {
       if (error) throw error;
       const usersMap: Record<string, string> = {};
       data.forEach(profile => {
-        let displayString = profile.user_email || profile.id; // Fallback
+        let displayString = profile.user_email || profile.id;
         if (profile.first_name || profile.last_name) {
           const name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
           if (name) {
@@ -172,7 +167,6 @@ const PaymentRequestDetail = () => {
   
       const { new_invoice_files, ...dbUpdateFields } = payload;
   
-      // Handle file uploads separately
       if (new_invoice_files && new_invoice_files.length > 0) {
         const newUploadedUrls: string[] = [];
         for (let i = 0; i < new_invoice_files.length; i++) {
@@ -193,7 +187,6 @@ const PaymentRequestDetail = () => {
         dbUpdateFields.invoice_pdf_urls = [...(request?.invoice_pdf_urls || []), ...newUploadedUrls];
       }
   
-      // Always add the updated_at timestamp
       dbUpdateFields.updated_at = new Date().toISOString();
   
       const { data, error } = await supabase
@@ -236,7 +229,6 @@ const PaymentRequestDetail = () => {
         .delete()
         .eq('id', id);
       
-      // Apply country filter for delete
       if (userProfile?.role === 'requester' && userProfile.country) {
         query = query.eq('country', userProfile.country);
       } else if (userProfile?.role === 'admin' && currentCountry !== 'all') {
@@ -249,8 +241,8 @@ const PaymentRequestDetail = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['paymentRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] }); // Invalidate dashboard table
-      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] }); // Invalidate summary cards
+      queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
+      queryClient.invalidateQueries({ queryKey: ['allPaymentRequestsForSummary'] });
       showSuccess("Payment request deleted successfully!");
       navigate('/admin/requests');
     },
@@ -269,8 +261,6 @@ const PaymentRequestDetail = () => {
       }
 
       const invoiceFiles: FileList = values.invoice_pdf;
-      
-      // FIX: Use original country if form value is missing (due to disabled field)
       const countryForUpdate = (values.country && values.country.trim() !== '') ? values.country : request.country;
 
       const updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList } = {
@@ -289,10 +279,8 @@ const PaymentRequestDetail = () => {
         bank_details_verified: values.bank_details_verified,
       };
 
-      // Set currency based on the determined country
       updatedFields.currency = countryForUpdate === 'United Kingdom' ? 'GBP' : values.currency;
 
-      // Conditionally add bank details to updatedFields based on the determined country
       if (countryForUpdate === 'United Kingdom') {
         updatedFields.iban_number = null;
         updatedFields.sort_code = values.sort_code;
@@ -332,7 +320,6 @@ const PaymentRequestDetail = () => {
         await addCommentMutation.mutateAsync(`Request cancelled by user.`);
       }
 
-      // *** NEW LOGIC: Call the RPC function ***
       const { error } = await supabase.rpc('update_payment_request_status', {
         request_id: id,
         new_status: status,
@@ -345,7 +332,6 @@ const PaymentRequestDetail = () => {
         throw new Error(`RPC call failed: ${error.message}`);
       }
 
-      // Manually handle success actions
       queryClient.invalidateQueries({ queryKey: ['paymentRequest', id] });
       queryClient.invalidateQueries({ queryKey: ['paymentRequestAudits', id] });
       queryClient.invalidateQueries({ queryKey: ['paymentRequestsForTable'] });
@@ -364,7 +350,6 @@ const PaymentRequestDetail = () => {
   };
 
   const handleAdminAction = async (status: 'setup_awaiting_approval' | 'approved' | 'declined' | 'queried' | 'reverted_to_pending' | 'cancelled' | 'paused', reason?: string) => {
-    // Intercept check for Setup or Approved
     if ((status === 'setup_awaiting_approval' || status === 'approved') && request) {
       const hasRentCategory = request.categories.some(c => c.category === '950_rent');
       
@@ -385,7 +370,7 @@ const PaymentRequestDetail = () => {
             setDuplicateStandingOrderData(duplicateOrders[0]);
             setPendingAdminAction({ status, reason });
             setIsDuplicateWarningOpen(true);
-            return false; // Stop execution to show dialog
+            return false;
           }
         } catch (e) {
           console.error("Exception checking for duplicates:", e);
@@ -454,13 +439,8 @@ const PaymentRequestDetail = () => {
         body: { requestId: id, senderId: user.id },
       });
 
-      if (invokeError) {
-        throw new Error(invokeError.message);
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (invokeError) throw new Error(invokeError.message);
+      if (data?.error) throw new Error(data.error);
       return true;
     },
     onSuccess: () => {
@@ -495,24 +475,17 @@ const PaymentRequestDetail = () => {
       const fileExtension = receiptFile.name.split('.').pop();
       const fileName = `${id}/${crypto.randomUUID()}.${fileExtension}`;
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('receipts')
         .upload(fileName, receiptFile, {
           cacheControl: '3600',
           upsert: false,
         });
 
-      if (uploadError) {
-        throw new Error(`Failed to upload receipt: ${uploadError.message}`);
-      }
+      if (uploadError) throw new Error(`Failed to upload receipt: ${uploadError.message}`);
 
-      const { data: publicUrlData } = supabase.storage
-        .from('receipts')
-        .getPublicUrl(fileName);
-
-      if (!publicUrlData?.publicUrl) {
-        throw new Error("Failed to get public URL for receipt.");
-      }
+      const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(fileName);
+      if (!publicUrlData?.publicUrl) throw new Error("Failed to get public URL for receipt.");
 
       await updateRequestMutation.mutateAsync({ 
         receipt_pdf_url: publicUrlData.publicUrl
@@ -537,32 +510,85 @@ const PaymentRequestDetail = () => {
     }
   };
 
-  // PDF Generation Handler
+  // Improved PDF Generation Handler
   const handleDownloadPDF = async () => {
     if (!request) return;
     setIsGeneratingPdf(true);
-    const toastId = showLoading("Generating PDF...");
+    const toastId = showLoading("Generating PDF with attachments...");
 
     try {
-      // Get the requester name
       const requesterName = auditUsers?.[request.requester_id] || request.requester_id;
 
-      // Generate the PDF blob
-      const blob = await pdf(
+      // 1. Generate Summary Page (using react-pdf)
+      const summaryBlob = await pdf(
         <PaymentRequestPDF request={request} requesterName={requesterName} />
       ).toBlob();
+      const summaryBuffer = await summaryBlob.arrayBuffer();
 
-      // Create a URL for the blob
+      // 2. Initialize new PDF document (using pdf-lib)
+      const mergedPdf = await PDFDocument.create();
+      const summaryDoc = await PDFDocument.load(summaryBuffer);
+      const summaryPages = await mergedPdf.copyPages(summaryDoc, summaryDoc.getPageIndices());
+      summaryPages.forEach((page) => mergedPdf.addPage(page));
+
+      // 3. Process Invoice Attachments
+      if (request.invoice_pdf_urls && request.invoice_pdf_urls.length > 0) {
+        for (const url of request.invoice_pdf_urls) {
+          try {
+            // Determine file type from URL or fetch headers (simplifying by extension here)
+            const extension = url.split('.').pop()?.toLowerCase();
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+            const attachmentBytes = await response.arrayBuffer();
+
+            if (extension === 'pdf') {
+              const attachmentDoc = await PDFDocument.load(attachmentBytes);
+              const attachmentPages = await mergedPdf.copyPages(attachmentDoc, attachmentDoc.getPageIndices());
+              attachmentPages.forEach((page) => mergedPdf.addPage(page));
+            } else if (['jpg', 'jpeg', 'png'].includes(extension || '')) {
+              let image;
+              if (extension === 'png') {
+                image = await mergedPdf.embedPng(attachmentBytes);
+              } else {
+                image = await mergedPdf.embedJpg(attachmentBytes);
+              }
+              
+              const page = mergedPdf.addPage();
+              const { width, height } = page.getSize();
+              
+              // Scale image to fit within margins
+              const margin = 50;
+              const maxWidth = width - (margin * 2);
+              const maxHeight = height - (margin * 2);
+              
+              const imgDims = image.scaleToFit(maxWidth, maxHeight);
+              
+              page.drawImage(image, {
+                x: (width - imgDims.width) / 2,
+                y: height - imgDims.height - margin, // Top alignment roughly
+                width: imgDims.width,
+                height: imgDims.height,
+              });
+            } else {
+              console.warn(`Unsupported file type for PDF merging: ${extension}`);
+            }
+          } catch (err) {
+            console.error(`Error merging attachment ${url}:`, err);
+            // Continue to next attachment even if one fails
+          }
+        }
+      }
+
+      // 4. Save and Download
+      const mergedPdfBytes = await mergedPdf.save();
+      const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
       const url = URL.createObjectURL(blob);
 
-      // Create a temporary link element to trigger the download
       const link = document.createElement('a');
       link.href = url;
       link.download = `payment_request_${request.supplier_name.replace(/\s+/g, '_')}_${request.id.substring(0, 8)}.pdf`;
       document.body.appendChild(link);
       link.click();
-
-      // Cleanup
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
@@ -594,10 +620,8 @@ const PaymentRequestDetail = () => {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Payment request not found.</div>;
   }
 
-  // The `canAmend` logic now allows any authenticated user to amend pending or queried requests
   const canAmend = !!user && (request.status === 'pending' || request.status === 'queried');
   const isAdmin = userRole === 'admin';
-  // const isRequester = !!user; // Removed unused variable
 
   return (
     <div className="container mx-auto py-8">
@@ -647,7 +671,7 @@ const PaymentRequestDetail = () => {
             className="shadow-sm"
           >
             <FileDown className="mr-2 h-4 w-4" />
-            {isGeneratingPdf ? 'Generating...' : 'Save as PDF'}
+            {isGeneratingPdf ? 'Merging PDF...' : 'Save as PDF'}
           </Button>
 
           {canAmend && !isEditing && (
