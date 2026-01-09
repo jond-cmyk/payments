@@ -229,14 +229,11 @@ serve(async (req) => {
       }
       
       const base64Pdf = await pdfDoc.saveAsBase64();
-      // Convert base64 back to buffer for email attachment structure
-      // Resend accepts base64 content directly in 'content' field
-      // but we need to treat it as a single file now.
       
       const attachments = [{
         filename: filename,
-        content: base64Pdf, // Resend expects base64 string here
-        contentType: 'application/pdf' // Explicitly set content type
+        content: base64Pdf, 
+        contentType: 'application/pdf' 
       }];
 
       const { data, error } = await resend.emails.send({
