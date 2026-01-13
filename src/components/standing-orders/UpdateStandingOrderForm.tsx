@@ -34,8 +34,8 @@ const formSchema = z.object({
   payment_date: z.date({
     required_error: "Start date is required",
   }),
-  payment_end_date: z.date().optional(),
-  agreement_end_date: z.date().optional(),
+  payment_end_date: z.date().optional().nullable(),
+  agreement_end_date: z.date().optional().nullable(),
   payment_reference: z.string().min(1, "Payment reference is required"),
   currency: z.string().min(1, "Currency is required"),
   account_name: z.string().optional(),
@@ -44,6 +44,8 @@ const formSchema = z.object({
   sort_code: z.string().optional(),
   account_number: z.string().optional(),
   status: z.enum(['active', 'paused', 'cancelled', 'pending', 'awaiting_info']),
+  from_day: z.coerce.number().min(1).max(31),
+  to_day: z.coerce.number().min(1).max(31),
 });
 
 interface UpdateStandingOrderFormProps {
@@ -79,6 +81,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date) : undefined,
       agreement_end_date: standingOrder.agreement_end_date ? new Date(standingOrder.agreement_end_date) : undefined,
       status: standingOrder.status,
+      from_day: standingOrder.from_day || 1,
+      to_day: standingOrder.to_day || 31,
     },
   });
 
@@ -108,6 +112,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const toastId = showLoading("Updating standing order...");
     try {
+      // Recalculate payment_day based on the selected payment_date
       const paymentDay = values.payment_date.getDate();
 
       const { error } = await supabase
@@ -130,6 +135,8 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           account_number: standingOrder.country === 'United Kingdom' ? values.account_number?.replace(/\s/g, '') : null,
           payment_day: paymentDay,
           status: values.status,
+          from_day: values.from_day,
+          to_day: values.to_day,
         })
         .eq('id', standingOrder.id);
 
@@ -353,7 +360,10 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>End Date (Bank)</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} disabled={!isAdmin} />
+                <DatePicker date={field.value || undefined} setDate={field.onChange} disabled={!isAdmin} />
+                <FormDescription>
+                  This date can be cleared if there is no set end date.
+                </FormDescription>
                 <FormMessage />
                 </FormItem>
             )}
@@ -364,7 +374,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>End Date (Contract)</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} disabled={!isAdmin} />
+                <DatePicker date={field.value || undefined} setDate={field.onChange} disabled={!isAdmin} />
                 <FormMessage />
                 </FormItem>
             )}
@@ -382,6 +392,50 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     </FormItem>
                 )}
             />
+        </div>
+
+        {/* Accruals Period */}
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="from_day"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Accruals From Day</FormLabel>
+                <Select onValueChange={(val) => field.onChange(Number(val))} value={String(field.value)} disabled={!isAdmin}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="to_day"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Accruals To Day</FormLabel>
+                <Select onValueChange={(val) => field.onChange(Number(val))} value={String(field.value)} disabled={!isAdmin}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
          <FormField
@@ -455,8 +509,6 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
                     control={form.control}
                     name="account_number"
                     render={({ field }) => {
-                      console.log(`[UpdateStandingOrderForm] Account Number field.value: "${field.value}"`);
-                      console.log(`[UpdateStandingOrderForm] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, isSubmitting: ${form.formState.isSubmitting}`);
                       return (
                         <FormItem>
                           <FormLabel>Account Number</FormLabel>
@@ -475,7 +527,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             </>
         )}
 
-        <Button type="submit" className="w-full">Create Standing Order</Button>
+        <Button type="submit" className="w-full">Update Standing Order</Button>
       </form>
     </Form>
   );
