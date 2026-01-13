@@ -78,8 +78,9 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
       sort_code: standingOrder.sort_code || '',
       account_number: standingOrder.account_number || '',
       payment_date: new Date(standingOrder.payment_date),
-      payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date) : undefined,
-      agreement_end_date: standingOrder.agreement_end_date ? new Date(standingOrder.agreement_end_date) : undefined,
+      // Ensure we pass null or Date, not undefined if possible, to match schema expectations although optional() handles undefined
+      payment_end_date: standingOrder.payment_end_date ? new Date(standingOrder.payment_end_date) : null,
+      agreement_end_date: standingOrder.agreement_end_date ? new Date(standingOrder.agreement_end_date) : null,
       status: standingOrder.status,
       from_day: standingOrder.from_day || 1,
       to_day: standingOrder.to_day || 31,
