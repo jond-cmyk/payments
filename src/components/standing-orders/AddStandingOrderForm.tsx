@@ -45,6 +45,8 @@ const formSchema = z.object({
   sort_code: z.string().optional(),
   account_number: z.string().optional(),
   payment_day: z.number().min(1).max(31).optional(),
+  from_day: z.coerce.number().min(1).max(31),
+  to_day: z.coerce.number().min(1).max(31),
 }).superRefine((data, ctx) => {
     const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
     if (!data.not_property_related) {
@@ -98,6 +100,8 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       iban_number: "",
       sort_code: "",
       account_number: "",
+      from_day: 1,
+      to_day: 31,
     },
   });
 
@@ -146,7 +150,7 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
       const paymentDay = values.payment_date.getDate();
 
       const { error } = await supabase.from('standing_orders').insert({
-        requester_id: user.id, // Added requester_id
+        requester_id: user.id,
         payee: values.payee,
         sku: values.not_property_related ? null : values.sku,
         not_property_related: values.not_property_related,
@@ -158,13 +162,16 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
         payment_reference: values.payment_reference,
         country: values.country,
         currency: values.currency,
-        account_name: values.account_name,
+        account_name: values.account_name || "",
         account_address: values.account_address,
         iban_number: values.country !== 'United Kingdom' ? values.iban_number : null,
         sort_code: values.country === 'United Kingdom' ? values.sort_code : null,
         account_number: values.country === 'United Kingdom' ? values.account_number?.replace(/\s/g, '') : null,
         payment_day: paymentDay,
-        status: 'pending', 
+        status: 'pending',
+        from_day: values.from_day,
+        to_day: values.to_day,
+        bank_details_verified: false,
       });
 
       if (error) throw error;
@@ -428,6 +435,50 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                     </FormItem>
                 )}
             />
+        </div>
+
+        {/* Accruals Period */}
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="from_day"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Accruals From Day</FormLabel>
+                <Select onValueChange={(val) => field.onChange(Number(val))} value={String(field.value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="to_day"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Accruals To Day</FormLabel>
+                <Select onValueChange={(val) => field.onChange(Number(val))} value={String(field.value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Day" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
         </div>
 
          <FormField
