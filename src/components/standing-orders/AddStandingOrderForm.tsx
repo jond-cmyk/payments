@@ -74,7 +74,7 @@ interface AddStandingOrderFormProps {
 }
 
 const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingOrderAdded }) => {
-  const { userProfile } = useSession();
+  const { user, userProfile } = useSession();
   const { currentCountry, isCountryLocked, availableCountries } = useCountry();
   
   const isAdmin = userProfile?.role === 'admin';
@@ -140,10 +140,13 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const toastId = showLoading("Creating standing order...");
     try {
+      if (!user?.id) throw new Error("User not authenticated.");
+
       // Calculate payment day from start date if not explicitly set
       const paymentDay = values.payment_date.getDate();
 
       const { error } = await supabase.from('standing_orders').insert({
+        requester_id: user.id, // Added requester_id
         payee: values.payee,
         sku: values.not_property_related ? null : values.sku,
         not_property_related: values.not_property_related,
@@ -497,8 +500,6 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
                     control={form.control}
                     name="account_number"
                     render={({ field }) => {
-                      console.log(`[AddStandingOrderForm] Account Number field.value: "${field.value}"`);
-                      console.log(`[AddStandingOrderForm] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, isSubmitting: ${form.formState.isSubmitting}`);
                       return (
                         <FormItem>
                           <FormLabel>Account Number</FormLabel>
