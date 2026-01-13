@@ -21,6 +21,8 @@ import PropertyAddressField from '@/components/PropertyAddressField';
 import { PlusCircle, MinusCircle, Search, DollarSign } from 'lucide-react';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { PayeeSuggestion } from '@/types/supabase';
 
 const formSchema = z.object({
   payee: z.string().min(1, "Payee is required"),
@@ -84,6 +86,11 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   const defaultSkuPrefix = currentCountry === 'United Kingdom' ? 'UK' : 'CH';
   const initialCurrency = currentCountry === 'United Kingdom' ? 'GBP' : 'CHF';
 
+  // State for Payee Suggestions
+  const [payeeSuggestions, setPayeeSuggestions] = useState<PayeeSuggestion[]>([]);
+  const [isSuggestionDialogOpen, setIsSuggestionDialogOpen] = useState(false);
+  const [isSearchingPayee, setIsSearchingPayee] = useState(false);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -141,6 +148,71 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
     form.setValue('iban_number', '');
   }, [formCountry, form]);
 
+  const handlePayeeNameBlur = async () => {
+    const payeeName = form.getValues('payee');
+    const currentFormCountry = form.getValues('country');
+
+    if (!payeeName || payeeName.trim() === '') {
+      setPayeeSuggestions([]);
+      setIsSuggestionDialogOpen(false);
+      return;
+    }
+
+    setIsSearchingPayee(true);
+    const toastId = showLoading("Searching for existing payees...");
+
+    try {
+      const { data, error } = await supabase.functions.invoke('search-all-payees', {
+        body: { searchTerm: payeeName, country: currentFormCountry },
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      if (data && data.suggestions && data.suggestions.length > 0) {
+        setPayeeSuggestions(data.suggestions);
+        setIsSuggestionDialogOpen(true);
+        dismissToast(toastId);
+        showSuccess(`Found ${data.suggestions.length} existing payee suggestion(s)!`);
+      } else {
+        setPayeeSuggestions([]);
+        setIsSuggestionDialogOpen(false);
+        dismissToast(toastId);
+        // Optional: show info that no suggestions found, or just silent
+      }
+    } catch (error: any) {
+      dismissToast(toastId);
+      console.error("Payee search error:", error);
+      // Fail silently for search to not block user workflow
+    } finally {
+      setIsSearchingPayee(false);
+    }
+  };
+
+  const handleUseSuggestion = (suggestion: PayeeSuggestion) => {
+    const options = { shouldValidate: true, shouldDirty: true };
+    const currentFormCountry = form.getValues('country');
+
+    form.setValue('payee', suggestion.name, options);
+    form.setValue('currency', suggestion.currency || (currentFormCountry === 'United Kingdom' ? 'GBP' : 'CHF'), options);
+    
+    // Map suggestion fields to standing order specific fields
+    form.setValue('account_name', suggestion.bank_account_name || '', options);
+    form.setValue('account_address', suggestion.address || '', options);
+
+    if (currentFormCountry === 'United Kingdom') {
+        form.setValue('sort_code', suggestion.sort_code || '', options);
+        form.setValue('account_number', suggestion.account_number || '', options);
+        form.setValue('iban_number', '', options);
+    } else {
+        form.setValue('iban_number', suggestion.iban_number || '', options);
+        form.setValue('sort_code', '', options);
+        form.setValue('account_number', '', options);
+    }
+    
+    setIsSuggestionDialogOpen(false);
+  };
+
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     const toastId = showLoading("Creating standing order...");
     try {
@@ -190,387 +262,461 @@ const AddStandingOrderForm: React.FC<AddStandingOrderFormProps> = ({ onStandingO
   );
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Form validation failed:", errors))} className="space-y-4">
-        <FormField
+    <>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.error("Form validation failed:", errors))} className="space-y-4">
+          <FormField
+              control={form.control}
+              name="country"
+              render={({ field }) => (
+                  <FormItem>
+                  <FormLabel>Country</FormLabel>
+                  <Select 
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      // Reset values when country changes
+                      const newSkuPrefix = val === 'United Kingdom' ? 'UK' : 'CH';
+                      const newCurrency = val === 'United Kingdom' ? 'GBP' : 'CHF';
+                      form.setValue('sku', newSkuPrefix);
+                      form.setValue('currency', newCurrency);
+                      form.setValue('iban_number', '');
+                      form.setValue('sort_code', '');
+                      form.setValue('account_number', '');
+                    }} 
+                    value={field.value} 
+                    disabled={isCountryLocked}
+                  >
+                      <SelectTrigger>
+                      <FormControl>
+                          <SelectValue placeholder="Select country" />
+                      </FormControl>
+                      </SelectTrigger>
+                      <SelectContent>
+                      {availableCountries.filter(c => c.value !== 'all').map((country) => (
+                          <SelectItem key={country.value} value={country.value}>
+                          {country.label}
+                          </SelectItem>
+                      ))}
+                      </SelectContent>
+                  </Select>
+                  <FormMessage />
+                  </FormItem>
+              )}
+          />
+          
+          <FormField
             control={form.control}
-            name="country"
+            name="payee"
             render={({ field }) => (
-                <FormItem>
-                <FormLabel>Country</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value} disabled={isCountryLocked}>
-                    <SelectTrigger>
-                    <FormControl>
-                        <SelectValue placeholder="Select country" />
-                    </FormControl>
-                    </SelectTrigger>
-                    <SelectContent>
-                    {availableCountries.filter(c => c.value !== 'all').map((country) => (
-                        <SelectItem key={country.value} value={country.value}>
-                        {country.label}
-                        </SelectItem>
-                    ))}
-                    </SelectContent>
-                </Select>
-                <FormMessage />
-                </FormItem>
-            )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="payee"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Payee</FormLabel>
-              <FormControl>
-                <Input placeholder="Payee Name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-         <Card className="p-4 shadow-sm">
-            <CardTitle className="text-lg font-semibold mb-4 flex items-center">
-                <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts
-            </CardTitle>
-            <div className="space-y-4">
-                {fields.map((item, index) => (
-                <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
-                    <FormField
-                    control={form.control}
-                    name={`categories.${index}.category`}
-                    render={({ field }) => (
-                        <FormItem className="flex-1 w-full">
-                        <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <SelectTrigger>
-                            <FormControl>
-                                <SelectValue placeholder="Select category" />
-                            </FormControl>
-                            </SelectTrigger>
-                            <SelectContent>
-                            {filteredCategoryOptions.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                {option.label}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField
-                    control={form.control}
-                    name={`categories.${index}.amount`}
-                    render={({ field }) => (
-                        <FormItem className="flex-1 w-full">
-                        <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
-                        <FormControl>
-                            <Input 
-                            type="text"
-                            step="0.01"
-                            placeholder="Amount" 
-                            {...field}
-                            value={field.value === 0 ? "" : String(field.value)}
-                            onChange={(e) => {
-                                const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                                field.onChange(rawValue);
-                            }}
-                            />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    {fields.length > 1 && (
-                    <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
-                        <MinusCircle className="h-4 w-4" />
-                    </Button>
-                    )}
-                </div>
-                ))}
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => append({ category: "", amount: 0 })}
-                    className="w-full"
-                >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Category
-                </Button>
-                <Separator className="my-4" />
-                <div className="flex justify-between items-center text-lg font-bold">
-                <span>Total Amount:</span>
-                <span>{form.getValues('total_amount').toFixed(2)}</span>
-                </div>
-            </div>
-        </Card>
-
-        {formCountry !== 'United Kingdom' && (
-             <FormField
-                control={form.control}
-                name="currency"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Currency</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                        <FormControl>
-                            <SelectValue placeholder="Select currency" />
-                        </FormControl>
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="CHF">CHF</SelectItem>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
-        )}
-        {formCountry === 'United Kingdom' && (
-             <div className="space-y-2">
-                <FormLabel>Currency</FormLabel>
-                <Input value="GBP" disabled className="bg-muted/50" />
-            </div>
-        )}
-
-        <FormField
-          control={form.control}
-          name="sku"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>SKU</FormLabel>
-              <div className="flex items-center gap-2">
-                <FormControl className="flex-1">
-                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notPropertyRelated} />
-                </FormControl>
-                 <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                        const sku = form.getValues('sku');
-                        if (sku) {
-                        const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(sku)}`;
-                        window.open(url, '_blank');
-                        } else {
-                        showError("Enter SKU first.");
-                        }
+              <FormItem>
+                <FormLabel>Payee</FormLabel>
+                <FormControl>
+                  <Input 
+                    placeholder="Payee Name" 
+                    {...field} 
+                    onBlur={(e) => {
+                      field.onBlur();
+                      handlePayeeNameBlur();
                     }}
-                    disabled={notPropertyRelated}
-                    >
-                    <Search className="h-4 w-4" />
-                </Button>
-              </div>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-         <PropertyAddressField skuValue={skuValue} country={formCountry} />
-
-        <FormField
-          control={form.control}
-          name="not_property_related"
-          render={({ field }) => (
-            <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-              <FormControl>
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-              </FormControl>
-              <div className="space-y-1 leading-none">
-                <FormLabel>Not Property Related</FormLabel>
-              </div>
-            </FormItem>
-          )}
-        />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField
-            control={form.control}
-            name="payment_date"
-            render={({ field }) => (
-                <FormItem className="flex flex-col">
-                <FormLabel>Start Date</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} />
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="payment_end_date"
-            render={({ field }) => (
-                <FormItem className="flex flex-col">
-                <FormLabel>End Date (Bank)</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} />
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="agreement_end_date"
-            render={({ field }) => (
-                <FormItem className="flex flex-col">
-                <FormLabel>End Date (Contract)</FormLabel>
-                <DatePicker date={field.value} setDate={field.onChange} />
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-             <FormField
-                control={form.control}
-                name="payment_reference"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Payment Reference</FormLabel>
-                    <FormControl>
-                        <Input placeholder="Reference" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
-        </div>
-
-        {/* Accruals Period */}
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="from_day"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Accruals From Day</FormLabel>
-                <Select onValueChange={(val) => field.onChange(Number(val))} value={String(field.value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Day" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <SelectItem key={d} value={String(d)}>{d}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    disabled={isSearchingPayee}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name="to_day"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Accruals To Day</FormLabel>
-                <Select onValueChange={(val) => field.onChange(Number(val))} value={String(field.value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Day" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
-                      <SelectItem key={d} value={String(d)}>{d}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
 
-         <FormField
-          control={form.control}
-          name="account_name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Account Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Account Holder Name" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="account_address"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Account Address</FormLabel>
-              <FormControl>
-                <Textarea placeholder="Address" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        {formCountry !== 'United Kingdom' ? (
-             <FormField
-                control={form.control}
-                name="iban_number"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>IBAN</FormLabel>
-                    <FormControl>
-                        <Input placeholder="IBAN" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-            />
-        ) : (
-            <>
-                <FormField
-                    control={form.control}
-                    name="sort_code"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Sort Code</FormLabel>
-                        <FormControl>
-                             <Input
-                                placeholder="XX-XX-XX"
-                                {...field}
-                                onChange={(e) => {
-                                  let value = e.target.value.replace(/\D/g, '');
-                                  if (value.length > 6) value = value.substring(0, 6);
-                                  if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
-                                  else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
-                                  field.onChange(value);
-                                }}
-                              />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="account_number"
-                    render={({ field }) => {
-                      return (
-                        <FormItem>
-                          <FormLabel>Account Number</FormLabel>
+          <Card className="p-4 shadow-sm">
+              <CardTitle className="text-lg font-semibold mb-4 flex items-center">
+                  <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts
+              </CardTitle>
+              <div className="space-y-4">
+                  {fields.map((item, index) => (
+                  <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+                      <FormField
+                      control={form.control}
+                      name={`categories.${index}.category`}
+                      render={({ field }) => (
+                          <FormItem className="flex-1 w-full">
+                          <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger>
+                              <FormControl>
+                                  <SelectValue placeholder="Select category" />
+                              </FormControl>
+                              </SelectTrigger>
+                              <SelectContent>
+                              {filteredCategoryOptions.map((option) => (
+                                  <SelectItem key={option.value} value={option.value}>
+                                  {option.label}
+                                  </SelectItem>
+                              ))}
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                      />
+                      <FormField
+                      control={form.control}
+                      name={`categories.${index}.amount`}
+                      render={({ field }) => (
+                          <FormItem className="flex-1 w-full">
+                          <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
                           <FormControl>
-                            <Input
-                              placeholder="1234 5678"
+                              <Input 
+                              type="text"
+                              step="0.01"
+                              placeholder="Amount" 
                               {...field}
-                            />
+                              value={field.value === 0 ? "" : String(field.value)}
+                              onChange={(e) => {
+                                  const rawValue = e.target.value.replace(/[^\d.]/g, '');
+                                  field.onChange(rawValue);
+                              }}
+                              />
                           </FormControl>
                           <FormMessage />
-                        </FormItem>
-                      );
-                    }}
-                />
-            </>
-        )}
+                          </FormItem>
+                      )}
+                      />
+                      {fields.length > 1 && (
+                      <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
+                          <MinusCircle className="h-4 w-4" />
+                      </Button>
+                      )}
+                  </div>
+                  ))}
+                  <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => append({ category: "", amount: 0 })}
+                      className="w-full"
+                  >
+                      <PlusCircle className="mr-2 h-4 w-4" /> Add Category
+                  </Button>
+                  <Separator className="my-4" />
+                  <div className="flex justify-between items-center text-lg font-bold">
+                  <span>Total Amount:</span>
+                  <span>{form.getValues('total_amount').toFixed(2)}</span>
+                  </div>
+              </div>
+          </Card>
 
-        <Button type="submit" className="w-full">Create Standing Order</Button>
-      </form>
-    </Form>
+          {formCountry !== 'United Kingdom' && (
+              <FormField
+                  control={form.control}
+                  name="currency"
+                  render={({ field }) => (
+                      <FormItem>
+                      <FormLabel>Currency</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger>
+                          <FormControl>
+                              <SelectValue placeholder="Select currency" />
+                          </FormControl>
+                          </SelectTrigger>
+                          <SelectContent>
+                          <SelectItem value="CHF">CHF</SelectItem>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="USD">USD</SelectItem>
+                          </SelectContent>
+                      </Select>
+                      <FormMessage />
+                      </FormItem>
+                  )}
+              />
+          )}
+          {formCountry === 'United Kingdom' && (
+              <div className="space-y-2">
+                  <FormLabel>Currency</FormLabel>
+                  <Input value="GBP" disabled className="bg-muted/50" />
+              </div>
+          )}
+
+          <FormField
+            control={form.control}
+            name="sku"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>SKU</FormLabel>
+                <div className="flex items-center gap-2">
+                  <FormControl className="flex-1">
+                    <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notPropertyRelated} />
+                  </FormControl>
+                  <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                          const sku = form.getValues('sku');
+                          if (sku) {
+                          const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(sku)}`;
+                          window.open(url, '_blank');
+                          } else {
+                          showError("Enter SKU first.");
+                          }
+                      }}
+                      disabled={notPropertyRelated}
+                      >
+                      <Search className="h-4 w-4" />
+                  </Button>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <PropertyAddressField skuValue={skuValue} country={formCountry} />
+
+          <FormField
+            control={form.control}
+            name="not_property_related"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Not Property Related</FormLabel>
+                </div>
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+              control={form.control}
+              name="payment_date"
+              render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                  <FormLabel>Start Date</FormLabel>
+                  <DatePicker date={field.value} setDate={field.onChange} />
+                  <FormMessage />
+                  </FormItem>
+              )}
+              />
+              <FormField
+              control={form.control}
+              name="payment_end_date"
+              render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                  <FormLabel>End Date (Bank)</FormLabel>
+                  <DatePicker date={field.value} setDate={field.onChange} />
+                  <FormMessage />
+                  </FormItem>
+              )}
+              />
+              <FormField
+              control={form.control}
+              name="agreement_end_date"
+              render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                  <FormLabel>End Date (Contract)</FormLabel>
+                  <DatePicker date={field.value} setDate={field.onChange} />
+                  <FormMessage />
+                  </FormItem>
+              )}
+              />
+              <FormField
+                  control={form.control}
+                  name="payment_reference"
+                  render={({ field }) => (
+                      <FormItem>
+                      <FormLabel>Payment Reference</FormLabel>
+                      <FormControl>
+                          <Input placeholder="Reference" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                      </FormItem>
+                  )}
+              />
+          </div>
+
+          {/* Accruals Period */}
+          <div className="grid grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="from_day"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Accruals From Day</FormLabel>
+                  <Select onValueChange={(val) => field.onChange(Number(val))} value={String(field.value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="to_day"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Accruals To Day</FormLabel>
+                  <Select onValueChange={(val) => field.onChange(Number(val))} value={String(field.value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Day" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                        <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="account_name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Account Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Account Holder Name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="account_address"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Account Address</FormLabel>
+                <FormControl>
+                  <Textarea placeholder="Address" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          {formCountry !== 'United Kingdom' ? (
+              <FormField
+                  control={form.control}
+                  name="iban_number"
+                  render={({ field }) => (
+                      <FormItem>
+                      <FormLabel>IBAN</FormLabel>
+                      <FormControl>
+                          <Input placeholder="IBAN" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                      </FormItem>
+                  )}
+              />
+          ) : (
+              <>
+                  <FormField
+                      control={form.control}
+                      name="sort_code"
+                      render={({ field }) => (
+                          <FormItem>
+                          <FormLabel>Sort Code</FormLabel>
+                          <FormControl>
+                              <Input
+                                  placeholder="XX-XX-XX"
+                                  {...field}
+                                  onChange={(e) => {
+                                    let value = e.target.value.replace(/\D/g, '');
+                                    if (value.length > 6) value = value.substring(0, 6);
+                                    if (value.length > 4) value = value.slice(0, 2) + '-' + value.slice(2, 4) + '-' + value.slice(4);
+                                    else if (value.length > 2) value = value.slice(0, 2) + '-' + value.slice(2);
+                                    field.onChange(value);
+                                  }}
+                                />
+                          </FormControl>
+                          <FormMessage />
+                          </FormItem>
+                      )}
+                  />
+                  <FormField
+                      control={form.control}
+                      name="account_number"
+                      render={({ field }) => {
+                        return (
+                          <FormItem>
+                            <FormLabel>Account Number</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="1234 5678"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
+                  />
+              </>
+          )}
+
+          <Button type="submit" className="w-full">Create Standing Order</Button>
+        </form>
+      </Form>
+
+      {/* Payee Suggestions Dialog */}
+      <Dialog open={isSuggestionDialogOpen} onOpenChange={setIsSuggestionDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
+            <DialogDescription>
+              We found existing payees with a similar name. You can use their details to pre-fill the form.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {payeeSuggestions.length > 0 ? (
+              payeeSuggestions.map((suggestion, index) => (
+                <Card key={index} className="p-4 border shadow-sm">
+                  <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
+                  <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : suggestion.source_type === 'standing_order' ? 'Standing Order' : 'Direct Debit'}</p>
+                  <p className="text-sm text-muted-foreground">Account Name: {suggestion.bank_account_name || 'N/A'}</p>
+                  <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
+                  {suggestion.country === 'United Kingdom' ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Account Number: {suggestion.account_number || 'N/A'}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
+                      <p className="text-sm text-muted-foreground">Address: {suggestion.address || 'N/A'}</p>
+                    </>
+                  )}
+                  <Button
+                    onClick={() => handleUseSuggestion(suggestion)}
+                    className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
+                  >
+                    Use This Information
+                  </Button>
+                </Card>
+              ))
+            ) : (
+              <p className="text-center text-muted-foreground">No suggestions found.</p>
+            )}
+          </div>
+          <Button
+            variant="destructive"
+            onClick={() => setIsSuggestionDialogOpen(false)}
+            className="mt-4 w-full"
+          >
+            Enter New Details
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
