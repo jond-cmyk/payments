@@ -18,7 +18,7 @@ import DatePicker from '@/components/DatePicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import PrefixedInput from '@/components/PrefixedInput';
 import PropertyAddressField from '@/components/PropertyAddressField';
-import { PlusCircle, MinusCircle, Search, DollarSign } from 'lucide-react';
+import { PlusCircle, MinusCircle, DollarSign } from 'lucide-react';
 import { Card, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
@@ -124,6 +124,7 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
           categories: values.categories,
           total_amount: values.total_amount,
           payment_date: values.payment_date.toISOString().split('T')[0],
+          // Explicitly handle null/undefined for date clearing
           payment_end_date: values.payment_end_date ? values.payment_end_date.toISOString().split('T')[0] : null,
           agreement_end_date: values.agreement_end_date ? values.agreement_end_date.toISOString().split('T')[0] : null,
           payment_reference: values.payment_reference,
@@ -360,7 +361,12 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>End Date (Bank)</FormLabel>
-                <DatePicker date={field.value || undefined} setDate={field.onChange} disabled={!isAdmin} />
+                {/* Ensure date can be cleared by passing undefined if value is null */}
+                <DatePicker 
+                  date={field.value || undefined} 
+                  setDate={field.onChange} 
+                  disabled={!isAdmin} 
+                />
                 <FormDescription>
                   This date can be cleared if there is no set end date.
                 </FormDescription>
@@ -374,7 +380,12 @@ const UpdateStandingOrderForm: React.FC<UpdateStandingOrderFormProps> = ({ stand
             render={({ field }) => (
                 <FormItem className="flex flex-col">
                 <FormLabel>End Date (Contract)</FormLabel>
-                <DatePicker date={field.value || undefined} setDate={field.onChange} disabled={!isAdmin} />
+                {/* Ensure date can be cleared by passing undefined if value is null */}
+                <DatePicker 
+                  date={field.value || undefined} 
+                  setDate={field.onChange} 
+                  disabled={!isAdmin} 
+                />
                 <FormMessage />
                 </FormItem>
             )}
