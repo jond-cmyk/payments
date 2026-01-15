@@ -197,13 +197,18 @@ const PaymentRequestPDF: React.FC<PaymentRequestPDFProps> = ({ request, requeste
             </View>
             
             {request.categories && request.categories.length > 0 ? (
-              request.categories.map((cat, index) => (
-                <View key={index} style={styles.tableRow}>
-                  <Text style={styles.tableCell}>{cat.category}</Text>
-                  <Text style={styles.tableCellSku}>{cat.not_sku_related ? 'No SKU' : (cat.sku || 'N/A')}</Text>
-                  <Text style={styles.amountCell}>{cat.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
-                </View>
-              ))
+              request.categories.map((cat, index) => {
+                const effectiveSku = cat.sku || (!cat.not_sku_related ? request.sku_number : null);
+                const isNotSkuRelated = cat.not_sku_related ?? (effectiveSku ? false : request.not_sku_related);
+
+                return (
+                  <View key={index} style={styles.tableRow}>
+                    <Text style={styles.tableCell}>{cat.category}</Text>
+                    <Text style={styles.tableCellSku}>{isNotSkuRelated ? 'No SKU' : (effectiveSku || 'N/A')}</Text>
+                    <Text style={styles.amountCell}>{cat.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
+                  </View>
+                );
+              })
             ) : (
               <View style={styles.tableRow}>
                 <Text style={styles.tableCell}>No charges defined</Text>

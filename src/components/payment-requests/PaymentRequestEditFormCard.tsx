@@ -35,13 +35,19 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
 
   const defaultSkuPrefix = request.country === 'United Kingdom' ? 'UK' : 'CH';
 
+  // LOGIC: Map existing global SKU to categories if per-category SKUs are missing (legacy support)
   const formattedCategories = request.categories && request.categories.length > 0
     ? request.categories.map(c => ({
         ...c,
-        sku: c.sku || defaultSkuPrefix,
-        not_sku_related: c.not_sku_related || false
+        sku: c.sku || request.sku_number || defaultSkuPrefix,
+        not_sku_related: c.not_sku_related ?? request.not_sku_related ?? false
       }))
-    : [{ category: "", amount: 0, sku: defaultSkuPrefix, not_sku_related: false }];
+    : [{ 
+        category: "", 
+        amount: 0, 
+        sku: request.sku_number || defaultSkuPrefix, 
+        not_sku_related: request.not_sku_related || false 
+      }];
 
   const form = useForm<EditFormSchema>({
     resolver: zodResolver(editFormSchema),
@@ -138,9 +144,10 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
               )}
             />
 
-             <div className="space-y-4">
+             {/* UI: Making the categories section stand out */}
+             <div className="space-y-4 bg-blue-50/50 p-6 rounded-xl border-2 border-blue-100 shadow-inner">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-bold flex items-center">
+                  <h3 className="text-lg font-bold flex items-center text-blue-900">
                     <DollarSign className="mr-2 h-5 w-5" /> Charges & Properties
                   </h3>
                   <Button
@@ -148,128 +155,138 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     variant="outline"
                     size="sm"
                     onClick={() => append({ category: "", amount: 0, sku: defaultSkuPrefix, not_sku_related: false })}
-                    className="shadow-sm"
+                    className="shadow-sm bg-white hover:bg-blue-50"
                     disabled={isDisabled}
                   >
                     <PlusCircle className="mr-2 h-4 w-4" /> Add Line Item
                   </Button>
                 </div>
                 
-                {fields.map((item, index) => (
-                  <Card key={item.id} className="p-4 shadow-sm border-2 border-muted">
-                    <div className="flex justify-between items-center mb-4">
-                      <Badge variant="outline">Item #{index + 1}</Badge>
-                      {fields.length > 1 && !isDisabled && (
-                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
-                          <MinusCircle className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name={`categories.${index}.category`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={isDisabled}>
-                              <SelectTrigger>
-                                <FormControl>
-                                  <SelectValue placeholder="Select a category" />
-                                </FormControl>
-                              </SelectTrigger>
-                              <SelectContent>
-                                {filteredCategoryOptions.map((option) => (
-                                  <SelectItem key={option.value} value={option.value}>
-                                    {option.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
+                <div className="space-y-4">
+                  {fields.map((item, index) => (
+                    <Card key={item.id} className="p-4 shadow-sm border-2 border-muted bg-white/80">
+                      <div className="flex justify-between items-center mb-4">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-700">Line Item #{index + 1}</Badge>
+                        {fields.length > 1 && !isDisabled && (
+                          <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                            <MinusCircle className="h-4 w-4" />
+                          </Button>
                         )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`categories.${index}.amount`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="font-semibold">Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                            <FormControl>
-                              <Input 
-                                type="number"
-                                step="0.01" 
-                                placeholder="0.00" 
-                                {...field}
-                                disabled={isDisabled}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`categories.${index}.sku`}
-                        render={({ field }) => {
-                          const isNoSku = watchedCategories?.[index]?.not_sku_related;
-                          return (
-                            <FormItem className="md:col-span-1">
-                              <FormLabel className="font-semibold">Property (SKU)</FormLabel>
-                              <div className="flex items-center gap-2">
-                                <FormControl className="flex-1">
-                                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={isNoSku || isDisabled} />
-                                </FormControl>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="icon"
-                                  onClick={() => {
-                                    if (field.value) {
-                                      window.open(`https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(field.value)}`, '_blank');
-                                    }
-                                  }}
-                                  disabled={isNoSku || isDisabled}
-                                >
-                                  <Search className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              <FormMessage />
-                            </FormItem>
-                          );
-                        }}
-                      />
-                      <div className="flex flex-col justify-end pb-1">
-                         <FormField
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField
                           control={form.control}
-                          name={`categories.${index}.not_sku_related`}
+                          name={`categories.${index}.category`}
                           render={({ field }) => (
-                            <FormItem className="flex flex-row items-start space-x-2 space-y-0 p-2 border rounded-md">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
-                                  disabled={isDisabled}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-sm cursor-pointer">
-                                No SKU / Not Property Related
-                              </FormLabel>
+                            <FormItem>
+                              <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={isDisabled}>
+                                <SelectTrigger className="bg-white">
+                                  <FormControl>
+                                    <SelectValue placeholder="Select a category" />
+                                  </FormControl>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {filteredCategoryOptions.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                      {option.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
                             </FormItem>
                           )}
                         />
+                        <FormField
+                          control={form.control}
+                          name={`categories.${index}.amount`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="font-semibold">Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="number"
+                                  step="0.01" 
+                                  placeholder="0.00" 
+                                  {...field}
+                                  disabled={isDisabled}
+                                  className="bg-white"
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`categories.${index}.sku`}
+                          render={({ field }) => {
+                            const isNoSku = watchedCategories?.[index]?.not_sku_related;
+                            return (
+                              <FormItem className="md:col-span-1">
+                                <FormLabel className="font-semibold">Property (SKU)</FormLabel>
+                                <div className="flex items-center gap-2">
+                                  <FormControl className="flex-1">
+                                    <PrefixedInput 
+                                      prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} 
+                                      placeholder="e.g., 12345" 
+                                      {...field} 
+                                      disabled={isNoSku || isDisabled} 
+                                      className="bg-white"
+                                    />
+                                  </FormControl>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => {
+                                      if (field.value) {
+                                        window.open(`https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(field.value)}`, '_blank');
+                                      }
+                                    }}
+                                    disabled={isNoSku || isDisabled}
+                                    className="bg-white"
+                                  >
+                                    <Search className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                                <FormMessage />
+                              </FormItem>
+                            );
+                          }}
+                        />
+                        <div className="flex flex-col justify-end pb-1">
+                          <FormField
+                            control={form.control}
+                            name={`categories.${index}.not_sku_related`}
+                            render={({ field }) => (
+                              <FormItem className="flex flex-row items-start space-x-2 space-y-0 p-2 border rounded-md bg-white">
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={isDisabled}
+                                  />
+                                </FormControl>
+                                <FormLabel className="text-sm cursor-pointer">
+                                  No SKU / Not Property Related
+                                </FormLabel>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    {watchedCategories?.[index]?.sku && !watchedCategories?.[index]?.not_sku_related && (
-                      <div className="mt-4 pt-4 border-t">
-                        <PropertyAddressField skuValue={watchedCategories[index].sku} country={formCountry} />
-                      </div>
-                    )}
-                  </Card>
-                ))}
+                      {watchedCategories?.[index]?.sku && !watchedCategories?.[index]?.not_sku_related && (
+                        <div className="mt-4 pt-4 border-t border-blue-50">
+                          <PropertyAddressField skuValue={watchedCategories[index].sku} country={formCountry} />
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </div>
                 
-                <div className="bg-muted p-4 rounded-md flex justify-between items-center text-lg font-bold mt-6">
+                <div className="bg-blue-600 text-white p-4 rounded-xl flex justify-between items-center text-lg font-bold mt-6 shadow-md">
                   <span>Total Amount:</span>
                   <span>{form.watch('total_amount').toFixed(2)} {request.currency}</span>
                 </div>

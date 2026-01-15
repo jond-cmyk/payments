@@ -115,20 +115,26 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
                 </TableHeader>
                 <TableBody>
                   {request.categories && request.categories.length > 0 ? (
-                    request.categories.map((cat, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="align-top">{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
-                        <TableCell className="align-top">
-                          {cat.not_sku_related ? 'No SKU' : (cat.sku || 'N/A')}
-                          {cat.sku && !cat.not_sku_related && (
-                            <div className="mt-1 text-[10px] text-muted-foreground italic">
-                              <PropertyAddressField skuValue={cat.sku} country={request.country} />
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right align-top">{formatAmount(cat.amount)}</TableCell>
-                      </TableRow>
-                    ))
+                    request.categories.map((cat, index) => {
+                      // Fallback logic for legacy data: if category SKU is empty, check request.sku_number
+                      const effectiveSku = cat.sku || (!cat.not_sku_related ? request.sku_number : null);
+                      const isNotSkuRelated = cat.not_sku_related ?? (effectiveSku ? false : request.not_sku_related);
+
+                      return (
+                        <TableRow key={index}>
+                          <TableCell className="align-top">{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
+                          <TableCell className="align-top">
+                            {isNotSkuRelated ? 'No SKU' : (effectiveSku || 'N/A')}
+                            {effectiveSku && !isNotSkuRelated && (
+                              <div className="mt-1 text-[10px] text-muted-foreground italic">
+                                <PropertyAddressField skuValue={effectiveSku} country={request.country} />
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right align-top">{formatAmount(cat.amount)}</TableCell>
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow><TableCell colSpan={3}>No categories defined.</TableCell></TableRow>
                   )}
