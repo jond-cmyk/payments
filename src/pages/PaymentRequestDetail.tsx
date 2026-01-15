@@ -260,13 +260,12 @@ const PaymentRequestDetail = () => {
         throw new Error("User not authenticated or request data missing.");
       }
 
-      const invoiceFiles: FileList = values.invoice_pdf;
       const countryForUpdate = (values.country && values.country.trim() !== '') ? values.country : request.country;
 
       const updatedFields: Partial<PaymentRequest> & { new_invoice_files?: FileList } = {
         supplier_name: values.supplier_name,
-        sku_number: values.not_sku_related ? null : values.sku_number,
-        not_sku_related: values.not_sku_related,
+        sku_number: null, // No longer global
+        not_sku_related: false, // No longer global
         lease_id: values.lease_id || null,
         supplier_address: values.supplier_address,
         total_amount: values.total_amount,

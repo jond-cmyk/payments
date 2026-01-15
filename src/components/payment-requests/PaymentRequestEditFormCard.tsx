@@ -22,6 +22,7 @@ import { categoryOptions } from '@/lib/constants';
 import { PlusCircle, MinusCircle, DollarSign, Search } from 'lucide-react';
 import { showError } from '@/utils/toast';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 
 interface PaymentRequestEditFormCardProps {
   request: PaymentRequest;
@@ -32,17 +33,20 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
   const { userProfile } = useSession();
   const isAdmin = userProfile?.role === 'admin';
 
-  // Format existing categories for the form
+  const defaultSkuPrefix = request.country === 'United Kingdom' ? 'UK' : 'CH';
+
   const formattedCategories = request.categories && request.categories.length > 0
-    ? request.categories
-    : [{ category: "", amount: 0 }];
+    ? request.categories.map(c => ({
+        ...c,
+        sku: c.sku || defaultSkuPrefix,
+        not_sku_related: c.not_sku_related || false
+      }))
+    : [{ category: "", amount: 0, sku: defaultSkuPrefix, not_sku_related: false }];
 
   const form = useForm<EditFormSchema>({
     resolver: zodResolver(editFormSchema),
     defaultValues: {
       supplier_name: request.supplier_name,
-      sku_number: request.sku_number || '',
-      not_sku_related: request.not_sku_related || false,
       lease_id: request.lease_id || '',
       supplier_address: request.supplier_address,
       iban_number: request.iban_number || '',
@@ -67,15 +71,12 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
     name: "categories",
   });
 
-  const notSkuRelated = form.watch("not_sku_related");
   const formCountry = form.watch("country");
-  const skuValue = form.watch("sku_number");
   const watchedCategories = useWatch({
       control: form.control,
       name: "categories",
   });
 
-  // Calculate total amount whenever categories array changes
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
@@ -84,7 +85,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
     if (form.getValues('total_amount') !== newTotal) {
       form.setValue("total_amount", newTotal);
     }
-  }, [watchedCategories]);
+  }, [watchedCategories, form]);
 
   const filteredCategoryOptions = categoryOptions.filter(option =>
     !option.countries || option.countries.includes(formCountry)
@@ -137,97 +138,142 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
               )}
             />
 
-             {/* Categories Section */}
-             <Card className="p-4 shadow-sm">
-                <CardTitle className="text-lg font-semibold mb-4 flex items-center">
-                    <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts
-                </CardTitle>
-                <div className="space-y-4">
-                    {fields.map((item, index) => (
-                    <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
-                        <FormField
+             <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold flex items-center">
+                    <DollarSign className="mr-2 h-5 w-5" /> Charges & Properties
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ category: "", amount: 0, sku: defaultSkuPrefix, not_sku_related: false })}
+                    className="shadow-sm"
+                    disabled={isDisabled}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Line Item
+                  </Button>
+                </div>
+                
+                {fields.map((item, index) => (
+                  <Card key={item.id} className="p-4 shadow-sm border-2 border-muted">
+                    <div className="flex justify-between items-center mb-4">
+                      <Badge variant="outline">Item #{index + 1}</Badge>
+                      {fields.length > 1 && !isDisabled && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                          <MinusCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
                         control={form.control}
                         name={`categories.${index}.category`}
                         render={({ field }) => (
-                            <FormItem className="flex-1 w-full">
-                            <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                          <FormItem>
+                            <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                             <Select onValueChange={field.onChange} value={field.value} disabled={isDisabled}>
-                                <SelectTrigger>
+                              <SelectTrigger>
                                 <FormControl>
-                                    <SelectValue placeholder="Select category" />
+                                  <SelectValue placeholder="Select a category" />
                                 </FormControl>
-                                </SelectTrigger>
-                                <SelectContent>
+                              </SelectTrigger>
+                              <SelectContent>
                                 {filteredCategoryOptions.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
+                                  <SelectItem key={option.value} value={option.value}>
                                     {option.label}
-                                    </SelectItem>
+                                  </SelectItem>
                                 ))}
-                                </SelectContent>
+                              </SelectContent>
                             </Select>
                             <FormMessage />
-                            </FormItem>
+                          </FormItem>
                         )}
-                        />
-                        <FormField
+                      />
+                      <FormField
                         control={form.control}
                         name={`categories.${index}.amount`}
                         render={({ field }) => (
-                            <FormItem className="flex-1 w-full">
-                            <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                          <FormItem>
+                            <FormLabel className="font-semibold">Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                             <FormControl>
-                                <Input 
-                                type="text"
+                              <Input 
+                                type="number"
                                 step="0.01" 
-                                placeholder="Amount" 
+                                placeholder="0.00" 
                                 {...field}
-                                value={field.value === 0 ? "" : String(field.value)}
-                                onChange={(e) => {
-                                    const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                                    field.onChange(rawValue);
-                                }}
                                 disabled={isDisabled}
-                                />
+                              />
                             </FormControl>
                             <FormMessage />
-                            </FormItem>
+                          </FormItem>
                         )}
-                        />
-                        {fields.length > 1 && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0" disabled={isDisabled}>
-                            <MinusCircle className="h-4 w-4" />
-                        </Button>
-                        )}
-                    </div>
-                    ))}
-                    <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => append({ category: "", amount: 0 })}
-                    className="w-full"
-                    disabled={isDisabled}
-                    >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Category
-                    </Button>
-                    <Separator className="my-4" />
-                    <div className="flex justify-between items-center text-lg font-bold">
-                    <span>Total Amount:</span>
-                    <span>{form.getValues('total_amount').toFixed(2)}</span>
-                    </div>
-                     <FormField
+                      />
+                      <FormField
                         control={form.control}
-                        name="total_amount"
-                        render={({ field }) => (
-                        <FormItem className="hidden">
-                            <FormControl>
-                            <Input type="hidden" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
+                        name={`categories.${index}.sku`}
+                        render={({ field }) => {
+                          const isNoSku = watchedCategories?.[index]?.not_sku_related;
+                          return (
+                            <FormItem className="md:col-span-1">
+                              <FormLabel className="font-semibold">Property (SKU)</FormLabel>
+                              <div className="flex items-center gap-2">
+                                <FormControl className="flex-1">
+                                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={isNoSku || isDisabled} />
+                                </FormControl>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    if (field.value) {
+                                      window.open(`https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(field.value)}`, '_blank');
+                                    }
+                                  }}
+                                  disabled={isNoSku || isDisabled}
+                                >
+                                  <Search className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
+                      />
+                      <div className="flex flex-col justify-end pb-1">
+                         <FormField
+                          control={form.control}
+                          name={`categories.${index}.not_sku_related`}
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-2 space-y-0 p-2 border rounded-md">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  disabled={isDisabled}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm cursor-pointer">
+                                No SKU / Not Property Related
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    </div>
+                    {watchedCategories?.[index]?.sku && !watchedCategories?.[index]?.not_sku_related && (
+                      <div className="mt-4 pt-4 border-t">
+                        <PropertyAddressField skuValue={watchedCategories[index].sku} country={formCountry} />
+                      </div>
+                    )}
+                  </Card>
+                ))}
+                
+                <div className="bg-muted p-4 rounded-md flex justify-between items-center text-lg font-bold mt-6">
+                  <span>Total Amount:</span>
+                  <span>{form.watch('total_amount').toFixed(2)} {request.currency}</span>
                 </div>
-            </Card>
+              </div>
 
             {formCountry !== 'United Kingdom' ? (
                 <FormField
@@ -258,61 +304,6 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                     <Input value="GBP" disabled className="bg-muted/50" />
                 </div>
             )}
-
-            <FormField
-              control={form.control}
-              name="sku_number"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>SKU Number</FormLabel>
-                   <div className="flex items-center gap-2">
-                        <FormControl className="flex-1">
-                            <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} {...field} disabled={notSkuRelated || isDisabled} />
-                        </FormControl>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => {
-                            const sku = form.getValues('sku_number');
-                            if (sku) {
-                                const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(sku)}`;
-                                window.open(url, '_blank');
-                            } else {
-                                showError("Enter SKU first.");
-                            }
-                            }}
-                            disabled={notSkuRelated || isDisabled}
-                        >
-                            <Search className="h-4 w-4" />
-                        </Button>
-                   </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <PropertyAddressField skuValue={skuValue} country={formCountry} />
-
-             <FormField
-                control={form.control}
-                name="not_sku_related"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={isDisabled}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        Not SKU Related
-                      </FormLabel>
-                    </div>
-                  </FormItem>
-                )}
-              />
 
             <FormField
               control={form.control}
@@ -353,7 +344,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            // Removed disabled prop
+                            disabled={isDisabled}
                           />
                         </FormControl>
                         <FormMessage />
@@ -369,7 +360,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            // Removed disabled prop
+                            disabled={isDisabled}
                           />
                         </FormControl>
                         <FormMessage />
@@ -385,7 +376,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         <FormControl>
                           <Input 
                             {...field} 
-                            // Removed disabled prop
+                            disabled={isDisabled}
                           />
                         </FormControl>
                         <FormMessage />
@@ -446,12 +437,9 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                         />
                       </FormControl>
                       <div className="space-y-1 leading-none">
-                        <FormLabel className="text-blue-700">
+                        <FormLabel className="text-blue-700 font-bold">
                           Bank Details Verified
                         </FormLabel>
-                        <FormDescription className="text-blue-600">
-                           Confirm these bank details are correct.
-                        </FormDescription>
                       </div>
                     </div>
                     <FormMessage />
@@ -464,7 +452,7 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Notes</FormLabel>
+                  <FormLabel>General Notes</FormLabel>
                   <FormControl>
                     <Textarea {...field} disabled={isDisabled} />
                   </FormControl>
@@ -523,9 +511,6 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       <FormLabel>
                         Payment Receipt Required?
                       </FormLabel>
-                      <FormDescription>
-                        Check this box if a receipt is required after the payment is made.
-                      </FormDescription>
                     </div>
                   </FormItem>
                 )}
@@ -543,18 +528,15 @@ const PaymentRequestEditFormCard: React.FC<PaymentRequestEditFormCardProps> = ({
                       />
                     </FormControl>
                     <div className="space-y-1 leading-none">
-                      <FormLabel className="text-red-700">
+                      <FormLabel className="text-red-700 font-bold">
                         Mark as Urgent
                       </FormLabel>
-                      <FormDescription>
-                        Check this box if this payment request is urgent and requires immediate attention.
-                      </FormDescription>
                     </div>
                   </FormItem>
                 )}
               />
               <Button type="submit" className="w-full bg-dyad-blue hover:bg-dyad-blue-foreground text-dyad-blue-foreground">
-                Submit Payment Request
+                Submit Changes
               </Button>
             </form>
           </Form>

@@ -12,7 +12,7 @@ import { useCountry } from '@/integrations/supabase/CountryContext';
 import { categoryOptions } from '@/lib/constants';
 import { PayeeSuggestion, StandingOrder } from '@/types/supabase';
 import { majorCurrencies } from '@/schemas/paymentRequestSchema';
-import { PlusCircle, MinusCircle, DollarSign, Search, AlertTriangle } from 'lucide-react';
+import { PlusCircle, MinusCircle, DollarSign, Search, AlertTriangle, Home } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,11 +29,10 @@ import { Separator } from '@/components/ui/separator';
 import PropertyAddressField from '@/components/PropertyAddressField';
 import { formatAmount } from '@/components/economic/EconomicDetailDialog';
 import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 
 const formSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
-  sku_number: z.string().optional(),
-  not_sku_related: z.boolean().default(false),
   lease_id: z.string().optional().refine((val) => {
     if (val === undefined || val === null || val.trim() === '') return true;
     return /^\d+$/.test(val);
@@ -59,32 +58,36 @@ const formSchema = z.object({
   categories: z.array(z.object({
     category: z.string().min(1, "Category is required."),
     amount: z.coerce.number().min(0.01, "Amount must be positive."),
+    sku: z.string().optional(),
+    not_sku_related: z.boolean().default(false),
   })).min(1, "At least one category with an amount is required."),
   bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
 }).superRefine((data, ctx) => {
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
-  if (!data.not_sku_related) {
-    if (!data.sku_number || data.sku_number.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `SKU Number is required unless 'Not SKU Related' is checked.`,
-        path: ['sku_number'],
-      });
-    } else if (!data.sku_number.startsWith(skuPrefix)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `SKU Number must start with '${skuPrefix}'.`,
-        path: ['sku_number'],
-      });
-    } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku_number)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
-        path: ['sku_number'],
-      });
+  data.categories.forEach((cat, index) => {
+    if (!cat.not_sku_related) {
+      if (!cat.sku || cat.sku.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `SKU is required for category ${index + 1} unless 'No SKU' is checked.`,
+          path: ['categories', index, 'sku'],
+        });
+      } else if (!cat.sku.startsWith(skuPrefix)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `SKU must start with '${skuPrefix}'.`,
+          path: ['categories', index, 'sku'],
+        });
+      } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(cat.sku)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `SKU must be '${skuPrefix}' followed by numbers.`,
+          path: ['categories', index, 'sku'],
+        });
+      }
     }
-  }
+  });
 
   if (data.country === 'United Kingdom') {
     if (data.currency !== 'GBP') {
@@ -137,14 +140,6 @@ const formSchema = z.object({
         path: ['bank_account_name'],
       });
     }
-  } else {
-    if (!data.iban_number || data.iban_number.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "IBAN Number is required.",
-        path: ['iban_number'],
-      });
-    }
   }
 });
 
@@ -168,8 +163,6 @@ const NewPaymentRequest = () => {
     resolver: zodResolver(formSchema),
     defaultValues: {
       supplier_name: "",
-      sku_number: defaultSkuPrefix,
-      not_sku_related: false,
       lease_id: "",
       supplier_address: "",
       iban_number: "",
@@ -184,7 +177,7 @@ const NewPaymentRequest = () => {
       receipt_required: false,
       is_urgent: false,
       country: currentCountry,
-      categories: [{ category: "", amount: 0 }],
+      categories: [{ category: "", amount: 0, sku: defaultSkuPrefix, not_sku_related: false }],
       bank_details_verified: false,
     },
   });
@@ -194,28 +187,21 @@ const NewPaymentRequest = () => {
     name: "categories",
   });
 
-  const notSkuRelated = form.watch("not_sku_related");
   const formCountry = form.watch("country");
-  const skuValue = form.watch("sku_number");
   const watchedCategories = useWatch({
     control: form.control,
     name: "categories",
   });
 
-  // Calculate total amount whenever categories array changes
   React.useEffect(() => {
     const newTotal = (watchedCategories || []).reduce((sum, categoryItem) => {
       const parsedAmount = parseFloat(categoryItem?.amount as any) || 0;
       return sum + parsedAmount;
     }, 0);
-    // Only update if actually different to prevent render loops
     if (form.getValues('total_amount') !== newTotal) {
       form.setValue("total_amount", newTotal, { shouldValidate: true });
     }
-  }, [watchedCategories]); 
-
-  // --- REMOVED THE PROBLEMATIC useEffect THAT WAS RESETTING THE FORM ---
-  // The reset logic has been moved entirely to the Select onValueChange handler below.
+  }, [watchedCategories, form]);
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-full">Loading...</div>;
@@ -244,12 +230,8 @@ const NewPaymentRequest = () => {
         body: { searchTerm: supplierName, country: currentFormCountry },
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
 
       if (data && data.suggestions && data.suggestions.length > 0) {
         setSupplierSuggestions(data.suggestions);
@@ -295,23 +277,23 @@ const NewPaymentRequest = () => {
         form.setValue('account_number', '', options);
     }
     
-    form.setValue('categories', [{ category: "", amount: 0 }], options);
+    form.setValue('categories', [{ category: "", amount: 0, sku: defaultSkuPrefix, not_sku_related: false }], options);
     form.setValue('total_amount', 0.00, options);
 
     setIsSuggestionDialogOpen(false);
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    const hasRentCategory = values.categories.some(c => c.category === '950_rent');
+    const rentCategories = values.categories.filter(c => c.category === '950_rent' && c.sku && !c.not_sku_related);
     
-    if (hasRentCategory && values.sku_number && !values.not_sku_related) {
+    if (rentCategories.length > 0) {
       const toastId = showLoading("Checking for duplicate standing orders...");
       try {
         const { data: duplicateOrders, error: checkError } = await supabase
           .from('standing_orders')
           .select('*')
-          .eq('sku', values.sku_number)
           .eq('status', 'active')
+          .in('sku', rentCategories.map(c => c.sku))
           .contains('categories', JSON.stringify([{ category: '950_rent' }]));
 
         if (checkError) {
@@ -348,7 +330,7 @@ const NewPaymentRequest = () => {
         const fileExtension = file.name.split('.').pop();
         const fileName = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('invoices')
           .upload(fileName, file, {
             cacheControl: '3600',
@@ -390,8 +372,8 @@ const NewPaymentRequest = () => {
         .insert({
           requester_id: user.id,
           supplier_name: values.supplier_name,
-          sku_number: values.not_sku_related ? null : values.sku_number,
-          not_sku_related: values.not_sku_related,
+          sku_number: null, // No longer global
+          not_sku_related: false, // No longer global
           lease_id: values.lease_id || null,
           supplier_address: values.supplier_address,
           ...bankDetails,
@@ -414,27 +396,7 @@ const NewPaymentRequest = () => {
 
       dismissToast(toastId);
       showSuccess("Payment request created successfully!");
-      form.reset({
-        supplier_name: "",
-        sku_number: defaultSkuPrefix,
-        currency: initialCurrency,
-        total_amount: 0.00,
-        receipt_required: false,
-        is_urgent: false,
-        not_sku_related: false,
-        invoice_pdf: undefined,
-        lease_id: "",
-        iban_number: "",
-        sort_code: "",
-        account_number: "",
-        bank_account_name: "",
-        country: currentCountry,
-        categories: [{ category: "", amount: 0 }],
-        supplier_address: "",
-        notes: "",
-        date_payment_required: undefined,
-        bank_details_verified: false,
-      });
+      form.reset();
       navigate('/dashboard');
     } catch (error: any) {
       dismissToast(toastId);
@@ -472,16 +434,14 @@ const NewPaymentRequest = () => {
                     <Select 
                       onValueChange={(val) => {
                         field.onChange(val);
-                        // Manually reset form defaults based on new country here
                         const newSkuPrefix = val === 'United Kingdom' ? 'UK' : 'CH';
                         const newCurrency = val === 'United Kingdom' ? 'GBP' : 'CHF';
-                        
-                        form.setValue('sku_number', newSkuPrefix);
                         form.setValue('currency', newCurrency);
                         form.setValue('iban_number', '');
                         form.setValue('sort_code', '');
                         form.setValue('account_number', '');
                         form.setValue('bank_account_name', '');
+                        form.setValue('categories', [{ category: "", amount: 0, sku: newSkuPrefix, not_sku_related: false }]);
                       }} 
                       value={field.value} 
                       disabled={userProfile?.role !== 'admin' && isCountryLocked}
@@ -499,9 +459,6 @@ const NewPaymentRequest = () => {
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      {userProfile?.role !== 'admin' && isCountryLocked ? "Your country is set by your profile and cannot be changed." : "Select the country for this payment request."}
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -528,19 +485,39 @@ const NewPaymentRequest = () => {
                 )}
               />
               
-              <Card className="p-4 shadow-sm">
-                <CardTitle className="text-lg font-semibold mb-4 flex items-center">
-                  <DollarSign className="mr-2 h-5 w-5" /> Categories & Amounts<span className="text-red-600 ml-1 text-lg font-bold">*</span>
-                </CardTitle>
-                <div className="space-y-4">
-                  {fields.map((item, index) => (
-                    <div key={item.id} className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-bold flex items-center">
+                    <DollarSign className="mr-2 h-5 w-5" /> Charges & Properties
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ category: "", amount: 0, sku: defaultSkuPrefix, not_sku_related: false })}
+                    className="shadow-sm"
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4" /> Add Line Item
+                  </Button>
+                </div>
+                
+                {fields.map((item, index) => (
+                  <Card key={item.id} className="p-4 shadow-sm border-2 border-muted">
+                    <div className="flex justify-between items-center mb-4">
+                      <Badge variant="outline">Item #{index + 1}</Badge>
+                      {fields.length > 1 && (
+                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="text-red-500 hover:text-red-700 hover:bg-red-50">
+                          <MinusCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name={`categories.${index}.category`}
                         render={({ field }) => (
-                          <FormItem className="flex-1 w-full">
-                            <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Category</FormLabel>
+                          <FormItem>
+                            <FormLabel className="font-semibold">Category<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <SelectTrigger>
                                 <FormControl>
@@ -563,59 +540,84 @@ const NewPaymentRequest = () => {
                         control={form.control}
                         name={`categories.${index}.amount`}
                         render={({ field }) => (
-                          <FormItem className="flex-1 w-full">
-                            <FormLabel className={index === 0 ? "font-semibold" : "sr-only"}>Amount</FormLabel>
+                          <FormItem>
+                            <FormLabel className="font-semibold">Amount<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                             <FormControl>
                               <Input 
-                                type="text"
+                                type="number"
                                 step="0.01" 
-                                placeholder="Amount" 
+                                placeholder="0.00" 
                                 {...field}
-                                value={field.value === 0 ? "" : String(field.value)}
-                                onChange={(e) => {
-                                  const rawValue = e.target.value.replace(/[^\d.]/g, '');
-                                  field.onChange(rawValue);
-                                }}
                               />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      {fields.length > 1 && (
-                        <Button type="button" variant="outline" size="icon" onClick={() => remove(index)} className="flex-shrink-0">
-                          <MinusCircle className="h-4 w-4" />
-                        </Button>
-                      )}
+                      <FormField
+                        control={form.control}
+                        name={`categories.${index}.sku`}
+                        render={({ field }) => {
+                          const isNoSku = watchedCategories?.[index]?.not_sku_related;
+                          return (
+                            <FormItem className="md:col-span-1">
+                              <FormLabel className="font-semibold">Property (SKU)</FormLabel>
+                              <div className="flex items-center gap-2">
+                                <FormControl className="flex-1">
+                                  <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={isNoSku} />
+                                </FormControl>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => {
+                                    if (field.value) {
+                                      window.open(`https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(field.value)}`, '_blank');
+                                    }
+                                  }}
+                                  disabled={isNoSku}
+                                >
+                                  <Search className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
+                      />
+                      <div className="flex flex-col justify-end pb-1">
+                         <FormField
+                          control={form.control}
+                          name={`categories.${index}.not_sku_related`}
+                          render={({ field }) => (
+                            <FormItem className="flex flex-row items-start space-x-2 space-y-0 p-2 border rounded-md">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-sm cursor-pointer">
+                                No SKU / Not Property Related
+                              </FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => append({ category: "", amount: 0 })}
-                    className="w-full"
-                  >
-                    <PlusCircle className="mr-2 h-4 w-4" /> Add Another Category
-                  </Button>
-                  <Separator className="my-4" />
-                  <div className="flex justify-between items-center text-lg font-bold">
-                    <span>Total Amount:</span>
-                    <span>{form.getValues('total_amount').toFixed(2)}</span>
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="total_amount"
-                    render={({ field }) => (
-                      <FormItem className="hidden">
-                        <FormControl>
-                          <Input type="hidden" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                    {watchedCategories?.[index]?.sku && !watchedCategories?.[index]?.not_sku_related && (
+                      <div className="mt-4 pt-4 border-t">
+                        <PropertyAddressField skuValue={watchedCategories[index].sku} country={formCountry} />
+                      </div>
                     )}
-                  />
+                  </Card>
+                ))}
+                
+                <div className="bg-muted p-4 rounded-md flex justify-between items-center text-lg font-bold mt-6">
+                  <span>Total Amount:</span>
+                  <span>{form.watch('total_amount').toFixed(2)} {finalCurrencyLabel(form.watch('country'), form.watch('currency'))}</span>
                 </div>
-              </Card>
+              </div>
 
               {formCountry !== 'United Kingdom' ? (
                 <FormField
@@ -624,7 +626,7 @@ const NewPaymentRequest = () => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel className="font-semibold">Currency<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <SelectTrigger id={field.name}>
                           <FormControl>
                             <SelectValue placeholder="Select a currency" />
@@ -642,89 +644,41 @@ const NewPaymentRequest = () => {
                     </FormItem>
                   )}
                 />
-              ) : (
-                <div className="space-y-2">
-                  <FormLabel className="font-semibold">Currency</FormLabel>
-                  <Input value="GBP - British Pound (Fixed)" disabled className="bg-muted/50" />
-                  <FormDescription>Currency is fixed to GBP for United Kingdom.</FormDescription>
-                </div>
-              )}
+              ) : null}
 
-              <FormField
-                control={form.control}
-                name="sku_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">SKU Number</FormLabel>
-                    <div className="flex items-center gap-2">
-                      <FormControl className="flex-1">
-                        <PrefixedInput prefix={formCountry === 'United Kingdom' ? 'UK' : 'CH'} placeholder="e.g., 12345" {...field} disabled={notSkuRelated} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="lease_id"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="font-semibold">Lease ID (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="text" placeholder="e.g., 123456" {...field} />
                       </FormControl>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          const sku = form.getValues('sku_number');
-                          if (sku) {
-                            const url = `https://portal.kassoehousing.com/admin/kassoe-theme/categories/edit/115?_method=PUT&Filter%5BKassoeThemeProducts__sku%5D=${encodeURIComponent(sku)}`;
-                            window.open(url, '_blank');
-                          } else {
-                            showError("Please enter an SKU number first.");
-                          }
-                        }}
-                        disabled={notSkuRelated}
-                      >
-                        <Search className="h-4 w-4" />
-                      </Button>
-                      <span className="text-sm text-muted-foreground whitespace-nowrap">Check Accommodation in Platform</span>
-                    </div>
-                    <FormDescription>
-                      {notSkuRelated ? "SKU field is optional as 'Not SKU Related' is checked." : `SKU Number must start with '${formCountry === 'United Kingdom' ? 'UK' : 'CH'}' and be followed by numbers.`}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <PropertyAddressField skuValue={skuValue} country={formCountry} />
-              <FormField
-                control={form.control}
-                name="not_sku_related"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        Not SKU Related
-                      </FormLabel>
-                      <FormDescription>
-                        Check this box if this payment request is not associated with an SKU.
-                      </FormDescription>
-                    </div>
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lease_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="font-semibold">Lease ID (Optional)</FormLabel>
-                    <FormControl>
-                      <Input type="text" placeholder="e.g., 123456" {...field} />
-                    </FormControl>
-                    <FormDescription>
-                      Enter a numerical Lease ID if applicable.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="date_payment_required"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="font-semibold">Date Payment Required<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                      <FormControl>
+                        <DatePicker
+                          date={field.value}
+                          setDate={field.onChange}
+                          placeholder="Select payment date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
                 name="supplier_address"
@@ -741,44 +695,34 @@ const NewPaymentRequest = () => {
 
               {formCountry === 'United Kingdom' ? (
                 <>
-                  <FormField
-                    control={form.control}
-                    name="sort_code"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold">Sort Code<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., 12-34-56"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Enter the 6-digit Sort Code in XX-XX-XX format.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="account_number"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="font-semibold">Bank Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="e.g., 1234 5678"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Enter the 8-digit Bank Account Number.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="sort_code"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold">Sort Code<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., 12-34-56" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="account_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="font-semibold">Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., 1234 5678" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                   <FormField
                     control={form.control}
                     name="bank_account_name"
@@ -786,14 +730,8 @@ const NewPaymentRequest = () => {
                       <FormItem>
                         <FormLabel className="font-semibold">Bank Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="e.g., John Doe" 
-                            {...field} 
-                          />
+                          <Input placeholder="e.g., John Doe" {...field} />
                         </FormControl>
-                        <FormDescription>
-                          Enter the name of the bank account holder.
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -809,14 +747,8 @@ const NewPaymentRequest = () => {
                         <FormItem>
                           <FormLabel className="font-semibold">Bank Account Name<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                           <FormControl>
-                            <Input 
-                              placeholder="e.g., John Doe" 
-                              {...field} 
-                            />
+                            <Input placeholder="e.g., John Doe" {...field} />
                           </FormControl>
-                          <FormDescription>
-                            Enter the name of the bank account holder.
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -829,10 +761,7 @@ const NewPaymentRequest = () => {
                       <FormItem>
                         <FormLabel className="font-semibold">IBAN Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
                         <FormControl>
-                          <Input 
-                            placeholder="e.g., CH9300762011623852957" 
-                            {...field} 
-                          />
+                          <Input placeholder="e.g., CH9300762011623852957" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -848,18 +777,12 @@ const NewPaymentRequest = () => {
                   <FormItem>
                     <div className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-blue-50 border-blue-200">
                       <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                       </FormControl>
                       <div className="space-y-1 leading-none">
-                        <FormLabel className="text-blue-700">
+                        <FormLabel className="text-blue-700 font-bold">
                           I have verified these bank details with the payee.<span className="text-red-600 ml-1 text-lg font-bold">*</span>
                         </FormLabel>
-                        <FormDescription className="text-blue-600">
-                          Please ensure the bank details are correct to avoid payment delays or errors.
-                        </FormDescription>
                       </div>
                     </div>
                     <FormMessage />
@@ -872,31 +795,15 @@ const NewPaymentRequest = () => {
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold">Notes</FormLabel>
+                    <FormLabel className="font-semibold">General Notes</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="e.g., Purchase of office supplies" {...field} />
+                      <Textarea placeholder="e.g., Additional context for the finance team..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="date_payment_required"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel className="font-semibold">Date Payment Required<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                    <FormControl>
-                      <DatePicker
-                        date={field.value}
-                        setDate={field.onChange}
-                        placeholder="Select payment date"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              
               <FormField
                 control={form.control}
                 name="invoice_pdf"
@@ -913,9 +820,6 @@ const NewPaymentRequest = () => {
                         multiple
                       />
                     </FormControl>
-                    <FormDescription>
-                      You can upload multiple PDF, JPG, JPEG, or PNG documents (max 5MB each).
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -926,18 +830,10 @@ const NewPaymentRequest = () => {
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                     <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                     <div className="space-y-1 leading-none">
-                      <FormLabel>
-                        Payment Receipt Required?
-                      </FormLabel>
-                      <FormDescription>
-                        Check this box if a receipt is required after the payment is made.
-                      </FormDescription>
+                      <FormLabel>Payment Receipt Required?</FormLabel>
                     </div>
                   </FormItem>
                 )}
@@ -948,18 +844,10 @@ const NewPaymentRequest = () => {
                 render={({ field }) => (
                   <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 bg-red-50 border-red-200">
                     <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
                     <div className="space-y-1 leading-none">
-                      <FormLabel className="text-red-700">
-                        Mark as Urgent
-                      </FormLabel>
-                      <FormDescription>
-                        Check this box if this payment request is urgent and requires immediate attention.
-                      </FormDescription>
+                      <FormLabel className="text-red-700">Mark as Urgent</FormLabel>
                     </div>
                   </FormItem>
                 )}
@@ -978,13 +866,12 @@ const NewPaymentRequest = () => {
                 </AlertDialogTitle>
                 <AlertDialogDescription className="space-y-3 pt-2">
                   <p className="font-semibold text-gray-900">
-                    There is an active standing order in place for this SKU with the "Rent" category.
+                    An active standing order exists for a property in this request with the "Rent" category.
                   </p>
                   {duplicateStandingOrderData && (
                     <div className="bg-amber-50 p-3 rounded border border-amber-200 text-sm">
                       <p><strong>Payee:</strong> {duplicateStandingOrderData.payee}</p>
                       <p><strong>Amount:</strong> {formatAmount(duplicateStandingOrderData.total_amount)} {duplicateStandingOrderData.currency || ''}</p>
-                      <p><strong>Start Date:</strong> {new Date(duplicateStandingOrderData.payment_date).toLocaleDateString()}</p>
                     </div>
                   )}
                   <p>Do you still wish to submit this payment request?</p>
@@ -1003,55 +890,33 @@ const NewPaymentRequest = () => {
             <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="font-bold">Existing Payee Suggestions</DialogTitle>
-                <DialogDescription>
-                  We found existing payees with a similar name. You can use their details to pre-fill the form.
-                </DialogDescription>
+                <DialogDescription>Use existing details to pre-fill the form.</DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
-                {supplierSuggestions.length > 0 ? (
-                  supplierSuggestions.map((suggestion, index) => (
-                    <Card key={index} className="p-4 border shadow-sm">
-                      <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
-                      <p className="text-sm text-muted-foreground">Source: {suggestion.source_type === 'payment_request' ? 'Payment Request' : 'Standing Order'}</p>
-                      <p className="text-sm text-muted-foreground">Account Name: {suggestion.bank_account_name || 'N/A'}</p>
-                      <p className="text-sm text-muted-foreground">Currency: {suggestion.currency || 'N/A'}</p>
-                      {suggestion.country === 'United Kingdom' ? (
-                        <>
-                          <p className="text-sm text-muted-foreground">Sort Code: {suggestion.sort_code || 'N/A'}</p>
-                          <p className="text-sm text-muted-foreground">Bank Account Number: {suggestion.account_number || 'N/A'}</p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-sm text-muted-foreground">IBAN: {suggestion.iban_number || 'N/A'}</p>
-                          <p className="text-sm text-muted-foreground">Address: {suggestion.address || 'N/A'}</p>
-                          {suggestion.country === 'Switzerland' && <p className="text-sm text-muted-foreground">Bank Account: {suggestion.bank_account || 'N/A'}</p>}
-                        </>
-                      )}
-                      <Button
-                        onClick={() => handleUseSuggestion(suggestion)}
-                        className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
-                      >
-                        Use This Information
-                      </Button>
-                    </Card>
-                  ))
-                ) : (
-                  <p className="text-center text-muted-foreground">No suggestions found.</p>
-                )}
+                {supplierSuggestions.map((suggestion, index) => (
+                  <Card key={index} className="p-4 border shadow-sm">
+                    <h3 className="font-bold text-lg mb-2">{suggestion.name}</h3>
+                    <p className="text-sm text-muted-foreground">Account Name: {suggestion.bank_account_name || 'N/A'}</p>
+                    <Button
+                      onClick={() => handleUseSuggestion(suggestion)}
+                      className="mt-4 w-full bg-dyad-blue hover:bg-dyad-blue-light text-dyad-blue-foreground"
+                    >
+                      Use This Information
+                    </Button>
+                  </Card>
+                ))}
               </div>
-              <Button
-                variant="destructive"
-                onClick={() => setIsSuggestionDialogOpen(false)}
-                className="mt-4 w-full"
-              >
-                Enter New Details
-              </Button>
+              <Button variant="destructive" onClick={() => setIsSuggestionDialogOpen(false)} className="mt-4 w-full">Enter New Details</Button>
             </DialogContent>
           </Dialog>
         </CardContent>
       </Card>
     </div>
   );
+};
+
+const finalCurrencyLabel = (country: string, selectedCurrency: string) => {
+  return country === 'United Kingdom' ? 'GBP' : selectedCurrency;
 };
 
 export default NewPaymentRequest;

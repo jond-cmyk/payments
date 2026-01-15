@@ -41,62 +41,63 @@ export const majorCurrencies = [
 // Zod schema for editing payment requests (requester)
 export const editFormSchema = z.object({
   supplier_name: z.string().min(1, "Supplier Name is required"),
-  sku_number: z.string().optional(), // Make optional initially, then refine
-  not_sku_related: z.boolean().default(false), // New field
-  lease_id: z.string().optional().refine((val) => { // New field
-    if (val === undefined || val === null || val.trim() === '') return true; // Optional, so empty is fine
-    return /^\d+$/.test(val); // Must be numerical if present
+  lease_id: z.string().optional().refine((val) => {
+    if (val === undefined || val === null || val.trim() === '') return true;
+    return /^\d+$/.test(val);
   }, "Lease ID must be a numerical value."),
   supplier_address: z.string().min(1, "Supplier Address is required"),
-  iban_number: z.string().optional(), // Made optional
-  sort_code: z.string().optional(), // New field
-  account_number: z.string().optional(), // New field
-  bank_account_name: z.string().optional(), // New field
+  iban_number: z.string().optional(),
+  sort_code: z.string().optional(),
+  account_number: z.string().optional(),
+  bank_account_name: z.string().optional(),
   currency: z.string().min(1, "Currency is required"),
-  total_amount: z.coerce.number(), // REMOVED .min(0.01) to prevent silent validation failure
-  notes: z.string().optional(), // CHANGED: Renamed from reason_for_payment and made optional
+  total_amount: z.coerce.number(),
+  notes: z.string().optional(),
   date_payment_required: z.date({
     required_error: "Date Payment Required is required",
   }),
   invoice_pdf: z.any()
-    .optional() // Make optional for editing, only required if a new file is selected
-    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.") // 5MB limit per file
+    .optional()
+    .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.size <= 5 * 1024 * 1024), "Max file size is 5MB per file.")
     .refine((files) => !files || files.length === 0 || Array.from(files as FileList).every(file => file.type === "application/pdf" || file.type === "image/jpeg" || file.type === "image/png"), "Only .pdf, .jpg, .jpeg, .png files are accepted."),
   receipt_required: z.boolean().default(false),
-  is_urgent: z.boolean().default(false), // New field
-  country: z.string().min(1, "Country is required"), // ADDED: country field to schema
-  categories: z.array(z.object({ // CHANGED: Use categories array
+  is_urgent: z.boolean().default(false),
+  country: z.string().min(1, "Country is required"),
+  categories: z.array(z.object({
     category: z.string().min(1, "Category is required."),
     amount: z.coerce.number().min(0.01, "Amount must be positive."),
+    sku: z.string().optional(),
+    not_sku_related: z.boolean().default(false),
   })).min(1, "At least one category with an amount is required."),
-  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."), // NEW: Bank details verified
+  bank_details_verified: z.boolean().refine(val => val === true, "You must confirm bank details have been verified."),
 }).superRefine((data, ctx) => {
-  // Determine SKU prefix based on the request's country
   const skuPrefix = data.country === 'United Kingdom' ? 'UK' : 'CH';
 
-  if (!data.not_sku_related) {
-    if (!data.sku_number || data.sku_number.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `SKU Number is required unless 'Not SKU Related' is checked.`,
-        path: ['sku_number'],
-      });
-    } else if (!data.sku_number.startsWith(skuPrefix)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `SKU Number must start with '${skuPrefix}'.`,
-        path: ['sku_number'],
-      });
-    } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(data.sku_number)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `SKU Number must be '${skuPrefix}' followed by numbers.`,
-        path: ['sku_number'],
-      });
+  // Validate SKU per category
+  data.categories.forEach((cat, index) => {
+    if (!cat.not_sku_related) {
+      if (!cat.sku || cat.sku.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `SKU is required for category ${index + 1} unless 'No SKU' is checked.`,
+          path: ['categories', index, 'sku'],
+        });
+      } else if (!cat.sku.startsWith(skuPrefix)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `SKU must start with '${skuPrefix}'.`,
+          path: ['categories', index, 'sku'],
+        });
+      } else if (!new RegExp(`^${skuPrefix}\\d+$`).test(cat.sku)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `SKU must be '${skuPrefix}' followed by numbers.`,
+          path: ['categories', index, 'sku'],
+        });
+      }
     }
-  }
+  });
 
-  // NEW: Currency validation based on country
   if (data.country === 'United Kingdom') {
     if (data.currency !== 'GBP') {
       ctx.addIssue({
@@ -105,19 +106,6 @@ export const editFormSchema = z.object({
         path: ['currency'],
       });
     }
-  } else if (data.country === 'Switzerland') {
-    if (!data.currency || data.currency.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Currency is required for Switzerland.",
-        path: ['currency'],
-      });
-    }
-  }
-  // Note: For other countries, currency is required by z.string().min(1)
-
-  // Conditional validation for bank details based on country
-  if (data.country === 'United Kingdom') {
     if (!data.sort_code || !/^\d{2}-\d{2}-\d{2}$/.test(data.sort_code)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -139,14 +127,14 @@ export const editFormSchema = z.object({
         path: ['bank_account_name'],
       });
     }
-    if (data.iban_number && data.iban_number.trim() !== '') {
+  } else if (data.country === 'Switzerland') {
+    if (!data.currency || data.currency.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "IBAN Number should not be provided for United Kingdom.",
-        path: ['iban_number'],
+        message: "Currency is required for Switzerland.",
+        path: ['currency'],
       });
     }
-  } else if (data.country === 'Switzerland') {
     if (!data.iban_number || data.iban_number.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -158,49 +146,6 @@ export const editFormSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Bank Account Name is required for Switzerland.",
-        path: ['bank_account_name'],
-      });
-    }
-    if (data.sort_code && data.sort_code.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Sort Code should not be provided for this country.",
-        path: ['sort_code'],
-      });
-    }
-    if (data.account_number && data.account_number.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Account Number should not be provided for this country.",
-        path: ['account_number'],
-      });
-    }
-  } else { // All other non-UK, non-CH countries
-    if (!data.iban_number || data.iban_number.trim() === '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "IBAN Number is required.",
-        path: ['iban_number'],
-      });
-    }
-    if (data.sort_code && data.sort_code.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Sort Code should not be provided for this country.",
-        path: ['sort_code'],
-      });
-    }
-    if (data.account_number && data.account_number.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Account Number should not be provided for this country.",
-        path: ['account_number'],
-      });
-    }
-    if (data.bank_account_name && data.bank_account_name.trim() !== '') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Bank Account Name should not be provided for this country.",
         path: ['bank_account_name'],
       });
     }

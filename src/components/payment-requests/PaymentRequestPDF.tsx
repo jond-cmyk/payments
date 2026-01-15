@@ -3,7 +3,6 @@ import { Page, Text, View, Document, StyleSheet, Image, Font } from '@react-pdf/
 import { PaymentRequest } from '@/types/supabase';
 import { format } from 'date-fns';
 
-// Register a standard font (Helvetica is built-in, but defining styles helps organization)
 const styles = StyleSheet.create({
   page: {
     padding: 40,
@@ -18,7 +17,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#00728F', // Dyad Blue
+    borderBottomColor: '#00728F',
     paddingBottom: 10,
   },
   logo: {
@@ -41,7 +40,7 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 15,
     padding: 10,
-    backgroundColor: '#F9FAFB', // Gray-50
+    backgroundColor: '#F9FAFB',
     borderRadius: 4,
   },
   sectionTitle: {
@@ -62,21 +61,13 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 9,
-    color: '#6B7280', // Gray-500
+    color: '#6B7280',
     fontWeight: 'bold',
     marginBottom: 1,
   },
   value: {
     fontSize: 10,
-    color: '#111827', // Gray-900
-  },
-  statusBadge: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-    backgroundColor: '#E5E7EB',
-    alignSelf: 'flex-start',
-    fontSize: 9,
+    color: '#111827',
   },
   table: {
     marginTop: 10,
@@ -100,8 +91,11 @@ const styles = StyleSheet.create({
   tableCell: {
     flex: 1,
   },
+  tableCellSku: {
+    width: 100,
+  },
   amountCell: {
-    flex: 1,
+    width: 100,
     textAlign: 'right',
   },
   totalRow: {
@@ -139,9 +133,7 @@ const PaymentRequestPDF: React.FC<PaymentRequestPDFProps> = ({ request, requeste
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
         <View style={styles.header}>
-          {/* Using the logo URL from the codebase */}
           <Image 
             src="https://kassoehousing.com/wp-content/uploads/2024/10/logo-hoj-sort-rgb.png" 
             style={styles.logo} 
@@ -153,7 +145,6 @@ const PaymentRequestPDF: React.FC<PaymentRequestPDFProps> = ({ request, requeste
           </View>
         </View>
 
-        {/* Overview Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Overview</Text>
           <View style={styles.row}>
@@ -169,14 +160,9 @@ const PaymentRequestPDF: React.FC<PaymentRequestPDFProps> = ({ request, requeste
               <Text style={styles.label}>Requester</Text>
               <Text style={styles.value}>{requesterName || request.requester_id}</Text>
             </View>
-            <View style={styles.col}>
-              <Text style={styles.label}>Urgent</Text>
-              <Text style={styles.value}>{request.is_urgent ? 'YES' : 'No'}</Text>
-            </View>
           </View>
         </View>
 
-        {/* Supplier & Property Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Supplier & Property</Text>
           <View style={styles.row}>
@@ -188,32 +174,25 @@ const PaymentRequestPDF: React.FC<PaymentRequestPDFProps> = ({ request, requeste
               <Text style={styles.label}>Country</Text>
               <Text style={styles.value}>{request.country}</Text>
             </View>
-          </View>
-          <View style={[styles.row, { marginTop: 8 }]}>
-            <View style={styles.col}>
-              <Text style={styles.label}>Address</Text>
-              <Text style={styles.value}>{request.supplier_address || 'N/A'}</Text>
-            </View>
-          </View>
-          <View style={[styles.row, { marginTop: 8 }]}>
-            <View style={styles.col}>
-              <Text style={styles.label}>SKU Number</Text>
-              <Text style={styles.value}>{request.not_sku_related ? 'N/A (Not SKU Related)' : request.sku_number}</Text>
-            </View>
             <View style={styles.col}>
               <Text style={styles.label}>Lease ID</Text>
               <Text style={styles.value}>{request.lease_id || 'N/A'}</Text>
             </View>
           </View>
+          <View style={[styles.row, { marginTop: 8 }]}>
+            <View style={styles.col}>
+              <Text style={styles.label}>Supplier Address</Text>
+              <Text style={styles.value}>{request.supplier_address || 'N/A'}</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Financial Details */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Financials</Text>
-          
+          <Text style={styles.sectionTitle}>Charges & Properties</Text>
           <View style={styles.table}>
             <View style={styles.tableHeader}>
               <Text style={styles.tableCell}>Category</Text>
+              <Text style={styles.tableCellSku}>Property (SKU)</Text>
               <Text style={styles.amountCell}>Amount ({request.currency})</Text>
             </View>
             
@@ -221,29 +200,29 @@ const PaymentRequestPDF: React.FC<PaymentRequestPDFProps> = ({ request, requeste
               request.categories.map((cat, index) => (
                 <View key={index} style={styles.tableRow}>
                   <Text style={styles.tableCell}>{cat.category}</Text>
+                  <Text style={styles.tableCellSku}>{cat.not_sku_related ? 'No SKU' : (cat.sku || 'N/A')}</Text>
                   <Text style={styles.amountCell}>{cat.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</Text>
                 </View>
               ))
             ) : (
               <View style={styles.tableRow}>
-                <Text style={styles.tableCell}>No categories</Text>
-                <Text style={styles.amountCell}>-</Text>
+                <Text style={styles.tableCell}>No charges defined</Text>
               </View>
             )}
             
             <View style={styles.totalRow}>
               <Text style={styles.tableCell}>Total Amount</Text>
+              <Text style={styles.tableCellSku}></Text>
               <Text style={styles.amountCell}>{formatCurrency(request.total_amount, request.currency || '')}</Text>
             </View>
           </View>
 
           <View style={{ marginTop: 10 }}>
-            <Text style={styles.label}>Notes / Reason for Payment</Text>
+            <Text style={styles.label}>Notes</Text>
             <Text style={styles.value}>{request.reason_for_payment || 'N/A'}</Text>
           </View>
         </View>
 
-        {/* Bank Details */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Bank Details</Text>
           <View style={styles.row}>
@@ -277,15 +256,8 @@ const PaymentRequestPDF: React.FC<PaymentRequestPDFProps> = ({ request, requeste
               </>
             )}
           </View>
-          <View style={[styles.row, { marginTop: 4 }]}>
-             <View style={styles.col}>
-               <Text style={styles.label}>Details Verified?</Text>
-               <Text style={styles.value}>{request.bank_details_verified ? 'Yes' : 'No'}</Text>
-             </View>
-          </View>
         </View>
 
-        {/* Footer */}
         <Text style={styles.footer}>
           KH Payments System | {request.country} | Request ID: {request.id}
         </Text>

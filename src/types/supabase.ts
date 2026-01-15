@@ -30,6 +30,8 @@ export type PaymentRequestStatus =
 export type PaymentRequestCategoryItem = {
   category: string;
   amount: number;
+  sku?: string | null;
+  not_sku_related?: boolean;
 };
 
 export type PaymentRequest = {

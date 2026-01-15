@@ -82,96 +82,81 @@ const PaymentRequestDisplayCards: React.FC<PaymentRequestDisplayCardsProps> = ({
               <p className="font-bold">Supplier Name:</p>
               <p>{request.supplier_name}</p>
             </div>
-            <div>
+            <div className="md:col-span-2">
               <p className="font-bold">Supplier Address:</p>
               <p>{request.supplier_address}</p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* NEW: Property Details Card */}
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <Home className="mr-2 h-5 w-5" /> Property Details
-          </CardTitle>
-          <CardDescription>SKU, Lease, and Property Address information.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4 text-sm">
-            <div>
-              <p className="font-bold">SKU Number:</p>
-              <p>{request.not_sku_related ? 'N/A (Not SKU Related)' : request.sku_number}</p>
-            </div>
-            <div>
+             <div>
               <p className="font-bold">Lease ID:</p>
               <p>{request.lease_id || 'N/A'}</p>
             </div>
-            <PropertyAddressField skuValue={request.sku_number} country={request.country} />
           </div>
         </CardContent>
       </Card>
 
-      {/* Section 2: Financial & Dates */}
-      <Card className="shadow-sm">
+      {/* Section 2: Financial & Charges */}
+      <Card className="shadow-sm lg:col-span-1">
         <CardHeader>
           <CardTitle className="flex items-center">
-            <DollarSign className="mr-2 h-5 w-5" /> Financial Details
+            <DollarSign className="mr-2 h-5 w-5" /> Charges & Properties
           </CardTitle>
-          <CardDescription>Payment amounts and required dates.</CardDescription>
+          <CardDescription>Line items and associated property SKUs.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="md:col-span-2">
-              <p className="font-bold flex items-center mb-2">
-                Categories & Amounts:
-              </p>
-              {request.categories && request.categories.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Category</TableHead>
-                        <TableHead className="text-right">Amount ({request.currency})</TableHead>
+          <div className="space-y-6 text-sm">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Property (SKU)</TableHead>
+                    <TableHead className="text-right">Amount ({request.currency})</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {request.categories && request.categories.length > 0 ? (
+                    request.categories.map((cat, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="align-top">{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
+                        <TableCell className="align-top">
+                          {cat.not_sku_related ? 'No SKU' : (cat.sku || 'N/A')}
+                          {cat.sku && !cat.not_sku_related && (
+                            <div className="mt-1 text-[10px] text-muted-foreground italic">
+                              <PropertyAddressField skuValue={cat.sku} country={request.country} />
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right align-top">{formatAmount(cat.amount)}</TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {request.categories.map((cat, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{categoryOptions.find(c => c.value === cat.category)?.label || cat.category}</TableCell>
-                          <TableCell className="text-right">{formatAmount(cat.amount)}</TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="font-bold bg-muted/50">
-                        <TableCell>Total Amount:</TableCell>
-                        <TableCell className="text-right">{formatAmount(request.total_amount)}</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </div>
-              ) : (
-                <p className="ml-2">No categories defined.</p>
-              )}
+                    ))
+                  ) : (
+                    <TableRow><TableCell colSpan={3}>No categories defined.</TableCell></TableRow>
+                  )}
+                  <TableRow className="font-bold bg-muted/50">
+                    <TableCell colSpan={2}>Total Amount:</TableCell>
+                    <TableCell className="text-right">{formatAmount(request.total_amount)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="font-bold">Date Payment Required:</p>
+                <p>{format(new Date(request.date_payment_required), 'PPP')}</p>
+              </div>
+              <div className={cn(
+                "p-2 rounded-md",
+                request.receipt_required ? "bg-dyad-blue text-white" : "bg-muted"
+              )}>
+                <p className="font-bold">Receipt Required:</p>
+                <p>{request.receipt_required ? 'Yes' : 'No'}</p>
+              </div>
+            </div>
+            
             <div>
-              <p className="font-bold">Currency:</p>
-              <p>{request.currency}</p>
-            </div>
-            <div>
-              <p className="font-bold">Date Payment Required:</p>
-              <p>{format(new Date(request.date_payment_required), 'PPP')}</p>
-            </div>
-            <div className={cn(
-              "space-y-1",
-              request.receipt_required && "bg-dyad-blue text-white p-4 rounded-md"
-            )}>
-              <p className="font-bold">Payment Receipt Required:</p>
-              <p>{request.receipt_required ? 'Yes' : 'No'}</p>
-            </div>
-            <div className="md:col-span-2">
               <p className="font-bold">Notes:</p>
-              <p>{request.reason_for_payment || 'N/A'}</p> {/* CHANGED: Display reason_for_payment as Notes */}
+              <p>{request.reason_for_payment || 'N/A'}</p>
             </div>
           </div>
         </CardContent>
