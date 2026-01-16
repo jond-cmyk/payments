@@ -114,13 +114,13 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
   const form = useForm<z.infer<typeof editDirectDebitFormSchema>>({
     resolver: zodResolver(editDirectDebitFormSchema),
     defaultValues: {
-      payee: directDebit.payee,
+      payee: directDebit.payee || "",
       payment_day: directDebit.payment_day !== null && directDebit.payment_day !== undefined ? directDebit.payment_day : undefined,
       sku: directDebit.sku || (directDebit.country === 'United Kingdom' ? 'UK' : 'CH'),
       not_property_related: directDebit.not_property_related,
       categories: directDebit.categories || [],
       total_amount: directDebit.total_amount,
-      account_number: directDebit.account_number,
+      account_number: directDebit.account_number || "",
       payment_reference: directDebit.payment_reference || "",
       status: directDebit.status,
       country: directDebit.country,
@@ -416,8 +416,6 @@ const EditDirectDebitForm: React.FC<EditDirectDebitFormProps> = ({ directDebit, 
             control={form.control}
             name="account_number"
             render={({ field }) => {
-              console.log(`[EditDirectDebitForm] Account Number field.value: "${field.value}"`);
-              console.log(`[EditDirectDebitForm] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, canEditFields: ${canEditFields}, isSubmitting: ${form.formState.isSubmitting}`);
               return (
                 <FormItem>
                   <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>

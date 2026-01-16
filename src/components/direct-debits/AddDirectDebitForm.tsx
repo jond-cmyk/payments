@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useForm, useFieldArray, useWatch } from 'react-hook-form'; // Import useWatch
+import { useForm, useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '@/integrations/supabase/client';
@@ -433,19 +433,15 @@ const AddDirectDebitForm: React.FC<AddDirectDebitFormProps> = ({ onDirectDebitAd
         <FormField
           control={form.control}
           name="account_number"
-          render={({ field }) => {
-            console.log(`[AddDirectDebitForm] Account Number field.value: "${field.value}"`);
-            console.log(`[AddDirectDebitForm] User Role: ${userProfile?.role}, isAdmin: ${isAdmin}, isSubmitting: ${form.formState.isSubmitting}`);
-            return (
-              <FormItem>
-                <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g., 1234567890" {...field} disabled={form.formState.isSubmitting || !isAdmin} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            );
-          }}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="font-semibold">Supplier Account Number<span className="text-red-600 ml-1 text-lg font-bold">*</span></FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., 1234567890" {...field} disabled={form.formState.isSubmitting} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
         <FormField
           control={form.control}
